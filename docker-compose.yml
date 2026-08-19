@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # 1. DATABASE (POSTGRESQL)
+  # ==========================================
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: hotel_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hotel_booking_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123456
+    ports:
+      - "5433:5432"
+    volumes:
+      # Ánh xạ CẢ THƯ MỤC. Postgres sẽ tự chạy lần lượt 8 file từ 01 -> 08
+      - ./database:/docker-entrypoint-initdb.d
+      # Lưu data cứng, chống mất dữ liệu khi sập container
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hotel_booking_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 2. CACHE (REDIS)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: hotel_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # 3. IAM / SECURITY (KEYCLOAK)
+  # ==========================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.4
+    container_name: hotel_keycloak
+    restart: unless-stopped
+    command: start-dev # Chạy chế độ Dev (không bắt buộc HTTPS)
+    environment:
+      # Tài khoản Admin để đăng nhập giao diện Keycloak
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8081:8080" # Map ra 8081 để khớp với cấu hình cũ của bạn
+    healthcheck:
+      # Check xem Keycloak đã sẵn sàng cấp Token chưa
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\r\nhost: http://localhost\r\nConnection: close\r\n\r\n\" >&3;grep \"HTTP/1.1 200 OK\" <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ==========================================
+  # 4. SPRING BOOT BACKEND
+  # ==========================================
+  backend:
+    build: 
+      context: ./backend
+    container_name: hotel_backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Ghi đè URL cấu hình trong application.yml để dùng mạng nội bộ Docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/hotel_booking_db
+      SPRING_REDIS_HOST: redis
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/hotel-realm
+    # Sức mạnh của Healthcheck: Bắt Backend phải ĐỢI DB và Redis sống dậy hoàn toàn mới được chạy
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+
+  # ==========================================
+  # 5. REACT VITE FRONTEND
+  # ==========================================
+  frontend:
+    build: 
+      context: ./frontend
+    container_name: hotel_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Map thẳng code từ thư mục thật vào Container để giữ Hot-Reload
+      - ./frontend:/app
+      # Đóng băng thư mục node_modules trong Container, không cho máy thật chép đè vào
+      - /app/node_modules
+    environment:
+      # Ép Vite lắng nghe sự thay đổi file (phù hợp với môi trường Docker)
+      CHOKIDAR_USEPOLLING: "true"
+      VITE_API_BASE_URL: http://localhost:8080/api
+    depends_on:
+      - backend
+
+# Khai báo các Volume dùng chung
+volumes:
+  pg_data:
+  redis_data:
