@@ -199,41 +199,39 @@ CREATE TABLE hotel_age_policies (
     CHECK (min_age <= max_age)
 );
 
-
-CREATE TABLE catalog_items (
+CREATE TABLE menus (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    hotel_id SMALLINT NOT NULL
-        REFERENCES hotels(id),
-
-    name VARCHAR(150) NOT NULL,
-    item_type VARCHAR(50) NOT NULL,
+    hotel_id INT REFERENCES hotels(id),
+    tax_category_id INT REFERENCES tax_categories(id),
     
-    tax_category_id INT NOT NULL
-        REFERENCES tax_categories(id),
-
-    base_price NUMERIC(15,2) NOT NULL DEFAULT 0,
-
+    -- Cột phân loại (Discriminator Column) để Code Backend biết nó là gì
+    menu_type VARCHAR(50) NOT NULL, -- Giá trị: 'PRODUCT' hoặc 'SERVICE'
+    
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    base_price DECIMAL(15,2) NOT NULL,
+    
     status VARCHAR(50) DEFAULT 'ACTIVE',
     is_deleted BOOLEAN DEFAULT FALSE,
-
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
-    -- ĐÃ FIX: Xóa EXTRA_BED. Catalog giờ chỉ quản lý hàng hóa F&B và dịch vụ lẻ.
-    CONSTRAINT chk_catalog_item_type
-    CHECK (
-        item_type IN (
-            'ROOM',
-            'PRODUCT',
-            'SERVICE'
-        )
-    ),
 
-    CONSTRAINT chk_catalog_price
-    CHECK (
-        base_price >= 0
-    )
+
+CREATE TABLE catalog_items (
+    id INT PRIMARY KEY REFERENCES menus(id), -- Tham chiếu 1-1 về menus
+    
+    -- Thuộc tính riêng của hàng hóa (Có quản lý số lượng)
+    stock_quantity INT DEFAULT 0
+);
+
+
+CREATE TABLE services (
+    id INT PRIMARY KEY REFERENCES menus(id), -- Tham chiếu 1-1 về menus
+    
+    -- Thuộc tính riêng của dịch vụ (Có tần suất tính tiền)
+    pricing_type VARCHAR(50) NOT NULL -- Giá trị: 'PER_STAY', 'PER_NIGHT', 'PER_PERSON'
 );
 
 
@@ -260,6 +258,9 @@ CREATE TABLE hotel_room_types (
     room_type_id SMALLINT NOT NULL
         REFERENCES room_types(id),
 
+    tax_category_id INT NOT NULL
+        REFERENCES tax_categories(id),
+
     -- Sức chứa tiêu chuẩn (Làm mốc tính base_price)
     standard_adults SMALLINT NOT NULL DEFAULT 2,
     standard_children SMALLINT NOT NULL DEFAULT 0,
@@ -273,7 +274,7 @@ CREATE TABLE hotel_room_types (
     max_total_guests SMALLINT NOT NULL DEFAULT 3,
     -- CẤU HÌNH GIƯỜNG (MỚI & CŨ)
     max_beds SMALLINT NOT NULL DEFAULT 1,      -- Trần vật lý (Physical Limit)
-    max_extra_beds SMALLINT NOT NULL DEFAULT 0, -- Hạn mức giường phụ (Sales Limit)
+    extra_beds SMALLINT NOT NULL DEFAULT 0, -- Hạn mức giường phụ (Sales Limit) base_quantity + extra_beds <= max_beds
 
     base_price NUMERIC(15,2) NOT NULL,
 
@@ -313,11 +314,6 @@ CREATE TABLE hotel_room_types (
     CONSTRAINT chk_total_guests_capacity
     CHECK (
         max_total_guests >= max_adults
-    ),
-
-    CONSTRAINT chk_extra_beds_limit
-    CHECK (
-        max_extra_beds >= 0
     )
 );
 
@@ -360,11 +356,6 @@ CREATE TABLE room_instances (
         )
     )
 );
-
-
-
-
-
 
 CREATE TABLE room_availability (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -451,16 +442,11 @@ CREATE TABLE hotel_room_type_beds (
     room_bed_id SMALLINT NOT NULL
         REFERENCES room_beds(id),
 
-    quantity SMALLINT NOT NULL DEFAULT 1,
+    base_quantity SMALLINT NOT NULL DEFAULT 1,
 
     PRIMARY KEY (
         hotel_room_type_id,
         room_bed_id
-    ),
-
-    CONSTRAINT chk_bed_quantity
-    CHECK (
-        quantity > 0
     )
 );
 
@@ -529,57 +515,18 @@ CREATE TABLE hotel_room_type_features (
     )
 );
 
-
-
-CREATE TABLE hotel_room_type_catalog_items (
-
-    hotel_room_type_id INT NOT NULL
-        REFERENCES hotel_room_types(id),
-
-    catalog_item_id INT NOT NULL
-        REFERENCES catalog_items(id),
-
-    item_usage VARCHAR(20) NOT NULL,
-
-    -- BỔ SUNG: Cột định nghĩa cách tính giá
-    pricing_type VARCHAR(20) NOT NULL DEFAULT 'PER_NIGHT',
-
-    price NUMERIC(15,2) NOT NULL,
-
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    PRIMARY KEY (
-        hotel_room_type_id,
-        catalog_item_id
-    ),
-
-    CONSTRAINT chk_item_usage
-    CHECK (
-        item_usage IN (
-            'MANDATORY',
-            'OPTIONAL'
-        )
-    ),
-
-    -- RÀNG BUỘC MỚI CHO PRICING TYPE
-    CONSTRAINT chk_item_pricing_type
-    CHECK (
-        pricing_type IN (
-            'PER_NIGHT',
-            'PER_STAY'
-        )
-    ),
-
-    CONSTRAINT chk_room_item_price
-    CHECK (
-        price >= 0
-    )
-);
-
+CREATE TABLE hotel_room_type_inclusions (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    hotel_room_type_id INT REFERENCES hotel_room_types(id),
+    
+    -- Sử dụng Đa hình để liên kết đến bảng Services hoặc Pos_Products
+    reference_type VARCHAR(50) NOT NULL, -- Giá trị: 'SERVICE' (VD: Massage), 'POS_PRODUCT' (VD: Rượu vang)
+    reference_id INT NOT NULL, -- catalog/service
+    
+    quantity INT DEFAULT 1, -- Tặng mấy chai? Mấy vé massage?
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+); 
 
 
 -- ==============================================================================
@@ -723,6 +670,7 @@ CREATE TABLE surcharge_rules (
     age_policy_id SMALLINT REFERENCES hotel_age_policies(id), 
     
     rule_type VARCHAR(50) NOT NULL CHECK (rule_type IN ('EXTRA_PERSON', 'EXTRA_BED', 'EARLY_CHECKIN', 'LATE_CHECKOUT')),
+    pricing_type VARCHAR(20) NOT NULL DEFAULT 'PER_NIGHT', --PER_STAY
     conditions JSONB DEFAULT '{}'::jsonb,
     adjustment_type VARCHAR(20) NOT NULL CHECK (adjustment_type IN ('PERCENT', 'FIXED')),
     adjustment_value NUMERIC(15,2) NOT NULL CHECK (adjustment_value >= 0),
@@ -747,10 +695,6 @@ CREATE TABLE guests (
     
     -- Trả ra Frontend / App để tra cứu hồ sơ khách hàng
     public_id UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL, 
-
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
-    full_name VARCHAR(250) NOT NULL,
 
     birth_date DATE,
     identity_type VARCHAR(20),
@@ -831,9 +775,6 @@ CREATE TABLE bookings (
 
 
 
-
-
-
 CREATE TABLE booking_details (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
@@ -866,21 +807,6 @@ CREATE TABLE booking_details (
 
     actual_check_out_at TIMESTAMP WITH TIME ZONE,
 
-    room_amount NUMERIC(15,2) NOT NULL,
-
-    discount_amount NUMERIC(15,2)
-        NOT NULL DEFAULT 0,
-
-    vat_rate NUMERIC(5,2)
-        NOT NULL DEFAULT 0,
-
-    vat_amount NUMERIC(15,2)
-        NOT NULL DEFAULT 0,
-
-    final_amount NUMERIC(15,2)
-        NOT NULL,
-
-
     created_at TIMESTAMP WITH TIME ZONE
         DEFAULT CURRENT_TIMESTAMP,
 
@@ -900,12 +826,6 @@ CREATE TABLE booking_details (
     CONSTRAINT chk_guest_count
     CHECK (
         guest_count > 0
-    ),
-
-    CONSTRAINT chk_vat_rate
-    CHECK (
-        vat_rate >= 0
-        AND vat_rate <= 100
     ),
 
     CONSTRAINT chk_actual_stay
@@ -948,6 +868,8 @@ CREATE TABLE booking_guests (
     guest_id BIGINT NULL
         REFERENCES guests(id),
 
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
     full_name VARCHAR(250) NOT NULL,
 
     birth_date DATE,
@@ -986,6 +908,36 @@ CREATE TABLE booking_guests (
     )
 );
 
+CREATE TABLE booking_daily_rates (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    booking_detail_id BIGINT REFERENCES booking_details(id),
+    
+    -- Ngày lưu trú cụ thể (Ví dụ: 2026-12-30)
+    stay_date DATE NOT NULL,
+    
+    -- Dữ liệu tài chính BỊ ĐÓNG BĂNG cho đêm hôm đó
+    base_price DECIMAL(15,2) NOT NULL, -- Giá gốc lấy từ pricing_rules
+    discount_amount DECIMAL(15,2) DEFAULT 0, -- Tiền giảm giá lấy từ discount_rules
+    surcharge_amount DECIMAL(15,2) DEFAULT 0, -- Phụ thu (thêm người/giường)
+    
+    service_fee_rate NUMERIC(5,2)
+        NOT NULL DEFAULT 0,
+
+    service_fee_amount NUMERIC(15,2)
+        NOT NULL DEFAULT 0,
+    
+    -- Dữ liệu thuế
+    tax_category_id INT REFERENCES tax_categories(id),
+    vat_percent DECIMAL(5,2) NOT NULL, -- Ví dụ: 8.00 hoặc 10.00
+    vat_amount DECIMAL(15,2) NOT NULL, -- Tiền thuế tính ra
+    
+    net_price DECIMAL(15,2) NOT NULL, -- Tổng tiền cuối cùng khách phải trả cho đêm này
+    
+    -- Trạng thái hạch toán của Kiểm toán đêm (Night Audit)
+    status VARCHAR(50) DEFAULT 'PENDING', -- PENDING (Chưa ở), POSTED (Đã ở và chốt sổ)
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 
 
@@ -1000,9 +952,6 @@ CREATE TABLE booking_charges (
     booking_guest_id BIGINT NULL
         REFERENCES booking_guests(id),
 
-    catalog_item_id INT NULL
-        REFERENCES catalog_items(id),
-
     charge_type VARCHAR(50) NOT NULL,
 
     item_name VARCHAR(150),
@@ -1014,6 +963,9 @@ CREATE TABLE booking_charges (
     unit_price NUMERIC(15,2) NOT NULL,
 
     subtotal NUMERIC(15,2) NOT NULL,
+
+    service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
 
     vat_rate NUMERIC(5,2) NOT NULL,
 
@@ -1033,13 +985,8 @@ CREATE TABLE booking_charges (
     CONSTRAINT chk_booking_charge_type
     CHECK (
         charge_type IN (
-            'EXTRA_SERVICE',
-            'PACKAGE_ITEM',
-            'EXTRA_BED',
-            'EXTRA_PERSON',
             'EARLY_CHECKIN',
             'LATE_CHECKOUT',
-            'PRICE_ADJUSTMENT',
             'OTHER'
         )
     ),
@@ -1247,10 +1194,9 @@ CREATE TABLE invoice_details (
         REFERENCES invoices(id)
         ON DELETE CASCADE,
 
-    line_type VARCHAR(50) NOT NULL,
+    reference_id BIGINT NOT NULL,
 
-    catalog_item_id INT NULL
-        REFERENCES catalog_items(id),
+    line_type VARCHAR(50) NOT NULL,
 
     description TEXT NOT NULL,
 
@@ -1259,6 +1205,12 @@ CREATE TABLE invoice_details (
     unit_price NUMERIC(15,2) NOT NULL,
 
     subtotal NUMERIC(15,2) NOT NULL,
+
+    service_fee_rate NUMERIC(5,2)
+        NOT NULL DEFAULT 0,
+
+    service_fee_amount NUMERIC(15,2)
+        NOT NULL DEFAULT 0,
 
     vat_rate NUMERIC(5,2) NOT NULL,
 
@@ -1275,12 +1227,10 @@ CREATE TABLE invoice_details (
     CONSTRAINT chk_invoice_line_type
     CHECK (
         line_type IN (
-            'ROOM',
-            'PACKAGE_ITEM',
-            'EXTRA_SERVICE',
-            'SURCHARGE',
-            'PAYMENT',
-            'OTHER'
+            'ROOM_RATE',   -- Tiền phòng
+            'PRODUCT',     -- Ăn uống/Minibar
+            'SERVICE',     -- Spa/Tour
+            'SURCHARGE'    -- Phạt/Phụ thu
         )
     ),
 
@@ -1352,8 +1302,9 @@ CREATE TABLE service_order_details (
         REFERENCES service_orders(id)
         ON DELETE CASCADE,
 
-    catalog_item_id INT NOT NULL
-        REFERENCES catalog_items(id),
+    menu_id INT NOT NULL REFERENCES menus(id), -- Sửa tên menus_id thành menu_id
+
+    item_type VARCHAR(55) NOT NULL, -- Đổi tên từ order_type thành item_type
 
     item_name VARCHAR(150) NOT NULL,
 
@@ -1362,6 +1313,10 @@ CREATE TABLE service_order_details (
     unit_price NUMERIC(15,2) NOT NULL,
 
     subtotal NUMERIC(15,2) NOT NULL,
+
+    service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+
+    service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
 
     vat_rate NUMERIC(5,2) NOT NULL,
 
@@ -1374,6 +1329,11 @@ CREATE TABLE service_order_details (
 
     updated_at TIMESTAMP WITH TIME ZONE
         DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_service_item_type
+    CHECK (
+        item_type IN ('PRODUCT', 'SERVICE')
+    ),
 
     CONSTRAINT chk_service_detail_qty
     CHECK (

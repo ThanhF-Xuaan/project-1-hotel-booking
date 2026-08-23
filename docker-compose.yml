@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ==========================================
   # 1. DATABASE (POSTGRESQL)
@@ -7,7 +5,7 @@ services:
   postgres_db:
     image: postgres:16-alpine
     container_name: hotel_postgres
-    restart: unless-stopped
+    restart: no
     environment:
       POSTGRES_DB: hotel_booking_db
       POSTGRES_USER: postgres
@@ -31,7 +29,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: hotel_redis
-    restart: unless-stopped
+    restart: no
     ports:
       - "6379:6379"
     volumes:
@@ -48,7 +46,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:24.0.4
     container_name: hotel_keycloak
-    restart: unless-stopped
+    restart: no
     command: start-dev # Chạy chế độ Dev (không bắt buộc HTTPS)
     environment:
       # Tài khoản Admin để đăng nhập giao diện Keycloak
@@ -70,7 +68,7 @@ services:
     build: 
       context: ./backend
     container_name: hotel_backend
-    restart: unless-stopped
+    restart: no
     ports:
       - "8080:8080"
     environment:
@@ -94,7 +92,7 @@ services:
     build: 
       context: ./frontend
     container_name: hotel_frontend
-    restart: unless-stopped
+    restart: no
     ports:
       - "3000:3000"
     volumes:
