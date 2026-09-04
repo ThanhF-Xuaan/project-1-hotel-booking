@@ -46,7 +46,9 @@ CREATE TABLE permissions (
     status VARCHAR(50) DEFAULT 'ACTIVE',
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_permission_action_resource UNIQUE (action, resource)
 );
 
 CREATE TABLE role_permissions (
@@ -68,7 +70,9 @@ CREATE TABLE staffs (
     role_id SMALLINT REFERENCES roles(id),
 
     -- Định danh nghiệp vụ (Nên dùng email thay vì username chung chung)
-    email VARCHAR(255) UNIQUE NOT NULL,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(20) UNIQUE,
 
     -- Dữ liệu hiển thị (Profile data)
     -- Dù Keycloak có lưu tên, ta VẪN NÊN lưu bản sao ở đây để phục vụ Query/Filter 
@@ -548,7 +552,6 @@ CREATE TABLE discount_rule_types (
     code VARCHAR(50) PRIMARY KEY,
     display_name VARCHAR(150) NOT NULL,
     priority SMALLINT NOT NULL DEFAULT 0,
-    
     status VARCHAR(50) DEFAULT 'ACTIVE',
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -563,7 +566,9 @@ CREATE TABLE holiday_calendars (
     status VARCHAR(50) DEFAULT 'ACTIVE',
     is_deleted BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT uq_holiday_name_date UNIQUE (name, date)
 );
 
 CREATE TABLE pricing_rules (
@@ -600,7 +605,7 @@ CREATE TABLE pricing_rules (
 CREATE TABLE campaigns (
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     
-    hotel_id INT NOT NULL 
+    hotel_id SMALLINT NOT NULL 
         REFERENCES hotels(id), -- Chiến dịch thuộc về 1 khách sạn cụ thể
         
     name VARCHAR(150) NOT NULL,
@@ -766,8 +771,8 @@ CREATE TABLE bookings (
         )
     ),
 
-    CONSTRAINT chk_service_fee_rate
-    CHECK (
+    CONSTRAINT chk_booking_service_fee_rate
+    CHECK ( 
         service_fee_rate >= 0
         AND service_fee_rate <= 100
     )
@@ -1177,7 +1182,7 @@ CREATE TABLE invoices (
     updated_at TIMESTAMP WITH TIME ZONE
         DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_service_fee_rate
+    CONSTRAINT chk_invoice_service_fee_rate
     CHECK (
         service_fee_rate >= 0
         AND service_fee_rate <= 100

@@ -303,9 +303,6 @@ VALUES
     ('LAST_MINUTE', 'Giảm giá giờ chót (Xả phòng trống trong ngày)', 50, 'ACTIVE');
 
 
-
-ALTER TABLE holiday_calendars ADD CONSTRAINT uk_holiday_date UNIQUE (date);
-
 INSERT INTO holiday_calendars (name, date, description, status)
 VALUES 
     -- Nửa cuối năm 2026
