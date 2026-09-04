@@ -7,18 +7,16 @@ services:
     container_name: hotel_postgres
     restart: no
     environment:
-      POSTGRES_DB: hotel_booking_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5433:5432"
+      - "${DB_PORT}:5432"
     volumes:
-      # Ánh xạ CẢ THƯ MỤC. Postgres sẽ tự chạy lần lượt 8 file từ 01 -> 08
       - ./database:/docker-entrypoint-initdb.d
-      # Lưu data cứng, chống mất dữ liệu khi sập container
       - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d hotel_booking_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,7 +29,7 @@ services:
     container_name: hotel_redis
     restart: no
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -72,11 +70,12 @@ services:
     ports:
       - "8080:8080"
     environment:
-      # Ghi đè URL cấu hình trong application.yml để dùng mạng nội bộ Docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/hotel_booking_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_REDIS_HOST: redis
+      # Giữ nguyên cấu hình mạng nội bộ cho Keycloak (không dùng localhost của .env)
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/hotel-realm
-    # Sức mạnh của Healthcheck: Bắt Backend phải ĐỢI DB và Redis sống dậy hoàn toàn mới được chạy
     depends_on:
       postgres_db:
         condition: service_healthy
