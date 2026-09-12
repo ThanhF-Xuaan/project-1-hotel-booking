@@ -2,8 +2,36 @@
 -- 1. CỤM QUẢN LÝ KHÁCH SẠN & NHÂN SỰ 
 -- ==============================================================================
 
+-- 1. Quản lý Vùng (Miền Bắc, Miền Nam, Đà Nẵng,...)
+CREATE TABLE regions (
+    id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    description TEXT,
+    
+    status VARCHAR(50) DEFAULT 'ACTIVE',
+    is_deleted BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Quản lý Phòng ban Tiêu chuẩn (Front Office, Housekeeping, F&B, Maintenance...)
+CREATE TABLE departments (
+    id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    
+    status VARCHAR(50) DEFAULT 'ACTIVE',
+    is_deleted BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE hotels (
     id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    
+    -- THÊM MỚI: Khách sạn này thuộc Vùng nào?
+    region_id SMALLINT NOT NULL REFERENCES regions(id),
 
     name VARCHAR(255) NOT NULL,
     address TEXT NOT NULL,
@@ -26,8 +54,6 @@ CREATE TABLE hotels (
         AND service_fee_percent <= 100
     )
 );
-
-
 
 CREATE TABLE roles (
     id SMALLINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- Vài chục role
@@ -58,36 +84,55 @@ CREATE TABLE role_permissions (
 );
 
 CREATE TABLE staffs (
-    -- Khóa chính nội bộ (Dùng để JOIN các bảng cho cực nhanh, đánh Index nhẹ)
     id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     
-    -- [QUAN TRỌNG NHẤT] Mã liên kết trực tiếp với Keycloak User ID (trường 'sub' trong JWT)
-    -- Vừa làm cầu nối xác thực, vừa đóng vai trò là 'public_id' an toàn để giao tiếp ra ngoài
     keycloak_id UUID UNIQUE NOT NULL, 
 
-    -- Thông tin phân quyền nghiệp vụ (Business Authorization)
-    hotel_id SMALLINT REFERENCES hotels(id),
     role_id SMALLINT REFERENCES roles(id),
 
-    -- Định danh nghiệp vụ (Nên dùng email thay vì username chung chung)
+    -- THIẾT KẾ CHUẨN DATA SCOPE
+    scope_type VARCHAR(20) NOT NULL, -- 'CHAIN', 'REGION', 'PROPERTY'
+    
+    -- Nếu scope_type = 'PROPERTY', nó lưu hotel_id.
+    -- Nếu scope_type = 'REGION', nó lưu region_id.
+    -- Nếu scope_type = 'CHAIN', nó bị ép bằng NULL.
+    scope_entity_id INT,             
+    
+    -- Phòng ban (Chỉ bắt buộc hoặc có ý nghĩa khi nhân viên thuộc cấp PROPERTY)
+    department_id SMALLINT REFERENCES departments(id),          
+
     username VARCHAR(100) UNIQUE NOT NULL,
     email VARCHAR(255) UNIQUE,
     phone VARCHAR(20) UNIQUE,
 
-    -- Dữ liệu hiển thị (Profile data)
-    -- Dù Keycloak có lưu tên, ta VẪN NÊN lưu bản sao ở đây để phục vụ Query/Filter 
-    -- (VD: Tìm nhân viên tên 'A' của khách sạn 'B' trực tiếp bằng SQL thay vì phải gọi API Keycloak)
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     full_name VARCHAR(250) NOT NULL,
 
-    -- Trạng thái nghiệp vụ (Keycloak có trạng thái Enable/Disable riêng cho việc Login, 
-    -- còn đây là trạng thái làm việc tại khách sạn)
     status VARCHAR(50) DEFAULT 'ACTIVE',
     is_deleted BOOLEAN DEFAULT FALSE,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    
+    CONSTRAINT chk_staff_scope
+    CHECK (
+        scope_type IN ('CHAIN', 'REGION', 'PROPERTY')
+    ),
+    
+    -- Ràng buộc chốt chặn tính logic của Scope Entity
+    CONSTRAINT chk_scope_logic
+    CHECK (
+        (scope_type = 'CHAIN' AND scope_entity_id IS NULL) OR
+        (scope_type IN ('REGION', 'PROPERTY') AND scope_entity_id IS NOT NULL)
+    ),
+
+    -- Ràng buộc chốt chặn phòng ban: Cấp CHAIN và REGION không thuộc phòng ban cơ sở nào cả
+    CONSTRAINT chk_department_logic
+    CHECK (
+        (scope_type IN ('CHAIN', 'REGION') AND department_id IS NULL) OR
+        (scope_type = 'PROPERTY') -- Cấp Property có thể có hoặc không có department_id tùy vị trí
+    )
 );
 
 
@@ -727,6 +772,19 @@ CREATE TABLE guests (
 );
 
 
+CREATE TABLE companies (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    tax_code VARCHAR(50) UNIQUE,
+    address TEXT,
+    contact_name VARCHAR(100),
+    contact_phone VARCHAR(20),
+    contact_email VARCHAR(150),
+    status VARCHAR(50) DEFAULT 'ACTIVE',
+    is_deleted BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 
 CREATE TABLE bookings (
@@ -737,6 +795,10 @@ CREATE TABLE bookings (
 
     guest_id BIGINT NOT NULL
         REFERENCES guests(id),
+
+    company_id BIGINT REFERENCES companies(id),
+    
+    booking_type VARCHAR(20) NOT NULL DEFAULT 'FIT', -- 'FIT' (Lẻ), 'GIT' (Đoàn), 'CORPORATE'
 
     booking_number VARCHAR(50) UNIQUE NOT NULL,
 
@@ -764,8 +826,6 @@ CREATE TABLE bookings (
     CHECK (
         status IN (
             'CONFIRMED',
-            'CHECKED_IN',
-            'CHECKED_OUT',
             'CANCELLED',
             'NO_SHOW'
         )
@@ -775,6 +835,12 @@ CREATE TABLE bookings (
     CHECK ( 
         service_fee_rate >= 0
         AND service_fee_rate <= 100
+    ),
+
+    CONSTRAINT chk_booking_owner 
+    CHECK (
+        (booking_type = 'FIT' AND company_id IS NULL) OR
+        (booking_type IN ('GIT', 'CORPORATE') AND company_id IS NOT NULL)
     )
 );
 
@@ -806,11 +872,6 @@ CREATE TABLE booking_details (
     check_out_date DATE NOT NULL,
 
     selection_deadline TIMESTAMP WITH TIME ZONE,
-
-    -- Thời gian thực tế
-    actual_check_in_at TIMESTAMP WITH TIME ZONE,
-
-    actual_check_out_at TIMESTAMP WITH TIME ZONE,
 
     created_at TIMESTAMP WITH TIME ZONE
         DEFAULT CURRENT_TIMESTAMP,
@@ -844,6 +905,8 @@ CREATE TABLE booking_details (
 
 
 CREATE TABLE booking_rooms (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- Thêm ID độc lập (Đây chính là Folio ID)
+
     booking_detail_id BIGINT NOT NULL
         REFERENCES booking_details(id)
         ON DELETE CASCADE,
@@ -851,27 +914,30 @@ CREATE TABLE booking_rooms (
     room_instance_id INT NOT NULL
         REFERENCES room_instances(id),
 
+    -- THÊM MỚI: Đẩy thông tin trạng thái & thời gian thực tế xuống đây
+    status VARCHAR(50) NOT NULL DEFAULT 'EXPECTED', -- EXPECTED, CHECKED_IN, CHECKED_OUT, NO_SHOW
+    
+    actual_check_in_at TIMESTAMP WITH TIME ZONE,
+    actual_check_out_at TIMESTAMP WITH TIME ZONE,
+
     assigned_at TIMESTAMP WITH TIME ZONE
         DEFAULT CURRENT_TIMESTAMP,
+        
+    -- Đảm bảo 1 phòng vật lý không bị gán đúp trong cùng 1 booking_detail
+    CONSTRAINT uk_booking_room_instance UNIQUE (booking_detail_id, room_instance_id),
 
-    PRIMARY KEY (
-        booking_detail_id,
-        room_instance_id
+    CONSTRAINT chk_booking_room_status CHECK (
+        status IN ('EXPECTED', 'CHECKED_IN', 'CHECKED_OUT', 'NO_SHOW', 'CANCELLED')
     )
 );
-
-
 
 
 CREATE TABLE booking_guests (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-    booking_detail_id BIGINT NOT NULL
-        REFERENCES booking_details(id)
+   booking_room_id BIGINT NOT NULL 
+        REFERENCES booking_rooms(id)
         ON DELETE CASCADE,
-
-    guest_id BIGINT NULL
-        REFERENCES guests(id),
 
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
@@ -902,7 +968,7 @@ CREATE TABLE booking_guests (
     CONSTRAINT chk_booking_guest_identity_type
     CHECK (
         identity_type IS NULL 
-        OR identity_type IN ('CCCD', 'PASSPORT', 'DRIVER_LICENSE', 'OTHER')
+        OR identity_type IN ('CCCD', 'PASSPORT', 'DRIVER_LICENSE')
     ), -- ĐÃ THÊM DẤU PHẨY
 
     -- Chốt chặn: Đã là Người lớn thì BẮT BUỘC phải có giấy tờ
@@ -915,7 +981,7 @@ CREATE TABLE booking_guests (
 
 CREATE TABLE booking_daily_rates (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    booking_detail_id BIGINT REFERENCES booking_details(id),
+    booking_room_id BIGINT REFERENCES booking_rooms(id),
     
     -- Ngày lưu trú cụ thể (Ví dụ: 2026-12-30)
     stay_date DATE NOT NULL,
@@ -950,8 +1016,8 @@ CREATE TABLE booking_charges (
 
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-    booking_detail_id BIGINT NOT NULL
-        REFERENCES booking_details(id)
+    booking_room_id BIGINT NOT NULL 
+        REFERENCES booking_rooms(id)
         ON DELETE CASCADE,
 
     booking_guest_id BIGINT NULL
@@ -1009,11 +1075,6 @@ CREATE TABLE booking_charges (
 
 
 
-
-
-
-
-
 CREATE TABLE room_slots (
    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
@@ -1022,8 +1083,9 @@ CREATE TABLE room_slots (
 
    slot_date DATE NOT NULL,
 
-   booking_detail_id BIGINT NULL
-       REFERENCES booking_details(id),
+   booking_room_id BIGINT NULL 
+       REFERENCES booking_rooms(id)
+       ON DELETE SET NULL, -- Nếu booking bị hủy, nhả phòng ra
 
    status VARCHAR(50) NOT NULL DEFAULT 'READY',
 
@@ -1041,7 +1103,7 @@ CREATE TABLE room_slots (
        CHECK (
            status IN (
                'READY',        -- available
-               'BLOCKED',      -- temporarily held (search/checkout)
+               'BLOCKED',      -- temporarily held
                'RESERVED',     -- payment success but not assigned final room
                'OCCUPIED',     -- checked-in
                'CLEANING',     -- housekeeping
@@ -1068,6 +1130,8 @@ CREATE TABLE payments (
         REFERENCES bookings(id),
 
     total_amount NUMERIC(15,2) NOT NULL,
+
+    payment_purpose VARCHAR(50) NOT NULL DEFAULT 'FULL_PAYMENT',
 
     payment_method VARCHAR(50) NOT NULL,
 
@@ -1109,6 +1173,10 @@ CREATE TABLE payments (
             'REFUNDED',
             'CANCELLED'
         )
+    ),
+
+    CONSTRAINT chk_payment_purpose CHECK (
+        payment_purpose IN ('DEPOSIT', 'FULL_PAYMENT', 'INCIDENTAL_DEPOSIT', 'REFUND')
     )
 );
 
@@ -1235,7 +1303,8 @@ CREATE TABLE invoice_details (
             'ROOM_RATE',   -- Tiền phòng
             'PRODUCT',     -- Ăn uống/Minibar
             'SERVICE',     -- Spa/Tour
-            'SURCHARGE'    -- Phạt/Phụ thu
+            'SURCHARGE',    -- Phạt/Phụ thu
+            'PENALTY'
         )
     ),
 
