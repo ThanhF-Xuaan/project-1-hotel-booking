@@ -1,5 +1,5 @@
 -- ==============================================================================
--- LỚP 2: ORGANIZATION BASE (Thực thể Doanh nghiệp)
+-- LỚP 2.2: CHÍNH SÁCH ĐỘ TUỔI TẠI TỪNG KHÁCH SẠN
 -- Bảng: hotel_age_policies (Chính sách độ tuổi chung cho toàn chuỗi)
 -- ==============================================================================
 
@@ -120,15 +120,15 @@ WHERE menu_type = 'SERVICE';
 
 
 -- ==============================================================================
--- LỚP 3: CẤU HÌNH LOẠI PHÒNG CHI TIẾT TẠI TỪNG KHÁCH SẠN
+-- LỚP 3.2: CẤU HÌNH LOẠI PHÒNG CHI TIẾT TẠI TỪNG KHÁCH SẠN
 -- Bảng: hotel_room_types (Trái tim của hệ thống Inventory & Pricing)
 -- ==============================================================================
 
 INSERT INTO hotel_room_types (
-    hotel_id, room_type_id, tax_category_id, -- ĐÃ BỔ SUNG KHÓA NGOẠI THUẾ
+    hotel_id, room_type_id, tax_category_id, 
     standard_adults, standard_children, 
     max_adults, max_children, max_infants, max_total_guests, 
-    max_beds, extra_beds, -- ĐÃ ĐỔI TÊN THÀNH extra_beds
+    max_beds, extra_beds, 
     base_price, total_quantity, status
 )
 VALUES 
@@ -138,19 +138,19 @@ VALUES
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Luxury Hà Nội'), 
         (SELECT id FROM room_types WHERE code = 'DLX'),
-        (SELECT id FROM tax_categories LIMIT 1), -- Tự động gán Nhóm Thuế (Bạn có thể đổi WHERE code cụ thể)
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         2, 0, 2, 1, 1, 3, 1, 1, 2500000.00, 20, 'ACTIVE'
     ),
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Luxury Hà Nội'), 
         (SELECT id FROM room_types WHERE code = 'STE'),
-        (SELECT id FROM tax_categories LIMIT 1),
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         2, 0, 3, 2, 1, 4, 1, 1, 4500000.00, 10, 'ACTIVE'
     ),
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Luxury Hà Nội'), 
         (SELECT id FROM room_types WHERE code = 'EXE'),
-        (SELECT id FROM tax_categories LIMIT 1),
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         2, 0, 2, 1, 1, 3, 1, 0, 10000000.00, 2, 'ACTIVE' 
     ),
 
@@ -160,19 +160,19 @@ VALUES
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Grand Đà Nẵng'), 
         (SELECT id FROM room_types WHERE code = 'SUP'),
-        (SELECT id FROM tax_categories LIMIT 1),
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         2, 0, 2, 1, 1, 3, 1, 1, 1200000.00, 30, 'ACTIVE'
     ),
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Grand Đà Nẵng'), 
         (SELECT id FROM room_types WHERE code = 'DLX'),
-        (SELECT id FROM tax_categories LIMIT 1),
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         2, 0, 3, 2, 1, 4, 2, 0, 1800000.00, 15, 'ACTIVE'
     ),
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Grand Đà Nẵng'), 
         (SELECT id FROM room_types WHERE code = 'FAM'),
-        (SELECT id FROM tax_categories LIMIT 1),
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         4, 0, 4, 2, 2, 6, 2, 1, 3000000.00, 5, 'ACTIVE' 
     ),
 
@@ -182,13 +182,13 @@ VALUES
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Boutique Sapa'), 
         (SELECT id FROM room_types WHERE code = 'STD'),
-        (SELECT id FROM tax_categories LIMIT 1),
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         2, 0, 2, 1, 1, 2, 1, 0, 600000.00, 20, 'ACTIVE' 
     ),
     (
         (SELECT id FROM hotels WHERE name = 'Viettel Boutique Sapa'), 
         (SELECT id FROM room_types WHERE code = 'SUP'),
-        (SELECT id FROM tax_categories LIMIT 1),
+        (SELECT id FROM tax_categories WHERE category_code = 'ROOM' LIMIT 1),
         2, 0, 3, 1, 1, 4, 2, 0, 900000.00, 15, 'ACTIVE'
     )
 
@@ -198,7 +198,7 @@ SET
     standard_adults = EXCLUDED.standard_adults,
     max_adults = EXCLUDED.max_adults,
     max_total_guests = EXCLUDED.max_total_guests,
-    extra_beds = EXCLUDED.extra_beds, -- ĐÃ ĐỔI TÊN
+    extra_beds = EXCLUDED.extra_beds, 
     base_price = EXCLUDED.base_price,
     total_quantity = EXCLUDED.total_quantity,
     updated_at = CURRENT_TIMESTAMP;

@@ -2,52 +2,99 @@
 -- 2. DỮ LIỆU MẪU (SEED DATA) ĐỂ TEST API
 -- ==============================================================================
 
-INSERT INTO roles (code, name, status)
-VALUES 
-    ('SUPER_ADMIN', 'Quản trị viên hệ thống', 'ACTIVE'),
-    ('HOTEL_MANAGER', 'Quản lý khách sạn', 'ACTIVE'),
-    ('RECEPTIONIST', 'Nhân viên Lễ tân', 'ACTIVE'),
-    ('HOUSEKEEPING', 'Nhân viên Buồng phòng', 'ACTIVE');
-
-
-
+-- ------------------------------------------------------------------------------
+-- 2.1 SEED QUYỀN HẠN (PERMISSIONS)
+-- ------------------------------------------------------------------------------
 INSERT INTO permissions (action, resource, status)
 VALUES 
-    -- 1. Phân hệ Quản trị trực quan (Admin Dashboard)
-    ('VIEW', 'DASHBOARD', 'ACTIVE'),       -- Xem Timeline Ma trận phòng
-    ('VIEW', 'REPORTS', 'ACTIVE'),         -- Xem Báo cáo tỷ lệ lấp đầy
+    -- 1. Tầng CHAIN (Chuỗi)
+    ('VIEW', 'CHAIN_DASHBOARD', 'ACTIVE'),    -- Xem báo cáo tổng lực toàn chuỗi
+    ('CREATE', 'PROPERTY', 'ACTIVE'),         -- Mở khách sạn mới
+    ('CREATE', 'REGION_MANAGER_ACCOUNT', 'ACTIVE'), -- (MỚI) Tạo tài khoản GĐ Vùng
+    ('CREATE', 'PROPERTY_MANAGER_ACCOUNT', 'ACTIVE'), -- Tạo tài khoản GĐ Chi nhánh
+    
+    -- 2. Tầng REGION (Vùng)
+    ('VIEW', 'REGION_DASHBOARD', 'ACTIVE'),   -- (MỚI) Xem báo cáo các KS thuộc Vùng
+    
+    -- 3. Tầng PROPERTY (Khách sạn Cơ sở)
+    ('VIEW', 'PROPERTY_DASHBOARD', 'ACTIVE'), -- Xem doanh thu, lấp đầy của riêng 1 khách sạn
+    ('VIEW', 'STAFF', 'ACTIVE'),              -- Xem nhân sự trong KS
+    ('CREATE', 'STAFF', 'ACTIVE'),            -- Tuyển thêm nhân viên (Lễ tân, Buồng phòng)
+    ('UPDATE', 'STAFF', 'ACTIVE'),
+    
+    -- 4. Tầng EMPLOYEE / DEPARTMENT (Lễ Tân / Sales / HK / F&B)
+    ('VIEW', 'BOOKING', 'ACTIVE'),         
+    ('CREATE', 'BOOKING', 'ACTIVE'),       
+    ('UPDATE', 'BOOKING', 'ACTIVE'),       
+    ('CANCEL', 'BOOKING', 'ACTIVE'),       
+    
+    ('VIEW', 'SERVICE_ORDER', 'ACTIVE'),   
+    ('CREATE', 'SERVICE_ORDER', 'ACTIVE'), 
+    
+    ('UPDATE', 'ROOM_STATUS', 'ACTIVE'),      -- Dọn phòng: DIRTY -> CLEANING -> READY
+    ('CREATE', 'MAINTENANCE_TICKET', 'ACTIVE'),-- Báo hỏng thiết bị
+    
+    ('VIEW', 'INVENTORY', 'ACTIVE'),       
+    ('UPDATE', 'INVENTORY', 'ACTIVE'),     
+    ('VIEW', 'PRICING', 'ACTIVE'),         
+    ('UPDATE', 'PRICING', 'ACTIVE'),       
+    
+    ('VIEW', 'GUEST', 'ACTIVE'),         
+    ('CREATE', 'GUEST', 'ACTIVE'),       
+    ('UPDATE', 'GUEST', 'ACTIVE');       
 
-    -- 2. Phân hệ Xử lý Giao dịch & Vận hành (Booking & Operations - Nhánh 3 & 4)
-    ('VIEW', 'BOOKING', 'ACTIVE'),         -- Xem danh sách đặt phòng
-    ('CREATE', 'BOOKING', 'ACTIVE'),       -- Lễ tân đặt phòng trực tiếp tại quầy (Walk-in)
-    ('UPDATE', 'BOOKING', 'ACTIVE'),       -- Thao tác Check-in, Check-out, Đổi phòng
-    ('CANCEL', 'BOOKING', 'ACTIVE'),       -- Hủy phòng, đánh dấu No-show
 
-    -- 3. Phân hệ POS & Dịch vụ phát sinh (Điểm cộng)
-    ('CREATE', 'SERVICE_ORDER', 'ACTIVE'), -- Gọi món, thêm phụ phí
-    ('VIEW', 'SERVICE_ORDER', 'ACTIVE'),   -- Xem danh sách order dịch vụ
+-- ------------------------------------------------------------------------------
+-- 2.2 SEED VAI TRÒ (ROLES) VÀ GÁN QUYỀN (ROLE_PERMISSIONS)
+-- ------------------------------------------------------------------------------
+INSERT INTO roles (code, name, status)
+VALUES 
+    ('CHAIN_ADMIN', 'Quản trị viên Toàn Chuỗi', 'ACTIVE'),
+    ('REGION_MANAGER', 'Giám đốc Vùng', 'ACTIVE'), -- (MỚI THÊM)
+    ('PROPERTY_MANAGER', 'Tổng Quản lý Khách sạn', 'ACTIVE'),
+    ('RECEPTIONIST', 'Lễ tân Tiền sảnh', 'ACTIVE'),
+    ('HOUSEKEEPING', 'Nhân viên Buồng phòng', 'ACTIVE');
 
-    -- 4. Phân hệ Quản lý Tài nguyên (Inventory - Nhánh 1 & 2)
-    ('VIEW', 'INVENTORY', 'ACTIVE'),       -- Xem danh sách phòng, tiện ích
-    ('CREATE', 'INVENTORY', 'ACTIVE'),     -- Tạo mới loại phòng, phòng vật lý
-    ('UPDATE', 'INVENTORY', 'ACTIVE'),     -- Sửa trạng thái phòng (Bảo trì, dọn dẹp)
-    ('DELETE', 'INVENTORY', 'ACTIVE'),   -- Xóa/Đóng phòng
+-- Viết khối DO để tự động map Quyền cho các Role một cách chính xác
+DO $$
+DECLARE
+    v_chain_admin_id SMALLINT;
+    v_region_manager_id SMALLINT;
+    v_property_manager_id SMALLINT;
+    v_reception_id SMALLINT;
+    v_hk_id SMALLINT;
+BEGIN
+    SELECT id INTO v_chain_admin_id FROM roles WHERE code = 'CHAIN_ADMIN';
+    SELECT id INTO v_region_manager_id FROM roles WHERE code = 'REGION_MANAGER';
+    SELECT id INTO v_property_manager_id FROM roles WHERE code = 'PROPERTY_MANAGER';
+    SELECT id INTO v_reception_id FROM roles WHERE code = 'RECEPTIONIST';
+    SELECT id INTO v_hk_id FROM roles WHERE code = 'HOUSEKEEPING';
 
-    -- 5. Phân hệ Tính Giá Động (Pricing Engine - Nhánh 1)
-    ('VIEW', 'PRICING', 'ACTIVE'),         -- Xem cấu hình giá, ngày lễ
-    ('UPDATE', 'PRICING', 'ACTIVE'),       -- Thay đổi rule tăng/giảm giá
-    ('CREATE', 'PRICING', 'ACTIVE'),     -- Thêm mới luật giá
-    ('DELETE', 'PRICING', 'ACTIVE'),     -- Tạm ngưng/Xóa luật giá
+    -- 1. Chain Admin: Ôm toàn bộ quyền Quản trị hệ thống, Báo cáo chuỗi
+    INSERT INTO role_permissions (role_id, permission_id)
+    SELECT v_chain_admin_id, id FROM permissions 
+    WHERE resource IN ('CHAIN_DASHBOARD', 'PROPERTY', 'REGION_MANAGER_ACCOUNT', 'PROPERTY_MANAGER_ACCOUNT', 'PRICING', 'INVENTORY');
 
-    -- 6. Phân hệ Quản lý Nhân sự (IAM)
-    ('VIEW', 'STAFF', 'ACTIVE'),           -- Xem danh sách nhân viên
-    ('CREATE', 'STAFF', 'ACTIVE'),         -- Tạo tài khoản nhân viên mới
-    ('UPDATE', 'STAFF', 'ACTIVE'),          -- Phân quyền, đổi mật khẩu
+    -- 2. Region Manager (MỚI): Xem báo cáo vùng, và điều phối các Property Manager
+    INSERT INTO role_permissions (role_id, permission_id)
+    SELECT v_region_manager_id, id FROM permissions 
+    WHERE resource IN ('REGION_DASHBOARD', 'PROPERTY_DASHBOARD', 'PROPERTY_MANAGER_ACCOUNT', 'PRICING', 'INVENTORY');
 
-    -- Thiếu toàn bộ cụm CRM (Quản lý Hồ sơ khách hàng)
-    ('VIEW', 'GUEST', 'ACTIVE'),         -- Tra cứu khách cũ
-    ('CREATE', 'GUEST', 'ACTIVE'),       -- Tạo hồ sơ khách mới
-    ('UPDATE', 'GUEST', 'ACTIVE');        -- Sửa thông tin khách
+    -- 3. Property Manager: Ôm báo cáo cơ sở, quản lý nhân viên cấp dưới, inventory, booking
+    INSERT INTO role_permissions (role_id, permission_id)
+    SELECT v_property_manager_id, id FROM permissions 
+    WHERE resource IN ('PROPERTY_DASHBOARD', 'STAFF', 'BOOKING', 'INVENTORY', 'GUEST', 'SERVICE_ORDER');
+
+    -- 4. Receptionist: Phụ trách Đặt phòng, Check-in, Dịch vụ, CRM
+    INSERT INTO role_permissions (role_id, permission_id)
+    SELECT v_reception_id, id FROM permissions 
+    WHERE resource IN ('BOOKING', 'GUEST', 'SERVICE_ORDER') OR (action = 'UPDATE' AND resource = 'ROOM_STATUS');
+
+    -- 5. Housekeeping: Chỉ được đổi trạng thái phòng và báo hỏng
+    INSERT INTO role_permissions (role_id, permission_id)
+    SELECT v_hk_id, id FROM permissions 
+    WHERE resource IN ('ROOM_STATUS', 'MAINTENANCE_TICKET');
+END $$;
 
 
 

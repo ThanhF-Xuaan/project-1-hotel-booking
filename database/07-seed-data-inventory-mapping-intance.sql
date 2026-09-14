@@ -1,9 +1,9 @@
 -- ==============================================================================
--- LỚP 3: CẤU HÌNH CHI TIẾT LOẠI PHÒNG (GIƯỜNG)
+-- LỚP 3.2: CẤU HÌNH CHI TIẾT LOẠI PHÒNG (GIƯỜNG)
 -- Bảng: hotel_room_type_beds
 -- ==============================================================================
 
-INSERT INTO hotel_room_type_beds (hotel_room_type_id, room_bed_id, base_quantity) -- ĐÃ ĐỔI TÊN THÀNH base_quantity
+INSERT INTO hotel_room_type_beds (hotel_room_type_id, room_bed_id, base_quantity)
 VALUES 
     -- ========================================================================
     -- 1. VIETTEL LUXURY HÀ NỘI (HẠNG 5 SAO)
@@ -62,7 +62,7 @@ SET base_quantity = EXCLUDED.base_quantity;
 
 
 -- ==============================================================================
--- LỚP 3: CẤU HÌNH CHI TIẾT LOẠI PHÒNG (TIỆN ÍCH / VIEW)
+-- LỚP 3.3: CẤU HÌNH CHI TIẾT LOẠI PHÒNG (TIỆN ÍCH / VIEW)
 -- Bảng: hotel_room_type_features
 -- ==============================================================================
 
@@ -119,8 +119,8 @@ ON CONFLICT DO NOTHING;
 
 
 -- ==============================================================================
--- LỚP 3.2: CẤU HÌNH GÓI DỊCH VỤ TẶNG KÈM THEO HẠNG PHÒNG (INCLUSIONS)
--- Bảng: hotel_room_type_inclusions (Đã thay thế cho hotel_room_type_catalog_items)
+-- LỚP 3.4: CẤU HÌNH GÓI DỊCH VỤ TẶNG KÈM THEO HẠNG PHÒNG (INCLUSIONS)
+-- Bảng: hotel_room_type_inclusions
 -- ==============================================================================
 
 -- 1. TẶNG KÈM BUFFET SÁNG & NƯỚC SUỐI CHO TOÀN BỘ KHÁCH SẠN 4 SAO VÀ 5 SAO
@@ -165,7 +165,7 @@ WHERE h.name = 'Viettel Boutique Sapa' AND rt.code = 'SUP' AND m.name = 'Buffet 
 
 
 -- ==============================================================================
--- LỚP 3: KHO PHÒNG VẬT LÝ (INVENTORY INSTANCES)
+-- LỚP 3.5: KHO PHÒNG VẬT LÝ (INVENTORY INSTANCES)
 -- Bảng: room_instances (Khởi tạo các phòng cụ thể)
 -- ==============================================================================
 
@@ -182,14 +182,14 @@ FROM (
         -- ==========================================================
         -- Tầng 1: Deluxe
         ('Viettel Luxury Hà Nội', 'DLX', '101', 'READY'),
-        ('Viettel Luxury Hà Nội', 'DLX', '102', 'READY'),    -- Đang dọn dẹp
-        ('Viettel Luxury Hà Nội', 'DLX', '103', 'READY'),    -- Đang có khách
+        ('Viettel Luxury Hà Nội', 'DLX', '102', 'READY'),
+        ('Viettel Luxury Hà Nội', 'DLX', '103', 'READY'),
         ('Viettel Luxury Hà Nội', 'DLX', '104', 'READY'), 
         ('Viettel Luxury Hà Nội', 'DLX', '105', 'READY'), 
         ('Viettel Luxury Hà Nội', 'DLX', '106', 'READY'), 
         -- Tầng 2: Suite
         ('Viettel Luxury Hà Nội', 'STE', '201', 'READY'),
-        ('Viettel Luxury Hà Nội', 'STE', '202', 'READY'), -- Đang bảo trì
+        ('Viettel Luxury Hà Nội', 'STE', '202', 'READY'), 
         ('Viettel Luxury Hà Nội', 'STE', '203', 'READY'),
         ('Viettel Luxury Hà Nội', 'STE', '204', 'READY'),
         -- Tầng 3: Executive
