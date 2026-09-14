@@ -740,37 +740,29 @@ CREATE TABLE surcharge_rules (
 
 -- Thuộc Schema: crm (Customer Relationship Management)
 
+-- ==============================================================================
+-- 4. CỤM GIAO DỊCH ĐẶT PHÒNG (Giao dịch dùng BIGINT)
+-- ==============================================================================
+
+-- Thuộc Schema: crm (Customer Relationship Management)
 CREATE TABLE guests (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    
-    -- Trả ra Frontend / App để tra cứu hồ sơ khách hàng
     public_id UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL, 
-
     birth_date DATE,
     identity_type VARCHAR(20),
     identity_number VARCHAR(50),
     nationality VARCHAR(100),
     email VARCHAR(150),
     phone VARCHAR(20) NOT NULL,
-
     status VARCHAR(50) DEFAULT 'ACTIVE',
     is_deleted BOOLEAN DEFAULT FALSE,
-
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_identity_type
-    CHECK (
-        identity_type IS NULL
-        OR identity_type IN (
-            'CCCD',
-            'PASSPORT',
-            'DRIVER_LICENSE',
-            'OTHER'
-        )
+    CONSTRAINT chk_identity_type CHECK (
+        identity_type IS NULL OR identity_type IN ('CCCD', 'PASSPORT', 'DRIVER_LICENSE', 'OTHER')
     )
 );
-
 
 CREATE TABLE companies (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -786,196 +778,104 @@ CREATE TABLE companies (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-
 CREATE TABLE bookings (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    hotel_id SMALLINT NOT NULL
-        REFERENCES hotels(id),
-
-    guest_id BIGINT NOT NULL
-        REFERENCES guests(id),
-
+    hotel_id SMALLINT NOT NULL REFERENCES hotels(id),
+    guest_id BIGINT NOT NULL REFERENCES guests(id),
     company_id BIGINT REFERENCES companies(id),
     
-    booking_type VARCHAR(20) NOT NULL DEFAULT 'FIT', -- 'FIT' (Lẻ), 'GIT' (Đoàn), 'CORPORATE'
-
+    booking_type VARCHAR(20) NOT NULL DEFAULT 'FIT', -- 'FIT', 'GIT', 'CORPORATE'
     booking_number VARCHAR(50) UNIQUE NOT NULL,
 
     subtotal_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-
     service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
     service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-
     total_vat_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-
     total_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
 
-    status VARCHAR(50) NOT NULL
-        DEFAULT 'CONFIRMED',
+    status VARCHAR(50) NOT NULL DEFAULT 'CONFIRMED',
 
     issued_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_booking_status
-    CHECK (
-        status IN (
-            'CONFIRMED',
-            'CANCELLED',
-            'NO_SHOW'
-        )
+    CONSTRAINT chk_booking_status CHECK (
+        status IN ('CONFIRMED', 'CANCELLED', 'NO_SHOW')
     ),
-
-    CONSTRAINT chk_booking_service_fee_rate
-    CHECK ( 
-        service_fee_rate >= 0
-        AND service_fee_rate <= 100
+    CONSTRAINT chk_booking_service_fee_rate CHECK ( 
+        service_fee_rate >= 0 AND service_fee_rate <= 100
     ),
-
-    CONSTRAINT chk_booking_owner 
-    CHECK (
+    CONSTRAINT chk_booking_owner CHECK (
         (booking_type = 'FIT' AND company_id IS NULL) OR
         (booking_type IN ('GIT', 'CORPORATE') AND company_id IS NOT NULL)
     )
 );
 
-
-
 CREATE TABLE booking_details (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    booking_id BIGINT NOT NULL
-        REFERENCES bookings(id)
-        ON DELETE CASCADE,
-
-    hotel_room_type_id INT NOT NULL
-        REFERENCES hotel_room_types(id),
-
+    booking_id BIGINT NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    hotel_room_type_id INT NOT NULL REFERENCES hotel_room_types(id),
     room_type_name VARCHAR(150) NOT NULL,
 
     quantity SMALLINT NOT NULL DEFAULT 1,
-
     adult_count SMALLINT NOT NULL DEFAULT 1,
     child_count SMALLINT NOT NULL DEFAULT 0,
     infant_count SMALLINT NOT NULL DEFAULT 0,
-
     guest_count SMALLINT NOT NULL DEFAULT 1,
 
-    -- Thời gian lưu trú dự kiến
     check_in_date DATE NOT NULL,
-
     check_out_date DATE NOT NULL,
-
     selection_deadline TIMESTAMP WITH TIME ZONE,
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_booking_date
-    CHECK (
-        check_in_date < check_out_date
-    ),
-
-    CONSTRAINT chk_quantity
-    CHECK (
-        quantity > 0
-    ),
-
-    CONSTRAINT chk_guest_count
-    CHECK (
-        guest_count > 0
-    ),
-
-    CONSTRAINT chk_actual_stay
-    CHECK (
-        actual_check_out_at IS NULL
-        OR actual_check_in_at IS NULL
-        OR actual_check_in_at <= actual_check_out_at
-    )
+    CONSTRAINT chk_booking_date CHECK (check_in_date < check_out_date),
+    CONSTRAINT chk_quantity CHECK (quantity > 0),
+    CONSTRAINT chk_guest_count CHECK (guest_count > 0)
 );
 
-
-
 CREATE TABLE booking_rooms (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, -- Thêm ID độc lập (Đây chính là Folio ID)
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    booking_detail_id BIGINT NOT NULL REFERENCES booking_details(id) ON DELETE CASCADE,
+    room_instance_id INT NOT NULL REFERENCES room_instances(id),
 
-    booking_detail_id BIGINT NOT NULL
-        REFERENCES booking_details(id)
-        ON DELETE CASCADE,
-
-    room_instance_id INT NOT NULL
-        REFERENCES room_instances(id),
-
-    -- THÊM MỚI: Đẩy thông tin trạng thái & thời gian thực tế xuống đây
-    status VARCHAR(50) NOT NULL DEFAULT 'EXPECTED', -- EXPECTED, CHECKED_IN, CHECKED_OUT, NO_SHOW
+    status VARCHAR(50) NOT NULL DEFAULT 'EXPECTED',
     
     actual_check_in_at TIMESTAMP WITH TIME ZONE,
     actual_check_out_at TIMESTAMP WITH TIME ZONE,
-
-    assigned_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         
-    -- Đảm bảo 1 phòng vật lý không bị gán đúp trong cùng 1 booking_detail
     CONSTRAINT uk_booking_room_instance UNIQUE (booking_detail_id, room_instance_id),
-
     CONSTRAINT chk_booking_room_status CHECK (
         status IN ('EXPECTED', 'CHECKED_IN', 'CHECKED_OUT', 'NO_SHOW', 'CANCELLED')
+    ),
+    CONSTRAINT chk_actual_stay CHECK (
+        actual_check_out_at IS NULL OR actual_check_in_at IS NULL OR actual_check_in_at <= actual_check_out_at
     )
 );
 
-
 CREATE TABLE booking_guests (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-   booking_room_id BIGINT NOT NULL 
-        REFERENCES booking_rooms(id)
-        ON DELETE CASCADE,
+    booking_room_id BIGINT NOT NULL REFERENCES booking_rooms(id) ON DELETE CASCADE,
 
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     full_name VARCHAR(250) NOT NULL,
 
     birth_date DATE,
-
     guest_type VARCHAR(20) NOT NULL,
-
-    -- Đã bỏ NOT NULL, chuyển CHECK constraint xuống dưới cho chuẩn format
     identity_type VARCHAR(20),
-
     identity_number VARCHAR(50),
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_guest_type
-    CHECK (
-        guest_type IN (
-            'ADULT',
-            'CHILD',
-            'INFANT'
-        )
-    ), -- ĐÃ THÊM DẤU PHẨY
-
-    -- Kiểm tra giá trị của loại giấy tờ (chỉ áp dụng nếu có nhập)
-    CONSTRAINT chk_booking_guest_identity_type
-    CHECK (
-        identity_type IS NULL 
-        OR identity_type IN ('CCCD', 'PASSPORT', 'DRIVER_LICENSE')
-    ), -- ĐÃ THÊM DẤU PHẨY
-
-    -- Chốt chặn: Đã là Người lớn thì BẮT BUỘC phải có giấy tờ
-    CONSTRAINT chk_adult_requires_identity
-    CHECK (
-        guest_type != 'ADULT' 
-        OR (identity_type IS NOT NULL AND identity_number IS NOT NULL AND identity_number <> '')
+    CONSTRAINT chk_guest_type CHECK (guest_type IN ('ADULT', 'CHILD', 'INFANT')),
+    CONSTRAINT chk_booking_guest_identity_type CHECK (
+        identity_type IS NULL OR identity_type IN ('CCCD', 'PASSPORT', 'DRIVER_LICENSE')
+    ),
+    CONSTRAINT chk_adult_requires_identity CHECK (
+        guest_type != 'ADULT' OR (identity_type IS NOT NULL AND identity_number IS NOT NULL AND identity_number <> '')
     )
 );
 
@@ -983,141 +883,73 @@ CREATE TABLE booking_daily_rates (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     booking_room_id BIGINT REFERENCES booking_rooms(id),
     
-    -- Ngày lưu trú cụ thể (Ví dụ: 2026-12-30)
     stay_date DATE NOT NULL,
     
-    -- Dữ liệu tài chính BỊ ĐÓNG BĂNG cho đêm hôm đó
-    base_price DECIMAL(15,2) NOT NULL, -- Giá gốc lấy từ pricing_rules
-    discount_amount DECIMAL(15,2) DEFAULT 0, -- Tiền giảm giá lấy từ discount_rules
-    surcharge_amount DECIMAL(15,2) DEFAULT 0, -- Phụ thu (thêm người/giường)
+    base_price DECIMAL(15,2) NOT NULL,
+    discount_amount DECIMAL(15,2) DEFAULT 0,
+    surcharge_amount DECIMAL(15,2) DEFAULT 0,
     
-    service_fee_rate NUMERIC(5,2)
-        NOT NULL DEFAULT 0,
-
-    service_fee_amount NUMERIC(15,2)
-        NOT NULL DEFAULT 0,
+    service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
     
-    -- Dữ liệu thuế
     tax_category_id INT REFERENCES tax_categories(id),
-    vat_percent DECIMAL(5,2) NOT NULL, -- Ví dụ: 8.00 hoặc 10.00
-    vat_amount DECIMAL(15,2) NOT NULL, -- Tiền thuế tính ra
+    vat_percent DECIMAL(5,2) NOT NULL,
+    vat_amount DECIMAL(15,2) NOT NULL,
     
-    net_price DECIMAL(15,2) NOT NULL, -- Tổng tiền cuối cùng khách phải trả cho đêm này
+    net_price DECIMAL(15,2) NOT NULL,
     
-    -- Trạng thái hạch toán của Kiểm toán đêm (Night Audit)
-    status VARCHAR(50) DEFAULT 'PENDING', -- PENDING (Chưa ở), POSTED (Đã ở và chốt sổ)
-    
+    status VARCHAR(50) DEFAULT 'PENDING',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-
-
 CREATE TABLE booking_charges (
-
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    booking_room_id BIGINT NOT NULL 
-        REFERENCES booking_rooms(id)
-        ON DELETE CASCADE,
-
-    booking_guest_id BIGINT NULL
-        REFERENCES booking_guests(id),
+    booking_room_id BIGINT NOT NULL REFERENCES booking_rooms(id) ON DELETE CASCADE,
+    booking_guest_id BIGINT NULL REFERENCES booking_guests(id),
 
     charge_type VARCHAR(50) NOT NULL,
-
     item_name VARCHAR(150),
-
     description TEXT,
-
     quantity INT NOT NULL DEFAULT 1,
-
     unit_price NUMERIC(15,2) NOT NULL,
-
     subtotal NUMERIC(15,2) NOT NULL,
 
     service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
     service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-
     vat_rate NUMERIC(5,2) NOT NULL,
-
     vat_amount NUMERIC(15,2) NOT NULL,
-
     total_amount NUMERIC(15,2) NOT NULL,
 
-    issued_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
+    issued_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_booking_charge_type
-    CHECK (
-        charge_type IN (
-            'EARLY_CHECKIN',
-            'LATE_CHECKOUT',
-            'OTHER'
-        )
+    CONSTRAINT chk_booking_charge_type CHECK (
+        charge_type IN ('EARLY_CHECKIN', 'LATE_CHECKOUT', 'PENALTY', 'OTHER')
     ),
-
-    CONSTRAINT chk_booking_charge_qty
-    CHECK (
-        quantity > 0
-    ),
-
-    CONSTRAINT chk_booking_charge_vat
-    CHECK (
-        vat_rate BETWEEN 0 AND 100
-    )
+    CONSTRAINT chk_booking_charge_qty CHECK (quantity > 0),
+    CONSTRAINT chk_booking_charge_vat CHECK (vat_rate BETWEEN 0 AND 100)
 );
-
-
 
 CREATE TABLE room_slots (
    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-   room_instance_id INT NOT NULL
-       REFERENCES room_instances(id),
-
+   room_instance_id INT NOT NULL REFERENCES room_instances(id),
    slot_date DATE NOT NULL,
-
-   booking_room_id BIGINT NULL 
-       REFERENCES booking_rooms(id)
-       ON DELETE SET NULL, -- Nếu booking bị hủy, nhả phòng ra
+   booking_room_id BIGINT NULL REFERENCES booking_rooms(id) ON DELETE SET NULL,
 
    status VARCHAR(50) NOT NULL DEFAULT 'READY',
 
-   -- metadata giúp debug + reconcile
    locked_at TIMESTAMP WITH TIME ZONE,
    reserved_at TIMESTAMP WITH TIME ZONE,
-
    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-   CONSTRAINT uk_room_slot
-       UNIQUE (room_instance_id, slot_date),
-
-   CONSTRAINT chk_room_slot_status
-       CHECK (
-           status IN (
-               'READY',        -- available
-               'BLOCKED',      -- temporarily held
-               'RESERVED',     -- payment success but not assigned final room
-               'OCCUPIED',     -- checked-in
-               'CLEANING',     -- housekeeping
-               'MAINTENANCE'   -- out of service
-           )
-       ),
-
-   CONSTRAINT chk_room_slot_logical
-       CHECK (
-           slot_date >= DATE '2000-01-01'
-       )
+   CONSTRAINT uk_room_slot UNIQUE (room_instance_id, slot_date),
+   CONSTRAINT chk_room_slot_status CHECK (
+       status IN ('READY', 'BLOCKED', 'RESERVED', 'OCCUPIED', 'CLEANING', 'MAINTENANCE')
+   ),
+   CONSTRAINT chk_room_slot_logical CHECK (slot_date >= DATE '2000-01-01')
 );
-
-
 
 -- ==============================================================================
 -- 5. CỤM THANH TOÁN & HÓA ĐƠN
@@ -1125,297 +957,139 @@ CREATE TABLE room_slots (
 
 CREATE TABLE payments (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    booking_id BIGINT NOT NULL
-        REFERENCES bookings(id),
+    booking_id BIGINT NOT NULL REFERENCES bookings(id),
 
     total_amount NUMERIC(15,2) NOT NULL,
-
     payment_purpose VARCHAR(50) NOT NULL DEFAULT 'FULL_PAYMENT',
-
     payment_method VARCHAR(50) NOT NULL,
-
     payment_provider VARCHAR(50),
-
     transaction_reference VARCHAR(100),
 
-    status VARCHAR(50)
-        DEFAULT 'PENDING',
-
+    status VARCHAR(50) DEFAULT 'PENDING',
     paid_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_payment_method
-    CHECK (
-        payment_method IN (
-            'CASH',
-            'BANK_TRANSFER',
-            'CREDIT_CARD',
-            'DEBIT_CARD',
-            'VNPAY',
-            'MOMO',
-            'ZALOPAY',
-            'OTHER'
-        )
+    CONSTRAINT chk_payment_method CHECK (
+        payment_method IN ('CASH', 'BANK_TRANSFER', 'CREDIT_CARD', 'DEBIT_CARD', 'VNPAY', 'MOMO', 'ZALOPAY', 'OTHER')
     ),
-
-    CONSTRAINT chk_payment_status
-    CHECK (
-        status IN (
-            'PENDING',
-            'SUCCESS',
-            'FAILED',
-            'REFUNDED',
-            'CANCELLED'
-        )
+    CONSTRAINT chk_payment_status CHECK (
+        status IN ('PENDING', 'SUCCESS', 'FAILED', 'REFUNDED', 'CANCELLED')
     ),
-
     CONSTRAINT chk_payment_purpose CHECK (
         payment_purpose IN ('DEPOSIT', 'FULL_PAYMENT', 'INCIDENTAL_DEPOSIT', 'REFUND')
     )
 );
 
-
 CREATE TABLE transactions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    payment_id BIGINT NOT NULL
-        REFERENCES payments(id),
-
-    booking_id BIGINT NOT NULL
-        REFERENCES bookings(id),
+    payment_id BIGINT NOT NULL REFERENCES payments(id),
+    booking_id BIGINT NOT NULL REFERENCES bookings(id),
 
     transaction_type VARCHAR(50) NOT NULL,
-
     amount NUMERIC(15,2) NOT NULL,
-
     reference_code VARCHAR(100),
 
-    status VARCHAR(50)
-        DEFAULT 'COMPLETED',
-
+    status VARCHAR(50) DEFAULT 'COMPLETED',
     issued_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_transaction_type
-    CHECK (
-        transaction_type IN (
-            'PAYMENT',
-            'REFUND'
-        )
-    )
+    CONSTRAINT chk_transaction_type CHECK (transaction_type IN ('PAYMENT', 'REFUND'))
 );
-
 
 CREATE TABLE invoices (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    booking_id BIGINT NOT NULL
-        REFERENCES bookings(id),
-
+    booking_id BIGINT NOT NULL REFERENCES bookings(id),
     invoice_number VARCHAR(50) UNIQUE NOT NULL,
 
     sub_total NUMERIC(15,2) NOT NULL,
+    service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    vat_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    grand_total NUMERIC(15,2) NOT NULL,
 
-    service_fee_rate NUMERIC(5,2)
-        NOT NULL DEFAULT 0,
-
-    service_fee_amount NUMERIC(15,2)
-        NOT NULL DEFAULT 0,
-
-    vat_amount NUMERIC(15,2)
-        NOT NULL DEFAULT 0,
-
-    grand_total NUMERIC(15,2)
-        NOT NULL,
-
-    status VARCHAR(50)
-        NOT NULL DEFAULT 'DRAFT',
-
+    status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
     issued_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_invoice_service_fee_rate
-    CHECK (
-        service_fee_rate >= 0
-        AND service_fee_rate <= 100
-    )
+    CONSTRAINT chk_invoice_service_fee_rate CHECK (service_fee_rate >= 0 AND service_fee_rate <= 100)
 );
 
-
-
 CREATE TABLE invoice_details (
-
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    invoice_id BIGINT NOT NULL
-        REFERENCES invoices(id)
-        ON DELETE CASCADE,
-
+    invoice_id BIGINT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
     reference_id BIGINT NOT NULL,
-
     line_type VARCHAR(50) NOT NULL,
 
     description TEXT NOT NULL,
-
     quantity INT NOT NULL DEFAULT 1,
-
     unit_price NUMERIC(15,2) NOT NULL,
-
     subtotal NUMERIC(15,2) NOT NULL,
 
-    service_fee_rate NUMERIC(5,2)
-        NOT NULL DEFAULT 0,
-
-    service_fee_amount NUMERIC(15,2)
-        NOT NULL DEFAULT 0,
-
+    service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
     vat_rate NUMERIC(5,2) NOT NULL,
-
     vat_amount NUMERIC(15,2) NOT NULL,
-
     total_amount NUMERIC(15,2) NOT NULL,
 
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_invoice_line_type
-    CHECK (
-        line_type IN (
-            'ROOM_RATE',   -- Tiền phòng
-            'PRODUCT',     -- Ăn uống/Minibar
-            'SERVICE',     -- Spa/Tour
-            'SURCHARGE',    -- Phạt/Phụ thu
-            'PENALTY'
-        )
+    CONSTRAINT chk_invoice_line_type CHECK (
+        line_type IN ('ROOM_RATE', 'PRODUCT', 'SERVICE', 'SURCHARGE', 'PENALTY')
     ),
-
-    CONSTRAINT chk_invoice_qty
-    CHECK (
-        quantity > 0
-    ),
-
-    CONSTRAINT chk_invoice_vat
-    CHECK (
-        vat_rate BETWEEN 0 AND 100
-    )
+    CONSTRAINT chk_invoice_qty CHECK (quantity > 0),
+    CONSTRAINT chk_invoice_vat CHECK (vat_rate BETWEEN 0 AND 100)
 );
-
-
-
-
 
 -- ==============================================================================
 -- 6. CỤM DỊCH VỤ PHÁT SINH
 -- ==============================================================================
 
-
 CREATE TABLE service_orders (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    
-    -- Mã hóa đơn dịch vụ công khai (Ví dụ: ORD-100293)
     order_number VARCHAR(50) UNIQUE NOT NULL, 
-
-    booking_id BIGINT NOT NULL
-        REFERENCES bookings(id),
-
-    room_instance_id INT NOT NULL
-        REFERENCES room_instances(id),
+    booking_id BIGINT NOT NULL REFERENCES bookings(id),
+    room_instance_id INT NOT NULL REFERENCES room_instances(id),
 
     sub_total NUMERIC(15,2) NOT NULL,
-
     service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
     service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-
     vat_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-
     total_amount NUMERIC(15,2) NOT NULL,
 
     status VARCHAR(50) DEFAULT 'PENDING',
-
     issued_at TIMESTAMP WITH TIME ZONE,
     is_deleted BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_service_order_fee CHECK (service_fee_rate BETWEEN 0 AND 100)
+);
+
+CREATE TABLE service_order_details (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    service_order_id BIGINT NOT NULL REFERENCES service_orders(id) ON DELETE CASCADE,
+    menu_id INT NOT NULL REFERENCES menus(id), 
+    item_type VARCHAR(55) NOT NULL, 
+
+    item_name VARCHAR(150) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unit_price NUMERIC(15,2) NOT NULL,
+    subtotal NUMERIC(15,2) NOT NULL,
+
+    service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
+    vat_rate NUMERIC(5,2) NOT NULL,
+    vat_amount NUMERIC(15,2) NOT NULL,
+    total_amount NUMERIC(15,2) NOT NULL,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT chk_service_order_fee
-    CHECK (
-        service_fee_rate BETWEEN 0 AND 100
-    )
-);
-
-
-
-
-
-
-CREATE TABLE service_order_details (
-
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-
-    service_order_id BIGINT NOT NULL
-        REFERENCES service_orders(id)
-        ON DELETE CASCADE,
-
-    menu_id INT NOT NULL REFERENCES menus(id), -- Sửa tên menus_id thành menu_id
-
-    item_type VARCHAR(55) NOT NULL, -- Đổi tên từ order_type thành item_type
-
-    item_name VARCHAR(150) NOT NULL,
-
-    quantity INT NOT NULL DEFAULT 1,
-
-    unit_price NUMERIC(15,2) NOT NULL,
-
-    subtotal NUMERIC(15,2) NOT NULL,
-
-    service_fee_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
-
-    service_fee_amount NUMERIC(15,2) NOT NULL DEFAULT 0,
-
-    vat_rate NUMERIC(5,2) NOT NULL,
-
-    vat_amount NUMERIC(15,2) NOT NULL,
-
-    total_amount NUMERIC(15,2) NOT NULL,
-
-    created_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    updated_at TIMESTAMP WITH TIME ZONE
-        DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT chk_service_item_type
-    CHECK (
-        item_type IN ('PRODUCT', 'SERVICE')
-    ),
-
-    CONSTRAINT chk_service_detail_qty
-    CHECK (
-        quantity > 0
-    ),
-
-    CONSTRAINT chk_service_detail_vat
-    CHECK (
-        vat_rate BETWEEN 0 AND 100
-    )
+    CONSTRAINT chk_service_item_type CHECK (item_type IN ('PRODUCT', 'SERVICE')),
+    CONSTRAINT chk_service_detail_qty CHECK (quantity > 0),
+    CONSTRAINT chk_service_detail_vat CHECK (vat_rate BETWEEN 0 AND 100)
 );
