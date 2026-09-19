@@ -48,3 +48,14 @@ CREATE INDEX idx_invoice_details_line_type ON invoice_details(line_type); -- Gom
 -- G. ĐÁNH INDEX CHO LUẬT CẤU HÌNH (RULES)
 CREATE INDEX idx_surcharge_rules_age_policy_id ON surcharge_rules(age_policy_id);
 CREATE INDEX idx_vat_rules_tax_category_id ON vat_rules(tax_category_id);
+
+-- ĐÁNH INDEX CHO BẢNG AUDIT 
+
+-- Tối ưu cho query: "Tìm lịch sử thay đổi của Đơn đặt phòng ID = 12345"
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_name, entity_id);
+
+-- Tối ưu cho query: "Nhân viên Nguyễn Văn A đã làm những gì trong tháng này?"
+CREATE INDEX idx_audit_logs_staff ON audit_logs(staff_id);
+
+-- Tối ưu cho query lọc theo thời gian (Bảo mật)
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);

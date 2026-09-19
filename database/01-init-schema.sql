@@ -406,6 +406,39 @@ CREATE TABLE room_instances (
     )
 );
 
+
+CREATE TABLE room_maintenance_blocks (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    room_instance_id INT NOT NULL REFERENCES room_instances(id),
+    
+    -- Phân loại: OOO (Trừ quỹ phòng - Không bán được) | OOS (Sửa lặt vặt - Vẫn có thể bán nếu ép)
+    block_type VARCHAR(20) NOT NULL DEFAULT 'OOO',
+
+    -- Ngày bắt đầu và ngày kết thúc sửa chữa (Date range)
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+
+    -- Lý do bảo trì (VD: Sơn lại tường, Hỏng đường ống nước)
+    reason TEXT NOT NULL,
+
+    -- Trạng thái của lệnh bảo trì
+    status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+
+    -- Nếu có Ticket sửa chữa từ phòng Kỹ thuật thì link vào đây
+    maintenance_ticket_id BIGINT,
+
+    -- (Optional) Lưu ID của staff thao tác để dễ tra cứu sau này
+    created_by_staff_id INT REFERENCES staffs(id),
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_block_type CHECK (block_type IN ('OOO', 'OOS')),
+    CONSTRAINT chk_block_status CHECK (status IN ('ACTIVE', 'COMPLETED', 'CANCELLED')),
+    CONSTRAINT chk_block_dates CHECK (start_date <= end_date)
+);
+
 CREATE TABLE room_availability (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
@@ -420,10 +453,14 @@ CREATE TABLE room_availability (
 
     locked_rooms INT NOT NULL DEFAULT 0,
 
+    -- DÀNH CHO VẬN HÀNH: Phòng đang hỏng/sửa chữa (Out of Order)
+    ooo_rooms INT NOT NULL DEFAULT 0,
+
     available_count INT GENERATED ALWAYS AS (
         total_rooms
         - booked_rooms
         - locked_rooms
+        - ooo_rooms
     ) STORED,
 
     version BIGINT NOT NULL DEFAULT 0,
@@ -818,10 +855,6 @@ CREATE TABLE booking_details (
     room_type_name VARCHAR(150) NOT NULL,
 
     quantity SMALLINT NOT NULL DEFAULT 1,
-    adult_count SMALLINT NOT NULL DEFAULT 1,
-    child_count SMALLINT NOT NULL DEFAULT 0,
-    infant_count SMALLINT NOT NULL DEFAULT 0,
-    guest_count SMALLINT NOT NULL DEFAULT 1,
 
     check_in_date DATE NOT NULL,
     check_out_date DATE NOT NULL,
@@ -831,14 +864,18 @@ CREATE TABLE booking_details (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_booking_date CHECK (check_in_date < check_out_date),
-    CONSTRAINT chk_quantity CHECK (quantity > 0),
-    CONSTRAINT chk_guest_count CHECK (guest_count > 0)
+    CONSTRAINT chk_quantity CHECK (quantity > 0)
 );
 
 CREATE TABLE booking_rooms (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     booking_detail_id BIGINT NOT NULL REFERENCES booking_details(id) ON DELETE CASCADE,
-    room_instance_id INT NOT NULL REFERENCES room_instances(id),
+    room_instance_id INT NULL REFERENCES room_instances(id),
+
+    adult_count SMALLINT NOT NULL DEFAULT 1,
+    child_count SMALLINT NOT NULL DEFAULT 0,
+    infant_count SMALLINT NOT NULL DEFAULT 0,
+    guest_count SMALLINT NOT NULL DEFAULT 1,
 
     status VARCHAR(50) NOT NULL DEFAULT 'EXPECTED',
     
@@ -846,13 +883,17 @@ CREATE TABLE booking_rooms (
     actual_check_out_at TIMESTAMP WITH TIME ZONE,
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         
-    CONSTRAINT uk_booking_room_instance UNIQUE (booking_detail_id, room_instance_id),
+    CONSTRAINT uk_booking_room_instance UNIQUE NULLS NOT DISTINCT (booking_detail_id, room_instance_id),
+
     CONSTRAINT chk_booking_room_status CHECK (
         status IN ('EXPECTED', 'CHECKED_IN', 'CHECKED_OUT', 'NO_SHOW', 'CANCELLED')
     ),
+
     CONSTRAINT chk_actual_stay CHECK (
         actual_check_out_at IS NULL OR actual_check_in_at IS NULL OR actual_check_in_at <= actual_check_out_at
-    )
+    ),
+
+    CONSTRAINT chk_room_guest_count CHECK (guest_count > 0)
 );
 
 CREATE TABLE booking_guests (
@@ -934,6 +975,9 @@ CREATE TABLE booking_charges (
 CREATE TABLE room_slots (
    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
    room_instance_id INT NOT NULL REFERENCES room_instances(id),
+
+   maintenance_block_id BIGINT NULL REFERENCES room_maintenance_blocks(id) ON DELETE SET NULL,
+   
    slot_date DATE NOT NULL,
    booking_room_id BIGINT NULL REFERENCES booking_rooms(id) ON DELETE SET NULL,
 
@@ -946,7 +990,7 @@ CREATE TABLE room_slots (
 
    CONSTRAINT uk_room_slot UNIQUE (room_instance_id, slot_date),
    CONSTRAINT chk_room_slot_status CHECK (
-       status IN ('READY', 'BLOCKED', 'RESERVED', 'OCCUPIED', 'CLEANING', 'MAINTENANCE')
+       status IN ('READY', 'BLOCKED', 'RESERVED', 'OCCUPIED', 'DIRTY', 'CLEANING', 'MAINTENANCE')
    ),
    CONSTRAINT chk_room_slot_logical CHECK (slot_date >= DATE '2000-01-01')
 );
@@ -1092,4 +1136,35 @@ CREATE TABLE service_order_details (
     CONSTRAINT chk_service_item_type CHECK (item_type IN ('PRODUCT', 'SERVICE')),
     CONSTRAINT chk_service_detail_qty CHECK (quantity > 0),
     CONSTRAINT chk_service_detail_vat CHECK (vat_rate BETWEEN 0 AND 100)
+);
+
+
+CREATE TABLE audit_logs (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    
+    -- Ai là người thực hiện? (Có thể NULL nếu là Job hệ thống tự chạy như Night Audit)
+    staff_id INT REFERENCES staffs(id) ON DELETE SET NULL, 
+    
+    -- Hành động gì? (VD: CREATE, UPDATE, DELETE, LOGIN, APPROVE, REFUND)
+    action_type VARCHAR(50) NOT NULL, 
+    
+    -- Tác động lên Bảng/Thực thể nào? (VD: 'bookings', 'staffs', 'pricing_rules')
+    entity_name VARCHAR(100) NOT NULL, 
+    
+    -- ID của dòng dữ liệu bị tác động (Dùng VARCHAR để cover được cả UUID nếu sau này cần)
+    entity_id VARCHAR(100) NOT NULL, 
+    
+    -- Dữ liệu trước khi sửa (Lưu dưới dạng JSON, NULL nếu là CREATE)
+    old_values JSONB, 
+    
+    -- Dữ liệu sau khi sửa (Lưu dưới dạng JSON, NULL nếu là DELETE)
+    new_values JSONB, 
+    
+    -- Truy vết IP của thiết bị thực hiện thao tác
+    ip_address VARCHAR(50),
+    
+    -- Tùy chọn thêm: User Agent (Trình duyệt/App) để trace rủi ro lộ thiết bị
+    user_agent TEXT,
+    
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

@@ -177,3 +177,13 @@ EXCLUDE USING gist (
     daterange(start_date, end_date, '[]') WITH &&
 )
 WHERE (is_deleted = FALSE);
+
+
+-- Một phòng không thể có 2 phiếu bảo trì (OOO/OOS) đè lên nhau cùng lúc
+ALTER TABLE room_maintenance_blocks
+ADD CONSTRAINT ex_room_maintenance_overlap
+EXCLUDE USING gist (
+    room_instance_id WITH =,
+    daterange(start_date, end_date, '[]') WITH &&
+)
+WHERE (status = 'ACTIVE');
