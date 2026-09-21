@@ -7,10 +7,10 @@ description: Automatically activated when the agent writes or modifies Spring Bo
 
 ## 1. URL & HTTP Method Conventions
 
-- Use **plural nouns** for resource collections: `/api/hotels`, `/api/bookings`, `/api/room-types`
-- Use **kebab-case** for multi-word path segments: `/api/room-types`, `/api/booking-details`
-- Nest resources to express ownership: `/api/hotels/{hotelId}/room-types/{typeId}/rooms`
-- **Never** use verbs in URIs (wrong: `/api/getHotel`, correct: `GET /api/hotels/{id}`)
+- Use **plural nouns** for resource collections: `/api/v1/hotels`, `/api/v1/bookings`, `/api/v1/room-types`
+- Use **kebab-case** for multi-word path segments: `/api/v1/room-types`, `/api/v1/booking-details`
+- Nest resources to express ownership: `/api/v1/hotels/{hotelId}/room-types/{typeId}/rooms`
+- **Never** use verbs in URIs (wrong: `/api/v1/getHotel`, correct: `GET /api/v1/hotels/{id}`)
 - HTTP verb mapping:
   - `GET` — Read only, never modifies state
   - `POST` — Create new resource
@@ -20,10 +20,10 @@ description: Automatically activated when the agent writes or modifies Spring Bo
 
 ## 2. Controller Layer Rules
 
-- All controllers must be annotated with `@RestController` and `@RequestMapping("/api/...")`
+- All controllers must be annotated with `@RestController` and `@RequestMapping("/api/v1/...")`
 - Each controller maps to exactly **one** domain aggregate (e.g., `BookingController` only handles booking operations)
 - Controllers must **never** contain business logic — delegate everything to `@Service` beans
-- Use `ResponseEntity<T>` with explicit HTTP status codes:
+- Use `ApiResponse<T>` with explicit HTTP status codes:
   - `200 OK` for successful reads
   - `201 Created` for successful POST with `Location` header pointing to new resource
   - `204 No Content` for successful DELETE
@@ -42,22 +42,8 @@ description: Automatically activated when the agent writes or modifies Spring Bo
 ## 4. Exception Handling
 
 - Use a **global `@RestControllerAdvice`** class to handle all exceptions centrally
-- Standard error response body format:
-  ```json
-  {
-    "timestamp": "ISO-8601",
-    "status": 400,
-    "error": "Bad Request",
-    "message": "Validation failed for field 'checkOutDate'",
-    "path": "/api/bookings"
-  }
-  ```
-- Map business exceptions consistently:
-  - `ResourceNotFoundException` → `404`
-  - `ValidationException` → `400`
-  - `OptimisticLockingFailureException` → `409`
-  - `RoomNotAvailableException` → `409`
-  - `UnauthorizedException` → `403`
+  
+- Map business exceptions consistently via ErrorCode
 
 ## 5. Pagination & Filtering
 
