@@ -1,81 +1,84 @@
 package vn.edu.utc.hotel_booking.common.config;
 
+import tools.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
+import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 
+import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
-@EnableWebSecurity
 public class SecurityConfig {
-
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                // 1. Mở CORS để Frontend (React/Vite) gọi được API mà không bị chặn
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // 2. Tắt CSRF (Cross-Site Request Forgery) vì REST API dùng JWT (Stateless)
-                // không cần cái này
+    SecurityFilterChain securityFilterChain(HttpSecurity http, ObjectMapper objectMapper) throws Exception {
+        return http.cors(cors -> {})
                 .csrf(AbstractHttpConfigurer::disable)
-
-                // 3. Phân quyền các Endpoints (Cửa ngõ)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Cửa 1: Cho phép tất cả mọi người vào xem tài liệu API (Swagger UI)
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-
-                        // Cửa 2: Mở một số API công khai không cần đăng nhập (vd: xem phòng trống)
-                        .requestMatchers("/api/public/**").permitAll()
-
-                        // Cửa 3: Tất cả các API còn lại bắt buộc phải có Token (JWT) hợp lệ
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/actuator/health/**", "/actuator/health").permitAll()
+                        .requestMatchers("/api/v1/public/**").permitAll()
                         .anyRequest().authenticated())
-
-                // 4. Bật chế độ OAuth2 Resource Server để Spring Boot tự động xác thực JWT
-                // Token qua Keycloak
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        // (Custom JWT converter sẽ cấu hình sau để đọc Roles từ Keycloak, tạm thời cứ
-                        // để mặc định)
-                        .jwt(jwt -> {
-                        }))
-
-                // 5. Cấu hình Stateless Session (Server không thèm nhớ User là ai, bắt buộc
-                // phải gửi Token mỗi lần request)
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        return http.build();
+                        .jwt(jwt -> {})
+                        .authenticationEntryPoint((request, response, exception) ->
+                                writeError(response, objectMapper, ErrorCode.UNAUTHENTICATED)))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, exception) ->
+                                writeError(response, objectMapper, ErrorCode.UNAUTHENTICATED))
+                        .accessDeniedHandler((request, response, exception) ->
+                                writeError(response, objectMapper, ErrorCode.UNAUTHORIZED)))
+                .build();
     }
 
-    // CẤU HÌNH CHI TIẾT CHO CORS
+    private void writeError(HttpServletResponse response, ObjectMapper mapper, ErrorCode code) throws IOException {
+        response.setStatus(code.getStatusCode().value());
+        response.setContentType("application/json;charset=UTF-8");
+        mapper.writeValue(response.getOutputStream(), ApiResponse.builder().code(code.getCode()).message(code.getMessage()).build());
+    }
+
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    JwtDecoder jwtDecoder(
+            @Value("${app.security.issuer-uri}") String issuer,
+            @Value("${app.security.jwk-set-uri}") String jwkSetUri,
+            @Value("${app.security.audience}") String audience) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        OAuth2TokenValidator<Jwt> audienceValidator = jwt -> jwt.getAudience().contains(audience)
+                ? OAuth2TokenValidatorResult.success()
+                : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Invalid audience", null));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(JwtValidators.createDefaultWithIssuer(issuer), audienceValidator));
+        return decoder;
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource(@Value("${app.cors.allowed-origins}") String origins) {
         CorsConfiguration configuration = new CorsConfiguration();
-
-        // CHỈ ĐỊNH ĐÍCH DANH CỔNG CỦA FRONTEND ĐƯỢC PHÉP VÀO
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
-
-        // CÁC HÀNH ĐỘNG ĐƯỢC PHÉP
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-
-        // CÁC THÔNG TIN ĐƯỢC PHÉP KÈM THEO TRONG HEADER (đặc biệt là Authorization chứa
-        // Token)
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
-
-        // Cho phép gửi kèm cookie hoặc thông tin xác thực nếu cần
-        configuration.setAllowCredentials(true);
-
-        // Áp dụng luật CORS này cho TOÀN BỘ API
+        configuration.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Request-Id"));
+        configuration.setExposedHeaders(List.of("X-Request-Id"));
+        configuration.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
-
         return source;
     }
 }

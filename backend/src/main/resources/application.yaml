@@ -1,39 +1,61 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 spring:
   application:
     name: hotel-booking
-
   datasource:
-    # Lấy từ file env, nếu không có thì lấy giá trị sau dấu 2 chấm
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:hotel_booking_db}
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/hotel_booking_db}
     username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:123456}
-    driver-class-name: org.postgresql.Driver
-
+    password: ${DB_PASSWORD:}
   jpa:
-    show-sql: true
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: validate 
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
+      ddl-auto: validate
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+  ai:
+    model:
+      chat: ${AI_CHAT_MODEL_PROVIDER:none}
+      embedding: ${AI_EMBEDDING_MODEL_PROVIDER:none}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      timeout: 20s
+      max-retries: 1
+      chat:
+        model: ${OPENAI_CHAT_MODEL:gpt-5-mini}
+      embedding:
+        model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
 
+app:
   security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/hotel-realm}
+    issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/hotel-realm}
+    jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8081/realms/hotel-realm/protocol/openid-connect/certs}
+    audience: ${KEYCLOAK_AUDIENCE:hotel-backend}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+  ai:
+    enabled: ${AI_ENABLED:false}
+    embedding-dimension: ${AI_EMBEDDING_DIMENSION:1536}
+    top-k: ${AI_TOP_K:4}
 
 logging:
   level:
-    org.springframework.security: DEBUG
-    org.springframework.web: INFO
-    com.vn.edu.utc.hotel_booking_system: DEBUG
+    root: INFO
+    vn.edu.utc.hotel_booking: INFO

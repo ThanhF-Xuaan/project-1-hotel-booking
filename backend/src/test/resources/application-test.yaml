@@ -1,0 +1,9 @@
+spring:
+  flyway:
+    enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
+app:
+  ai:
+    enabled: false

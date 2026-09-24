@@ -1,120 +1,85 @@
 package vn.edu.utc.hotel_booking.common.exception;
 
-import java.nio.file.AccessDeniedException;
-
-import jakarta.persistence.PessimisticLockException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.CannotAcquireLockException;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-
-
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
-import vn.edu.utc.hotel_booking.common.exception.AppException;
-import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 
-@ControllerAdvice
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+@RestControllerAdvice
 @Slf4j
 public class GlobalHandlerException {
-    @ExceptionHandler(value = RuntimeException.class)
-    ResponseEntity<ApiResponse> handlingRuntimeException(RuntimeException exception) {
-        log.error("Exception: ", exception);
-        ApiResponse apiResponse = new ApiResponse();
-
-        apiResponse.setCode(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode());
-        apiResponse.setMessage(ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage());
-
-        return ResponseEntity.badRequest().body(apiResponse);
+    @ExceptionHandler(AppException.class)
+    ResponseEntity<ApiResponse<Void>> app(AppException exception) {
+        return error(exception.getErrorCode());
     }
 
-    @ExceptionHandler(value = AppException.class)
-    ResponseEntity<ApiResponse> handlingAppException(AppException exception) {
-        ErrorCode errorCode = exception.getErrorCode();
-        ApiResponse apiResponse = new ApiResponse();
-
-        apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(errorCode.getMessage());
-
-        return ResponseEntity
-                .status(errorCode.getStatusCode())
-                .body(apiResponse);
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ApiResponse<Void>> denied(AccessDeniedException exception) {
+        return error(ErrorCode.UNAUTHORIZED);
     }
 
-    @ExceptionHandler(value = AccessDeniedException.class)
-    ResponseEntity<ApiResponse> handlingAccessDeniedException(AccessDeniedException exception) {
-        ErrorCode errorCode = ErrorCode.UNAUTHORIZED;
-
-        return ResponseEntity.status(errorCode.getStatusCode()).body(
-                ApiResponse.builder()
-                        .code(errorCode.getCode())
-                        .message(errorCode.getMessage())
-                        .build());
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<ApiResponse<Map<String, String>>> validation(MethodArgumentNotValidException exception) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        exception.getBindingResult().getFieldErrors().forEach(field ->
+                fields.putIfAbsent(field.getField(), field.getDefaultMessage()));
+        exception.getBindingResult().getGlobalErrors().forEach(global ->
+                fields.putIfAbsent(global.getObjectName(), global.getDefaultMessage()));
+        ErrorCode code = ErrorCode.VALIDATION_ERROR;
+        return ResponseEntity.status(code.getStatusCode()).body(
+                ApiResponse.<Map<String, String>>builder().code(code.getCode()).message(code.getMessage()).result(fields).build());
     }
 
-    @ExceptionHandler(value = MethodArgumentNotValidException.class)
-    ResponseEntity<ApiResponse> handlingValidation(MethodArgumentNotValidException exception) {
-        log.error("Lỗi: ", exception);
-        String enumKey = exception.getFieldError().getDefaultMessage();
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class, IllegalArgumentException.class})
+    ResponseEntity<ApiResponse<Void>> invalidInput(Exception exception) {
+        return error(ErrorCode.VALIDATION_ERROR);
+    }
 
-        ErrorCode errorCode = ErrorCode.INVALID_KEY;
+    @ExceptionHandler({CannotAcquireLockException.class, ObjectOptimisticLockingFailureException.class})
+    ResponseEntity<ApiResponse<Void>> conflict(Exception exception) {
+        log.warn("Database write conflict: {}", exception.getClass().getSimpleName());
+        return error(ErrorCode.CONFLICT);
+    }
 
-        try {
-            errorCode = ErrorCode.valueOf(enumKey);
-        } catch (IllegalArgumentException e) {
-
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ApiResponse<Void>> fallback(Exception exception) {
+        if (exception instanceof ErrorResponse response) {
+            // MVC owns the protocol status and headers (e.g. Allow on a 405).
+            // Keep the application envelope without exposing exception details.
+            ErrorCode code = switch (response.getStatusCode().value()) {
+                case 400 -> ErrorCode.VALIDATION_ERROR;
+                case 404 -> ErrorCode.NOT_FOUND;
+                case 405 -> ErrorCode.METHOD_NOT_ALLOWED;
+                case 406 -> ErrorCode.NOT_ACCEPTABLE;
+                case 415 -> ErrorCode.UNSUPPORTED_MEDIA_TYPE;
+                default -> response.getStatusCode().is5xxServerError()
+                        ? ErrorCode.UNCATEGORIZED_EXCEPTION : ErrorCode.HTTP_REQUEST_ERROR;
+            };
+            if (response.getStatusCode().is5xxServerError()) {
+                log.error("Framework request failure", exception);
+            }
+            return ResponseEntity.status(response.getStatusCode()).headers(response.getHeaders()).body(
+                    ApiResponse.<Void>builder().code(code.getCode()).message(code.getMessage()).build());
         }
-
-        ApiResponse apiResponse = new ApiResponse();
-
-        apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(errorCode.getMessage());
-
-        return ResponseEntity.badRequest().body(apiResponse);
+        log.error("Unhandled request failure", exception);
+        return error(ErrorCode.UNCATEGORIZED_EXCEPTION);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(
-            HttpMessageNotReadableException exception) {
-        log.error("Lỗi parse JSON hoặc sai Enum: {}", exception.getMostSpecificCause().getMessage());
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                ApiResponse.<Void>builder()
-                        .code(400)
-                        .message("Dữ liệu đầu vào không hợp lệ hoặc giá trị không tồn tại!")
-                        .build());
+    private ResponseEntity<ApiResponse<Void>> error(ErrorCode code) {
+        return ResponseEntity.status(code.getStatusCode()).body(
+                ApiResponse.<Void>builder().code(code.getCode()).message(code.getMessage()).build());
     }
-
-//    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
-//    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException e) {
-//        log.warn("Xảy ra đụng độ Optimistic Lock khi giữ phòng!", e);
-//
-//        // Lấy ErrorCode đã định nghĩa
-//        ErrorCode errorCode = ErrorCode.ROOM_CONCURRENCY_CONFLICT;
-//
-//        // Build ApiResponse chuẩn theo format dự án của bạn
-//        ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
-//                .code(errorCode.getCode())
-//                .message(errorCode.getMessage())
-//                .build();
-//
-//        return ResponseEntity
-//                .status(HttpStatus.BAD_REQUEST)
-//                .body(apiResponse);
-//    }
-//
-//    @ExceptionHandler({PessimisticLockException.class, CannotAcquireLockException.class})
-//    public ResponseEntity<ApiResponse<Void>> handleLockTimeout(Exception e) {
-//        log.warn("Lỗi tranh chấp khóa Database: {}", e.getMessage());
-//        return ResponseEntity.status(HttpStatus.CONFLICT).body(
-//                ApiResponse.<Void>builder()
-//                        .code(ErrorCode.ROOM_ALREADY_BLOCKED.getCode())
-//                        .message("Hệ thống đang quá tải hoặc phòng đang được người khác thao tác. Vui lòng thử lại sau giây lát.")
-//                        .build()
-//        );
-//    }
 }

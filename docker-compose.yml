@@ -3,7 +3,7 @@ services:
   # 1. DATABASE (POSTGRESQL)
   # ==========================================
   postgres_db:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:0.8.6-pg16-trixie
     container_name: hotel_postgres
     restart: no
     environment:
@@ -13,8 +13,7 @@ services:
     ports:
       - "${DB_PORT}:5432"
     volumes:
-      - ./database:/docker-entrypoint-initdb.d
-      - pg_data:/var/lib/postgresql/data
+      - pg_vector_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -45,19 +44,16 @@ services:
     image: quay.io/keycloak/keycloak:24.0.4
     container_name: hotel_keycloak
     restart: no
-    command: start-dev # Chạy chế độ Dev (không bắt buộc HTTPS)
+    command: start-dev --import-realm
     environment:
-      # Tài khoản Admin để đăng nhập giao diện Keycloak
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KEYCLOAK_ADMIN: ${KC_ADMIN_USER:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?Set KC_ADMIN_PASSWORD in .env}
+      KC_HOSTNAME_URL: http://localhost:8081
+    volumes:
+      - ./keycloak/hotel-realm.json:/opt/keycloak/data/import/hotel-realm.json:ro
+      - kc_data:/opt/keycloak/data/h2
     ports:
       - "8081:8080" # Map ra 8081 để khớp với cấu hình cũ của bạn
-    healthcheck:
-      # Check xem Keycloak đã sẵn sàng cấp Token chưa
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\r\nhost: http://localhost\r\nConnection: close\r\n\r\n\" >&3;grep \"HTTP/1.1 200 OK\" <&3"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
 
   # ==========================================
   # 4. SPRING BOOT BACKEND
@@ -70,12 +66,18 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_REDIS_HOST: redis
-      # Giữ nguyên cấu hình mạng nội bộ cho Keycloak (không dùng localhost của .env)
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/hotel-realm
+      DB_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/hotel-realm
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/hotel-realm/protocol/openid-connect/certs
+      KEYCLOAK_AUDIENCE: hotel-backend
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+      AI_ENABLED: ${AI_ENABLED:-false}
+      AI_CHAT_MODEL_PROVIDER: ${AI_CHAT_MODEL_PROVIDER:-none}
+      AI_EMBEDDING_MODEL_PROVIDER: ${AI_EMBEDDING_MODEL_PROVIDER:-none}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -102,11 +104,12 @@ services:
     environment:
       # Ép Vite lắng nghe sự thay đổi file (phù hợp với môi trường Docker)
       CHOKIDAR_USEPOLLING: "true"
-      VITE_API_BASE_URL: http://localhost:8080/api
+      VITE_API_BASE_URL: http://localhost:8080/api/v1
     depends_on:
       - backend
 
 # Khai báo các Volume dùng chung
 volumes:
-  pg_data:
+  pg_vector_data:
   redis_data:
+  kc_data:
