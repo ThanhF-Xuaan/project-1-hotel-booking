@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "database-schema-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://postgres:123456@localhost:5433/hotel_booking_db"
+      ],
+      "description": "Cho phép AI đọc trực tiếp cấu trúc Schema DB PostgreSQL 16, Foreign Keys, Indexes để sinh DTO chuẩn 100%."
+    },
+    "automation-test-mcp": {
+      "command": "node",
+      "args": ["./tools/mcp-test-runner/index.js"],
+      "description": "Điều khiển trình duyệt, chụp màn hình DOM Tree và tự động sửa lỗi kịch bản E2E Test."
+    }
+  }
+}

@@ -33,17 +33,17 @@ This skill provides step-by-step guidance, decision trees, and testing patterns 
 
 ## Decision Tree: Choosing the Right Locking Strategy
 
-```
+```text
                           Is the resource aggregate or physical?
                                       /              \
                                      /                \
                        [Aggregate Inventory]     [Physical Room Slot]
-                                  /                      \
-             How is it booked?                            Is it booked at front desk (Walk-in)?
-              /             \                                    /               \
-         (Online)         (Walk-in)                            (Yes)             (No)
-            /                 \                                 /                 \
-  [Optimistic Lock]   [Double Pessimistic Lock]     [Double Pessimistic]   [Single Pessimistic Lock]
+                                  /                        |
+                     How is it booked?               (Walk-in Only)
+                      /             \                      |
+                 (Online)         (Walk-in)                |
+                    /                 \                    |
+          [Optimistic Lock]   [Double Pessimistic Lock] <---
 ```
 
 ## How to Run Verification Scripts
