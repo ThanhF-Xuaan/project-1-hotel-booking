@@ -1,0 +1,189 @@
+{
+  "id": "hotel-realm",
+  "realm": "hotel-realm",
+  "displayName": "Hệ thống Quản lý Khách sạn UTC",
+  "displayNameHtml": "<b>Hệ thống Quản lý Khách sạn UTC</b>",
+  "enabled": true,
+  "sslRequired": "NONE",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 3600,
+  "ssoSessionIdleTimeout": 86400,
+  "ssoSessionMaxLifespan": 604800,
+  "roles": {
+    "realm": [
+      {
+        "name": "CHAIN_ADMIN",
+        "description": "Quản trị viên toàn chuỗi khách sạn"
+      },
+      {
+        "name": "REGION_MANAGER",
+        "description": "Giám đốc quản lý vùng"
+      },
+      {
+        "name": "PROPERTY_MANAGER",
+        "description": "Tổng quản lý khách sạn cơ sở"
+      },
+      {
+        "name": "RECEPTIONIST",
+        "description": "Nhân viên lễ tân tiền sảnh"
+      },
+      {
+        "name": "HOUSEKEEPING",
+        "description": "Nhân viên buồng phòng"
+      },
+      {
+        "name": "CUSTOMER",
+        "description": "Khách hàng cá nhân / Khách đặt phòng"
+      }
+    ]
+  },
+  "defaultRoles": [
+    "CUSTOMER"
+  ],
+  "clients": [
+    {
+      "clientId": "hotel-frontend",
+      "name": "Hotel Booking Frontend SPA",
+      "description": "Single Page Application (React / Vite) dành cho Khách hàng và Nhân viên",
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "http://localhost:3000",
+      "enabled": true,
+      "publicClient": true,
+      "clientAuthenticatorType": "client-secret",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:5173/*",
+        "http://127.0.0.1:3000/*",
+        "http://127.0.0.1:5173/*"
+      ],
+      "webOrigins": [
+        "+"
+      ],
+      "fullScopeAllowed": true
+    },
+    {
+      "clientId": "hotel-backend",
+      "name": "Hotel Booking Backend Resource Server",
+      "description": "Spring Boot REST API Resource Server",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "hotel-backend-secret-key-123456",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": true
+    }
+  ],
+  "users": [
+    {
+      "id": "10000000-0000-0000-0000-000000000001",
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@hotel.utc.edu.vn",
+      "firstName": "System",
+      "lastName": "Admin",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CHAIN_ADMIN"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000002",
+      "username": "manager_hn",
+      "enabled": true,
+      "email": "manager.hn@hotel.utc.edu.vn",
+      "firstName": "Manager",
+      "lastName": "Hà Nội",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "PROPERTY_MANAGER"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000003",
+      "username": "reception_hn",
+      "enabled": true,
+      "email": "reception.hn@hotel.utc.edu.vn",
+      "firstName": "Lễ Tân",
+      "lastName": "Hà Nội",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "RECEPTIONIST"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000004",
+      "username": "housekeeping_hn",
+      "enabled": true,
+      "email": "housekeeping.hn@hotel.utc.edu.vn",
+      "firstName": "Buồng Phòng",
+      "lastName": "Hà Nội",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "HOUSEKEEPING"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000005",
+      "username": "customer1",
+      "enabled": true,
+      "email": "customer1@gmail.com",
+      "firstName": "Nguyễn Văn",
+      "lastName": "An",
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CUSTOMER"
+      ]
+    }
+  ]
+}

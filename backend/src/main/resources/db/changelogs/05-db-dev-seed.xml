@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="1.0.0-05-dev-seed" author="utc-hotel-team" context="dev-seed">
+        <comment>Khởi tạo dữ liệu mẫu phục vụ phát triển &amp; kiểm thử: Khách sạn cơ sở, Menus, Phòng mẫu, Inventory</comment>
+        <sqlFile path="db/sqlFile/05-dev-seed.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

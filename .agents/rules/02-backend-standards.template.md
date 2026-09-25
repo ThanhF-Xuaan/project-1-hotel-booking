@@ -62,23 +62,39 @@ Khi tạo một tính năng/module mới, bắt buộc triển khai đầy đủ
 
 ---
 
-## 5. Migration Cơ Sở Dữ Liệu (Database Migration)
+## 5. Migration Cơ Sở Dữ Liệu (Liquibase Database Migration)
 
-- **Nguyên tắc:** Không bao giờ chạy DDL thủ công trực tiếp trên Production. Mọi thay đổi cấu trúc bảng, chỉ mục (Index), dữ liệu khởi tạo (Seed data) phải thông qua công cụ Migration ('PostgreSQL 16').
-- **Quy ước file migration:**
-  - Định dạng tên file: `V<YYYYMMDD_HHmmss>__<mo_ta_ngan_gon>.sql`
-  - Ví dụ: `V20260915_093000__create_table_products.sql`
+- **Nguyên tắc:** Không bao giờ chạy DDL thủ công trực tiếp trên Production. Mọi thay đổi cấu trúc bảng, chỉ mục (Index), dữ liệu khởi tạo (Seed data) phải thông qua **Liquibase Database Migration** (`backend/src/main/resources/db/`).
+- **Cấu trúc 3 tầng quản lý bắt buộc:**
+  - `db/db-changelog-root.xml`: File điều phối chính (Root Master Changelog).
+  - `db/changelogs/`: Chứa các ChangeSet XML (quản lý ID, author, context, runOnChange, splitStatements).
+  - `db/sqlFile/`: Chứa mã nguồn SQL thuần túy (DDL, PL/pgSQL Functions, Triggers, Indexes, Data Scripts).
+- **Quy ước Incremental ChangeSet:**
+  - Khi thêm tính năng hoặc chỉnh sửa DB sau v1.0.0, tạo file XML trong `db/changelogs/incremental/<YYYY>/YYYYMMDD-HHmmss-<mo_ta>.xml` và file SQL tương ứng trong `db/sqlFile/incremental/<YYYY>/YYYYMMDD-HHmmss-<mo_ta>.sql`.
+  - Master Changelog tự động quét và thực thi qua `<includeAll path="db/changelogs/incremental" />`.
+- **Quy ước Contexts:**
+  - `context="master-data"`: Dữ liệu nền tảng hệ thống bắt buộc (Permissions, Roles, Tax, Currencies...). Chạy trên mọi môi trường.
+  - `context="dev-seed"`: Dữ liệu mẫu (Khách sạn mẫu, phòng mẫu, menu demo...). Chỉ chạy trên Local/Dev/Staging.
 
 ---
 
-## 6. Phân Quyền & Bảo Mật (RBAC & Permissions)
+## 6. Phân Quyền & Bảo Mật (RBAC & Keycloak IAM)
 
-- Mọi endpoint tạo mới đều phải được khai báo quyền truy cập rõ ràng.
-- **Convention:** `ROLE_<MODULE>_<ACTION>` (viết hoa, phân cách bằng dấu gạch dưới `_`).
-  - `POST /api/v1/product/filter` ➔ `ROLE_PRODUCT_VIEW`
-  - `POST /api/v1/product/create` ➔ `ROLE_PRODUCT_CREATE`
-  - `PUT /api/v1/product/update/{id}` ➔ `ROLE_PRODUCT_UPDATE`
-  - `DELETE /api/v1/product/delete` ➔ `ROLE_PRODUCT_DELETE`
+- **Cơ chế xác thực:** Hệ thống sử dụng Keycloak OAuth2 Resource Server. `KeycloakJwtAuthenticationConverter` tự động trích xuất `realm_access.roles` thành các `GrantedAuthority` chuẩn `ROLE_<ROLE_NAME>`.
+- **Vai trò cấp cao (System Roles):**
+  - `ROLE_CHAIN_ADMIN`: Toàn quyền quản trị hệ thống và chuỗi khách sạn.
+  - `ROLE_REGION_MANAGER`: Giám đốc quản lý cụm khách sạn theo vùng.
+  - `ROLE_PROPERTY_MANAGER`: Tổng quản lý điều hành khách sạn cơ sở.
+  - `ROLE_RECEPTIONIST`: Nhân viên lễ tân tiếp nhận đặt phòng, check-in, check-out.
+  - `ROLE_HOUSEKEEPING`: Nhân viên buồng phòng cập nhật trạng thái dọn dẹp.
+  - `ROLE_CUSTOMER`: Khách hàng đặt phòng trực tuyến.
+- **Quyền hạn chi tiết (Granular Permissions):**
+  - Mọi endpoint tạo mới đều phải được khai báo quyền truy cập rõ ràng qua `@PreAuthorize("hasRole('ROLE_...')")` hoặc `@PreAuthorize("hasAuthority('ROLE_...')")`.
+  - **Convention:** `ROLE_<MODULE>_<ACTION>` (viết hoa, phân cách bằng dấu gạch dưới `_`).
+    - `POST /api/v1/product/filter` ➔ `ROLE_PRODUCT_VIEW`
+    - `POST /api/v1/product/create` ➔ `ROLE_PRODUCT_CREATE`
+    - `PUT /api/v1/product/update/{id}` ➔ `ROLE_PRODUCT_UPDATE`
+    - `DELETE /api/v1/product/delete` ➔ `ROLE_PRODUCT_DELETE`
 
 ---
 

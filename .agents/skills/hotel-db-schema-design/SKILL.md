@@ -7,22 +7,34 @@ description: Guidance for designing and modifying PostgreSQL database schemas, w
 
 This skill guides the design of database changes for the hotel booking system. It enforces the architectural decisions around sparse data storage, financial immutability, and concurrency control.
 
-## Schema Overview
+## Schema Overview & Liquibase Migration Architecture
 
-The database is initialized by 8 ordered SQL scripts in `./database/`:
+The database is managed and version-controlled by **Liquibase** located under `backend/src/main/resources/db/`:
 
-| Script | Purpose |
-|---|---|
-| `01-init-schema.sql` | All table definitions (CREATE TABLE) |
-| `02-functions-and-triggers.sql` | PostgreSQL functions + triggers |
-| `03-indexes-and-seed-data.sql` | Performance indexes |
-| `04-seed-data-global-master-data.sql` | Country, currency, tax, amenity master data |
-| `05-seed-data-organization-base.sql` | Hotel chain and hotel seed data |
-| `06-seed-data-catalog-and-room-configuration.sql` | Room type definitions |
-| `07-seed-data-inventory-mapping-intance.sql` | Room instance records |
-| `08-pricing-engine.sql` | Pricing rules and plans |
+```text
+backend/src/main/resources/db/
+├── db-changelog-root.xml                    # Master Entrypoint (include & includeAll)
+├── changelogs/                              # ChangeSet XMLs (Context, runOnChange, splitStatements)
+│   ├── 01-db-init-schema.xml                # Baseline 44 tables DDL
+│   ├── 02-db-functions-and-triggers.xml     # Functions, Triggers, btree_gist, exclusion constraints
+│   ├── 03-db-indexes.xml                    # Performance indexes
+│   ├── 04-db-master-data.xml                # System master data (context="master-data")
+│   ├── 05-db-dev-seed.xml                   # Sample demo data (context="dev-seed")
+│   └── incremental/<YYYY>/                  # Incremental XML ChangeSets
+└── sqlFile/                                 # Raw SQL migration files
+    ├── 01-init-schema.sql
+    ├── 02-functions-and-triggers.sql
+    ├── 03-indexes.sql
+    ├── 04-master-data.sql
+    ├── 05-dev-seed.sql
+    └── incremental/<YYYY>/                  # Incremental SQL scripts
+```
 
-**Rule**: Schema changes go into the correct numbered script. **Never** mix DDL and DML in the same script unless they are strongly related (e.g., adding a column and backfilling it).
+**Rule for new changes**:
+1. Create XML changeset in `db/changelogs/incremental/<YYYY>/<YYYYMMDD-HHmmss>-<feature>.xml`.
+2. Create raw SQL script in `db/sqlFile/incremental/<YYYY>/<YYYYMMDD-HHmmss>-<feature>.sql`.
+3. Root `db-changelog-root.xml` automatically picks up changes via `<includeAll path="db/changelogs/incremental" />`.
+4. **Never** mix DDL and DML in the same changeset unless strictly required for a column backfill.
 
 ## Core Design Principles
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="1.0.0-04-master-data" author="utc-hotel-team" context="master-data">
+        <comment>Khởi tạo Master Data toàn hệ thống: Permissions, Roles, Room Types, Room Beds, Room Features, Tax Categories, VAT Rules, Pricing/Discount Rule Types, Holidays</comment>
+        <sqlFile path="db/sqlFile/04-master-data.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

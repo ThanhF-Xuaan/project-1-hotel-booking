@@ -2,6 +2,7 @@
 
 ![Java](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.7-brightgreen?style=for-the-badge&logo=springboot)
+![Liquibase](https://img.shields.io/badge/Liquibase-4.x-2962FF?style=for-the-badge&logo=liquibase)
 ![React](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue?style=for-the-badge&logo=typescript)
 ![Vite](https://img.shields.io/badge/Vite-8.2-purple?style=for-the-badge&logo=vite)
@@ -11,7 +12,7 @@
 ![Keycloak](https://img.shields.io/badge/Keycloak-24.0.4-cyan?style=for-the-badge&logo=keycloak)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-2496ed?style=for-the-badge&logo=docker)
 
-Hệ thống Quản lý và Đặt phòng Khách sạn (Hotel Booking System) là một giải pháp Enterprise Full-stack hiện đại, hỗ trợ quản lý danh mục phòng, đặt phòng, tính giá linh hoạt (Pricing Engine), xác thực người dùng tập trung (IAM với Keycloak) và bộ nhớ đệm hiệu năng cao (Redis Cache).
+Hệ thống Quản lý và Đặt phòng Khách sạn (Hotel Booking System) là một giải pháp Enterprise Full-stack hiện đại, hỗ trợ quản lý danh mục phòng, đặt phòng, tính giá linh hoạt (Pricing Engine), xác thực người dùng tập trung (IAM với Keycloak), bộ nhớ đệm hiệu năng cao (Redis Cache) và quản lý phiên bản cơ sở dữ liệu tự động (Liquibase Database Migration).
 
 ---
 
@@ -26,7 +27,8 @@ Hệ thống Quản lý và Đặt phòng Khách sạn (Hotel Booking System) l�
     - [Cách 1: Khởi chạy toàn bộ bằng Docker Compose (Khuyên dùng)](#cách-1-khởi-chạy-toàn-bộ-bằng-docker-compose-khuyên-dùng)
     - [Cách 2: Chạy Môi Trường Cục Bộ (Local Development)](#cách-2-chạy-môi-trường-cục-bộ-local-development)
 - [Danh Sách Cổng & Dịch Vụ](#-danh-sách-cổng--dịch-vụ)
-- [Khởi Tạo Cơ Sở Dữ Liệu (Database Scripts)](#-khởi-tạo-cơ-sở-dữ-liệu-database-scripts)
+- [Quản Lý & Migration Cơ Sở Dữ Liệu (Liquibase)](#-quản-lý--migration-cơ-sở-dữ-liệu-liquibase)
+- [Định Danh & Phân Quyền (Keycloak IAM)](#-định-danh--phân-quyền-keycloak-iam)
 - [Lưu Ý & Khắc Phục Lỗi Thường Gặp](#-lưu-ý--khắc-phục-lỗi-thường-gặp)
 
 ---
@@ -36,7 +38,8 @@ Hệ thống Quản lý và Đặt phòng Khách sạn (Hotel Booking System) l�
 ### 🛠 Backend
 * **Java 21**: Ngôn ngữ lập trình chính, tận dụng các tính năng mới của JDK 21.
 * **Spring Boot 4.0.7**: Framework phát triển ứng dụng Java Backend.
-* **Spring Data JPA / Hibernate**: Quản lý truy vấn và tương tác với cơ sở dữ liệu PostgreSQL.
+* **Liquibase 4.x**: Quản lý phiên bản cơ sở dữ liệu tự động (Schema Versioning, ChangeSet Tracking, Context Isolation).
+* **Spring Data JPA / Hibernate**: Quản lý truy vấn và đối soát schema tự động với `ddl-auto: validate`.
 * **Spring Security & OAuth2 Resource Server**: Bảo mật ứng dụng, xác thực JWT Token được phát hành bởi Keycloak.
 * **Keycloak Admin Client**: Quản lý tài khoản, phân quyền và kết nối Keycloak IAM Server.
 * **SpringDoc OpenAPI 3 / Swagger UI**: Tự động sinh tài liệu API tương tác.
@@ -44,12 +47,12 @@ Hệ thống Quản lý và Đặt phòng Khách sạn (Hotel Booking System) l�
 
 ### 🎨 Frontend
 * **React 19**: Library xây dựng giao diện người dùng reactive.
-* **TypeScript**: Đảm bảo type-safety và nâng cao trải nghiệm phát triển.
-* **Vite 8**: Build tool siêu nhanh hỗ trợ HMR (Hot Module Replacement).
+* **TypeScript 6.0**: Đảm bảo type-safety và nâng cao trải nghiệm phát triển.
+* **Vite 8.2**: Build tool siêu nhanh hỗ trợ HMR (Hot Module Replacement).
 * **Tailwind CSS v4**: Utility-first CSS framework cho giao diện hiện đại, responsive.
 
 ### 🗄 Cơ Sở Dữ Liệu & Cache
-* **PostgreSQL 16**: Cơ sở dữ liệu quan hệ lưu trữ dữ liệu hệ thống, tích hợp các SQL scripts tự động khởi tạo dữ liệu master và động cơ tính giá (Pricing Engine).
+* **PostgreSQL 16**: Cơ sở dữ liệu quan hệ lưu trữ toàn bộ nghiệp vụ, tích hợp extension `btree_gist`, trigger tự động hóa và exclusion constraints.
 * **Redis 7**: Bộ nhớ đệm (In-memory caching) giúp tăng tốc độ truy vấn danh mục phòng và giá.
 
 ### 🔐 Định Danh & Bảo Mật (IAM)
@@ -65,22 +68,31 @@ Hệ thống Quản lý và Đặt phòng Khách sạn (Hotel Booking System) l�
 ```text
 hotel-booking-repo/
 ├── backend/                  # Mã nguồn Spring Boot Backend (Java 21)
-│   ├── src/                  # Controllers, Services, Repositories, Entities
+│   ├── src/main/java/        # Controllers, Services, Repositories, Entities
+│   ├── src/main/resources/
+│   │   ├── application.yaml  # Cấu hình Spring Boot & Liquibase
+│   │   └── db/               # Kiến trúc Liquibase Migration 3 tầng
+│   │       ├── db-changelog-root.xml        # Master Changelog điều phối
+│   │       ├── changelogs/                  # ChangeSet XMLs (Context, runOnChange, splitStatements)
+│   │       │   ├── 01-db-init-schema.xml    # Baseline 44 bảng DDL
+│   │       │   ├── 02-db-functions-and-triggers.xml
+│   │       │   ├── 03-db-indexes.xml
+│   │       │   ├── 04-db-master-data.xml    # context="master-data"
+│   │       │   ├── 05-db-dev-seed.xml       # context="dev-seed"
+│   │       │   └── incremental/             # ChangeSets phát sinh trong tương lai
+│   │       └── sqlFile/                     # File mã nguồn SQL thuần
+│   │           ├── 01-init-schema.sql
+│   │           ├── 02-functions-and-triggers.sql
+│   │           ├── 03-indexes.sql
+│   │           ├── 04-master-data.sql
+│   │           ├── 05-dev-seed.sql
+│   │           └── incremental/             # SQL scripts phục vụ incremental
 │   ├── Dockerfile            # Cấu hình đóng gói Docker image cho Backend
 │   └── pom.xml               # Quản lý dependencies Maven
 ├── frontend/                 # Mã nguồn React Frontend (TypeScript + Vite)
 │   ├── src/                  # React components, pages, hooks, styles
 │   ├── Dockerfile            # Cấu hình đóng gói Docker image cho Frontend
 │   └── package.json          # Quản lý npm packages
-├── database/                 # Thư mục SQL scripts khởi tạo PostgreSQL DB
-│   ├── 01-init-schema.sql
-│   ├── 02-functions-and-triggers.sql
-│   ├── 03-indexes-and-seed-data.sql
-│   ├── 04-seed-data-global-master-data.sql
-│   ├── 05-seed-data-organization-base.sql
-│   ├── 06-seed-data-catalog-and-room-configuration.sql
-│   ├── 07-seed-data-inventory-mapping-intance.sql
-│   └── 08-pricing-engine.sql
 ├── .env-example              # Mẫu tệp biến môi trường hệ thống
 ├── docker-compose.yml        # Định nghĩa các dịch vụ Docker (DB, Redis, Keycloak, Backend, Frontend)
 └── README.md                 # Tài liệu hướng dẫn dự án
@@ -92,10 +104,10 @@ hotel-booking-repo/
 
 Trước khi khởi chạy dự án, hãy đảm bảo máy tính của bạn đã cài đặt:
 
-1. **Git**: Dùng để quản lý mã nguồn.
-2. **Docker & Docker Desktop** (Bao gồm Docker Compose v2+): *(Khuyên dùng để khởi chạy dự án nhanh nhất)*.
-3. **JDK 21** và **Maven 3.8+**: *(Chỉ cần thiết nếu bạn muốn chạy/debug Backend cục bộ không qua Docker)*.
-4. **Node.js (v18+)** và **npm (v9+)**: *(Chỉ cần thiết nếu bạn muốn chạy Frontend cục bộ không qua Docker)*.
+1. **Git**: Quản lý mã nguồn.
+2. **Docker & Docker Desktop** (Bao gồm Docker Compose v2+): *(Khuyên dùng để khởi chạy toàn bộ hệ thống nhanh nhất)*.
+3. **JDK 21** và **Maven 3.8+**: *(Cần thiết khi chạy/debug Backend cục bộ)*.
+4. **Node.js (v20.19+ hoặc v22 LTS)** và **npm (v9+)**: *(Cần thiết khi chạy Frontend cục bộ)*.
 
 ---
 
@@ -128,6 +140,43 @@ Tạo file `.env` từ file mẫu `.env-example` ở thư mục gốc:
   copy .env-example .env
   ```
 
+*Nội dung cấu hình biến môi trường chuẩn:*
+```properties
+# Cơ sở dữ liệu PostgreSQL 16
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=hotel_booking_db
+DB_USER=postgres
+DB_PASSWORD=123456
+
+# Liquibase Database Migration
+SPRING_LIQUIBASE_ENABLED=true
+LIQUIBASE_CONTEXTS=master-data,dev-seed
+
+# Redis Cache 7
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Keycloak IAM 24
+KEYCLOAK_PORT=8081
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
+KEYCLOAK_REALM=hotel-realm
+KEYCLOAK_CLIENT_ID=hotel-frontend
+KEYCLOAK_ISSUER_URI=http://localhost:8081/realms/hotel-realm
+KEYCLOAK_JWK_SET_URI=http://localhost:8081/realms/hotel-realm/protocol/openid-connect/certs
+
+# Application Ports
+BACKEND_PORT=8080
+FRONTEND_PORT=3000
+
+# Frontend React / Vite
+VITE_API_BASE_URL=http://localhost:8080/api
+VITE_KEYCLOAK_URL=http://localhost:8081
+VITE_KEYCLOAK_REALM=hotel-realm
+VITE_KEYCLOAK_CLIENT_ID=hotel-frontend
+```
+
 #### 2. Cấu hình biến môi trường Frontend (`frontend/.env`):
 Tạo file `.env` cho thư mục `frontend`:
 
@@ -150,7 +199,7 @@ Bạn có thể lựa chọn 1 trong 2 cách triển khai bên dưới:
 
 #### Cách 1: Khởi chạy toàn bộ bằng Docker Compose (Khuyên dùng)
 
-Cách này sẽ tự động tải, build và khởi chạy tất cả 5 dịch vụ (PostgreSQL, Redis, Keycloak, Backend, Frontend) trong các Docker Containers.
+Cách này sẽ tự động tải, build và khởi chạy tất cả 5 dịch vụ (PostgreSQL, Redis, Keycloak, Backend, Frontend) trong các Docker Containers. Spring Boot Backend sẽ tự động chạy Liquibase Migration khi kết nối tới PostgreSQL.
 
 1. **Khởi chạy hệ thống:**
    ```bash
@@ -168,10 +217,9 @@ Cách này sẽ tự động tải, build và khởi chạy tất cả 5 dịch 
      ```bash
      docker compose logs -f
      ```
-   * Xem log cụ thể từng dịch vụ (ví dụ Backend hoặc Keycloak):
+   * Xem log chi tiết của Backend (quá trình Liquibase migration):
      ```bash
      docker compose logs -f backend
-     docker compose logs -f keycloak
      ```
 
 4. **Dừng toàn bộ hệ thống:**
@@ -191,11 +239,11 @@ docker compose up -d postgres_db redis keycloak
 ```
 
 ##### 🔹 3.2. Khởi chạy Backend (Spring Boot)
-1. Di chuyển vào thư mục backend:
+1. Di chuyển vào thư mục `backend`:
    ```bash
    cd backend
    ```
-2. Khởi chạy dự án:
+2. Khởi chạy ứng dụng:
    * **Windows:**
      ```powershell
      .\mvnw.cmd spring-boot:run
@@ -204,10 +252,10 @@ docker compose up -d postgres_db redis keycloak
      ```bash
      ./mvnw spring-boot:run
      ```
-   *(Backend sẽ chạy tại `http://localhost:8080`)*
+   *(Khi Backend khởi động, Liquibase sẽ tự động áp dụng các ChangeSets vào database `hotel_booking_db`)*.
 
 ##### 🔹 3.3. Khởi chạy Frontend (React + Vite)
-1. Di chuyển vào thư mục frontend (từ thư mục gốc):
+1. Di chuyển vào thư mục `frontend` (từ thư mục gốc):
    ```bash
    cd frontend
    ```
@@ -219,7 +267,7 @@ docker compose up -d postgres_db redis keycloak
    ```bash
    npm run dev
    ```
-   *(Frontend Local Dev sẽ chạy tại `http://localhost:5173` hoặc `http://localhost:3000`)*
+   *(Frontend Local Dev sẽ chạy tại `http://localhost:5173`)*.
 
 ---
 
@@ -229,27 +277,78 @@ Sau khi khởi chạy thành công, các dịch vụ sẽ hoạt động tại c
 
 | Dịch vụ | Địa chỉ Web / Endpoint | Tài khoản mặc định / Ghi chú |
 | :--- | :--- | :--- |
-| **Frontend Web App** | `http://localhost:3000` (Docker) / `http://localhost:5173` (Local Dev) | Giao diện cho khách hàng & Admin |
+| **Frontend Web App** | `http://localhost:3000` (Docker) / `http://localhost:5173` (Local Dev) | Giao diện cho khách hàng & Quản trị viên |
 | **Backend REST API** | `http://localhost:8080/api` | Spring Boot API Service |
-| **Swagger UI (API Docs)** | `http://localhost:8080/swagger-ui.html` | Tài liệu API tương tác |
+| **Swagger UI (API Docs)** | `http://localhost:8080/swagger-ui.html` | Tài liệu API tương tác SpringDoc |
 | **Keycloak Admin Console** | `http://localhost:8081` | **User:** `admin` \| **Pass:** `admin` |
 | **PostgreSQL Database** | `localhost:5433` | **DB Name:** `hotel_booking_db` \| **User:** `postgres` \| **Pass:** `123456` |
 | **Redis Cache** | `localhost:6379` | In-memory Data Store |
+| **Liquibase Runner** | Container `hotel_liquibase` | Tự động chạy migration khi khởi động rồi kết thúc (`exit 0`) |
 
 ---
 
-## 🗃 Khởi Tạo Cơ Sở Dữ Liệu (Database Scripts)
+## 🗃 Quản Lý & Migration Cơ Sở Dữ Liệu (Liquibase)
 
-Khi container `postgres_db` khởi chạy lần đầu tiên, Docker sẽ tự động nạp và thực thi theo thứ tự các script SQL nằm trong thư mục `./database`:
+Hệ thống sử dụng **Liquibase 4.x chạy qua Docker Container độc lập** (`liquibase/liquibase:4.31-alpine`) để quản lý phiên bản cơ sở dữ liệu tự động trước khi Backend khởi chạy, loại bỏ hoàn toàn rủi ro Schema Drift.
 
-1. `01-init-schema.sql`: Khởi tạo cấu trúc các bảng dữ liệu (Users, Hotels, Rooms, Bookings, Payment, v.v.).
-2. `02-functions-and-triggers.sql`: Định nghĩa các Hàm (Functions) và Trigger tự động hóa.
-3. `03-indexes-and-seed-data.sql`: Đánh chỉ mục (Indexes) tăng tốc độ truy vấn.
-4. `04-seed-data-global-master-data.sql`: Nạp dữ liệu danh mục tĩnh toàn cục.
-5. `05-seed-data-organization-base.sql`: Nạp dữ liệu cơ sở tổ chức & chuỗi khách sạn.
-6. `06-seed-data-catalog-and-room-configuration.sql`: Nạp dữ liệu mẫu về hạng phòng và cấu hình phòng.
-7. `07-seed-data-inventory-mapping-intance.sql`: Quản lý tình trạng phòng khả dụng và tồn kho phòng.
-8. `08-pricing-engine.sql`: Cấu hình quy tắc tính giá phòng động và chính sách ưu đãi.
+### 1. Kiến trúc 3 tầng quản lý:
+* **Root Entrypoint ([`db-changelog-root.xml`](file:///backend/src/main/resources/db/db-changelog-root.xml)):** Điều phối thứ tự nạp các ChangeSet và tự động quét các migration mới qua `<includeAll path="db/changelogs/incremental" />`.
+* **ChangeSet XMLs ([`changelogs/`](file:///backend/src/main/resources/db/changelogs/)):** Quản lý phiên bản, Contexts, điều khiển `runOnChange="true"` cho functions/triggers và `splitStatements="false"` cho khối lệnh PL/pgSQL.
+* **Raw SQL Scripts ([`sqlFile/`](file:///backend/src/main/resources/db/sqlFile/)):** Chứa toàn bộ câu lệnh DDL, Functions, Indexes và Data Scripts thuần túy.
+
+### 2. Phân tách Liquibase Contexts:
+* `master-data`: Dữ liệu bắt buộc hệ thống (Roles, Permissions, Thuế, Tiền tệ...) — được kích hoạt trên **mọi môi trường** (Dev, Staging, Production).
+* `dev-seed`: Dữ liệu mẫu (Khách sạn mẫu, phòng mẫu, menu món ăn...) — **chỉ kích hoạt trên môi trường Dev / Local**.
+
+### 3. Thực thi Lệnh Liquibase CLI qua Docker (Ad-hoc Commands):
+Bạn có thể thực hiện mọi thao tác quản trị database bằng Liquibase trực tiếp qua Docker mà **không cần cài đặt Liquibase trên máy trạm**:
+* **Kiểm tra trạng thái migration:**
+  ```powershell
+  docker compose run --rm liquibase status
+  ```
+* **Xem lịch sử các ChangeSet đã chạy:**
+  ```powershell
+  docker compose run --rm liquibase history
+  ```
+* **Chạy cập nhật migration mới:**
+  ```powershell
+  docker compose run --rm liquibase update
+  ```
+
+### 4. Quy trình thêm Migration mới (Incremental Migration):
+Khi phát triển tính năng mới cần thay đổi DB:
+1. Tạo file XML trong `backend/src/main/resources/db/changelogs/incremental/<YYYY>/YYYYMMDD-HHmmss-<mo_ta>.xml`.
+2. Tạo file SQL tương ứng trong `backend/src/main/resources/db/sqlFile/incremental/<YYYY>/YYYYMMDD-HHmmss-<mo_ta>.sql`.
+3. Khởi động lại hệ thống — Container Liquibase sẽ tự động phát hiện, áp dụng và ghi nhận vào bảng `databasechangelog`.
+
+---
+
+## 🔐 Định Danh & Phân Quyền (Keycloak IAM)
+
+Hệ thống sử dụng **Keycloak 24.0.4 chạy thuần Docker** để quản lý định danh và phân quyền tập trung (RBAC).
+
+### 1. Cơ chế Declarative Auto-Import:
+* Khi khởi động, Keycloak tự động nạp cấu hình Realm `hotel-realm`, Clients (`hotel-frontend`, `hotel-backend`), Roles và Users mẫu từ tệp [`keycloak/realm-export.json`](file:///keycloak/realm-export.json).
+* Dữ liệu runtime được lưu trữ an toàn trong Docker Volume `keycloak_data`.
+
+### 2. Danh sách Tài khoản & Mật khẩu Mặc định:
+> **Mật khẩu chung cho tất cả tài khoản mẫu:** `123456`
+
+| Username | Email | Họ & Tên | Role (Quyền hạn) | Chức năng chính |
+| :--- | :--- | :--- | :--- | :--- |
+| **`admin`** | `admin@hotel.utc.edu.vn` | System Admin | `CHAIN_ADMIN` | Quản trị toàn chuỗi khách sạn |
+| **`manager_hn`** | `manager.hn@hotel.utc.edu.vn` | Manager Hà Nội | `PROPERTY_MANAGER` | Quản trị khách sạn cơ sở |
+| **`reception_hn`** | `reception.hn@hotel.utc.edu.vn` | Lễ Tân Hà Nội | `RECEPTIONIST` | Tiếp nhận đặt phòng, check-in |
+| **`housekeeping_hn`** | `housekeeping.hn@hotel.utc.edu.vn` | Buồng Phòng Hà Nội | `HOUSEKEEPING` | Cập nhật tình trạng phòng |
+| **`customer1`** | `customer1@gmail.com` | Nguyễn Văn An | `CUSTOMER` | Khách hàng đặt phòng |
+
+### 3. Hướng dẫn Force Re-import Cấu hình Keycloak:
+Khi bạn cập nhật file `keycloak/realm-export.json` (thêm Role hoặc Client mới), hãy chạy lệnh sau để ép Keycloak nạp lại cấu hình:
+```powershell
+docker compose rm -s -v -f keycloak
+docker volume rm hotel-booking-repo_keycloak_data
+docker compose up -d keycloak
+```
 
 ---
 
@@ -257,16 +356,15 @@ Khi container `postgres_db` khởi chạy lần đầu tiên, Docker sẽ tự �
 
 1. **Xung đột cổng (Port In Use):**
    * Đảm bảo các cổng `3000`, `5433`, `6379`, `8080`, `8081` trên máy bạn chưa bị chiếm dụng bởi ứng dụng khác.
-2. **Backend không kết nối được Cơ sở dữ liệu hoặc Keycloak:**
-   * Nếu chạy qua Docker, cấu hình `depends_on` với `healthcheck` đã đảm bảo DB và Redis sẵn sàng trước khi Backend khởi chạy.
-   * Nếu chạy Local Dev, hãy chắc chắn bạn đã khởi chạy `postgres_db`, `redis`, và `keycloak` thành công trước khi chạy `mvnw spring-boot:run`.
-3. **Reset hoàn toàn Cơ sở dữ liệu (Clean Reset):**
-   * Nếu bạn muốn xóa toàn bộ dữ liệu DB hiện tại và chạy lại toàn bộ SQL Scripts từ đầu:
+2. **Backend báo lỗi ddl-auto validate mismatch:**
+   * Hãy chắc chắn rằng bạn đã định nghĩa đúng kiểu dữ liệu trong Java Entity khớp với cột trong bảng DB tương ứng.
+3. **Reset hoàn toàn Hệ thống (Clean Reset):**
+   * Nếu bạn muốn xóa toàn bộ dữ liệu (PostgreSQL, Redis, Keycloak) và khởi tạo lại sạch sẽ từ đầu:
      ```bash
      docker compose down -v
      docker compose up -d --build
      ```
-     *(Lệnh `-v` sẽ xóa các Docker Volumes `pg_data` và `redis_data`)*.
+     *(Cờ `-v` sẽ xóa sạch toàn bộ Docker Volumes `pg_data`, `redis_data` và `keycloak_data`)*.
 
 ---
 
