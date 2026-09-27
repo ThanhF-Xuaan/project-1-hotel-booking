@@ -14,6 +14,9 @@ import java.time.OffsetDateTime;
 @MappedSuperclass
 public abstract class BaseEntity {
 
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 3000
 
 # Khởi động Vite ở chế độ Development (Hỗ trợ Hot-reload)
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "npm install && npm run dev"]
