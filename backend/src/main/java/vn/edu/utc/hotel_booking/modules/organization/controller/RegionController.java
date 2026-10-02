@@ -26,7 +26,7 @@ public class RegionController {
     private final RegionService regionService;
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER')")
     @Operation(summary = "Tìm kiếm và phân trang khu vực")
     public ApiResponse<PageResponse<RegionResponse>> filter(@RequestBody @Valid RegionSearchDto searchDto) {
         return ApiResponse.<PageResponse<RegionResponse>>builder()
@@ -37,7 +37,7 @@ public class RegionController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER')")
     @Operation(summary = "Lấy chi tiết một khu vực theo ID")
     public ApiResponse<RegionResponse> getById(@PathVariable Short id) {
         return ApiResponse.<RegionResponse>builder()
@@ -63,7 +63,7 @@ public class RegionController {
     @PreAuthorize("hasRole('CHAIN_ADMIN')")
     @Operation(summary = "Cập nhật thông tin khu vực (Chỉ Chain Admin)")
     public ApiResponse<RegionResponse> update(@PathVariable Short id,
-                                             @RequestBody @Valid RegionUpdateRequest request) {
+                                              @RequestBody @Valid RegionUpdateRequest request) {
         return ApiResponse.<RegionResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Cập nhật khu vực thành công")

@@ -27,7 +27,7 @@ public class DashboardController {
     DashboardService dashboardService;
 
     @GetMapping("/kpis")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Lấy các chỉ số KPI điều hành (OCC %, ADR, RevPAR, Doanh thu & Luồng khách hôm nay)")
     public ApiResponse<DashboardKpiResponse> getExecutiveKpis(
             @RequestParam Short hotelId,
@@ -37,7 +37,7 @@ public class DashboardController {
     }
 
     @GetMapping("/revenue-trends")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Lấy dữ liệu xu hướng doanh thu theo chu kỳ ngày")
     public ApiResponse<List<RevenueTrendDto>> getRevenueTrends(
             @RequestParam Short hotelId,
@@ -48,7 +48,7 @@ public class DashboardController {
     }
 
     @GetMapping("/occupancy-trends")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Lấy dữ liệu xu hướng tỷ lệ lấp đầy phòng (Occupancy Rate %)")
     public ApiResponse<List<OccupancyTrendDto>> getOccupancyTrends(
             @RequestParam Short hotelId,

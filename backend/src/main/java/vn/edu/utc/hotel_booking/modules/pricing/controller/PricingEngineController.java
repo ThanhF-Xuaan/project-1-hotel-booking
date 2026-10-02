@@ -27,7 +27,7 @@ public class PricingEngineController {
     PriceEngine priceEngine;
 
     @PostMapping("/calculate")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Tính toán báo giá chi tiết (Price Breakdown) cho loại phòng theo ngày và lượng khách")
     public ResponseEntity<ApiResponse<PriceBreakdownDto>> calculatePrice(
             @Valid @RequestBody PriceCalculationRequest request) {

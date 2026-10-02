@@ -8,6 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
@@ -21,6 +23,7 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.StaffMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.RoleRepository;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
+import vn.edu.utc.hotel_booking.modules.identity.service.KeycloakService;
 import vn.edu.utc.hotel_booking.modules.identity.service.StaffService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Department;
 import vn.edu.utc.hotel_booking.modules.organization.repository.DepartmentRepository;
@@ -28,6 +31,7 @@ import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 import vn.edu.utc.hotel_booking.modules.organization.repository.RegionRepository;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -42,6 +46,7 @@ public class StaffServiceImpl implements StaffService {
     private final RegionRepository regionRepository;
     private final HotelRepository hotelRepository;
     private final StaffMapper staffMapper;
+    private final KeycloakService keycloakService;
 
     @Override
     public PageResponse<StaffResponse> filter(StaffSearchDto searchDto) {
@@ -105,7 +110,19 @@ public class StaffServiceImpl implements StaffService {
         Role role = roleRepository.findByIdAndIsDeletedFalse(request.getRoleId())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
+        // 1. Create User on Keycloak IAM first
+        UUID keycloakId = keycloakService.createUser(
+                username,
+                request.getEmail(),
+                request.getFirstName(),
+                request.getLastName(),
+                role.getCode(),
+                request.getPassword()
+        );
+
+        // 2. Map and persist to local Database with compensating transaction
         Staff staff = staffMapper.toEntity(request);
+        staff.setKeycloakId(keycloakId);
         staff.setRole(role);
         staff.setUsername(username);
         staff.setFirstName(request.getFirstName().trim());
@@ -114,8 +131,20 @@ public class StaffServiceImpl implements StaffService {
 
         validateAndApplyScope(staff, request.getScopeType().trim().toUpperCase(), request.getScopeEntityId(), request.getDepartmentId());
 
-        Staff saved = staffRepository.save(staff);
-        log.info("Đã tạo mới nhân viên: username={}, id={}, scope={}", saved.getUsername(), saved.getId(), saved.getScopeType());
+        Staff saved;
+        try {
+            saved = staffRepository.save(staff);
+        } catch (Exception e) {
+            log.error("Failed to persist staff to database after Keycloak creation. Triggering compensating delete: keycloakId={}", keycloakId, e);
+            try {
+                keycloakService.deleteUser(keycloakId);
+            } catch (Exception ex) {
+                log.error("CRITICAL: Failed to rollback user on Keycloak: keycloakId={}", keycloakId, ex);
+            }
+            throw e;
+        }
+
+        log.info("Đã tạo mới nhân viên: username={}, id={}, keycloakId={}, scope={}", saved.getUsername(), saved.getId(), keycloakId, saved.getScopeType());
         return staffMapper.toResponse(saved);
     }
 
@@ -141,8 +170,9 @@ public class StaffServiceImpl implements StaffService {
             staff.setPhone(phone);
         }
 
+        Role role = null;
         if (request.getRoleId() != null) {
-            Role role = roleRepository.findByIdAndIsDeletedFalse(request.getRoleId())
+            role = roleRepository.findByIdAndIsDeletedFalse(request.getRoleId())
                     .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
             staff.setRole(role);
         }
@@ -163,8 +193,21 @@ public class StaffServiceImpl implements StaffService {
 
         validateAndApplyScope(staff, scopeType, scopeEntityId, departmentId);
 
+        // Sync updates with Keycloak IAM
+        Boolean enabled = request.getStatus() != null ? "ACTIVE".equalsIgnoreCase(request.getStatus()) : null;
+        String roleCode = role != null ? role.getCode() : (staff.getRole() != null ? staff.getRole().getCode() : null);
+        keycloakService.updateUser(
+                staff.getKeycloakId(),
+                request.getEmail(),
+                request.getFirstName(),
+                request.getLastName(),
+                roleCode,
+                request.getPassword(),
+                enabled
+        );
+
         Staff updated = staffRepository.save(staff);
-        log.info("Đã cập nhật nhân viên: id={}, username={}", updated.getId(), updated.getUsername());
+        log.info("Đã cập nhật nhân viên: id={}, username={}, keycloakId={}", updated.getId(), updated.getUsername(), updated.getKeycloakId());
         return staffMapper.toResponse(updated);
     }
 
@@ -174,8 +217,29 @@ public class StaffServiceImpl implements StaffService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
+
+        List<UUID> keycloakIds = staffRepository.findAllById(ids).stream()
+                .filter(s -> !Boolean.TRUE.equals(s.getIsDeleted()))
+                .map(Staff::getKeycloakId)
+                .filter(Objects::nonNull)
+                .toList();
+
         int count = staffRepository.softDeleteBatch(ids);
         log.info("Đã xóa mềm {} nhân viên với danh sách IDs: {}", count, ids);
+
+        if (!keycloakIds.isEmpty()) {
+            if (TransactionSynchronizationManager.isActualTransactionActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        log.info("Transaction committed successfully. Triggering async Keycloak disable & logout for {} users", keycloakIds.size());
+                        keycloakService.asyncDisableAndLogoutUsers(keycloakIds);
+                    }
+                });
+            } else {
+                keycloakService.asyncDisableAndLogoutUsers(keycloakIds);
+            }
+        }
     }
 
     private void validateAndApplyScope(Staff staff, String scopeType, Integer scopeEntityId, Short departmentId) {

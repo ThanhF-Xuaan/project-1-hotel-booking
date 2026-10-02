@@ -19,6 +19,10 @@
   "roles": {
     "realm": [
       {
+        "name": "CHAIN_EXECUTIVE",
+        "description": "Ban Điều hành Chuỗi — Xem báo cáo toàn chuỗi, phê duyệt chính sách"
+      },
+      {
         "name": "CHAIN_ADMIN",
         "description": "Quản trị viên toàn chuỗi khách sạn"
       },
@@ -35,18 +39,28 @@
         "description": "Nhân viên lễ tân tiền sảnh"
       },
       {
+        "name": "SALES_GROUP",
+        "description": "Kinh doanh Đoàn/Doanh nghiệp"
+      },
+      {
         "name": "HOUSEKEEPING",
         "description": "Nhân viên buồng phòng"
       },
       {
-        "name": "CUSTOMER",
-        "description": "Khách hàng cá nhân / Khách đặt phòng"
+        "name": "F_AND_B",
+        "description": "Bộ phận Ẩm thực & Dịch vụ (F&B)"
+      },
+      {
+        "name": "ENGINEERING",
+        "description": "Kỹ thuật & Bảo trì"
+      },
+      {
+        "name": "FINANCE",
+        "description": "Tài chính & Kế toán"
       }
     ]
   },
-  "defaultRoles": [
-    "CUSTOMER"
-  ],
+  "defaultRoles": [],
   "clients": [
     {
       "clientId": "hotel-frontend",
@@ -98,6 +112,7 @@
       "firstName": "System",
       "lastName": "Admin",
       "emailVerified": true,
+      "requiredActions": [],
       "credentials": [
         {
           "type": "password",
@@ -111,12 +126,53 @@
     },
     {
       "id": "10000000-0000-0000-0000-000000000002",
+      "username": "executive",
+      "enabled": true,
+      "email": "executive@hotel.utc.edu.vn",
+      "firstName": "Ban Điều Hành",
+      "lastName": "Chuỗi",
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CHAIN_EXECUTIVE"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000003",
+      "username": "region_north",
+      "enabled": true,
+      "email": "region.north@hotel.utc.edu.vn",
+      "firstName": "Giám Đốc Vùng",
+      "lastName": "Miền Bắc",
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "REGION_MANAGER"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000004",
       "username": "manager_hn",
       "enabled": true,
       "email": "manager.hn@hotel.utc.edu.vn",
       "firstName": "Manager",
       "lastName": "Hà Nội",
       "emailVerified": true,
+      "requiredActions": [],
       "credentials": [
         {
           "type": "password",
@@ -129,13 +185,14 @@
       ]
     },
     {
-      "id": "10000000-0000-0000-0000-000000000003",
+      "id": "10000000-0000-0000-0000-000000000005",
       "username": "reception_hn",
       "enabled": true,
       "email": "reception.hn@hotel.utc.edu.vn",
       "firstName": "Lễ Tân",
       "lastName": "Hà Nội",
       "emailVerified": true,
+      "requiredActions": [],
       "credentials": [
         {
           "type": "password",
@@ -148,13 +205,34 @@
       ]
     },
     {
-      "id": "10000000-0000-0000-0000-000000000004",
+      "id": "10000000-0000-0000-0000-000000000006",
+      "username": "sales_hn",
+      "enabled": true,
+      "email": "sales.hn@hotel.utc.edu.vn",
+      "firstName": "Kinh Doanh Đoàn",
+      "lastName": "Hà Nội",
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "SALES_GROUP"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000007",
       "username": "housekeeping_hn",
       "enabled": true,
       "email": "housekeeping.hn@hotel.utc.edu.vn",
       "firstName": "Buồng Phòng",
       "lastName": "Hà Nội",
       "emailVerified": true,
+      "requiredActions": [],
       "credentials": [
         {
           "type": "password",
@@ -167,13 +245,14 @@
       ]
     },
     {
-      "id": "10000000-0000-0000-0000-000000000005",
-      "username": "customer1",
+      "id": "10000000-0000-0000-0000-000000000008",
+      "username": "fnb_hn",
       "enabled": true,
-      "email": "customer1@gmail.com",
-      "firstName": "Nguyễn Văn",
-      "lastName": "An",
+      "email": "fnb.hn@hotel.utc.edu.vn",
+      "firstName": "Am Thuc FnB",
+      "lastName": "Hà Nội",
       "emailVerified": true,
+      "requiredActions": [],
       "credentials": [
         {
           "type": "password",
@@ -182,7 +261,47 @@
         }
       ],
       "realmRoles": [
-        "CUSTOMER"
+        "F_AND_B"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000009",
+      "username": "engineering_hn",
+      "enabled": true,
+      "email": "engineering.hn@hotel.utc.edu.vn",
+      "firstName": "Kỹ Thuật Bảo Trì",
+      "lastName": "Hà Nội",
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "ENGINEERING"
+      ]
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000010",
+      "username": "finance_hn",
+      "enabled": true,
+      "email": "finance.hn@hotel.utc.edu.vn",
+      "firstName": "Kế Toán Tài Chính",
+      "lastName": "Hà Nội",
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "123456",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "FINANCE"
       ]
     }
   ]

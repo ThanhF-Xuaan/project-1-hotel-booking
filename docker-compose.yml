@@ -108,7 +108,7 @@ services:
       SPRING_LIQUIBASE_ENABLED: "false" # Đã chạy qua Liquibase Runner container chuyên dụng
       SPRING_REDIS_HOST: redis
       # Cấu hình mạng nội bộ cho Keycloak
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/hotel-realm
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8081/realms/hotel-realm
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hotel-realm/protocol/openid-connect/certs
     depends_on:
       postgres_db:

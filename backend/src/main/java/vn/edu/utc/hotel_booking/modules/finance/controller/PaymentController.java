@@ -30,42 +30,42 @@ public class PaymentController {
 
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Tạo mới giao dịch thanh toán")
     public ApiResponse<PaymentResponse> createPayment(@Valid @RequestBody PaymentCreateRequest request) {
         return ApiResponse.success("Tạo thanh toán thành công", paymentService.createPayment(request));
     }
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Tìm kiếm và phân trang lịch sử thanh toán")
     public ApiResponse<PageResponse<PaymentResponse>> filter(@RequestBody PaymentSearchDto searchDto) {
         return ApiResponse.success(paymentService.filter(searchDto));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Lấy chi tiết thanh toán theo ID")
     public ApiResponse<PaymentResponse> getById(@PathVariable Long id) {
         return ApiResponse.success(paymentService.getById(id));
     }
 
     @GetMapping("/booking/{bookingId}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Lấy danh sách các khoản thanh toán của đơn đặt phòng")
     public ApiResponse<List<PaymentResponse>> getByBookingId(@PathVariable Long bookingId) {
         return ApiResponse.success(paymentService.getByBookingId(bookingId));
     }
 
     @PostMapping("/{id}/complete")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Xác nhận hoàn tất thanh toán thành công")
     public ApiResponse<PaymentResponse> completePayment(@PathVariable Long id) {
         return ApiResponse.success("Xác nhận thanh toán thành công", paymentService.completePayment(id));
     }
 
     @PostMapping("/{id}/refund")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Hoàn trả tiền thanh toán (Refund)")
     public ApiResponse<PaymentResponse> refundPayment(
             @PathVariable Long id,

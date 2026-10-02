@@ -27,35 +27,35 @@ public class BookingController {
 
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
-    @Operation(summary = "Tạo mới đơn đặt phòng (Hỗ trợ cả online booking và walk-in)")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
+    @Operation(summary = "Tạo mới đơn đặt phòng (Hỗ trợ cả nội bộ, sales đoàn và walk-in)")
     public ApiResponse<BookingResponse> createBooking(@Valid @RequestBody BookingCreateRequest request) {
         return ApiResponse.success("Tạo đơn đặt phòng thành công", bookingService.createBooking(request));
     }
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
     @Operation(summary = "Tìm kiếm và phân trang đơn đặt phòng (POST Search DTO)")
     public ApiResponse<PageResponse<BookingResponse>> filter(@RequestBody BookingSearchDto searchDto) {
         return ApiResponse.success(bookingService.filter(searchDto));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
     @Operation(summary = "Lấy chi tiết đơn đặt phòng theo ID")
     public ApiResponse<BookingResponse> getById(@PathVariable Long id) {
         return ApiResponse.success(bookingService.getById(id));
     }
 
     @GetMapping("/number/{bookingNumber}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
     @Operation(summary = "Tra cứu đơn đặt phòng theo mã booking")
     public ApiResponse<BookingResponse> getByBookingNumber(@PathVariable String bookingNumber) {
         return ApiResponse.success(bookingService.getByBookingNumber(bookingNumber));
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Cập nhật trạng thái đơn đặt phòng (Hủy / No-show)")
     public ApiResponse<BookingResponse> updateStatus(
             @PathVariable Long id,
@@ -65,7 +65,7 @@ public class BookingController {
     }
 
     @PostMapping("/rooms/{bookingRoomId}/assign")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Xếp phòng vật lý cho phòng đặt (Physical Room Assignment)")
     public ApiResponse<BookingResponse> assignRoom(
             @PathVariable Long bookingRoomId,
@@ -77,8 +77,8 @@ public class BookingController {
 
     @PostMapping("/rooms/{bookingRoomId}/charges")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
-    @Operation(summary = "Thêm phụ phí (Early check-in, late check-out, minibar, hỏng hóc)")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B')")
+    @Operation(summary = "Thêm phụ phí (Early check-in, late check-out, minibar, F&B, hỏng hóc)")
     public ApiResponse<BookingChargeResponse> addCharge(
             @PathVariable Long bookingRoomId,
             @Valid @RequestBody BookingChargeCreateRequest request
@@ -87,14 +87,14 @@ public class BookingController {
     }
 
     @PostMapping("/rooms/{bookingRoomId}/check-in")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Thực hiện Check-in nhận phòng")
     public ApiResponse<BookingResponse> checkIn(@PathVariable Long bookingRoomId) {
         return ApiResponse.success("Check-in nhận phòng thành công", bookingService.checkIn(bookingRoomId));
     }
 
     @PostMapping("/rooms/{bookingRoomId}/check-out")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Thực hiện Check-out trả phòng")
     public ApiResponse<BookingResponse> checkOut(@PathVariable Long bookingRoomId) {
         return ApiResponse.success("Check-out trả phòng thành công", bookingService.checkOut(bookingRoomId));

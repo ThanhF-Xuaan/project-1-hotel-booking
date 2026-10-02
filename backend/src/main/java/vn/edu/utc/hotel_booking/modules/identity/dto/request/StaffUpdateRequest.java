@@ -43,4 +43,8 @@ public class StaffUpdateRequest {
 
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
+
+    @Schema(description = "Mật khẩu mới (Nếu muốn đổi mật khẩu trên Keycloak)", example = "NewSecret@123")
+    @Size(min = 6, message = "Mật khẩu phải có tối thiểu 6 ký tự")
+    String password;
 }

@@ -26,14 +26,14 @@ public class NightAuditController {
     NightAuditService nightAuditService;
 
     @PostMapping("/execute")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Thực hiện quy trình đóng ngày Night Audit (Hủy No-show, chốt doanh thu ngày)")
     public ApiResponse<NightAuditResponse> executeNightAudit(@Valid @RequestBody NightAuditRequest request) {
         return ApiResponse.success("Đóng ngày hoàn tất thành công", nightAuditService.executeNightAudit(request));
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Xem tổng kết doanh thu và tình trạng phòng sơ bộ trước khi đóng ngày")
     public ApiResponse<NightAuditResponse> getAuditSummary(
             @RequestParam Short hotelId,

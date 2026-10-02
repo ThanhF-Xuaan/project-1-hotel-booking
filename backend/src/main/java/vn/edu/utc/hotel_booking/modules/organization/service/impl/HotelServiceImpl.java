@@ -1,11 +1,13 @@
 package vn.edu.utc.hotel_booking.modules.organization.service.impl;
 
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -23,6 +25,7 @@ import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 import vn.edu.utc.hotel_booking.modules.organization.repository.RegionRepository;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -44,10 +47,28 @@ public class HotelServiceImpl implements HotelService {
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
 
-        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : null;
-        String status = StringUtils.hasText(searchDto.getStatus()) ? searchDto.getStatus().trim() : null;
+        Specification<Hotel> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isFalse(root.get("isDeleted")));
 
-        Page<Hotel> resultPage = hotelRepository.searchHotels(searchDto.getRegionId(), keyword, status, pageable);
+            if (searchDto.getRegionId() != null) {
+                predicates.add(cb.equal(root.get("region").get("id"), searchDto.getRegionId()));
+            }
+            if (StringUtils.hasText(searchDto.getStatus())) {
+                predicates.add(cb.equal(root.get("status"), searchDto.getStatus().trim()));
+            }
+            if (StringUtils.hasText(searchDto.getKeyword())) {
+                String kw = "%" + searchDto.getKeyword().trim().toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("name")), kw),
+                        cb.like(cb.lower(root.get("address")), kw),
+                        cb.like(root.get("phone"), kw)
+                ));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Hotel> resultPage = hotelRepository.findAll(spec, pageable);
         return PageResponse.from(resultPage.map(hotelMapper::toResponse));
     }
 

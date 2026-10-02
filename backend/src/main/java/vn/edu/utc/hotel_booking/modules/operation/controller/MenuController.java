@@ -30,14 +30,14 @@ public class MenuController {
 
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B')")
     @Operation(summary = "Tạo mới món ăn hoặc dịch vụ trong menu")
     public ApiResponse<MenuResponse> create(@Valid @RequestBody MenuCreateRequest request) {
         return ApiResponse.success("Tạo món/dịch vụ thành công", menuService.create(request));
     }
 
     @PutMapping("/update/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B')")
     @Operation(summary = "Cập nhật món ăn hoặc dịch vụ")
     public ApiResponse<MenuResponse> update(
             @PathVariable Integer id,
@@ -47,21 +47,21 @@ public class MenuController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B')")
     @Operation(summary = "Xem chi tiết món/dịch vụ theo ID")
     public ApiResponse<MenuResponse> getById(@PathVariable Integer id) {
         return ApiResponse.success(menuService.getById(id));
     }
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B')")
     @Operation(summary = "Tìm kiếm và phân trang món/dịch vụ (POST Search DTO)")
     public ApiResponse<PageResponse<MenuResponse>> filter(@RequestBody MenuSearchDto searchDto) {
         return ApiResponse.success(menuService.filter(searchDto));
     }
 
     @DeleteMapping("/delete")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B')")
     @Operation(summary = "Xóa mềm một hoặc nhiều món/dịch vụ (Unified Batch Delete)")
     public ApiResponse<Void> deleteBatch(@RequestBody List<Integer> ids) {
         menuService.deleteBatch(ids);

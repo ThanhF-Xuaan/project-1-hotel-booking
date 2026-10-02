@@ -21,6 +21,7 @@ public interface StaffMapper {
     List<StaffResponse> toResponseList(List<Staff> entities);
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "keycloakId", ignore = true)
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "department", ignore = true)
     @Mapping(target = "fullName", ignore = true)

@@ -25,7 +25,7 @@ public class AuditLogController {
     private final AuditLogService auditLogService;
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER')")
     @Operation(summary = "Tìm kiếm và phân trang nhật ký kiểm toán")
     public ApiResponse<PageResponse<AuditLogResponse>> filter(@RequestBody @Valid AuditLogSearchDto searchDto) {
         return ApiResponse.<PageResponse<AuditLogResponse>>builder()

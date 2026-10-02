@@ -27,7 +27,7 @@ public class StaffController {
     private final StaffService staffService;
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Tìm kiếm và phân trang nhân viên")
     public ApiResponse<PageResponse<StaffResponse>> filter(@RequestBody @Valid StaffSearchDto searchDto) {
         return ApiResponse.<PageResponse<StaffResponse>>builder()
@@ -38,7 +38,7 @@ public class StaffController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Lấy chi tiết nhân viên theo ID")
     public ApiResponse<StaffResponse> getById(@PathVariable Integer id) {
         return ApiResponse.<StaffResponse>builder()
@@ -75,7 +75,7 @@ public class StaffController {
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Cập nhật thông tin nhân viên")
     public ApiResponse<StaffResponse> update(@PathVariable Integer id,
-                                            @RequestBody @Valid StaffUpdateRequest request) {
+                                             @RequestBody @Valid StaffUpdateRequest request) {
         return ApiResponse.<StaffResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Cập nhật thông tin nhân viên thành công")
