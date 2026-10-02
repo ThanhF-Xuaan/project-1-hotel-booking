@@ -28,7 +28,7 @@ public class RoomAvailabilityController {
     RoomAvailabilityService roomAvailabilityService;
 
     @PostMapping("/query")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Tra cứu tồn phòng theo khoảng thời gian")
     public ResponseEntity<ApiResponse<List<RoomAvailabilityResponse>>> getAvailability(
             @Valid @RequestBody RoomAvailabilitySearchDto searchDto) {
@@ -37,7 +37,7 @@ public class RoomAvailabilityController {
     }
 
     @PostMapping("/hold")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Khóa tạm thời phòng để thanh toán (TTL-based lock)")
     public ResponseEntity<ApiResponse<Void>> holdInventory(
             @Valid @RequestBody HoldInventoryRequest request) {
@@ -46,7 +46,7 @@ public class RoomAvailabilityController {
     }
 
     @PostMapping("/release")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Hủy khóa giữ phòng tạm thời")
     public ResponseEntity<ApiResponse<Void>> releaseInventory(
             @Valid @RequestBody ReleaseInventoryRequest request) {

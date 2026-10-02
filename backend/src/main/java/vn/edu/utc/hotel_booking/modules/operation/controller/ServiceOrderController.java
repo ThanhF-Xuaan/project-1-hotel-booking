@@ -28,28 +28,28 @@ public class ServiceOrderController {
 
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B')")
     @Operation(summary = "Tạo mới đơn đặt dịch vụ/món ăn cho phòng (Tự động trừ kho & đẩy vào Folio)")
     public ApiResponse<ServiceOrderResponse> createOrder(@Valid @RequestBody ServiceOrderCreateRequest request) {
         return ApiResponse.success("Tạo đơn dịch vụ thành công", serviceOrderService.createOrder(request));
     }
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B', 'FINANCE')")
     @Operation(summary = "Tìm kiếm và phân trang đơn dịch vụ (POST Search DTO)")
     public ApiResponse<PageResponse<ServiceOrderResponse>> filter(@RequestBody ServiceOrderSearchDto searchDto) {
         return ApiResponse.success(serviceOrderService.filter(searchDto));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B', 'FINANCE')")
     @Operation(summary = "Xem chi tiết đơn đặt dịch vụ theo ID")
     public ApiResponse<ServiceOrderResponse> getById(@PathVariable Long id) {
         return ApiResponse.success(serviceOrderService.getById(id));
     }
 
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B')")
     @Operation(summary = "Cập nhật trạng thái đơn dịch vụ (CONFIRMED, DELIVERED, CANCELLED)")
     public ApiResponse<ServiceOrderResponse> updateStatus(
             @PathVariable Long id,

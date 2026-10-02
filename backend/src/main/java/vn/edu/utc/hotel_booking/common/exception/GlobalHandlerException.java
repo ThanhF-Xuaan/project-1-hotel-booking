@@ -1,6 +1,6 @@
 package vn.edu.utc.hotel_booking.common.exception;
 
-import java.nio.file.AccessDeniedException;
+import org.springframework.security.access.AccessDeniedException;
 
 import jakarta.persistence.PessimisticLockException;
 import org.springframework.dao.CannotAcquireLockException;

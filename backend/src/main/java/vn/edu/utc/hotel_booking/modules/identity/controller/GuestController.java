@@ -27,7 +27,7 @@ public class GuestController {
     private final GuestService guestService;
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Tìm kiếm và phân trang hồ sơ khách hàng")
     public ApiResponse<PageResponse<GuestResponse>> filter(@RequestBody @Valid GuestSearchDto searchDto) {
         return ApiResponse.<PageResponse<GuestResponse>>builder()
@@ -38,7 +38,7 @@ public class GuestController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Lấy chi tiết hồ sơ khách hàng theo ID")
     public ApiResponse<GuestResponse> getById(@PathVariable Long id) {
         return ApiResponse.<GuestResponse>builder()
@@ -49,7 +49,7 @@ public class GuestController {
     }
 
     @GetMapping("/public/{publicId}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Lấy chi tiết khách hàng theo UUID công khai")
     public ApiResponse<GuestResponse> getByPublicId(@PathVariable UUID publicId) {
         return ApiResponse.<GuestResponse>builder()
@@ -60,7 +60,7 @@ public class GuestController {
     }
 
     @GetMapping("/phone/{phone}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Tìm nhanh khách hàng theo số điện thoại (Hỗ trợ Lễ tân nhận khách)")
     public ApiResponse<GuestResponse> getByPhone(@PathVariable String phone) {
         return ApiResponse.<GuestResponse>builder()
@@ -72,7 +72,7 @@ public class GuestController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Tạo mới hồ sơ khách hàng")
     public ApiResponse<GuestResponse> create(@RequestBody @Valid GuestCreateRequest request) {
         return ApiResponse.<GuestResponse>builder()
@@ -83,10 +83,10 @@ public class GuestController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Cập nhật thông tin hồ sơ khách hàng")
     public ApiResponse<GuestResponse> update(@PathVariable Long id,
-                                            @RequestBody @Valid GuestUpdateRequest request) {
+                                             @RequestBody @Valid GuestUpdateRequest request) {
         return ApiResponse.<GuestResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Cập nhật thông tin khách hàng thành công")

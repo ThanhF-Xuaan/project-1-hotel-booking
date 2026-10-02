@@ -106,13 +106,27 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
                 Sort.by(Sort.Direction.fromString(searchDto.getSortDirection()), searchDto.getSortBy())
         );
 
-        Page<RoomInstance> page = roomInstanceRepository.filterRooms(
-                searchDto.getHotelId(),
-                searchDto.getHotelRoomTypeId(),
-                searchDto.getRoomNumber(),
-                searchDto.getCurrentStatus(),
-                pageable
-        );
+        org.springframework.data.jpa.domain.Specification<RoomInstance> spec = (root, query, cb) -> {
+            java.util.List<jakarta.persistence.criteria.Predicate> predicates = new java.util.ArrayList<>();
+            predicates.add(cb.isFalse(root.get("isDeleted")));
+
+            if (searchDto.getHotelId() != null) {
+                predicates.add(cb.equal(root.get("hotel").get("id"), searchDto.getHotelId()));
+            }
+            if (searchDto.getHotelRoomTypeId() != null) {
+                predicates.add(cb.equal(root.get("hotelRoomType").get("id"), searchDto.getHotelRoomTypeId()));
+            }
+            if (searchDto.getRoomNumber() != null && !searchDto.getRoomNumber().isBlank()) {
+                predicates.add(cb.like(cb.lower(root.get("roomNumber")), "%" + searchDto.getRoomNumber().trim().toLowerCase() + "%"));
+            }
+            if (searchDto.getCurrentStatus() != null && !searchDto.getCurrentStatus().isBlank()) {
+                predicates.add(cb.equal(root.get("currentStatus"), searchDto.getCurrentStatus()));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Page<RoomInstance> page = roomInstanceRepository.findAll(spec, pageable);
 
         return PageResponse.<RoomInstanceResponse>builder()
                 .content(roomInstanceMapper.toResponseList(page.getContent()))
