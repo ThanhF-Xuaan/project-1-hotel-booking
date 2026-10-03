@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.operation.mapper;
 
+import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityReadingCreateRequest;
@@ -8,7 +9,7 @@ import vn.edu.utc.hotel_booking.modules.operation.entity.UtilityReading;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
 public interface UtilityReadingMapper {
 
     @Mapping(target = "meterId", source = "meter.id")

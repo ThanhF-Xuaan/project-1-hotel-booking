@@ -15,6 +15,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UtilityReading extends BaseEntity {
 
@@ -33,6 +34,7 @@ public class UtilityReading extends BaseEntity {
     BigDecimal readingValue;
 
     @Column(name = "is_meter_reset", nullable = false)
+    @Builder.Default
     Boolean isMeterReset = false;
 
     @Column(name = "recorded_by", nullable = false)
