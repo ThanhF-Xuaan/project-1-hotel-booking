@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS utility_readings (
     is_meter_reset  BOOLEAN NOT NULL DEFAULT FALSE,
     recorded_by     INT NOT NULL REFERENCES staffs(id),
     updated_by      INT REFERENCES staffs(id),
+    is_deleted      BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_utility_reading_per_day UNIQUE (meter_id, reading_date)
