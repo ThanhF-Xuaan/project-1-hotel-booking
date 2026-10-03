@@ -51,6 +51,8 @@ spring:
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8081}
   realm: ${KEYCLOAK_REALM:hotel-realm}
+  client-id: ${KEYCLOAK_CLIENT_ID:hotel-backend}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:hotel-backend-secret-key-123456}
   admin:
     client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:admin-cli}
     username: ${KEYCLOAK_ADMIN_USERNAME:admin}
@@ -60,4 +62,4 @@ logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web: INFO
-    com.vn.edu.utc.hotel_booking_system: DEBUG
+    vn.edu.utc.hotel_booking: DEBUG
