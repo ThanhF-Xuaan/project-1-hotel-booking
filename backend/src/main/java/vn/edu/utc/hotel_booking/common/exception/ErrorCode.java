@@ -87,6 +87,10 @@ public enum ErrorCode {
     INVALID_SERVICE_ORDER_STATUS(9012, "Trạng thái đơn dịch vụ không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
     ROOM_NOT_OCCUPIED(9021, "Phòng này hiện chưa có khách lưu trú để gọi dịch vụ", HttpStatus.BAD_REQUEST),
     NIGHT_AUDIT_ALREADY_EXECUTED(9031, "Quy trình đối soát đêm ngày này đã được thực hiện", HttpStatus.BAD_REQUEST),
+    UTILITY_METER_NOT_FOUND(9041, "Không tìm thấy đồng hồ đo", HttpStatus.NOT_FOUND),
+    UTILITY_METER_ALREADY_EXISTS(9042, "Mã đồng hồ đã tồn tại trong khách sạn", HttpStatus.BAD_REQUEST),
+    UTILITY_READING_NOT_FOUND(9051, "Không tìm thấy chỉ số điện nước", HttpStatus.NOT_FOUND),
+    UTILITY_READING_ALREADY_EXISTS(9052, "Đã có chỉ số ghi nhận cho đồng hồ này trong ngày", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
