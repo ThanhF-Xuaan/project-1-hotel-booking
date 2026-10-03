@@ -11,6 +11,9 @@ public enum ErrorCode {
     INVALID_REQUEST_DATA(1002, "Dữ liệu yêu cầu không hợp lệ", HttpStatus.BAD_REQUEST),
     UNAUTHENTICATED(1006, "Chưa xác thực (Vui lòng đăng nhập)", HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1007, "Bạn không có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
+    INVALID_CREDENTIALS(1008, "Tên đăng nhập hoặc mật khẩu không chính xác", HttpStatus.UNAUTHORIZED),
+    TOKEN_EXPIRED_OR_REVOKED(1009, "Phiên đăng nhập đã hết hạn hoặc bị thu hồi (Vui lòng đăng nhập lại)", HttpStatus.UNAUTHORIZED),
+    INVALID_REFRESH_TOKEN(1010, "Refresh token không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
 
     // Organization Module Errors
     REGION_NOT_FOUND(2001, "Không tìm thấy khu vực/vùng yêu cầu", HttpStatus.NOT_FOUND),

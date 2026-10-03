@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.common.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -7,6 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -17,7 +19,10 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final JwtBlacklistFilter jwtBlacklistFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -36,6 +41,9 @@ public class SecurityConfig {
                         // Mở các API công khai không cần đăng nhập (vd: xem phòng trống, danh mục)
                         .requestMatchers("/api/public/**", "/api/v1/public/**").permitAll()
 
+                        // Mở các API xác thực công khai
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
+
                         // Tất cả các API nghiệp vụ còn lại bắt buộc phải có Token (JWT) hợp lệ
                         .anyRequest().authenticated())
 
@@ -43,7 +51,10 @@ public class SecurityConfig {
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter())))
 
-                // 5. Cấu hình Stateless Session
+                // 5. Chèn Custom JwtBlacklistFilter trước BearerTokenAuthenticationFilter
+                .addFilterBefore(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class)
+
+                // 6. Cấu hình Stateless Session
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 
