@@ -119,7 +119,7 @@ class CatalogAndKnowledgeIT {
     @Test
     void migrationAvailabilityAndQuoteWorkOnRealPostgres() {
         Integer applied = jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class);
-        assertEquals(3, applied);
+        assertEquals(4, applied);
         var stay = new StayCriteria(LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 11), 2, 0, 0);
         assertEquals(1, availability.availability(typeId, stay).availableRooms());
         assertEquals("113400.00", pricing.quote(typeId, stay).totalAmount());
