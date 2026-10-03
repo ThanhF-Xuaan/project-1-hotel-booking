@@ -10,6 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
+import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
+import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityReadingCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityReadingSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityReadingUpdateRequest;
@@ -22,7 +25,9 @@ import vn.edu.utc.hotel_booking.modules.operation.repository.UtilityReadingRepos
 import vn.edu.utc.hotel_booking.modules.operation.service.UtilityReadingService;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -31,13 +36,26 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
 
     private final UtilityReadingRepository repository;
     private final UtilityMeterRepository meterRepository;
+    private final StaffRepository staffRepository;
     private final UtilityReadingMapper mapper;
 
     @Override
     public PageResponse<UtilityReadingResponse> search(UtilityReadingSearchDto request) {
-        Pageable pageable = PageRequest.of(request.getPage() - 1, request.getSize(), Sort.by("readingDate").descending());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getPageSize(), Sort.by("readingDate").descending());
         Page<UtilityReading> page = repository.search(request.getMeterId(), request.getFromDate(), request.getToDate(), pageable);
-        return PageResponse.from(page.map(this::mapToResponseWithUsage));
+        
+        List<Long> readingIds = page.getContent().stream().map(UtilityReading::getId).toList();
+        Map<Long, BigDecimal> previousValues = new HashMap<>();
+        if (!readingIds.isEmpty()) {
+            List<Object[]> results = repository.findPreviousValues(readingIds);
+            for (Object[] result : results) {
+                if (result[1] != null) {
+                    previousValues.put(((Number) result[0]).longValue(), new BigDecimal(result[1].toString()));
+                }
+            }
+        }
+        
+        return PageResponse.from(page.map(reading -> mapToResponseWithUsageBulk(reading, previousValues.get(reading.getId()))));
     }
 
     @Override
@@ -59,11 +77,18 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
             throw new AppException(ErrorCode.UTILITY_METER_NOT_FOUND, "Cannot add reading to a deleted meter");
         }
 
+        repository.findPreviousReading(meter.getId(), request.getReadingDate())
+                .ifPresent(prev -> {
+                    if (!Boolean.TRUE.equals(request.getIsMeterReset()) &&
+                        request.getReadingValue().compareTo(prev.getReadingValue()) < 0) {
+                        throw new AppException(ErrorCode.INVALID_UTILITY_READING_VALUE,
+                                "Chỉ số đọc (" + request.getReadingValue() + ") không được nhỏ hơn chỉ số trước đó (" + prev.getReadingValue() + ") khi không có cờ reset đồng hồ");
+                    }
+                });
+
         UtilityReading reading = mapper.toEntity(request);
         reading.setMeter(meter);
-        
-        // TODO: Get actual user ID from SecurityContext
-        reading.setRecordedBy(1); 
+        reading.setRecordedBy(resolveCurrentStaffId()); 
         
         return mapToResponseWithUsage(repository.save(reading));
     }
@@ -73,11 +98,18 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
     public UtilityReadingResponse update(Long id, UtilityReadingUpdateRequest request) {
         UtilityReading reading = getReadingOrThrow(id);
         
+        repository.findPreviousReading(reading.getMeter().getId(), reading.getReadingDate())
+                .ifPresent(prev -> {
+                    if (!Boolean.TRUE.equals(request.getIsMeterReset()) &&
+                        request.getReadingValue().compareTo(prev.getReadingValue()) < 0) {
+                        throw new AppException(ErrorCode.INVALID_UTILITY_READING_VALUE,
+                                "Chỉ số đọc (" + request.getReadingValue() + ") không được nhỏ hơn chỉ số trước đó (" + prev.getReadingValue() + ") khi không có cờ reset đồng hồ");
+                    }
+                });
+
         reading.setReadingValue(request.getReadingValue());
         reading.setIsMeterReset(request.getIsMeterReset());
-        
-        // TODO: Get actual user ID from SecurityContext
-        reading.setUpdatedBy(1);
+        reading.setUpdatedBy(resolveCurrentStaffId());
         
         return mapToResponseWithUsage(repository.save(reading));
     }
@@ -116,5 +148,27 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
                 );
         }
         return response;
+    }
+
+    private UtilityReadingResponse mapToResponseWithUsageBulk(UtilityReading reading, BigDecimal previousValue) {
+        UtilityReadingResponse response = mapper.toResponse(reading);
+        
+        if (Boolean.TRUE.equals(reading.getIsMeterReset()) || previousValue == null) {
+            response.setUsage(reading.getReadingValue());
+        } else {
+            BigDecimal usage = reading.getReadingValue().subtract(previousValue);
+            response.setUsage(usage.compareTo(BigDecimal.ZERO) >= 0 ? usage : BigDecimal.ZERO);
+        }
+        return response;
+    }
+
+    private Integer resolveCurrentStaffId() {
+        return SecurityUtils.getCurrentUserKeycloakId()
+                .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)
+                .map(Staff::getId)
+                .or(() -> SecurityUtils.getCurrentUsername()
+                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse)
+                        .map(Staff::getId))
+                .orElse(1);
     }
 }
