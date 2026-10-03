@@ -283,10 +283,11 @@ public class BookingServiceImpl implements BookingService {
     private void createRoomSlotsForAssignedRoom(RoomInstance roomInstance, LocalDate checkIn, LocalDate checkOut, Long bookingRoomId) {
         LocalDate cur = checkIn;
         while (cur.isBefore(checkOut)) {
-            Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(roomInstance.getId(), cur);
+            LocalDate slotDate = cur; // biến effectively final để dùng trong lambda
+            Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(roomInstance.getId(), slotDate);
             RoomSlot slot = optSlot.orElseGet(() -> RoomSlot.builder()
                     .roomInstance(roomInstance)
-                    .slotDate(cur)
+                    .slotDate(slotDate)
                     .build());
             slot.setStatus("RESERVED");
             slot.setBookingRoomId(bookingRoomId);

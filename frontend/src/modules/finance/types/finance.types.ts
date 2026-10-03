@@ -108,3 +108,27 @@ export interface InvoiceSearchDto {
   page?: number;
   size?: number;
 }
+
+// ==================== Giai đoạn D — Payment Gateway (VNPay/MoMo) ====================
+
+/** Phương thức thanh toán online qua gateway */
+export type GatewayMethod = 'VNPAY' | 'MOMO';
+
+/** Request tạo phiên thanh toán online — POST /payments/vnpay/create | /payments/momo/create */
+export interface GatewayCreateRequest {
+  bookingId: number;
+  method: GatewayMethod;
+  /** Tùy chọn: tái sử dụng Payment PENDING đã tạo trước đó */
+  paymentId?: number;
+}
+
+/** Phản hồi tạo phiên — FE redirect khách ra paymentUrl, countdown theo expiresAt (TTL 10') */
+export interface PaymentUrlResponse {
+  paymentId: number;
+  paymentUrl: string;
+  txnRef: string;
+  expiresAt: string;
+}
+
+/** Trạng thái hiển thị ở trang kết quả (poll PENDING → PAID/FAILED) */
+export type CallbackStatus = 'PENDING' | 'PAID' | 'FAILED';

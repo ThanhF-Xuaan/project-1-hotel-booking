@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   DollarSign,
   Search,
@@ -9,15 +9,38 @@ import {
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import Modal from '../../../core/components/ui/Modal';
+import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
 import financeService from '../services/finance.service';
 import bookingService from '../../booking/services/booking.service';
+import CheckoutModal from '../components/payment/CheckoutModal';
+import PaymentErrorModal from '../components/payment/PaymentErrorModal';
+import PaymentStatusBadge from '../components/payment/PaymentStatusBadge';
 import type {
   PaymentResponse,
   InvoiceResponse,
   PaymentMethod,
   PaymentPurpose,
+  GatewayMethod,
+  PaymentUrlResponse,
 } from '../types/finance.types';
 import type { BookingResponse } from '../../booking/types/booking.types';
+
+/** Cấu hình ô nhập mã tham chiếu theo từng method (mục 1 — bảng 0.1) */
+const REFERENCE_CONFIG: Record<
+  PaymentMethod,
+  { label: string; required: boolean; placeholder: string }
+> = {
+  CASH: { label: 'Số phiếu thu (tùy chọn)', required: false, placeholder: 'VD: PT-001' },
+  BANK_TRANSFER: { label: 'Mã giao dịch ngân hàng *', required: true, placeholder: 'VD: FT260930001' },
+  CREDIT_CARD: { label: 'Approval code (POS) *', required: true, placeholder: 'VD: AP778899' },
+  DEBIT_CARD: { label: 'Approval code (POS) *', required: true, placeholder: 'VD: AP778899' },
+  VNPAY: { label: 'Mã tham chiếu (tự ghi từ webhook)', required: false, placeholder: '' },
+  MOMO: { label: 'Mã tham chiếu (tự ghi từ webhook)', required: false, placeholder: '' },
+  ZALOPAY: { label: 'Mã tham chiếu', required: false, placeholder: '' },
+  OTHER: { label: 'Mã tham chiếu / Biên lai', required: false, placeholder: 'VD: HD-001' },
+};
+
+const isGatewayMethod = (m: PaymentMethod): m is GatewayMethod => m === 'VNPAY' || m === 'MOMO';
 
 export const FolioPaymentPage: React.FC = () => {
   const [bookingNumberInput, setBookingNumberInput] = useState('');
@@ -36,6 +59,14 @@ export const FolioPaymentPage: React.FC = () => {
   const [payProvider, setPayProvider] = useState('');
   const [payReference, setPayReference] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Giai đoạn D — phiên thanh toán online (VNPay/MoMo) + popup lỗi §6
+  const [activeGateway, setActiveGateway] = useState<GatewayMethod>('VNPAY');
+  const [gatewaySession, setGatewaySession] = useState<PaymentUrlResponse | null>(null);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [paymentError, setPaymentError] = useState<ApiErrorInfo | null>(null);
+  const [isCancellingPayment, setIsCancellingPayment] = useState(false);
+  const referenceInputRef = useRef<HTMLInputElement>(null);
 
   // Refund Modal
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
@@ -103,25 +134,76 @@ export const FolioPaymentPage: React.FC = () => {
     e.preventDefault();
     if (!currentBooking || payAmount <= 0) return;
 
+    // D2 — validate mã tham chiếu theo method ngay tại FE (BE cũng bắt, code 8007):
+    // popup → giữ nguyên dữ liệu đã nhập → focus lại ô (§6.2)
+    const refConfig = REFERENCE_CONFIG[payMethod];
+    if (refConfig.required && !payReference.trim()) {
+      setPaymentError({
+        code: 8007,
+        message: `Phương thức "${refConfig.label.replace(' *', '')}" bắt buộc nhập mã tham chiếu. Vui lòng nhập để tiếp tục.`,
+      });
+      referenceInputRef.current?.focus();
+      return;
+    }
+
     setIsProcessingPayment(true);
     try {
-      await financeService.createPayment({
-        bookingId: currentBooking.id,
-        totalAmount: payAmount,
-        paymentMethod: payMethod,
-        paymentPurpose: payPurpose,
-        paymentProvider: payProvider || undefined,
-        transactionReference: payReference || undefined,
-      });
+      if (isGatewayMethod(payMethod)) {
+        // D3 — tạo phiên thanh toán online → mở CheckoutModal (countdown + link gateway)
+        const create =
+          payMethod === 'VNPAY'
+            ? financeService.createVnPayPayment
+            : financeService.createMoMoPayment;
+        const res = await create({ bookingId: currentBooking.id, method: payMethod });
+        if (res.result) {
+          setActiveGateway(payMethod);
+          setGatewaySession(res.result);
+          setIsPaymentModalOpen(false);
+          setIsCheckoutModalOpen(true);
+        }
+      } else {
+        await financeService.createPayment({
+          bookingId: currentBooking.id,
+          totalAmount: payAmount,
+          paymentMethod: payMethod,
+          paymentPurpose: payPurpose,
+          paymentProvider: payProvider || undefined,
+          transactionReference: payReference || undefined,
+        });
 
-      setIsPaymentModalOpen(false);
-      setSuccessMessage('Thanh toán đã được ghi nhận thành công!');
-      fetchFolioData(currentBooking.bookingNumber);
+        setIsPaymentModalOpen(false);
+        setSuccessMessage('Thanh toán đã được ghi nhận thành công!');
+        fetchFolioData(currentBooking.bookingNumber);
+      }
     } catch (err) {
+      // §6 bước ① — popup lỗi (code + message từ ApiResponse), KHÔNG mất dữ liệu đã nhập
       console.error('Lỗi thanh toán:', err);
-      alert('Thanh toán thất bại.');
+      setPaymentError(getApiErrorMessage(err, 'Không thể ghi nhận thanh toán'));
     } finally {
       setIsProcessingPayment(false);
+    }
+  };
+
+  // §6 bước ②③④ — hủy payment dở (PENDING → CANCELLED) → reset state → khách làm lại từ đầu
+  const handleCancelAndRestart = async () => {
+    setIsCancellingPayment(true);
+    try {
+      if (gatewaySession?.paymentId) {
+        try {
+          await financeService.cancelPayment(gatewaySession.paymentId);
+        } catch (err) {
+          // Best-effort: payment có thể đã xử lý xong qua webhook — vẫn reset FE
+          console.warn('Không hủy được payment (có thể đã xử lý):', err);
+        }
+      }
+      setGatewaySession(null);
+      setIsCheckoutModalOpen(false);
+      setIsPaymentModalOpen(false);
+      setPayReference('');
+      setPayProvider('');
+      setPaymentError(null);
+    } finally {
+      setIsCancellingPayment(false);
     }
   };
 
@@ -343,17 +425,7 @@ export const FolioPaymentPage: React.FC = () => {
                           {new Intl.NumberFormat('vi-VN').format(p.totalAmount)} đ
                         </td>
                         <td className="p-4 text-center">
-                          <span
-                            className={`px-2.5 py-1 text-xs font-semibold rounded-full ${
-                              p.status === 'SUCCESS'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : p.status === 'REFUNDED'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-neutral-100 text-neutral-800'
-                            }`}
-                          >
-                            {p.status}
-                          </span>
+                          <PaymentStatusBadge status={p.status} />
                         </td>
                         <td className="p-4 text-xs text-neutral-500">
                           {p.paidAt ? new Date(p.paidAt).toLocaleString('vi-VN') : 'N/A'}
@@ -476,31 +548,52 @@ export const FolioPaymentPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Cổng / Đơn vị thanh toán</label>
-              <Input
-                placeholder="VD: Vietcombank, Techcombank, VNPAY"
-                value={payProvider}
-                onChange={(e) => setPayProvider(e.target.value)}
-              />
+          {isGatewayMethod(payMethod) ? (
+            // D2 — VNPAY/MOMO: KHÔNG nhập tay mã tham chiếu (webhook tự ghi) + hiện số tiền theo tổng đơn
+            <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl p-4 text-xs leading-relaxed">
+              Thanh toán qua <b>{payMethod === 'VNPAY' ? 'VNPay' : 'MoMo'}</b>: mã tham chiếu sẽ
+              <b> tự động ghi từ webhook</b> của cổng thanh toán (không nhập tay).
+              <br />
+              Số tiền thu theo <b>tổng tiền đơn</b>: <b className="text-blue-900">{new Intl.NumberFormat('vi-VN').format(Number(currentBooking?.totalAmount))} đ</b>{' '}
+              — hệ thống tự mở phiên thanh toán có hiệu lực 10 phút.
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Mã tham chiếu / Biên lai</label>
-              <Input
-                placeholder="VD: FT24092600123"
-                value={payReference}
-                onChange={(e) => setPayReference(e.target.value)}
-              />
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">Cổng / Đơn vị thanh toán</label>
+                <Input
+                  placeholder="VD: Vietcombank, Techcombank, VNPAY"
+                  value={payProvider}
+                  onChange={(e) => setPayProvider(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  {REFERENCE_CONFIG[payMethod].label}
+                </label>
+                <Input
+                  ref={referenceInputRef}
+                  placeholder={REFERENCE_CONFIG[payMethod].placeholder}
+                  value={payReference}
+                  onChange={(e) => setPayReference(e.target.value)}
+                  error={
+                    paymentError?.code === 8007 ? 'Mã tham chiếu là bắt buộc với phương thức này' : undefined
+                  }
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
             <Button variant="outline" type="button" onClick={() => setIsPaymentModalOpen(false)}>
               Hủy
             </Button>
             <Button variant="primary" type="submit" disabled={isProcessingPayment || payAmount <= 0}>
-              {isProcessingPayment ? 'Đang ghi nhận...' : 'Xác nhận thu tiền'}
+              {isProcessingPayment
+                ? 'Đang xử lý...'
+                : isGatewayMethod(payMethod)
+                ? 'Tạo phiên thanh toán'
+                : 'Xác nhận thu tiền'}
             </Button>
           </div>
         </form>
@@ -545,6 +638,27 @@ export const FolioPaymentPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* MODAL PHIÊN THANH TOÁN GATEWAY (D3) — countdown + link + hủy/làm lại (§6) */}
+      <CheckoutModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        gateway={activeGateway}
+        session={gatewaySession}
+        amount={payAmount}
+        onCancelAndRetry={handleCancelAndRestart}
+        isCancelling={isCancellingPayment}
+      />
+
+      {/* POPUP LỖI THANH TOÁN (§6 — dùng core Modal, không toast) */}
+      <PaymentErrorModal
+        isOpen={paymentError !== null}
+        code={paymentError?.code}
+        message={paymentError?.message ?? ''}
+        onRetry={handleCancelAndRestart}
+        onClose={() => setPaymentError(null)}
+        isRetrying={isCancellingPayment}
+      />
     </div>
   );
 };

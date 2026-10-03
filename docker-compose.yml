@@ -106,10 +106,24 @@ services:
       SPRING_DATASOURCE_USERNAME: ${DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_LIQUIBASE_ENABLED: "false" # Đã chạy qua Liquibase Runner container chuyên dụng
-      SPRING_REDIS_HOST: redis
+      # Boot 3/4 đọc spring.data.redis.* — SPRING_REDIS_HOST (tiền tố Boot 2) bị bỏ qua nên
+      # app dùng nhầm localhost. yaml lấy ${REDIS_HOST:localhost} → phải set REDIS_HOST
+      REDIS_HOST: redis
+      SPRING_DATA_REDIS_HOST: redis
       # Cấu hình mạng nội bộ cho Keycloak
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/hotel-realm
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8081/realms/hotel-realm}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hotel-realm/protocol/openid-connect/certs
+      # Cổng thanh toán — yaml đọc ${VNPAY_*:...}; compose CHỈ truyền các biến liệt kê ở đây
+      # nên phải map từ .env, thiếu là container không thấy key (guard 8008 báo "không có key").
+      # KHÔNG liệt kê VNPAY_URL/MOMO_URL/MOMO_IPN_URL/MOMO_REDIRECT_URL: biến rỗng sẽ ghi đè
+      # default của yaml (Spring ${X:default} vẫn lấy "" khi X tồn tại rỗng) → paymentUrl mất base
+      VNPAY_TMN_ID: ${VNPAY_TMN_ID:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-}
+      VNPAY_FE_RESULT_URL: ${VNPAY_FE_RESULT_URL:-}
+      MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-}
+      MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
+      MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
     depends_on:
       postgres_db:
         condition: service_healthy

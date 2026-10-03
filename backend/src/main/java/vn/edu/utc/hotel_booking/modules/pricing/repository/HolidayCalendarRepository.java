@@ -14,6 +14,6 @@ public interface HolidayCalendarRepository extends JpaRepository<HolidayCalendar
 
     @Query("SELECT hc FROM HolidayCalendar hc " +
             "WHERE hc.isDeleted = false " +
-            "AND hc.startDate <= :date AND hc.endDate >= :date")
+            "AND hc.date = :date")
     Optional<HolidayCalendar> findHolidayByDate(@Param("date") LocalDate date);
 }

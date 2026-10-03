@@ -14,4 +14,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     List<Payment> findByBookingId(Long bookingId);
 
     Optional<Payment> findByTransactionReference(String transactionReference);
+
+    /** Tra cứu Payment theo mã đơn phía gateway (vnp_TxnRef / MoMo orderId) khi webhook gọi về */
+    Optional<Payment> findByGatewayTxnId(String gatewayTxnId);
 }

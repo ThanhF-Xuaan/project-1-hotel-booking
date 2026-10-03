@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.type.SqlTypes;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 
 import java.math.BigDecimal;
@@ -53,6 +55,16 @@ public class Payment {
 
     @Column(name = "paid_at")
     OffsetDateTime paidAt;
+
+    @Column(name = "gateway_txn_id", length = 100)
+    String gatewayTxnId;
+
+    @Column(name = "gateway_response_code", length = 50)
+    String gatewayResponseCode;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "raw_callback_payload", columnDefinition = "jsonb")
+    String rawCallbackPayload;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Không đặt context: luôn chạy ở mọi môi trường (tránh bị skip im lặng) -->
+    <changeSet id="1.1.0-payment-gateway" author="utc-hotel-team">
+        <comment>Thêm 3 cột gateway cho thanh toán online (VNPay/MoMo): gateway_txn_id, gateway_response_code, raw_callback_payload. Bảng payments đã có sẵn transaction_reference, paid_at, payment_provider</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20260930-1729-payment-gateway.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>

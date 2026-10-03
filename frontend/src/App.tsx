@@ -9,6 +9,7 @@ import CampaignListPage from './modules/pricing/pages/CampaignListPage'
 import BookingListPage from './modules/booking/pages/BookingListPage'
 import WalkInBookingPage from './modules/booking/pages/WalkInBookingPage'
 import FolioPaymentPage from './modules/finance/pages/FolioPaymentPage'
+import PaymentResultPage from './modules/finance/pages/PaymentResultPage'
 import { MenuListPage } from './modules/operation/pages/MenuListPage'
 import { RoomServiceOrderPage } from './modules/operation/pages/RoomServiceOrderPage'
 import { HousekeepingPage } from './modules/operation/pages/HousekeepingPage'
@@ -22,6 +23,9 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Trang kết quả trả về từ cổng thanh toán (VNPay return / MoMo redirect) */}
+        <Route path="/payment/result" element={<PaymentResultPage />} />
+
         {/* Customer-facing Public Booking Portal */}
         <Route path="/portal">
           <Route index element={<Navigate to="/portal/search" replace />} />
