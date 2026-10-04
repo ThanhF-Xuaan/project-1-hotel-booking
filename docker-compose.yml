@@ -102,12 +102,29 @@ services:
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-hotel_booking_db}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-123456}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME:-hotel_booking_db}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-123456}
       SPRING_LIQUIBASE_ENABLED: "false" # Đã chạy qua Liquibase Runner container chuyên dụng
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       SPRING_REDIS_HOST: redis
-      # Cấu hình mạng nội bộ cho Keycloak
+      # Cấu hình mạng nội bộ cho Keycloak IAM
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-hotel-realm}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-hotel-backend}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-hotel-backend-secret-key-123456}
+      KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-admin-cli}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # OAuth2 JWT Validation
+      KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/hotel-realm
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/hotel-realm/protocol/openid-connect/certs
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8081/realms/hotel-realm
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hotel-realm/protocol/openid-connect/certs
     depends_on:
