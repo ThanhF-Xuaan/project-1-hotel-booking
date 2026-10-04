@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261004-120000-create-payroll-summary" author="utc-hotel-team">
+        <comment>Tạo bảng payroll_summary và phân quyền import lương (T05)</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261004-120000-create-payroll-summary.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>
