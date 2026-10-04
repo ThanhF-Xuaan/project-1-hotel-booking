@@ -61,18 +61,23 @@ public class GlobalHandlerException {
         log.error("Lỗi: ", exception);
         String enumKey = exception.getFieldError().getDefaultMessage();
 
-        ErrorCode errorCode = ErrorCode.INVALID_KEY;
+        // Mặc định: mã lỗi yêu cầu dữ liệu không hợp lệ (1002)
+        ErrorCode errorCode = ErrorCode.INVALID_REQUEST_DATA;
+        String message = (enumKey != null) ? enumKey : errorCode.getMessage();
 
         try {
+            // Tôn trọng DTO/message nào đó cố tình dùng TÊN enum ErrorCode làm message
             errorCode = ErrorCode.valueOf(enumKey);
+            message = errorCode.getMessage();
         } catch (IllegalArgumentException e) {
-
+            // Message tiếng Việt từ @NotNull/@DecimalMin/... → trả NGUYÊN message đó cho user
+            // (hành vi cũ: fallback INVALID_KEY 1001 "Khóa mã lỗi không hợp lệ" → vô nghĩa với user)
         }
 
         ApiResponse apiResponse = new ApiResponse();
 
         apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(errorCode.getMessage());
+        apiResponse.setMessage(message);
 
         return ResponseEntity.badRequest().body(apiResponse);
     }
