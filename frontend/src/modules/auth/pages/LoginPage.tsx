@@ -47,6 +47,10 @@ export const LoginPage: React.FC = () => {
 
       if (res.code === 200 && res.result) {
         localStorage.setItem('auth_token', res.result.access_token)
+        // Lưu kèm refresh_token để client.ts tự làm mới phiên khi access token hết hạn
+        if (res.result.refresh_token) {
+          localStorage.setItem('auth_refresh_token', res.result.refresh_token)
+        }
         navigate('/dashboard')
       } else {
         setErrorMsg(res.message || 'Đăng nhập thất bại')

@@ -19,7 +19,10 @@ export const Header: React.FC = () => {
     } catch (error) {
       console.error('Lỗi khi đăng xuất:', error)
     } finally {
+      // Xóa CẢ 2 key (không chỉ auth_token) — nếu bỏ refresh token, phiên cũ có thể
+      // "hồi sinh" qua auto-refresh trong client.ts sau khi đăng xuất
       localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_refresh_token')
       navigate('/login')
     }
   }
