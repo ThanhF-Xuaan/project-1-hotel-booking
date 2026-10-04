@@ -68,7 +68,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Hủy thanh toán đang chờ (PENDING → CANCELLED) — dùng cho flow lỗi: popup → hủy → làm lại")
     public ApiResponse<PaymentResponse> cancelPayment(@PathVariable Long id) {
         return ApiResponse.success("Hủy thanh toán thành công", paymentService.cancelPayment(id));
@@ -76,7 +76,7 @@ public class PaymentController {
 
     @PostMapping("/vnpay/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Tạo phiên thanh toán VNPay — trả paymentUrl + txnRef + expiresAt (TTL 10')")
     public ApiResponse<PaymentUrlResponse> createVnPayPayment(
             @Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
@@ -86,7 +86,7 @@ public class PaymentController {
 
     @PostMapping("/momo/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Tạo phiên thanh toán MoMo — trả paymentUrl + txnRef + expiresAt (TTL 10')")
     public ApiResponse<PaymentUrlResponse> createMoMoPayment(
             @Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
