@@ -5,9 +5,9 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <changeSet id="20261005-02-create-stay-guest-and-lodging-queue" author="utc-hotel-team">
+    <changeSet id="20261005-020000-create-stay-guest-and-lodging-queue" author="utc-hotel-team">
         <comment>Tạo bảng stay_guests và lodging_queues cho quản lý tạm trú và xuất báo cáo BCA (T05 PR2)</comment>
-        <sqlFile path="db/sqlFile/incremental/2026/20261005-02-create-stay-guest-and-lodging-queue.sql"
+        <sqlFile path="db/sqlFile/incremental/2026/20261005-020000-create-stay-guest-and-lodging-queue.sql"
                  relativeToChangelogFile="false"
                  splitStatements="false"
                  stripComments="false"/>

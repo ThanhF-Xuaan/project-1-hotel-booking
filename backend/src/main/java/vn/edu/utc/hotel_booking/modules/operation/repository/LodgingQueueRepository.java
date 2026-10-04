@@ -21,8 +21,8 @@ public interface LodgingQueueRepository extends JpaRepository<LodgingQueue, Long
     @Query("SELECT q FROM LodgingQueue q WHERE q.isDeleted = false " +
            "AND (:hotelId IS NULL OR q.hotel.id = :hotelId) " +
            "AND (:status IS NULL OR q.status = :status) " +
-           "AND (cast(:fromDate as timestamp with time zone) IS NULL OR q.createdAt >= :fromDate) " +
-           "AND (cast(:toDate as timestamp with time zone) IS NULL OR q.createdAt <= :toDate)")
+           "AND (CAST(:fromDate AS java.time.OffsetDateTime) IS NULL OR q.createdAt >= :fromDate) " +
+           "AND (CAST(:toDate AS java.time.OffsetDateTime) IS NULL OR q.createdAt <= :toDate)")
     Page<LodgingQueue> search(@Param("hotelId") Short hotelId,
                               @Param("status") LodgingQueueStatus status,
                               @Param("fromDate") OffsetDateTime fromDate,

@@ -25,7 +25,7 @@ import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingQueueStatus;
 import vn.edu.utc.hotel_booking.modules.operation.mapper.StayGuestMapper;
 import vn.edu.utc.hotel_booking.modules.operation.repository.LodgingQueueRepository;
-import vn.edu.utc.hotel_booking.modules.operation.repository.StayGuestRepository;
+import vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository;
 import vn.edu.utc.hotel_booking.modules.operation.service.impl.StayGuestServiceImpl;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;

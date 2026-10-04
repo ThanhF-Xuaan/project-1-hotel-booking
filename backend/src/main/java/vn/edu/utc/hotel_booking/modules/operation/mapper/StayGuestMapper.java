@@ -4,6 +4,7 @@ import org.mapstruct.Builder;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
+import org.mapstruct.ReportingPolicy;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.StayGuestResponse;
@@ -11,7 +12,7 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring", builder = @Builder(disableBuilder = true))
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, builder = @Builder(disableBuilder = true))
 public interface StayGuestMapper {
 
     @Mapping(target = "hotelId", source = "hotel.id")
