@@ -24,7 +24,7 @@ export function parseJwt(token: string): Record<string, any> | null {
   try {
     const parts = token.split('.')
     if (parts.length < 2) return null
-    
+
     const base64Url = parts[1]
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
     const jsonPayload = decodeURIComponent(
@@ -74,3 +74,33 @@ export function getUserProfile(): UserProfile | null {
     username,
   }
 }
+
+export function getUserRoles(): string[] {
+  const token = localStorage.getItem('auth_token')
+  if (!token) return []
+
+  const payload = parseJwt(token)
+  if (!payload) return []
+
+  const roles: string[] = payload.realm_access?.roles || []
+  return roles.map((r) => r.replace(/^ROLE_/, ''))
+}
+
+export function hasAnyRole(requiredRoles?: string[]): boolean {
+  if (!requiredRoles || requiredRoles.length === 0) {
+    return true
+  }
+
+  const userRoles = getUserRoles()
+  if (userRoles.length === 0) {
+    return false
+  }
+
+  if (userRoles.includes('CHAIN_ADMIN')) {
+    return true
+  }
+
+  const normalizedRequired = requiredRoles.map((r) => r.replace(/^ROLE_/, ''))
+  return userRoles.some((role) => normalizedRequired.includes(role))
+}
+
