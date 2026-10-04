@@ -23,7 +23,7 @@ import vn.edu.utc.hotel_booking.modules.booking.mapper.BookingMapper;
 import vn.edu.utc.hotel_booking.modules.booking.repository.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Company;
-import vn.edu.utc.hotel_booking.modules.identity.entity.Guest;
+import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.repository.CompanyRepository;
 import vn.edu.utc.hotel_booking.modules.identity.repository.GuestRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
@@ -57,7 +57,7 @@ public class BookingServiceImpl implements BookingService {
     BookingRepository bookingRepository;
     BookingDetailRepository bookingDetailRepository;
     BookingRoomRepository bookingRoomRepository;
-    BookingGuestRepository bookingGuestRepository;
+    StayGuestRepository stayGuestRepository;
     BookingDailyRateRepository bookingDailyRateRepository;
     BookingChargeRepository bookingChargeRepository;
 
@@ -80,7 +80,7 @@ public class BookingServiceImpl implements BookingService {
         Hotel hotel = hotelRepository.findByIdAndIsDeletedFalse(request.getHotelId())
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn ID: " + request.getHotelId()));
 
-        Guest guest = guestRepository.findByIdAndIsDeletedFalse(request.getGuestId())
+        BookingGuest guest = guestRepository.findByIdAndIsDeletedFalse(request.getGuestId())
                 .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND, "Không tìm thấy thông tin khách hàng ID: " + request.getGuestId()));
 
         Company company = null;
@@ -179,23 +179,25 @@ public class BookingServiceImpl implements BookingService {
                         .build();
 
                 // Tạo danh sách khách lưu trú
-                List<BookingGuest> bookingGuests = new ArrayList<>();
+                List<StayGuest> bookingGuests = new ArrayList<>();
                 if (roomReq.getGuests() != null && !roomReq.getGuests().isEmpty()) {
                     for (BookingCreateRequest.GuestItemRequest gReq : roomReq.getGuests()) {
-                        BookingGuest bg = BookingGuest.builder()
+                        StayGuest bg = StayGuest.builder()
                                 .bookingRoom(bookingRoom)
                                 .firstName(gReq.getFirstName() != null ? gReq.getFirstName() : "")
                                 .lastName(gReq.getLastName() != null ? gReq.getLastName() : "")
                                 .fullName(gReq.getFullName() != null ? gReq.getFullName() : (gReq.getFirstName() + " " + gReq.getLastName()).trim())
-                                .birthDate(gReq.getBirthDate())
+                                .dateOfBirth(gReq.getBirthDate())
                                 .guestType(gReq.getGuestType() != null ? gReq.getGuestType() : BookingGuestType.ADULT)
-                                .identityType(gReq.getIdentityType())
-                                .identityNumber(gReq.getIdentityNumber())
+                                .documentNumber(gReq.getIdentityNumber())
                                 .build();
+                        if (gReq.getIdentityType() != null) {
+                            bg.setIdentityType(gReq.getIdentityType());
+                        }
                         bookingGuests.add(bg);
                     }
                 }
-                bookingRoom.setBookingGuests(bookingGuests);
+                bookingRoom.setStayGuests(bookingGuests);
 
                 // Tạo Snapshot giá chi tiết từng đêm (BookingDailyRate)
                 List<BookingDailyRate> dailyRates = new ArrayList<>();

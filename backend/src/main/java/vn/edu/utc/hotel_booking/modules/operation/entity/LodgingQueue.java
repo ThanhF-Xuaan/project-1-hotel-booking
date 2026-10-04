@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import vn.edu.utc.hotel_booking.common.entity.BaseEntity;
+import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingQueueStatus;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 

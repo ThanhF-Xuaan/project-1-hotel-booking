@@ -16,7 +16,7 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestResponse;
-import vn.edu.utc.hotel_booking.modules.identity.entity.Guest;
+import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.GuestMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.GuestRepository;
 import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
@@ -45,27 +45,27 @@ public class GuestServiceImpl implements GuestService {
         String identityType = StringUtils.hasText(searchDto.getIdentityType()) ? searchDto.getIdentityType().trim() : null;
         String status = StringUtils.hasText(searchDto.getStatus()) ? searchDto.getStatus().trim() : null;
 
-        Page<Guest> resultPage = guestRepository.searchGuests(keyword, identityType, status, pageable);
+        Page<BookingGuest> resultPage = guestRepository.searchGuests(keyword, identityType, status, pageable);
         return PageResponse.from(resultPage.map(guestMapper::toResponse));
     }
 
     @Override
     public GuestResponse getById(Long id) {
-        Guest guest = guestRepository.findByIdAndIsDeletedFalse(id)
+        BookingGuest guest = guestRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND));
         return guestMapper.toResponse(guest);
     }
 
     @Override
     public GuestResponse getByPublicId(UUID publicId) {
-        Guest guest = guestRepository.findByPublicIdAndIsDeletedFalse(publicId)
+        BookingGuest guest = guestRepository.findByPublicIdAndIsDeletedFalse(publicId)
                 .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND));
         return guestMapper.toResponse(guest);
     }
 
     @Override
     public GuestResponse getByPhone(String phone) {
-        Guest guest = guestRepository.findByPhoneAndIsDeletedFalse(phone.trim())
+        BookingGuest guest = guestRepository.findByPhoneAndIsDeletedFalse(phone.trim())
                 .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND));
         return guestMapper.toResponse(guest);
     }
@@ -76,13 +76,13 @@ public class GuestServiceImpl implements GuestService {
         String phone = request.getPhone().trim();
         // Một số khách sạn cho phép khách đặt lại theo số điện thoại hoặc tìm khách cũ,
         // nếu đã tồn tại thì trả về khách đã có hoặc cập nhật, nhưng ở đây tuân thủ tạo mới:
-        Guest guest = guestMapper.toEntity(request);
+        BookingGuest guest = guestMapper.toEntity(request);
         guest.setPhone(phone);
         if (request.getEmail() != null) {
             guest.setEmail(request.getEmail().trim().toLowerCase());
         }
 
-        Guest saved = guestRepository.save(guest);
+        BookingGuest saved = guestRepository.save(guest);
         log.info("Đã tạo mới hồ sơ khách hàng: id={}, phone={}, publicId={}", saved.getId(), saved.getPhone(), saved.getPublicId());
         return guestMapper.toResponse(saved);
     }
@@ -90,7 +90,7 @@ public class GuestServiceImpl implements GuestService {
     @Override
     @Transactional
     public GuestResponse update(Long id, GuestUpdateRequest request) {
-        Guest guest = guestRepository.findByIdAndIsDeletedFalse(id)
+        BookingGuest guest = guestRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND));
 
         guestMapper.updateEntity(guest, request);
@@ -99,7 +99,7 @@ public class GuestServiceImpl implements GuestService {
             guest.setEmail(request.getEmail().trim().toLowerCase());
         }
 
-        Guest updated = guestRepository.save(guest);
+        BookingGuest updated = guestRepository.save(guest);
         log.info("Đã cập nhật hồ sơ khách hàng: id={}, phone={}", updated.getId(), updated.getPhone());
         return guestMapper.toResponse(updated);
     }

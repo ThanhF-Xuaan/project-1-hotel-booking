@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/guests")
+@RequestMapping({"/api/v1/booking-guests", "/api/v1/guests"})
 @RequiredArgsConstructor
 @Tag(name = "Identity - Guests", description = "APIs quản lý hồ sơ khách hàng (CRM Guest Profiles)")
 public class GuestController {
