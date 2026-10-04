@@ -113,6 +113,16 @@ services:
       # Cấu hình mạng nội bộ cho Keycloak
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${KEYCLOAK_ISSUER_URI:-http://localhost:8081/realms/hotel-realm}
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/hotel-realm/protocol/openid-connect/certs
+      # Auth module mới (merge tung-dev 04/10): BE gọi Keycloak qua HTTP để login/refresh/đồng bộ staff.
+      # KHÔNG map -> yaml mặc định http://localhost:8081 = chính container backend (sai) -> login BE chết.
+      # Port nội bộ của Keycloak trong mạng compose là 8080 (8081 chỉ là port host).
+      KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-hotel-realm}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-hotel-backend}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-hotel-backend-secret-key-123456}
+      KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-admin-cli}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # Cổng thanh toán — yaml đọc ${VNPAY_*:...}; compose CHỈ truyền các biến liệt kê ở đây
       # nên phải map từ .env, thiếu là container không thấy key (guard 8008 báo "không có key").
       # KHÔNG liệt kê VNPAY_URL/MOMO_URL/MOMO_IPN_URL/MOMO_REDIRECT_URL: biến rỗng sẽ ghi đè
