@@ -21,6 +21,7 @@ description: "Master Rules Index: Điều hướng toàn bộ quy chuẩn sinh c
 | **QA / Tester** | [`04-qa-testing-standards.md`](file:///./04-qa-testing-standards.md) | ISTQB EP/BVA, Decision Table, định dạng xuất testcase Excel / Markdown. |
 | **Design System**| [`05-design-system-tokens.md`](file:///./05-design-system-tokens.md) | Bảng màu Tokens, Spacing, Border Radius, Button, Input, Modal. |
 | **Thư Viện Prompt**| [`06-prompts-library.md`](file:///./06-prompts-library.md) | Prompt mẫu tạo Module, đồng bộ Swagger DTO, Modal xác nhận xóa, CRUD toast. |
+| **Member 1 Pipeline** | [`07-member-1-architecture-pipeline.md`](file:///./07-member-1-architecture-pipeline.md) | Kiến trúc & vòng đời phát triển dành riêng cho Member 1 (AI & Data: T04, T05, T12, U13, U14, U22). |
 
 ---
 
