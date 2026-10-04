@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261005-02-create-stay-guest-and-lodging-queue" author="utc-hotel-team">
+        <comment>Tạo bảng stay_guests và lodging_queues cho quản lý tạm trú và xuất báo cáo BCA (T05 PR2)</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261005-02-create-stay-guest-and-lodging-queue.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

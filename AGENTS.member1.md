@@ -40,7 +40,7 @@ Mỗi bước plan nêu file sẽ đổi và lệnh kiểm chứng. Chỉ làm t
 - Dữ liệu thử là dữ liệu tổng hợp hoặc ẩn danh, đánh dấu rõ.
 - Che PII trong log. Không in CCCD/hộ chiếu/SĐT/email ra console.
 - Không đọc hay in `.env` và secret.
-- Không lưu ảnh giấy tờ lâu hơn chính sách đã chốt: `[chưa xác định]`.
+- Không lưu ảnh giấy tờ lâu hơn chính sách đã chốt: Text lưu 1 năm (hỗ trợ soft-delete), ảnh chụp tự động hard-purge sau 30 ngày.
 
 ## 7. Quy tắc cho việc AI
 - **Eval trước, code sau.** Chưa có eval set được người duyệt thì không chạy `/goal` cho việc AI.
