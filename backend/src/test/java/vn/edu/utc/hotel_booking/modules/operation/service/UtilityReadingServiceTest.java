@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.operation.service;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -10,11 +11,16 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityReadingCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityReadingSearchDto;
+import vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityReadingUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.UtilityReadingResponse;
 import vn.edu.utc.hotel_booking.modules.operation.entity.UtilityMeter;
 import vn.edu.utc.hotel_booking.modules.operation.entity.UtilityReading;
@@ -59,6 +65,13 @@ class UtilityReadingServiceTest {
 
     @BeforeEach
     void setUp() {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(new UsernamePasswordAuthenticationToken("staff_test", "pwd"));
+        SecurityContextHolder.setContext(context);
+
+        lenient().when(staffRepository.findByUsernameAndIsDeletedFalse("staff_test"))
+                .thenReturn(Optional.of(Staff.builder().id(1).username("staff_test").build()));
+
         meter = UtilityMeter.builder()
                 .id(1)
                 .meterCode("EL-01")
@@ -245,6 +258,11 @@ class UtilityReadingServiceTest {
         verify(readingRepository).save(resetReading);
     }
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @DisplayName("Happy path: Xóa mềm hàng loạt bản ghi đọc chỉ số")
     void delete_Success_SoftDelete() {
@@ -254,5 +272,129 @@ class UtilityReadingServiceTest {
 
         assertThat(reading.getIsDeleted()).isTrue();
         verify(readingRepository).saveAll(List.of(reading));
+    }
+
+    @Test
+    @DisplayName("Validation path: Lỗi khi chỉ số đọc lớn hơn chỉ số ngày tiếp theo mà không có cờ reset ngày tiếp theo")
+    void create_ThrowsWhenReadingValueGreaterThanNextReadingWithoutReset() {
+        UtilityReadingCreateRequest request = new UtilityReadingCreateRequest();
+        request.setMeterId(1);
+        request.setReadingDate(LocalDate.of(2023, 10, 1));
+        request.setReadingValue(new BigDecimal("120.0")); // Greater than next reading (110.0)
+        request.setIsMeterReset(false);
+
+        UtilityReading nextReading = UtilityReading.builder()
+                .id(2L)
+                .meter(meter)
+                .readingDate(LocalDate.of(2023, 10, 2))
+                .readingValue(new BigDecimal("110.0"))
+                .isMeterReset(false)
+                .build();
+
+        when(readingRepository.existsByMeterIdAndReadingDateAndIsDeletedFalse(1, LocalDate.of(2023, 10, 1))).thenReturn(false);
+        when(meterRepository.findById(1)).thenReturn(Optional.of(meter));
+        when(readingRepository.findPreviousReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.empty());
+        when(readingRepository.findNextReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.of(nextReading));
+
+        AppException ex = assertThrows(AppException.class, () -> readingService.create(request));
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_UTILITY_READING_VALUE);
+        verify(readingRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Happy path: Chỉ số đọc lớn hơn chỉ số tiếp theo nhưng ngày tiếp theo có cờ reset")
+    void create_Success_WhenReadingValueGreaterThanNextReadingWithReset() {
+        UtilityReadingCreateRequest request = new UtilityReadingCreateRequest();
+        request.setMeterId(1);
+        request.setReadingDate(LocalDate.of(2023, 10, 1));
+        request.setReadingValue(new BigDecimal("120.0"));
+        request.setIsMeterReset(false);
+
+        UtilityReading nextReading = UtilityReading.builder()
+                .id(2L)
+                .meter(meter)
+                .readingDate(LocalDate.of(2023, 10, 2))
+                .readingValue(new BigDecimal("10.0"))
+                .isMeterReset(true) // Reset occurred on next day
+                .build();
+
+        when(readingRepository.existsByMeterIdAndReadingDateAndIsDeletedFalse(1, LocalDate.of(2023, 10, 1))).thenReturn(false);
+        when(meterRepository.findById(1)).thenReturn(Optional.of(meter));
+        when(readingRepository.findPreviousReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.empty());
+        when(readingRepository.findNextReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.of(nextReading));
+        when(readingMapper.toEntity(request)).thenReturn(reading);
+        when(readingRepository.save(reading)).thenReturn(reading);
+        when(readingMapper.toResponse(reading)).thenReturn(readingResponse);
+
+        UtilityReadingResponse result = readingService.create(request);
+
+        assertThat(result).isNotNull();
+        verify(readingRepository).save(reading);
+    }
+
+    @Test
+    @DisplayName("Happy path: Cập nhật chỉ số đọc thành công")
+    void update_Success() {
+        UtilityReadingUpdateRequest request = new UtilityReadingUpdateRequest();
+        request.setReadingValue(new BigDecimal("105.0"));
+        request.setIsMeterReset(false);
+
+        when(readingRepository.findById(1L)).thenReturn(Optional.of(reading));
+        when(readingRepository.findPreviousReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.empty());
+        when(readingRepository.findNextReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.empty());
+        when(readingRepository.save(reading)).thenReturn(reading);
+        when(readingMapper.toResponse(reading)).thenReturn(readingResponse);
+
+        UtilityReadingResponse result = readingService.update(1L, request);
+
+        assertThat(result).isNotNull();
+        assertThat(reading.getReadingValue()).isEqualTo(new BigDecimal("105.0"));
+        verify(readingRepository).save(reading);
+    }
+
+    @Test
+    @DisplayName("Validation path: Cập nhật chỉ số đọc lớn hơn ngày tiếp theo không có cờ reset")
+    void update_ThrowsWhenReadingValueGreaterThanNextReadingWithoutReset() {
+        UtilityReadingUpdateRequest request = new UtilityReadingUpdateRequest();
+        request.setReadingValue(new BigDecimal("150.0"));
+        request.setIsMeterReset(false);
+
+        UtilityReading nextReading = UtilityReading.builder()
+                .id(2L)
+                .meter(meter)
+                .readingDate(LocalDate.of(2023, 10, 2))
+                .readingValue(new BigDecimal("120.0"))
+                .isMeterReset(false)
+                .build();
+
+        when(readingRepository.findById(1L)).thenReturn(Optional.of(reading));
+        when(readingRepository.findPreviousReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.empty());
+        when(readingRepository.findNextReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.of(nextReading));
+
+        AppException ex = assertThrows(AppException.class, () -> readingService.update(1L, request));
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_UTILITY_READING_VALUE);
+        verify(readingRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Validation path: Lỗi STAFF_NOT_FOUND khi không xác định được nhân viên thực hiện")
+    void create_ThrowsWhenStaffNotFound() {
+        SecurityContextHolder.clearContext();
+
+        UtilityReadingCreateRequest request = new UtilityReadingCreateRequest();
+        request.setMeterId(1);
+        request.setReadingDate(LocalDate.of(2023, 10, 1));
+        request.setReadingValue(new BigDecimal("100.5"));
+        request.setIsMeterReset(false);
+
+        when(readingRepository.existsByMeterIdAndReadingDateAndIsDeletedFalse(1, LocalDate.of(2023, 10, 1))).thenReturn(false);
+        when(meterRepository.findById(1)).thenReturn(Optional.of(meter));
+        when(readingRepository.findPreviousReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.empty());
+        when(readingRepository.findNextReading(1, LocalDate.of(2023, 10, 1))).thenReturn(Optional.empty());
+        when(readingMapper.toEntity(request)).thenReturn(reading);
+
+        AppException ex = assertThrows(AppException.class, () -> readingService.create(request));
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.STAFF_NOT_FOUND);
+        verify(readingRepository, never()).save(any());
     }
 }

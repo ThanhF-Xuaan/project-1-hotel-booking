@@ -86,6 +86,15 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
                     }
                 });
 
+        repository.findNextReading(meter.getId(), request.getReadingDate())
+                .ifPresent(next -> {
+                    if (!Boolean.TRUE.equals(next.getIsMeterReset()) &&
+                        request.getReadingValue().compareTo(next.getReadingValue()) > 0) {
+                        throw new AppException(ErrorCode.INVALID_UTILITY_READING_VALUE,
+                                "Chỉ số đọc (" + request.getReadingValue() + ") không được lớn hơn chỉ số tiếp theo (" + next.getReadingValue() + ") khi chỉ số tiếp theo không có cờ reset đồng hồ");
+                    }
+                });
+
         UtilityReading reading = mapper.toEntity(request);
         reading.setMeter(meter);
         reading.setRecordedBy(resolveCurrentStaffId()); 
@@ -104,6 +113,15 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
                         request.getReadingValue().compareTo(prev.getReadingValue()) < 0) {
                         throw new AppException(ErrorCode.INVALID_UTILITY_READING_VALUE,
                                 "Chỉ số đọc (" + request.getReadingValue() + ") không được nhỏ hơn chỉ số trước đó (" + prev.getReadingValue() + ") khi không có cờ reset đồng hồ");
+                    }
+                });
+
+        repository.findNextReading(reading.getMeter().getId(), reading.getReadingDate())
+                .ifPresent(next -> {
+                    if (!Boolean.TRUE.equals(next.getIsMeterReset()) &&
+                        request.getReadingValue().compareTo(next.getReadingValue()) > 0) {
+                        throw new AppException(ErrorCode.INVALID_UTILITY_READING_VALUE,
+                                "Chỉ số đọc (" + request.getReadingValue() + ") không được lớn hơn chỉ số tiếp theo (" + next.getReadingValue() + ") khi chỉ số tiếp theo không có cờ reset đồng hồ");
                     }
                 });
 
@@ -169,6 +187,6 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
                 .or(() -> SecurityUtils.getCurrentUsername()
                         .flatMap(staffRepository::findByUsernameAndIsDeletedFalse)
                         .map(Staff::getId))
-                .orElse(1);
+                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND, "Không tìm thấy thông tin nhân viên từ phiên đăng nhập"));
     }
 }

@@ -35,7 +35,7 @@ public class UtilityReadingController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER')")
-    @Operation(summary = "Lấy chi tiết chỉ số đọc")
+    @Operation(summary = "Lấy chi tiết chỉ số đọc", description = "Mã lỗi: 9051 (UTILITY_READING_NOT_FOUND)")
     public ApiResponse<UtilityReadingResponse> getById(@PathVariable Long id) {
         return ApiResponse.<UtilityReadingResponse>builder()
                 .result(service.getById(id))
@@ -44,7 +44,7 @@ public class UtilityReadingController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING')")
-    @Operation(summary = "Thêm mới chỉ số đọc")
+    @Operation(summary = "Thêm mới chỉ số đọc", description = "Mã lỗi: 9041 (UTILITY_METER_NOT_FOUND), 9052 (UTILITY_READING_ALREADY_EXISTS), 9053 (INVALID_UTILITY_READING_VALUE), 3021 (STAFF_NOT_FOUND)")
     public ApiResponse<UtilityReadingResponse> create(@Valid @RequestBody UtilityReadingCreateRequest request) {
         return ApiResponse.<UtilityReadingResponse>builder()
                 .result(service.create(request))
@@ -53,7 +53,7 @@ public class UtilityReadingController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING')")
-    @Operation(summary = "Cập nhật chỉ số đọc")
+    @Operation(summary = "Cập nhật chỉ số đọc", description = "Mã lỗi: 9051 (UTILITY_READING_NOT_FOUND), 9053 (INVALID_UTILITY_READING_VALUE), 3021 (STAFF_NOT_FOUND)")
     public ApiResponse<UtilityReadingResponse> update(@PathVariable Long id, @Valid @RequestBody UtilityReadingUpdateRequest request) {
         return ApiResponse.<UtilityReadingResponse>builder()
                 .result(service.update(id, request))
@@ -62,7 +62,7 @@ public class UtilityReadingController {
 
     @DeleteMapping("/delete")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING')")
-    @Operation(summary = "Xóa (mềm) chỉ số đọc")
+    @Operation(summary = "Xóa (mềm) danh sách chỉ số đọc", description = "Chuyển cờ is_deleted = true cho danh sách ID")
     public ApiResponse<Void> delete(@RequestBody List<Long> ids) {
         service.delete(ids);
         return ApiResponse.<Void>builder().build();

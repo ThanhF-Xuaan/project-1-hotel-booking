@@ -32,6 +32,12 @@ public interface UtilityReadingRepository extends JpaRepository<UtilityReading, 
         return findFirstByMeterIdAndReadingDateLessThanAndIsDeletedFalseOrderByReadingDateDesc(meterId, readingDate);
     }
 
+    Optional<UtilityReading> findFirstByMeterIdAndReadingDateGreaterThanAndIsDeletedFalseOrderByReadingDateAsc(Integer meterId, LocalDate readingDate);
+
+    default Optional<UtilityReading> findNextReading(Integer meterId, LocalDate readingDate) {
+        return findFirstByMeterIdAndReadingDateGreaterThanAndIsDeletedFalseOrderByReadingDateAsc(meterId, readingDate);
+    }
+
     @Query(value = "SELECT r.id AS reading_id, prev.reading_value AS previous_value " +
            "FROM utility_readings r " +
            "LEFT JOIN LATERAL (" +
