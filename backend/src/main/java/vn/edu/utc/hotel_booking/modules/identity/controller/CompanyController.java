@@ -26,7 +26,7 @@ public class CompanyController {
     private final CompanyService companyService;
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Tìm kiếm và phân trang doanh nghiệp đối tác")
     public ApiResponse<PageResponse<CompanyResponse>> filter(@RequestBody @Valid CompanySearchDto searchDto) {
         return ApiResponse.<PageResponse<CompanyResponse>>builder()
@@ -37,7 +37,7 @@ public class CompanyController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Lấy chi tiết doanh nghiệp theo ID")
     public ApiResponse<CompanyResponse> getById(@PathVariable Long id) {
         return ApiResponse.<CompanyResponse>builder()
@@ -49,7 +49,7 @@ public class CompanyController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'SALES_GROUP')")
     @Operation(summary = "Tạo mới thông tin doanh nghiệp đối tác")
     public ApiResponse<CompanyResponse> create(@RequestBody @Valid CompanyCreateRequest request) {
         return ApiResponse.<CompanyResponse>builder()
@@ -60,10 +60,10 @@ public class CompanyController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'SALES_GROUP')")
     @Operation(summary = "Cập nhật thông tin doanh nghiệp")
     public ApiResponse<CompanyResponse> update(@PathVariable Long id,
-                                              @RequestBody @Valid CompanyUpdateRequest request) {
+                                               @RequestBody @Valid CompanyUpdateRequest request) {
         return ApiResponse.<CompanyResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Cập nhật thông tin doanh nghiệp thành công")

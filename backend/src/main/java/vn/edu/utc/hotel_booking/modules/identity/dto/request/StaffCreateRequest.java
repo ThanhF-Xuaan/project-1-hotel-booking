@@ -17,9 +17,9 @@ import java.util.UUID;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class StaffCreateRequest {
 
-    @Schema(description = "UUID người dùng được cấp từ Keycloak", example = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
-    @NotNull(message = "Keycloak ID không được để trống")
-    UUID keycloakId;
+    @Schema(description = "Mật khẩu khởi tạo tài khoản (Tùy chọn, nếu để trống hệ thống sẽ sinh mật khẩu ngẫu nhiên và yêu cầu đổi mật khẩu lần đầu)", example = "Hotel@123456")
+    @Size(min = 6, message = "Mật khẩu phải có tối thiểu 6 ký tự")
+    String password;
 
     @Schema(description = "ID vai trò được gán", example = "3")
     @NotNull(message = "Vai trò không được để trống")

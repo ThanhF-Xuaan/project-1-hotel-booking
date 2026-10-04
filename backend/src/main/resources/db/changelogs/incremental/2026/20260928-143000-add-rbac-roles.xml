@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20260928-143000-add-rbac-roles" author="utc-hotel-team" context="master-data">
+        <comment>Bổ sung 5 roles mới (CHAIN_EXECUTIVE, SALES_GROUP, F_AND_B, ENGINEERING, FINANCE), thêm permissions và role_permissions theo SRS mục 1.2.1.1</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20260928-143000-add-rbac-roles.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

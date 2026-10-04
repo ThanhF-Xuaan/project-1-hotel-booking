@@ -49,7 +49,7 @@ public class CampaignController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
     @Operation(summary = "Xem chi tiết chiến dịch theo ID")
     public ResponseEntity<ApiResponse<CampaignResponse>> getCampaignById(@PathVariable Integer id) {
         CampaignResponse response = campaignService.getCampaignById(id);
@@ -57,7 +57,7 @@ public class CampaignController {
     }
 
     @PostMapping("/filter")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
     @Operation(summary = "Tìm kiếm & lọc danh sách chiến dịch khuyến mại")
     public ResponseEntity<ApiResponse<PageResponse<CampaignResponse>>> filterCampaigns(
             @RequestBody CampaignSearchDto searchDto) {

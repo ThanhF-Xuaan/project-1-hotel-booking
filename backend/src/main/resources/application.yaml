@@ -40,11 +40,29 @@ spring:
           issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/hotel-realm}
           jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8081/realms/hotel-realm/protocol/openid-connect/certs}
 
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 20
+        queue-capacity: 500
+        thread-name-prefix: "async-iam-task-"
+
+keycloak:
+  server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8081}
+  realm: ${KEYCLOAK_REALM:hotel-realm}
+  client-id: ${KEYCLOAK_CLIENT_ID:hotel-backend}
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:hotel-backend-secret-key-123456}
+  admin:
+    client-id: ${KEYCLOAK_ADMIN_CLIENT_ID:admin-cli}
+    username: ${KEYCLOAK_ADMIN_USERNAME:admin}
+    password: ${KEYCLOAK_ADMIN_PASSWORD:admin}
+
 logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web: INFO
-    com.vn.edu.utc.hotel_booking_system: DEBUG
+    vn.edu.utc.hotel_booking: DEBUG
 
 # =============================================================================
 # CẤU HÌNH CỔNG THANH TOÁN (Giai đoạn A — T06 Payment Gateway)

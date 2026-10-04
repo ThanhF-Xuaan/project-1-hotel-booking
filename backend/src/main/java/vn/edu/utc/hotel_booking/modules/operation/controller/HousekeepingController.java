@@ -25,7 +25,7 @@ public class HousekeepingController {
     HousekeepingService housekeepingService;
 
     @GetMapping("/rooms")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_HOUSEKEEPING')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING')")
     @Operation(summary = "Lấy sơ đồ và danh sách trạng thái buồng phòng theo khách sạn")
     public ApiResponse<List<RoomHousekeepingStatusResponse>> getRoomsByHotel(
             @RequestParam Short hotelId,
@@ -35,7 +35,7 @@ public class HousekeepingController {
     }
 
     @PutMapping("/rooms/{roomInstanceId}/status")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_HOUSEKEEPING')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING')")
     @Operation(summary = "Cập nhật trạng thái buồng phòng (READY, CLEANING, DIRTY, MAINTENANCE)")
     public ApiResponse<RoomHousekeepingStatusResponse> updateRoomStatus(
             @PathVariable Integer roomInstanceId,

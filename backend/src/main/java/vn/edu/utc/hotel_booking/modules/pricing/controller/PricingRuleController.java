@@ -49,7 +49,7 @@ public class PricingRuleController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
     @Operation(summary = "Xem chi tiết quy tắc giá theo ID")
     public ResponseEntity<ApiResponse<PricingRuleResponse>> getPricingRuleById(@PathVariable Integer id) {
         PricingRuleResponse response = pricingRuleService.getPricingRuleById(id);
@@ -57,7 +57,7 @@ public class PricingRuleController {
     }
 
     @PostMapping("/filter")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
     @Operation(summary = "Tìm kiếm & lọc danh sách quy tắc giá")
     public ResponseEntity<ApiResponse<PageResponse<PricingRuleResponse>>> filterPricingRules(
             @RequestBody PricingRuleSearchDto searchDto) {

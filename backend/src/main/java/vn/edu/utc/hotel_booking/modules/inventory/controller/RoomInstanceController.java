@@ -49,7 +49,7 @@ public class RoomInstanceController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'ENGINEERING')")
     @Operation(summary = "Cập nhật nhanh trạng thái phòng (READY, OCCUPIED, CLEANING, MAINTENANCE)")
     public ResponseEntity<ApiResponse<RoomInstanceResponse>> updateRoomStatus(
             @PathVariable Integer id,

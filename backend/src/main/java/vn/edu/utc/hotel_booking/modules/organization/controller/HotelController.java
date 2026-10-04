@@ -26,7 +26,7 @@ public class HotelController {
     private final HotelService hotelService;
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Tìm kiếm và phân trang khách sạn cơ sở")
     public ApiResponse<PageResponse<HotelResponse>> filter(@RequestBody @Valid HotelSearchDto searchDto) {
         return ApiResponse.<PageResponse<HotelResponse>>builder()
@@ -37,7 +37,7 @@ public class HotelController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Lấy chi tiết thông tin một khách sạn cơ sở theo ID")
     public ApiResponse<HotelResponse> getById(@PathVariable Short id) {
         return ApiResponse.<HotelResponse>builder()
@@ -63,7 +63,7 @@ public class HotelController {
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER')")
     @Operation(summary = "Cập nhật thông tin khách sạn cơ sở")
     public ApiResponse<HotelResponse> update(@PathVariable Short id,
-                                            @RequestBody @Valid HotelUpdateRequest request) {
+                                             @RequestBody @Valid HotelUpdateRequest request) {
         return ApiResponse.<HotelResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Cập nhật thông tin khách sạn thành công")

@@ -26,7 +26,7 @@ public class DepartmentController {
     private final DepartmentService departmentService;
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Tìm kiếm và phân trang phòng ban")
     public ApiResponse<PageResponse<DepartmentResponse>> filter(@RequestBody @Valid DepartmentSearchDto searchDto) {
         return ApiResponse.<PageResponse<DepartmentResponse>>builder()
@@ -37,7 +37,7 @@ public class DepartmentController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Lấy chi tiết phòng ban theo ID")
     public ApiResponse<DepartmentResponse> getById(@PathVariable Short id) {
         return ApiResponse.<DepartmentResponse>builder()
@@ -63,7 +63,7 @@ public class DepartmentController {
     @PreAuthorize("hasRole('CHAIN_ADMIN')")
     @Operation(summary = "Cập nhật thông tin phòng ban (Chỉ Chain Admin)")
     public ApiResponse<DepartmentResponse> update(@PathVariable Short id,
-                                                 @RequestBody @Valid DepartmentUpdateRequest request) {
+                                                  @RequestBody @Valid DepartmentUpdateRequest request) {
         return ApiResponse.<DepartmentResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Cập nhật phòng ban thành công")

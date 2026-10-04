@@ -11,6 +11,9 @@ public enum ErrorCode {
     INVALID_REQUEST_DATA(1002, "Dữ liệu yêu cầu không hợp lệ", HttpStatus.BAD_REQUEST),
     UNAUTHENTICATED(1006, "Chưa xác thực (Vui lòng đăng nhập)", HttpStatus.UNAUTHORIZED),
     UNAUTHORIZED(1007, "Bạn không có quyền thực hiện hành động này", HttpStatus.FORBIDDEN),
+    INVALID_CREDENTIALS(1008, "Tên đăng nhập hoặc mật khẩu không chính xác", HttpStatus.UNAUTHORIZED),
+    TOKEN_EXPIRED_OR_REVOKED(1009, "Phiên đăng nhập đã hết hạn hoặc bị thu hồi (Vui lòng đăng nhập lại)", HttpStatus.UNAUTHORIZED),
+    INVALID_REFRESH_TOKEN(1010, "Refresh token không hợp lệ hoặc đã hết hạn", HttpStatus.BAD_REQUEST),
 
     // Organization Module Errors
     REGION_NOT_FOUND(2001, "Không tìm thấy khu vực/vùng yêu cầu", HttpStatus.NOT_FOUND),
@@ -30,6 +33,11 @@ public enum ErrorCode {
     EMAIL_ALREADY_EXISTS(3023, "Địa chỉ email đã được sử dụng", HttpStatus.CONFLICT),
     PHONE_ALREADY_EXISTS(3024, "Số điện thoại đã được sử dụng", HttpStatus.CONFLICT),
     INVALID_SCOPE_CONFIGURATION(3025, "Cấu hình phạm vi quản lý (Scope) của nhân viên không hợp lệ", HttpStatus.BAD_REQUEST),
+    KEYCLOAK_USER_CREATION_FAILED(3026, "Không thể tạo tài khoản trên Keycloak IAM", HttpStatus.BAD_GATEWAY),
+    KEYCLOAK_USER_UPDATE_FAILED(3027, "Không thể cập nhật thông tin tài khoản trên Keycloak IAM", HttpStatus.BAD_GATEWAY),
+    KEYCLOAK_USER_DELETE_FAILED(3028, "Không thể xóa hoặc vô hiệu hóa tài khoản trên Keycloak IAM", HttpStatus.BAD_GATEWAY),
+    KEYCLOAK_COMMUNICATION_ERROR(3029, "Không thể kết nối tới máy chủ Keycloak IAM", HttpStatus.SERVICE_UNAVAILABLE),
+    KEYCLOAK_USER_ALREADY_EXISTS(3030, "Tài khoản người dùng đã tồn tại trên Keycloak IAM", HttpStatus.CONFLICT),
     GUEST_NOT_FOUND(3031, "Không tìm thấy thông tin khách hàng", HttpStatus.NOT_FOUND),
     COMPANY_NOT_FOUND(3041, "Không tìm thấy thông tin doanh nghiệp đối tác", HttpStatus.NOT_FOUND),
     TAX_CODE_ALREADY_EXISTS(3042, "Mã số thuế doanh nghiệp đã tồn tại", HttpStatus.CONFLICT),

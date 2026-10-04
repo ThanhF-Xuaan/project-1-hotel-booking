@@ -27,35 +27,35 @@ public class InvoiceController {
 
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Tạo hóa đơn từ đơn đặt phòng (Bất biến số liệu tài chính)")
     public ApiResponse<InvoiceResponse> createInvoice(@Valid @RequestBody InvoiceCreateRequest request) {
         return ApiResponse.success("Tạo hóa đơn thành công", invoiceService.createInvoice(request));
     }
 
     @PostMapping("/filter")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Tìm kiếm và phân trang hóa đơn")
     public ApiResponse<PageResponse<InvoiceResponse>> filter(@RequestBody InvoiceSearchDto searchDto) {
         return ApiResponse.success(invoiceService.filter(searchDto));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Lấy chi tiết hóa đơn theo ID")
     public ApiResponse<InvoiceResponse> getById(@PathVariable Long id) {
         return ApiResponse.success(invoiceService.getById(id));
     }
 
     @GetMapping("/booking/{bookingId}")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_REGION_MANAGER', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST', 'ROLE_CUSTOMER')")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Lấy hóa đơn theo ID đơn đặt phòng")
     public ApiResponse<InvoiceResponse> getByBookingId(@PathVariable Long bookingId) {
         return ApiResponse.success(invoiceService.getByBookingId(bookingId));
     }
 
     @PutMapping("/{id}/issue")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER', 'ROLE_RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Phát hành hóa đơn chính thức (Chuyển trạng thái sang ISSUED)")
     public ApiResponse<InvoiceResponse> issueInvoice(@PathVariable Long id) {
         return ApiResponse.success("Phát hành hóa đơn thành công", invoiceService.issueInvoice(id));

@@ -280,7 +280,7 @@ public class BookingServiceImpl implements BookingService {
         return bookingMapper.toResponse(saved);
     }
 
-    private void createRoomSlotsForAssignedRoom(RoomInstance roomInstance, LocalDate checkIn, LocalDate checkOut, Long bookingRoomId) {
+        private void createRoomSlotsForAssignedRoom(RoomInstance roomInstance, LocalDate checkIn, LocalDate checkOut, Long bookingRoomId) {
         LocalDate cur = checkIn;
         while (cur.isBefore(checkOut)) {
             LocalDate slotDate = cur; // biến effectively final để dùng trong lambda
