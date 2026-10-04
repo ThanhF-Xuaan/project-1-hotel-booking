@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AdminLayout from './core/components/layout/AdminLayout'
+import LoginPage from './modules/auth/pages/LoginPage'
 import RegionListPage from './modules/organization/pages/RegionListPage'
 import HotelListPage from './modules/organization/pages/HotelListPage'
 import RoomTypeListPage from './modules/inventory/pages/RoomTypeListPage'
@@ -22,6 +23,9 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Authentication */}
+        <Route path="/login" element={<LoginPage />} />
+
         {/* Customer-facing Public Booking Portal */}
         <Route path="/portal">
           <Route index element={<Navigate to="/portal/search" replace />} />
