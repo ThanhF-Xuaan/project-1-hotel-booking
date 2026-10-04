@@ -5,7 +5,7 @@ Mỗi task một dòng. Dùng để hiệu chỉnh ước tính và quyết đ�
 
 | Task | Ngày | Ước tính (ngày) | Thực tế (ngày) | Số lần phải can thiệp | Lỗi lặp lại | Quota dùng | Mức tự chủ | Ghi chú |
 |---|---|---|---|---|---|---|---|---|
-| T04 (Utility) | 2026-10-04 | 2.5d | 1.0d | 2 | Thiếu kiểm tra reading ngày liền sau; hardcode staff ID fallback | Bình thường | L3 | Hoàn tất CRUD UtilityMeter & Reading, 109 tests passed |
+| T04 (Utility) | 2026-10-04 | 2.5d | 1.0d | 2 | Đã xử lý triệt để: kiểm tra next reading, enforce auth staff | Bình thường | L3 | Đạt DoD 100%, 114/114 tests passed, reviewer PASS |
 
 ## Quy tắc nâng/hạ mức tự chủ
 - Nâng một mức cho một loại việc: sau 3 task cùng loại liên tiếp không phải sửa lớn.
