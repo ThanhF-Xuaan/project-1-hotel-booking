@@ -49,6 +49,7 @@
 | **Swagger UI** (test thử, không cần JWT) | `http://localhost:8080/swagger-ui.html` |
 | **OpenAPI JSON** | `http://localhost:8080/v3/api-docs` |
 | **Lấy JWT** (Keycloak, bắt buộc cho mọi endpoint trừ `/public/**`) | `POST http://localhost:8081/realms/hotel-realm/protocol/openid-connect/token` |
+| **Lấy JWT qua BE** (auth module mới từ 04/10 — FE đang dùng cách này) | `POST http://localhost:8080/api/v1/auth/login` → `{result:{access_token, refresh_token}}` |
 | **FE trang kết quả** | `http://localhost:3000/payment/result` |
 | **FE thu ngân** | `http://localhost:3000/finance/folios` |
 
@@ -66,6 +67,10 @@ $H = @{Authorization="Bearer $tok"}   # dùng cho Invoke-RestMethod -Headers $H
 
 > Bản curl tương đương **chỉ chạy được khi đã cài `jq`** (`| jq -r .access_token`) —
 > máy dev Windows hiện tại **chưa cài jq** nên đừng copy lệnh đó.
+>
+> ⚠️ **04/10:** sau khi đăng xuất (`POST /api/v1/auth/logout` hoặc nút Header), token cũ bị
+> **blacklist trong Redis** (`JwtBlacklistFilter`) → gọi tiếp mọi endpoint đều **401 code 1009**
+> "Phiên đăng nhập đã hết hạn hoặc bị thu hồi" (xem §8, §12).
 
 ### 2.2 Danh sách đầy đủ URL (payment API)
 
@@ -87,17 +92,24 @@ $H = @{Authorization="Bearer $tok"}   # dùng cho Invoke-RestMethod -Headers $H
 > Toàn bộ nhóm này là **GET/POST nghiệp vụ** → mở bằng **Swagger** hoặc **PowerShell §2.3**,
 > *không* dán thẳng vào thanh địa trình duyệt.
 
-| # | Full URL | Method | Vai trò | HTTP khi OK |
-| :-- | :--- | :--- | :--- | :--- |
-| 1 | `http://localhost:8080/api/v1/payments/create` | POST | ADMIN · PROPERTY_MANAGER · RECEPTIONIST · CUSTOMER | **201** |
-| 2 | `http://localhost:8080/api/v1/payments/filter` | POST | ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST | 200 |
-| 3 | `http://localhost:8080/api/v1/payments/{id}` | GET | ADMIN · REGION · PROPERTY · RECEPTION | 200 |
-| 4 | `http://localhost:8080/api/v1/payments/booking/{bookingId}` | GET | 4 role trên + CUSTOMER | 200 |
-| 5 | `http://localhost:8080/api/v1/payments/{id}/complete` | POST | ADMIN · PROPERTY · RECEPTION | 200 |
-| 6 | `http://localhost:8080/api/v1/payments/{id}/cancel` | POST | ADMIN · PROPERTY · RECEPTION | 200 |
-| 7 | `http://localhost:8080/api/v1/payments/{id}/refund?refundAmount=…&reason=…` | POST | **chỉ** ADMIN · PROPERTY_MANAGER | 200 |
+> **Cột "Vai trò" bên dưới là định dạng SAU merge `b531fa9` (04/10)** — đọc theo code thật
+> `PaymentController.java`. Lưu ý2 điểm khác bản trước merge: **CUSTOMER đã bị bỏ khỏi
+> `/create` và `/booking/{id}`**, và **FINANCE được thêm vào mọi endpoint**.
 
-**Nhóm 2 — Tạo phiên gateway (cần JWT + role):**
+| # | Full URL | Method | Vai trò (post-merge) | HTTP khi OK |
+| :-- | :--- | :--- | :--- | :--- |
+| 1 | `http://localhost:8080/api/v1/payments/create` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · **FINANCE** | **201** |
+| 2 | `http://localhost:8080/api/v1/payments/filter` | POST | CHAIN_EXECUTIVE · CHAIN_ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST · **FINANCE** | 200 |
+| 3 | `http://localhost:8080/api/v1/payments/{id}` | GET | CHAIN_EXECUTIVE · CHAIN_ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST · **FINANCE** | 200 |
+| 4 | `http://localhost:8080/api/v1/payments/booking/{bookingId}` | GET | CHAIN_EXECUTIVE · CHAIN_ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST · **FINANCE** | 200 |
+| 5 | `http://localhost:8080/api/v1/payments/{id}/complete` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · **FINANCE** | 200 |
+| 6 | `http://localhost:8080/api/v1/payments/{id}/cancel` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · **FINANCE** | 200 |
+| 7 | `http://localhost:8080/api/v1/payments/{id}/refund?refundAmount=…&reason=…` | POST | **chỉ** CHAIN_ADMIN · PROPERTY_MANAGER · **FINANCE** | 200 |
+
+**Nhóm 2 — Tạo phiên gateway (cần JWT + role — cùng bộ với #1):**
+
+> Role cho #8/#9 = `CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · FINANCE`.
+> **Trước fix F1 (§12.2)** 2 endpoint này dùng định dạng `@PreAuthorize` cũ → **403** với mọi role.
 
 | # | Full URL | Method | HTTP khi OK |
 | :-- | :--- | :--- | :--- |
@@ -171,22 +183,25 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/v1/payments/booking/2" -Method
 
 ### 2.4 Bảng endpoint tóm tắt (nhìn nhanh)
 
-| Endpoint | Method | Ai gọi | HTTP khi OK |
+| Endpoint | Method | Ai gọi (post-merge) | HTTP khi OK |
 | :--- | :--- | :--- | :--- |
-| `/api/v1/payments/create` | POST | ADMIN · PROPERTY_MANAGER · RECEPTIONIST · CUSTOMER | **201** |
-| `/api/v1/payments/vnpay/create` | POST | 4 role trên | **201** |
-| `/api/v1/payments/momo/create` | POST | 4 role trên | **201** |
-| `/api/v1/payments/{id}` | GET | ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST | 200 |
-| `/api/v1/payments/booking/{bookingId}` | GET | 4 role trên + CUSTOMER | 200 |
-| `/api/v1/payments/filter` | POST | ADMIN · REGION · PROPERTY · RECEPTION | 200 |
-| `/api/v1/payments/{id}/complete` | POST | ADMIN · PROPERTY · RECEPTION | 200 |
-| `/api/v1/payments/{id}/cancel` | POST | ADMIN · PROPERTY · RECEPTION | 200 |
-| `/api/v1/payments/{id}/refund` | POST | **chỉ** ADMIN · PROPERTY_MANAGER | 200 |
+| `/api/v1/payments/create` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | **201** |
+| `/api/v1/payments/vnpay/create` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | **201** |
+| `/api/v1/payments/momo/create` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | **201** |
+| `/api/v1/payments/{id}` | GET | CHAIN_EXECUTIVE · CHAIN_ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | 200 |
+| `/api/v1/payments/booking/{bookingId}` | GET | CHAIN_EXECUTIVE · CHAIN_ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | 200 |
+| `/api/v1/payments/filter` | POST | CHAIN_EXECUTIVE · CHAIN_ADMIN · REGION_MANAGER · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | 200 |
+| `/api/v1/payments/{id}/complete` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | 200 |
+| `/api/v1/payments/{id}/cancel` | POST | CHAIN_ADMIN · PROPERTY_MANAGER · RECEPTIONIST · FINANCE | 200 |
+| `/api/v1/payments/{id}/refund` | POST | **chỉ** CHAIN_ADMIN · PROPERTY_MANAGER · FINANCE | 200 |
 | `/api/v1/public/payments/vnpay/ipn` | GET | **VNPay server** (không JWT) | 200 |
 | `/api/v1/public/payments/vnpay/return` | GET | **trình duyệt khách** (không JWT) | **302** → FE |
 | `/api/v1/public/payments/momo/callback` | POST | **MoMo server** (không JWT) | 200 |
 
-> Không JWT → **401** · có JWT nhưng thiếu role → **403** · sai body → **400/1002** · không thấy id → **404/8001**.
+> Không JWT → **401** · token đã đăng xuất (blacklist) → **401/1009** · có JWT nhưng thiếu role →
+> **403** · sai body → **400/1002** · không thấy id → **404/8001**.
+> **Định dạng annotation** post-merge: `hasAnyRole('CHAIN_ADMIN', ...)` — **không** viết prefix
+> `ROLE_` (converter tự thêm → viết `ROLE_CHAIN_ADMIN` sẽ so sánh `ROLE_ROLE_CHAIN_ADMIN` → 403).
 
 ---
 
@@ -201,7 +216,9 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/v1/payments/booking/2" -Method
       { bookingId, totalAmount, paymentMethod: "CASH", transactionReference?: "PT-..." }
 ④ BE (createPayment):
       - booking không tồn tại?                → 404 7001
-      - amount null hoặc ≤ 0?                  → 400 8002
+      - amount null hoặc ≤ 0?                  → 400 1002 (DTO validation @NotNull/@DecimalMin
+                                                  — xem §12.3 fix F2; 8002 là mức SERVICE,
+                                                  validation chặn TRƯỚC nên create không tới nơi)
       - reference: trim() — CASH KHÔNG bắt buộc
       - isImmediateSuccess = true              → status = SUCCESS, paidAt = now
       - lưu Payment + tạo Transaction (sổ cái, status COMPLETED)
@@ -215,7 +232,7 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/v1/payments/booking/2" -Method
 | # | Trường hợp | Kết quả | Code/HTTP |
 | :-- | :--- | :--- | :--- |
 | 1 | Happy path (đủ tiền, có/không phiếu thu) | `SUCCESS` ngay + có dòng `transactions` | **201** |
-| 2 | `totalAmount` = 0 / âm / null | "Số tiền thanh toán phải lớn hơn 0" | 400 · **8002** |
+| 2 | `totalAmount` = 0 / âm / null | "Số tiền thanh toán phải lớn hơn 0" | 400 · **1002** (trước fix 04/10: **1001** "Khóa mã lỗi không hợp lệ" — vô nghĩa; doc từng ghi 8002 — **đều sai**, xem §12.2 F2) |
 | 3 | `bookingId` không tồn tại | "Không tìm thấy đơn đặt phòng" | 404 · **7001** |
 | 4 | Không gửi JWT | — | **401** |
 | 5 | Role không có quyền (vd HOUSEKEEPING) | — | **403** |
@@ -395,11 +412,12 @@ Có **3 cửa** (3 endpoint): **create** (tạo phiên) · **return** (trình du
 ## 8. CÁC CA LỖI CHUNG (mọi phương thức) — xử lý theo §6
 
 ```text
-Bất kỳ ErrorCode nào từ BE (8001…8008, 1002, 7001…)
+Bất kỳ ErrorCode nào từ BE (8001…8008, 1002, 1009, 7001…)
   → FE popup lỗi (Modal.tsx — KHÔNG toast)
   → nếu payment đang PENDING:  POST /payments/{id}/cancel   (8006 nếu đã xong)
   → reset state FE (đóng modal, xóa ref đã nhập nếu cần)
   → restart flow từ đầu (tạo lại phiên / nhập lại từ đầu)
+  ※ riêng 401/1009: không gọi được API nữa → FE tự logout + về /login
 ```
 
 | Code | HTTP | Xuất hiện ở | Hành vi FE |
@@ -412,7 +430,8 @@ Bất kỳ ErrorCode nào từ BE (8001…8008, 1002, 7001…)
 | **8006** | 400 | cancel/complete/reuse trên payment ≠ PENDING | popup → reload |
 | **8007** | 400 | bank/card thiếu mã tham chiếu | popup + `focus()` ô, **giữ dữ liệu đã nhập** |
 | **8008** | 502 | key rỗng · gateway sập · MoMo từ chối | popup → **hủy PENDING** → "Hủy & thanh toán lại" |
-| **1002** | 400 | method sai cho endpoint (vd CASH gửi vào `/vnpay/create`) | popup |
+| **1002** | 400 | method sai cho endpoint (vd CASH gửi vào `/vnpay/create`) **· body sai validation** (thiếu/sai field → hiển thị **đúng message tiếng Việt** của DTO, fix 04/10 §12.3 F2) | popup |
+| **1009** | 401 | token đã bị thu hồi sau đăng xuất (`JwtBlacklistFilter` + Redis blacklist) — test A04 04/10 | FE tự logout → `/login` (không popup — phiên hết thì cứ vào lại) |
 | **7001** | 404 | bookingId không tồn tại | popup |
 
 ---
@@ -436,6 +455,9 @@ Bất kỳ ErrorCode nào từ BE (8001…8008, 1002, 7001…)
 ---
 
 ## 10. TRẠNG THÁI KIỂM CHỨNG (03/10/2026 — API thật, dữ liệu mẫu)
+
+> 📌 Bảng §10 là trạng thái **03/10 (trước merge)**. Sau khi merge `tung-dev` + fix (04/10) đã chạy
+> lại full round — xem **§12** (trong đó một số dòng §10 như "mvn 83/83", role cột §2.2 đã được §12 thay thế).
 
 ### 10.1 Chạy lại đủ 12 URL (§2.2) — 12/12 ✅
 
@@ -498,3 +520,134 @@ Bất kỳ ErrorCode nào từ BE (8001…8008, 1002, 7001…)
 4. **`complete` không chặn `CANCELLED`/`FAILED`** (chỉ chặn `SUCCESS` với 8003) — cẩn thận khi bấm complete bừa.
 5. **IPN về sau khi đã cancel** → 8005, tiền có thể đã bị trừ nhưng payment là `CANCELLED` → cần đối soát thủ công.
 6. Chưa render QR inline trong `CheckoutModal` (cần thêm package `qrcode.react` — chờ duyệt).
+
+---
+
+## 12. REVIEW MERGE `tung-dev` + FIX + VÒNG TEST 04/10/2026
+
+> **Bối cảnh:** 04/10 merge `origin/tung-dev` → `htd/payment-gateway` (commit **`b531fa9`**,
+> 89 files, +3760/−292). Việc làm: **review merge → phát hiện lỗi → fix → test lại toàn bộ →
+> ghi kết quả vào đây**. (§10 vẫn là trạng thái **03/10 — trước merge**; bảng nào khác nhau thì
+> **§12 là bản mới nhất**.)
+
+### 12.1 Merge thay đổi gì? (chỉ những gì liên quan T06)
+
+| Hạng mục | Trước merge | Sau merge (`b531fa9`) | Ảnh hưởng T06? |
+| :--- | :--- | :--- | :--- |
+| Auth BE | chưa có | `AuthController` `/api/v1/auth/login·refresh·logout` + `JwtBlacklistFilter` (blacklist Redis) + ErrorCode 1009/1010/3026–3030 | ✅ thêm tầng chặn token đã logout |
+| Auth FE | `RequireAuth.tsx` (của mình) | thay bằng `ProtectedRoute` + `LoginPage` mới (react-hook-form+zod → gọi BE login) + Header đăng xuất qua BE | ✅ đăng nhập/đăng xuất/refresh |
+| `@PreAuthorize` | 2 định dạng trộn lẫn | quy về **1 định dạng**: `hasAnyRole('CHAIN_ADMIN', ...)` — **không** prefix `ROLE_` | ⚠️ 3 endpoint bị sót → fix F1 |
+| Payment API contract | 12 endpoint | **giữ nguyên** đường dẫn/method/response | ✅ |
+| Booking/Finance FE, `InvoiceController`, `client.ts`, `FolioPaymentPage` | — | chỉ annotation/indent hoặc **giữ nguyên logic** (refresh 401 trong `client.ts` không đổi) | ✅ |
+
+> **Vì sao định dạng annotation quan trọng:** `KeycloakJwtAuthenticationConverter` tự gắn tiền tố
+> `ROLE_` khi đọc JWT (`CHAIN_ADMIN` → `ROLE_CHAIN_ADMIN`). Viết `hasAnyRole('ROLE_CHAIN_ADMIN')`
+> → Spring so `ROLE_ROLE_CHAIN_ADMIN` → **403**. Sau merge 6 endpoint đã đúng, **3 endpoint sót lại**
+> → đúng là 3 endpoint then chốt của payment (F1).
+
+### 12.2 Lỗi phát hiện & ĐÃ FIX (4 lỗi)
+
+| # | Lỗi | Triệu chứng | Nơi fix |
+| :-- | :--- | :--- | :--- |
+| **F1** | 3 annotation `@PreAuthorize` định dạng cũ sót lại sau merge | `POST /payments/{id}/cancel`, `/vnpay/create`, `/momo/create` → **403 mọi role** (T10/T14/T16 hỏng; UI "Hủy & thanh toán lại" + tạo phiên không chạy) | `PaymentController.java` → `hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')`. Grep xác nhận **cả `backend/src` không còn** chữ `'ROLE_` nào trong `@PreAuthorize` |
+| **F2** | Lỗi validation trả **1001 "Khóa mã lỗi không hợp lệ"** (vô nghĩa với user) | `amount=0` → `{"code":1001,…}` thay vì message lỗi thật (doc từng ghi 8002 — **cũng sai**). Nguyên nhân: `GlobalHandlerException.handlingValidation` làm `ErrorCode.valueOf(message)` — message là **tiếng Việt** từ `@NotNull/@DecimalMin` → không match enum nào → fallback `INVALID_KEY(1001)` | `GlobalHandlerException.java`: vẫn thử `valueOf` (phòng DTO cố dùng tên enum) — **không match thì trả 1002 + NGUYÊN message tiếng Việt của DTO**. Kiểm tra: không test nào phụ thuộc 1001, không DTO nào dùng message = tên enum → an toàn |
+| **F3** | Container BE thiếu biến Keycloak | BE trong container lấy default `localhost:8081` (trong container là chính nó) → login qua BE hỏng | `docker-compose.yml`: thêm `KEYCLOAK_SERVER_URL: ${KEYCLOAK_SERVER_URL:-http://keycloak:8080}` + `KEYCLOAK_REALM/CLIENT_ID/CLIENT_SECRET/ADMIN_*` |
+| **F4** | FE login **không lưu** `refresh_token`; logout **không xóa** nó | Sau đăng nhập `auth_refresh_token` = null → auto-refresh trong `client.ts` **chết** khi access token hết hạn; logout chỉ xóa `auth_token` → RT cũ có thể "hồi sinh" phiên | `LoginPage.tsx`: lưu kèm `auth_refresh_token` (BE trả về sẵn) · `Header.tsx`: logout xóa **cả 2 key** |
+
+**Không fix — không phải lỗi:** console đỏ `GET /api/v1/invoices/booking/6 → 404` — endpoint
+single-resource trả 404 khi chưa có hóa đơn là **đúng REST**; FE `catch { setInvoice(null) }` xử lý
+đúng. Dòng đỏ chỉ là **resource log** trình duyệt tự ghi cho mọi response 4xx, **không phải lỗi JS**.
+→ **Quyết định 04/10 (Q2): giữ nguyên BE, không đổi API** — xem §12.4.
+
+**Migration Liquibase** sau merge (tự chạy khi khởi động lại BE — verify đã có trong DB):
+`keycloak_sync_dead_letters` · `utility_meters` · `utility_readings` (3 bản mới).
+
+### 12.3 Vòng test 04/10/2026 — kết quả
+
+#### a) Unit test BE + build FE
+
+| Hạng mục | Kết quả |
+| :--- | :--- |
+| `mvn test` (container `maven:3.9.6` / Java 21) — trước fix | 🟢 **120 tests · 0 fail · 1 skip** |
+| `mvn test` — **sau fix F1+F2 (code cuối)** | 🟢 **120 tests · 0 fail · 1 skip — BUILD SUCCESS** (02:18) |
+| `npm run build` FE (có F4) | 🟢 **built in 1.91s** (warning chunk >500kB là warning có sẵn) |
+| Swagger `/v3/api-docs` | 🟢 **đủ 12/12** path `/payments...` |
+
+#### b) API round — 12/12 URL + edge + auth (script `test-payment-round.ps1`, chạy lại **sau fix**)
+
+| # | Endpoint | Ca test | Kết quả 04/10 |
+| :-- | :--- | :--- | :--- |
+| T01 | GET token (§2.1 Keycloak) | password grant | 🟢 200 |
+| T01b | GET token qua BE `POST /api/v1/auth/login` | auth module mới | 🟢 200 (access + refresh) |
+| T02 | POST `/payments/create` | CASH | 🟢 201 |
+| T03 | POST `/payments/filter` | lọc theo booking | 🟢 200 |
+| T04 | GET `/payments/{id}` | id có thật | 🟢 200 |
+| T05 | GET `/payments/booking/{bookingId}` | booking có thật | 🟢 200 |
+| T06 | POST create | BANK → PENDING | 🟢 201 |
+| T07 | POST `/{id}/complete` | PENDING → SUCCESS | 🟢 200 |
+| T08 | complete lần 2 | | 🟢 400 **8003** |
+| T09 | create bank lần 2 | | 🟢 201 |
+| T10 | POST `/{id}/cancel` | **trước fix F1: 403** | 🟢 **200** → CANCELLED |
+| T11 | cancel lần 2 | | 🟢 400 **8006** |
+| T12 | POST `/{id}/refund` | refund > 0, ≤ tổng | 🟢 200 → REFUNDED |
+| T13 | refund = 0 | | 🟢 400 **8002** |
+| T14 | POST `/vnpay/create` | **trước fix F1: 403** | 🟢 **201** → paymentUrl sandbox |
+| T15 | vnpay create lần 2 | lock còn hạn | 🟢 409 **8005** |
+| T16 | POST `/momo/create` | **trước fix F1: 403** | 🟢 **502 8008** (key rỗng) |
+| T17 | momo create lần 2 | | 🟢 409 **8005** |
+| T18 | GET `/vnpay/ipn` | chữ ký giả | 🟢 400 `RspCode:97` |
+| T19 | POST `/momo/callback` | chữ ký giả | 🟢 400 `statusCode:1` |
+| E01 | create `amount=0` | | 🟢 400 **1002** "Số tiền thanh toán phải lớn hơn 0" ← **fix F2** (cũ: 1001 vô nghĩa; doc cũ ghi 8002) |
+| E02 | BANK thiếu mã tham chiếu | | 🟢 400 **8007** |
+| E03 | bookingId không tồn tại | | 🟢 404 **7001** |
+| E05 | id thanh toán không tồn tại | | 🟢 404 **8001** |
+| E06 | method sai (CASH gửi vào `/vnpay/create`) | | 🟢 400 **1002** |
+| E07→E09 | lock Redis còn → `cancel` → kiểm tra lại | | 🟢 lock `payment:lock:booking:*` **rỗng** sau cancel |
+| E10 | GET `/vnpay/return` chữ ký giả | | 🟢 **302** → `http://localhost:3000/payment/result?status=FAILED&txnRef=TEST` |
+| A01 | login Keycloak + login BE | | 🟢 200 |
+| A02 | `POST /api/v1/auth/refresh` | | 🟢 200 |
+| A03 | `POST /api/v1/auth/logout` | | 🟢 |
+| A04 | gọi API bằng token **đã logout** | blacklist Redis | 🟢 401 **1009** |
+
+#### c) Giao diện (browser thật, port 3000)
+
+| Màn hình / thao tác | Kết quả 04/10 |
+| :--- | :--- |
+| `LoginPage` mới (react-hook-form+zod) admin/123456 → `/dashboard` | 🟢 |
+| `ProtectedRoute`: vào `/finance/folios` khi chưa login → bị đẩy về | 🟢 |
+| Booking list (5 dòng, `POST /bookings/filter`) | 🟢 |
+| Click row → Folio booking6 `BK1791033973299150`, "Còn phải thu" 4.592.700đ | 🟢 |
+| Form thu tiền: **đủ 6 option** (5 phương thức) | 🟢 |
+| CASH 100.000đ qua UI | 🟢 201 "Thanh toán đã được ghi nhận thành công!" |
+| Popup **8007** (bank thiếu mã — FE bắt trước) | 🟢 message + `Mã lỗi` + 2 nút |
+| Nhánh VNPAY trong form (TTL 10' + "Tạo phiên thanh toán") | 🟢 CheckoutModal countdown **09:59**, txnRef `VNP20261004192849-9291`, `vnp_Amount=459270000` (= 4.592.700 × 100) — 2 endpoint này **trước fix F1 là 403** |
+| Nút "Hủy & thanh toán lại" | 🟢 payment (VNPAY) → **CANCELLED** + `payment:lock:booking:6` **rỗng** + UI reset về form |
+| Menu "Tài khoản người dùng" → **Đăng xuất** | 🟢 về `/login`, xóa **cả** `auth_token` **và** `auth_refresh_token` |
+| Đăng nhập lại → kiểm tra storage | 🟢 cả 2 key có mặt (RT 713 ký tự) ← **fix F4** |
+| Console | ⚠️ chỉ **2 dòng red 404** `GET /invoices/booking/6` — dự kiến, FE catch đúng (xem §12.2), **không có lỗi JS** |
+
+#### d) Dữ liệu test tạo thêm trong vòng này (mẫu, được phép)
+
+Payment id 30–34 (CASH SUCCESS, VNPAY cancelled, BANK complete/cancel, refund) — booking 2–6 vẫn
+`CONFIRMED`. Cần dọn thì refund/cancel số test thừa (giữ booking thật).
+
+### 12.4 Quyết định & hạn chế sau vòng 04/10
+
+**Q1 — E2E sandbox (THÔNG BÁO, đã ghi nhận):** luồng VNPay/MoMo hiện mới được kiểm thử ở mức
+**mock/unit + callback giả chữ ký** (mvn 120, T14–T19, E10) — **chưa chạy thật** với key sandbox và
+callback qua ngrok. **Checklist kiểm thử tối thiểu khi có key** (thêm vào `.env` + tunnel ngrok):
+`tạo thanh toán → redirect cổng → callback/IPN về BE → /payment/result hiển thị đúng trạng thái`.
+
+**Q2 — Console 404 `invoices` (QUYẾT ĐỊNH: giữ nguyên, không đổi BE):** 404 khi "chưa có hóa đơn"
+là hành vi REST chấp nhận được; đổi sang 200-list là **thay đổi hợp đồng API** → chỉ làm khi là
+thiết kế chủ đích cho API sống lâu. Hiện tại (demo/đồ án): FE đã `catch { setInvoice(null) }` đúng
+chỗ → **không hiện lỗi, không lỗi JS**, chỉ còn dòng đỏ trong Network tab → **bỏ qua**.
+
+**Q3 — Lỗi 1010 chưa test trực tiếp:** `client.ts` refresh thẳng sang Keycloak nên refresh token
+hết hạn sẽ rơi vào redirect `/login` (hành vi chấp nhận được).
+
+**Q4 — Commit (04/10):** fix F1–F4 + doc này đã commit **tách theo nhóm logical** trên nhánh
+`htd/payment-gateway` (annotation payment / validation handler / docker-compose / auth FE / docs) —
+không dính vào commit merge `b531fa9`; trước khi commit đã verify: **0 conflict marker** trong
+`backend/src` + `frontend/src`, `npm run build` OK, token key nhất quán (`auth_token` +
+`auth_refresh_token` ở LoginPage/Header/client.ts/ProtectedRoute).
