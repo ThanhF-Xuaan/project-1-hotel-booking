@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AdminLayout from './core/components/layout/AdminLayout'
+import RequireAuth from './core/components/auth/RequireAuth'
+import LoginPage from './modules/auth/pages/LoginPage'
 import RegionListPage from './modules/organization/pages/RegionListPage'
 import HotelListPage from './modules/organization/pages/HotelListPage'
 import RoomTypeListPage from './modules/inventory/pages/RoomTypeListPage'
@@ -23,6 +25,9 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Đăng nhập (công khai — không qua RequireAuth) */}
+        <Route path="/login" element={<LoginPage />} />
+
         {/* Trang kết quả trả về từ cổng thanh toán (VNPay return / MoMo redirect) */}
         <Route path="/payment/result" element={<PaymentResultPage />} />
 
@@ -34,8 +39,9 @@ export function App() {
           <Route path="my-bookings" element={<MyBookingsPage />} />
         </Route>
 
-        {/* Internal Hotel Staff & Executive Admin Console */}
-        <Route path="/" element={<AdminLayout />}>
+        {/* Internal Hotel Staff & Executive Admin Console (bắt buộc đăng nhập) */}
+        <Route element={<RequireAuth />}>
+          <Route path="/" element={<AdminLayout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
 
           {/* Executive Dashboard */}
@@ -78,6 +84,7 @@ export function App() {
               </div>
             }
           />
+          </Route>
         </Route>
       </Routes>
     </BrowserRouter>

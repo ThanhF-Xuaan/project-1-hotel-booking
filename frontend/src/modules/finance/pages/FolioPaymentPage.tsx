@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   DollarSign,
   Search,
@@ -10,6 +10,7 @@ import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import Modal from '../../../core/components/ui/Modal';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
+import { isSessionExpiredError, getErrorStatus } from '../../../core/api/client';
 import financeService from '../services/finance.service';
 import bookingService from '../../booking/services/booking.service';
 import CheckoutModal from '../components/payment/CheckoutModal';
@@ -23,7 +24,7 @@ import type {
   GatewayMethod,
   PaymentUrlResponse,
 } from '../types/finance.types';
-import type { BookingResponse } from '../../booking/types/booking.types';
+import type { BookingResponse, BookingStatus } from '../../booking/types/booking.types';
 
 /** Cấu hình ô nhập mã tham chiếu theo từng method (mục 1 — bảng 0.1) */
 const REFERENCE_CONFIG: Record<
@@ -109,7 +110,14 @@ export const FolioPaymentPage: React.FC = () => {
       }
     } catch (err: unknown) {
       console.error('Lỗi tra cứu Folio:', err);
-      setErrorMessage('Không tìm thấy đơn đặt phòng với mã đã nhập');
+      if (isSessionExpiredError(err)) {
+        // 401 + không refresh được token → sai thông báo "không tìm thấy" trước đây
+        setErrorMessage('Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại để tra cứu Folio');
+      } else if (getErrorStatus(err) === 404) {
+        setErrorMessage('Không tìm thấy đơn đặt phòng với mã đã nhập');
+      } else {
+        setErrorMessage('Không tra cứu được Folio — vui lòng thử lại (lỗi hệ thống)');
+      }
       setCurrentBooking(null);
       setPayments([]);
       setInvoice(null);
@@ -117,6 +125,65 @@ export const FolioPaymentPage: React.FC = () => {
       setIsLoading(false);
     }
   }, []);
+
+  // ── Danh sách đơn đặt phòng — chọn nhanh, không cần nhập mã ───────────────
+  const [bookingList, setBookingList] = useState<BookingResponse[]>([]);
+  const [isListLoading, setIsListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const fetchBookingList = useCallback(async () => {
+    setIsListLoading(true);
+    setListError(null);
+    try {
+      // Lấy 20 đơn mới nhất (không lọc trạng thái — hiển thị badge để người dùng tự chọn)
+      const res = await bookingService.filter({ page: 1, size: 20 });
+      if (res.result) {
+        setBookingList(res.result.content || []);
+      }
+    } catch (err: unknown) {
+      console.error('Lỗi tải danh sách đơn đặt phòng:', err);
+      if (isSessionExpiredError(err)) {
+        setListError('Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại');
+      } else {
+        setListError('Không tải được danh sách đơn đặt phòng — vui lòng thử lại');
+      }
+    } finally {
+      setIsListLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookingList();
+  }, [fetchBookingList]);
+
+  /** Click 1 dòng trong danh sách → nạp thẳng Folio của đơn đó */
+  const handleSelectBooking = (booking: BookingResponse) => {
+    setBookingNumberInput(booking.bookingNumber);
+    fetchFolioData(booking.bookingNumber);
+  };
+
+  const bookingStatusBadge = (status: BookingStatus) => {
+    switch (status) {
+      case 'CONFIRMED':
+        return (
+          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Đã xác nhận
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700 border border-red-200">
+            Đã hủy
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+            No-show
+          </span>
+        );
+    }
+  };
 
   const totalCharges = currentBooking ? currentBooking.totalAmount : 0;
   const totalPaid = payments
@@ -309,6 +376,108 @@ export const FolioPaymentPage: React.FC = () => {
           {errorMessage}
         </div>
       )}
+
+      {/* DANH SÁCH ĐẶT PHÒNG — chọn nhanh, không cần nhập mã */}
+      <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden">
+        <div className="p-4 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <span className="font-bold text-neutral-900">Danh sách đơn đặt phòng</span>
+            <span className="text-xs text-neutral-500 ml-2">
+              Nhấn vào đơn để mở Folio — chỉ cần nhập mã ở ô tìm kiếm khi đơn không có trong danh sách
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchBookingList}
+            disabled={isListLoading}
+          >
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${isListLoading ? 'animate-spin' : ''}`} />
+            Làm mới
+          </Button>
+        </div>
+
+        {listError && (
+          <div className="mx-4 mt-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl">
+            {listError}
+          </div>
+        )}
+
+        {isListLoading && bookingList.length === 0 ? (
+          <div className="p-6 text-center text-sm text-neutral-500">Đang tải danh sách...</div>
+        ) : bookingList.length === 0 && !listError ? (
+          <div className="p-6 text-center text-sm text-neutral-500">
+            Chưa có đơn đặt phòng nào — hãy tạo đơn ở mục Đặt phòng
+          </div>
+        ) : (
+          <div className="overflow-auto max-h-80">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
+                <tr>
+                  <th className="p-3">Mã đơn</th>
+                  <th className="p-3">Khách hàng</th>
+                  <th className="p-3">Khách sạn</th>
+                  <th className="p-3 text-right">Tổng tiền</th>
+                  <th className="p-3 text-center">Trạng thái</th>
+                  <th className="p-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100">
+                {bookingList.map((b) => {
+                  const isActive = currentBooking?.bookingNumber === b.bookingNumber;
+                  const hasName = b.guestName && b.guestName !== b.guestPhone;
+                  return (
+                    <tr
+                      key={b.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleSelectBooking(b)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleSelectBooking(b);
+                        }
+                      }}
+                      className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                        isActive ? 'bg-red-50' : 'hover:bg-neutral-50'
+                      }`}
+                    >
+                      <td className="p-3 font-mono text-xs font-semibold text-neutral-800">
+                        {b.bookingNumber}
+                      </td>
+                      <td className="p-3">
+                        <div className="font-medium text-neutral-900">
+                          {hasName ? b.guestName : b.guestPhone}
+                        </div>
+                        {hasName && (
+                          <div className="text-xs text-neutral-500">{b.guestPhone}</div>
+                        )}
+                      </td>
+                      <td className="p-3 text-neutral-700">{b.hotelName}</td>
+                      <td className="p-3 text-right font-semibold text-neutral-900">
+                        {new Intl.NumberFormat('vi-VN').format(Number(b.totalAmount))} đ
+                      </td>
+                      <td className="p-3 text-center">{bookingStatusBadge(b.status)}</td>
+                      <td className="p-3 text-right">
+                        <Button
+                          variant={isActive ? 'secondary' : 'ghost'}
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectBooking(b);
+                          }}
+                        >
+                          {isActive ? 'Đang xem' : 'Mở Folio →'}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {currentBooking && (
         <div className="space-y-6">

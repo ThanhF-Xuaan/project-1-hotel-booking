@@ -56,18 +56,36 @@
 > sau reverse-proxy HTTPS, đồng thời đổi `VNPAY_RETURN_URL` / `VNPAY_FE_RESULT_URL` /
 > `MOMO_IPN_URL` / `MOMO_REDIRECT_URL` sang domain HTTPS (gateway bắt buộc).
 
-**Lấy token (dùng cho mọi lệnh ví dụ bên dưới):**
+**Lấy token (dùng cho mọi lệnh ví dụ bên dưới) — PowerShell (máy này có sẵn, KHÔNG cần `jq`):**
 
-```bash
-curl -s -X POST http://localhost:8081/realms/hotel-realm/protocol/openid-connect/token \
-  -H "Content-Type: application/x-www-form-urlencoded" \
-  -d "client_id=hotel-frontend&grant_type=password&username=admin&password=123456" \
-  | jq -r .access_token        # → dán vào header  Authorization: Bearer <token>
+```powershell
+$tok = (Invoke-RestMethod -Uri "http://localhost:8081/realms/hotel-realm/protocol/openid-connect/token" `
+  -Method Post -Body @{client_id="hotel-frontend";grant_type="password";username="admin";password="123456"}).access_token
+$H = @{Authorization="Bearer $tok"}   # dùng cho Invoke-RestMethod -Headers $H
 ```
+
+> Bản curl tương đương **chỉ chạy được khi đã cài `jq`** (`| jq -r .access_token`) —
+> máy dev Windows hiện tại **chưa cài jq** nên đừng copy lệnh đó.
 
 ### 2.2 Danh sách đầy đủ URL (payment API)
 
+> ### ⚠️ URL nào "chạy được", URL nào phải dùng cách khác?
+>
+> | Cách mở | URL chạy được | URL KHÔNG chạy được (và vì sao) |
+> | :--- | :--- | :--- |
+> | **Dán thẳng vào trình duyệt** (GET, không cần JWT) | ✅ `swagger-ui.html` · `v3/api-docs`<br>✅ `/public/payments/vnpay/return?...`<br>✅ `/public/payments/vnpay/ipn?...` (trả **400 `RspCode:97`** nếu thiếu chữ ký — *đúng*, không phải bug) | ❌ **Nhóm 1–2** → **401** (trình duyệt không kèm `Authorization`)<br>❌ URL có `{id}` `{bookingId}` → chưa thay giá trị thật<br>❌ **Method POST** (create/filter/complete/cancel/refund/momo-callback) → trình duyệt gửi GET → **405 `Allow: POST`**<br>❌ **§2.4 URL sandbox MoMo API** → **405** (là API POST, không phải trang)<br>❌ VNPay `vpcpay.html` không param → **302** redirect (thiếu chữ ký) |
+> | **Swagger UI** (khuyên dùng) | ✅ Tất cả 12 endpoint — bấm **Authorize** → dán `Bearer <token>` → **Try it out** (xử lý luôn JWT + method) | — |
+> | **PowerShell `Invoke-RestMethod`** | ✅ Nhóm 1–2 (có JWT, có POST) — copy §2.3 | — |
+> | **curl** | ✅ Nhóm 3 (public) không cần token | ❌ Lấy token kiểu `\| jq …` cần cài `jq` (máy này chưa có) |
+>
+> **Lấy token một lần rồi dùng cho Swagger/PowerShell:** copy lệnh PowerShell ở §2.1.
+
 **Nhóm 1 — CRUD thanh toán (cần JWT + role):**
+
+> 🔁 `{id}` / `{bookingId}` là **placeholder — phải thay bằng số thật** (VD: `/payments/1`,
+> `/payments/booking/2`). Dán nguyên `{id}` vào trình duyệt sẽ 401 (trước cả khi lỗi 404).
+> Toàn bộ nhóm này là **GET/POST nghiệp vụ** → mở bằng **Swagger** hoặc **PowerShell §2.3**,
+> *không* dán thẳng vào thanh địa trình duyệt.
 
 | # | Full URL | Method | Vai trò | HTTP khi OK |
 | :-- | :--- | :--- | :--- | :--- |
@@ -93,6 +111,23 @@ curl -s -X POST http://localhost:8081/realms/hotel-realm/protocol/openid-connect
 | 10 | `http://localhost:8080/api/v1/public/payments/vnpay/ipn` | GET | **VNPay server** (server-để-server, có retry) | 200 `{RspCode:"00"}` |
 | 11 | `http://localhost:8080/api/v1/public/payments/vnpay/return` | GET | **Trình duyệt khách** sau khi trả tiền | **302** → `http://localhost:3000/payment/result?…` |
 | 12 | `http://localhost:8080/api/v1/public/payments/momo/callback` | POST | **MoMo server** | 200 `{statusCode:0}` |
+
+**URL nhóm 3 mở trình duyệt được ngay (kèm param mẫu — chữ ký sai là *kỳ vọng*):**
+
+```text
+# 10 — IPN thiếu chữ ký thật → 400 {"RspCode":"97","Message":"Invalid Signature"}  (ĐÚNG behavior)
+http://localhost:8080/api/v1/public/payments/vnpay/ipn?vnp_TxnRef=TEST&vnp_SecureHash=deadbeef
+
+# 11 — return thiếu chữ ký thật → 302 Location: http://localhost:3000/payment/result?status=FAILED&txnRef=TEST
+http://localhost:8080/api/v1/public/payments/vnpay/return?vnp_TxnRef=TEST&vnp_ResponseCode=00&vnp_SecureHash=deadbeef
+
+# 12 — là method POST: dán bằng trình duyệt (GET) sẽ 405; gọi đúng phải POST JSON (xem §2.3 / Swagger)
+curl -X POST -H "Content-Type: application/json" -d "{\"orderId\":\"TEST\"}" ^
+     http://localhost:8080/api/v1/public/payments/momo/callback     # → 400 statusCode:1 (sai chữ ký)
+```
+
+> Chữ ký **đúng** chỉ có khi gateway thật gọi (cần key sandbox + ngrok) — param giả cho thấy
+> **endpoint sống và verify chữ ký**, đó là hành vi mong đợi.
 
 **Nhóm 4 — URL phía gateway (hệ thống GỌI ra / gateway gọi vào — cấu hình trong `.env`):**
 

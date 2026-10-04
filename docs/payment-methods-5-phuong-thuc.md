@@ -519,3 +519,45 @@ giao diện liên quan. Kết quả: **12/12 endpoint đúng như doc — không
 
 **Trạng thái cuối:** dữ liệu mẫu sạch (1 SUCCESS cọc + các bản test REFUNDED/CANCELLED), `payment:lock:*` trống,
 không PENDING treo.
+
+### 🔐 Đăng nhập/Đăng xuất + Danh sách chọn nhanh trong trang thanh toán (03/10/2026)
+
+**Bối cảnh:** user báo *"nhập mã đơn đặt phòng tìm không ra"* và *"cứ hiện Phiên đăng nhập đã hết hạn"*.
+
+**① Nguyên nhân gốc:** FE **chưa từng có trang đăng nhập** — token Keycloak do agent set thủ công vào
+`localStorage.auth_token` (hạn 1h) rồi **cũng tự xóa khi test** → hết hạn là mọi tra cứu 401, nhưng
+`FolioPaymentPage` bắt **mọi lỗi** và hiện chung câu *"Không tìm thấy đơn đặt phòng với mã đã nhập"*
+(thông báo sai lệch — mã đúng vẫn báo không thấy). Backend không lỗi: `GET /bookings/number/<5 mã>` đều **200**,
+mã sai **404**.
+
+**② Đã build (user duyệt):**
+
+| # | Thành phần | File | Nội dung |
+|:-:|:---|:---|:---|
+| 1 | `client.ts` — tự làm mới phiên | `core/api/client.ts` | 401 → `grant_type=refresh_token` (gộp 1 Promise chống dội) → retry request 1 lần; hết RT mà **trước đó có token** → tự chuyển `/login?session=expired`; không có token từ đầu (API công khai) → **không** ép chuyển trang |
+| 2 | Trang Login | `modules/auth/pages/LoginPage.tsx` | username/password → Keycloak password grant, lỗi sai MK hiển thị inline, banner "phiên hết hạn" khi vào `?session=expired`, quay lại trang cũ sau login (`state.from`) |
+| 3 | Chặn route | `core/components/auth/RequireAuth.tsx` + `App.tsx` | khu nhân viên bọc `RequireAuth` (chưa login → `/login`); `/login`, `/portal/**`, `/payment/result` để công khai |
+| 4 | Header | `core/components/layout/Header.tsx` | hiện **user thật từ JWT** (bỏ chữ hardcode "Admin Toàn Chuỗi") + nút **Đăng xuất** |
+| 5 | Nhắn lỗi đúng chỗ | `FolioPaymentPage.tsx` | phân biệt **401 → "Phiên đăng nhập đã hết hạn…"**, **404 → "Không tìm thấy đơn đặt phòng"**, khác → "lỗi hệ thống" |
+| 6 | **Danh sách đơn đặt phòng** (yêu cầu mới) | `FolioPaymentPage.tsx` | card ngay dưới ô tìm kiếm: 20 đơn mới nhất (mã, khách, khách sạn, tổng tiền, badge trạng thái) — **click 1 dòng là mở Folio** (tự điền mã + highlight "Đang xem"), ô nhập mã chỉ dùng khi đơn không có trong danh sách; có nút Làm mới |
+
+**③ Test kết quả (trình duyệt, 0 lỗi console):**
+
+| Test | Kết quả |
+|:---|:---:|
+| A — Header hiện user thật `System Admin` / `ROLE_CHAIN_ADMIN` (role map thêm tiền tố `ROLE_` cho khớp BE) | 🟢 |
+| B — Bấm **Đăng xuất** → về `/login` (token + RT bị xóa) | 🟢 |
+| C — Login sai mật khẩu → inline *"Tên đăng nhập hoặc mật khẩu không đúng"* | 🟢 |
+| D — Login `admin/123456` → về `/dashboard`, token + RT lưu đủ | 🟢 |
+| E — Cố tình set `auth_token` rác (RT còn) → bấm Làm mới → **401 → refresh 200 → retry 200**, log *"Đã tự làm mới token"*, storage có token mới | 🟢 |
+| F — Token rác + **không có RT** → tự redirect `/login?session=expired` + banner *"Phiên đăng nhập đã hết hạn…"* | 🟢 |
+| Chọn nhanh từ danh sách — click dòng → folio nạp đủ (tổng, nút Thu tiền), input tự điền mã, dòng highlight, 5/5 dòng hiện | 🟢 |
+| 5 mã booking qua API với token mới | 🟢 GET **200**; mã sai GET **404** → message đúng |
+
+**④ Chú ý kỹ thuật:**
+
+- Bug tự phát hiện & fix trong lúc làm: `refreshPromise` bị **kẹt vĩnh viễn** nếu `finally` đặt *trong* async body
+  (nhánh "không có RT" return đồng bộ → gán null trước lệnh gán promise) → chuyển `.finally` ra ngoài.
+- Keycloak cấp role dạng `CHAIN_ADMIN` (không tiền tố) — FE tự thêm `ROLE_` khi hiển thị.
+- `role="button"` + `tabIndex` cho mỗi dòng `<tr>` → vừa test được bằng ref, vừa đúng a11y (Enter/Space chọn được).
+- Guest chưa có tên riêng thì `guestName = phone` → UI chỉ hiện 1 dòng khi 2 giá trị trùng (tránh lặp).

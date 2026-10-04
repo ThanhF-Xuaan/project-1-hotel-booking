@@ -1,7 +1,15 @@
 import React from 'react'
-import { Building2, User, Bell } from 'lucide-react'
+import { Building2, User, Bell, LogOut } from 'lucide-react'
+import { getCurrentUser, logout } from '../../auth/auth'
 
 export const Header: React.FC = () => {
+  const currentUser = getCurrentUser()
+
+  const handleLogout = () => {
+    logout()
+    window.location.assign('/login')
+  }
+
   return (
     <header className="h-16 bg-white border-b border-neutral-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
       <div className="flex items-center gap-3">
@@ -34,10 +42,25 @@ export const Header: React.FC = () => {
             <User className="w-4 h-4" />
           </div>
           <div className="hidden md:flex flex-col text-left">
-            <span className="text-sm font-semibold text-neutral-900 leading-tight">Admin Toàn Chuỗi</span>
-            <span className="text-[11px] font-medium text-neutral-500">ROLE_CHAIN_ADMIN</span>
+            <span className="text-sm font-semibold text-neutral-900 leading-tight">
+              {currentUser?.fullName || 'Chưa đăng nhập'}
+            </span>
+            <span className="text-[11px] font-medium text-neutral-500">
+              {currentUser?.roles[0] || '—'}
+            </span>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          aria-label="Đăng xuất"
+          title="Đăng xuất"
+          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-neutral-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="hidden md:inline">Đăng xuất</span>
+        </button>
       </div>
     </header>
   )
