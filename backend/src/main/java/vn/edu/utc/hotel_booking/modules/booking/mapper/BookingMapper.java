@@ -26,18 +26,21 @@ public interface BookingMapper {
     @Mapping(target = "bookingDetailId", source = "bookingDetail.id")
     @Mapping(target = "roomInstanceId", source = "roomInstance.id")
     @Mapping(target = "roomNumber", source = "roomInstance.roomNumber")
-    @Mapping(target = "bookingGuests", source = "bookingGuests")
+    @Mapping(target = "bookingGuests", source = "stayGuests")
     @Mapping(target = "dailyRates", source = "dailyRates")
     @Mapping(target = "charges", source = "charges")
     BookingRoomResponse toRoomResponse(BookingRoom entity);
 
-    BookingGuestResponse toGuestResponse(BookingGuest entity);
+    @Mapping(target = "birthDate", source = "dateOfBirth")
+    @Mapping(target = "identityNumber", source = "documentNumber")
+    @Mapping(target = "identityType", source = "identityType")
+    BookingGuestResponse toGuestResponse(StayGuest entity);
 
     @Mapping(target = "taxCategoryId", source = "taxCategory.id")
     @Mapping(target = "taxCategoryName", source = "taxCategory.categoryName")
     BookingDailyRateResponse toDailyRateResponse(BookingDailyRate entity);
 
     @Mapping(target = "bookingRoomId", source = "bookingRoom.id")
-    @Mapping(target = "bookingGuestId", source = "bookingGuest.id")
+    @Mapping(target = "bookingGuestId", source = "stayGuest.id")
     BookingChargeResponse toChargeResponse(BookingCharge entity);
 }

@@ -17,7 +17,7 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.*;
 import vn.edu.utc.hotel_booking.modules.booking.mapper.BookingMapper;
 import vn.edu.utc.hotel_booking.modules.booking.repository.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.impl.BookingServiceImpl;
-import vn.edu.utc.hotel_booking.modules.identity.entity.Guest;
+import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.repository.CompanyRepository;
 import vn.edu.utc.hotel_booking.modules.identity.repository.GuestRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
@@ -55,7 +55,7 @@ class BookingServiceTest {
     @Mock BookingRepository bookingRepository;
     @Mock BookingDetailRepository bookingDetailRepository;
     @Mock BookingRoomRepository bookingRoomRepository;
-    @Mock BookingGuestRepository bookingGuestRepository;
+    @Mock StayGuestRepository stayGuestRepository;
     @Mock BookingDailyRateRepository bookingDailyRateRepository;
     @Mock BookingChargeRepository bookingChargeRepository;
 
@@ -76,7 +76,7 @@ class BookingServiceTest {
     BookingServiceImpl bookingService;
 
     private Hotel testHotel;
-    private Guest testGuest;
+    private BookingGuest testGuest;
     private HotelRoomType testHotelRoomType;
     private Booking testBooking;
 
@@ -85,7 +85,7 @@ class BookingServiceTest {
         testHotel = Hotel.builder().name("Khách sạn Grand Hà Nội").build();
         testHotel.setId((short) 1);
 
-        testGuest = Guest.builder().phone("0987654321").build();
+        testGuest = BookingGuest.builder().phone("0987654321").build();
         testGuest.setId(10L);
 
         RoomType roomType = RoomType.builder().code("DLX").name("Phòng Deluxe").build();

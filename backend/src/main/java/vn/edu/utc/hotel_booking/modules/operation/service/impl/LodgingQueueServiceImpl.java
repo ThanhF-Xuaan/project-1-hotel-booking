@@ -18,7 +18,7 @@ import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.LodgingQueueSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.LodgingQueueResponse;
 import vn.edu.utc.hotel_booking.modules.operation.entity.LodgingQueue;
-import vn.edu.utc.hotel_booking.modules.operation.entity.StayGuest;
+import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingQueueStatus;
 import vn.edu.utc.hotel_booking.modules.operation.mapper.LodgingQueueMapper;
 import vn.edu.utc.hotel_booking.modules.operation.repository.LodgingQueueRepository;

@@ -17,7 +17,7 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.LodgingExportRequest;
 import vn.edu.utc.hotel_booking.modules.operation.entity.LodgingQueue;
-import vn.edu.utc.hotel_booking.modules.operation.entity.StayGuest;
+import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.DocumentType;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingGuestCategory;

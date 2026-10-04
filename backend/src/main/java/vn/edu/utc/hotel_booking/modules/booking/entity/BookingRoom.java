@@ -64,7 +64,15 @@ public class BookingRoom {
 
     @OneToMany(mappedBy = "bookingRoom", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
-    List<BookingGuest> bookingGuests = new ArrayList<>();
+    List<StayGuest> stayGuests = new ArrayList<>();
+
+    public List<StayGuest> getBookingGuests() {
+        return stayGuests;
+    }
+
+    public void setBookingGuests(List<StayGuest> guests) {
+        this.stayGuests = guests;
+    }
 
     @OneToMany(mappedBy = "bookingRoom", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

@@ -5,8 +5,8 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Company;
-import vn.edu.utc.hotel_booking.modules.identity.entity.Guest;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 
 import java.math.BigDecimal;
@@ -34,7 +34,22 @@ public class Booking {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guest_id", nullable = false)
-    Guest guest;
+    BookingGuest bookingGuest;
+
+    public BookingGuest getGuest() {
+        return bookingGuest;
+    }
+
+    public void setGuest(BookingGuest guest) {
+        this.bookingGuest = guest;
+    }
+
+    public static class BookingBuilder {
+        public BookingBuilder guest(BookingGuest guest) {
+            this.bookingGuest = guest;
+            return this;
+        }
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "company_id")
