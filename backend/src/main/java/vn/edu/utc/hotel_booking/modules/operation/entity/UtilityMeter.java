@@ -14,6 +14,7 @@ import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class UtilityMeter extends BaseEntity {
 

@@ -21,6 +21,7 @@ import vn.edu.utc.hotel_booking.modules.operation.entity.UtilityReading;
 import vn.edu.utc.hotel_booking.modules.operation.mapper.UtilityReadingMapper;
 import vn.edu.utc.hotel_booking.modules.operation.repository.UtilityMeterRepository;
 import vn.edu.utc.hotel_booking.modules.operation.repository.UtilityReadingRepository;
+import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.operation.service.impl.UtilityReadingServiceImpl;
 
 import java.math.BigDecimal;
@@ -46,6 +47,9 @@ class UtilityReadingServiceTest {
     @Mock
     private UtilityReadingMapper readingMapper;
 
+    @Mock
+    private StaffRepository staffRepository;
+
     @InjectMocks
     private UtilityReadingServiceImpl readingService;
 
@@ -58,8 +62,8 @@ class UtilityReadingServiceTest {
         meter = UtilityMeter.builder()
                 .id(1)
                 .meterCode("EL-01")
-                .isDeleted(false)
                 .build();
+        meter.setIsDeleted(false);
 
         reading = UtilityReading.builder()
                 .id(1L)
@@ -67,8 +71,8 @@ class UtilityReadingServiceTest {
                 .readingDate(LocalDate.of(2023, 10, 1))
                 .readingValue(new BigDecimal("100.5"))
                 .isMeterReset(false)
-                .isDeleted(false)
                 .build();
+        reading.setIsDeleted(false);
 
         readingResponse = new UtilityReadingResponse();
         readingResponse.setId(1L);
@@ -116,8 +120,8 @@ class UtilityReadingServiceTest {
                 .readingDate(LocalDate.of(2023, 10, 2))
                 .readingValue(new BigDecimal("150.5"))
                 .isMeterReset(false)
-                .isDeleted(false)
                 .build();
+        newReading.setIsDeleted(false);
 
         UtilityReadingResponse newResponse = new UtilityReadingResponse();
         newResponse.setId(2L);
@@ -184,5 +188,71 @@ class UtilityReadingServiceTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Validation path: Lỗi khi chỉ số đọc nhỏ hơn chỉ số trước đó mà không có cờ reset")
+    void create_ThrowsWhenReadingValueDecreasedWithoutReset() {
+        UtilityReadingCreateRequest request = new UtilityReadingCreateRequest();
+        request.setMeterId(1);
+        request.setReadingDate(LocalDate.of(2023, 10, 2));
+        request.setReadingValue(new BigDecimal("80.0")); // Smaller than previous reading (100.5)
+        request.setIsMeterReset(false);
+
+        when(readingRepository.existsByMeterIdAndReadingDateAndIsDeletedFalse(1, LocalDate.of(2023, 10, 2))).thenReturn(false);
+        when(meterRepository.findById(1)).thenReturn(Optional.of(meter));
+        when(readingRepository.findPreviousReading(1, LocalDate.of(2023, 10, 2))).thenReturn(Optional.of(reading));
+
+        AppException ex = assertThrows(AppException.class, () -> readingService.create(request));
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_UTILITY_READING_VALUE);
+        verify(readingRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Happy path: Chỉ số đọc nhỏ hơn chỉ số trước đó nhưng có cờ reset thì hợp lệ")
+    void create_Success_WhenReadingValueDecreasedWithReset() {
+        UtilityReadingCreateRequest request = new UtilityReadingCreateRequest();
+        request.setMeterId(1);
+        request.setReadingDate(LocalDate.of(2023, 10, 2));
+        request.setReadingValue(new BigDecimal("20.0"));
+        request.setIsMeterReset(true);
+
+        UtilityReading resetReading = UtilityReading.builder()
+                .id(3L)
+                .meter(meter)
+                .readingDate(LocalDate.of(2023, 10, 2))
+                .readingValue(new BigDecimal("20.0"))
+                .isMeterReset(true)
+                .build();
+        resetReading.setIsDeleted(false);
+
+        UtilityReadingResponse resetResponse = new UtilityReadingResponse();
+        resetResponse.setId(3L);
+        resetResponse.setReadingValue(new BigDecimal("20.0"));
+        resetResponse.setIsMeterReset(true);
+
+        when(readingRepository.existsByMeterIdAndReadingDateAndIsDeletedFalse(1, LocalDate.of(2023, 10, 2))).thenReturn(false);
+        when(meterRepository.findById(1)).thenReturn(Optional.of(meter));
+        when(readingRepository.findPreviousReading(1, LocalDate.of(2023, 10, 2))).thenReturn(Optional.of(reading));
+        when(readingMapper.toEntity(request)).thenReturn(resetReading);
+        when(readingRepository.save(resetReading)).thenReturn(resetReading);
+        when(readingMapper.toResponse(resetReading)).thenReturn(resetResponse);
+
+        UtilityReadingResponse result = readingService.create(request);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getUsage()).isEqualTo(new BigDecimal("20.0"));
+        verify(readingRepository).save(resetReading);
+    }
+
+    @Test
+    @DisplayName("Happy path: Xóa mềm hàng loạt bản ghi đọc chỉ số")
+    void delete_Success_SoftDelete() {
+        when(readingRepository.findAllById(List.of(1L))).thenReturn(List.of(reading));
+
+        readingService.delete(List.of(1L));
+
+        assertThat(reading.getIsDeleted()).isTrue();
+        verify(readingRepository).saveAll(List.of(reading));
     }
 }

@@ -164,4 +164,51 @@ class UtilityMeterServiceTest {
 
         assertThat(result.getContent()).isEmpty();
     }
+
+    @Test
+    @DisplayName("Happy path: Cập nhật đồng hồ thành công")
+    void update_Success() {
+        vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityMeterUpdateRequest updateRequest = 
+                new vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityMeterUpdateRequest();
+        updateRequest.setMeterCode("EL-02");
+        updateRequest.setLocationLabel("Floor 2");
+
+        when(repository.findById(1)).thenReturn(Optional.of(meter));
+        when(repository.existsByHotelIdAndMeterCodeAndIsDeletedFalse((short) 1, "EL-02")).thenReturn(false);
+        when(repository.save(meter)).thenReturn(meter);
+        when(mapper.toResponse(meter)).thenReturn(meterResponse);
+
+        UtilityMeterResponse result = service.update(1, updateRequest);
+
+        assertThat(result).isNotNull();
+        assertThat(meter.getMeterCode()).isEqualTo("EL-02");
+        assertThat(meter.getLocationLabel()).isEqualTo("Floor 2");
+        verify(repository).save(meter);
+    }
+
+    @Test
+    @DisplayName("Validation path: Cập nhật lỗi khi đổi sang mã đồng hồ đã tồn tại")
+    void update_DuplicateCode_ThrowsException() {
+        vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityMeterUpdateRequest updateRequest = 
+                new vn.edu.utc.hotel_booking.modules.operation.dto.request.UtilityMeterUpdateRequest();
+        updateRequest.setMeterCode("EL-DUPLICATE");
+
+        when(repository.findById(1)).thenReturn(Optional.of(meter));
+        when(repository.existsByHotelIdAndMeterCodeAndIsDeletedFalse((short) 1, "EL-DUPLICATE")).thenReturn(true);
+
+        AppException ex = assertThrows(AppException.class, () -> service.update(1, updateRequest));
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.UTILITY_METER_ALREADY_EXISTS);
+        verify(repository, never()).save(meter);
+    }
+
+    @Test
+    @DisplayName("Happy path: Xóa mềm hàng loạt đồng hồ")
+    void delete_Success_SoftDelete() {
+        when(repository.findAllById(List.of(1))).thenReturn(List.of(meter));
+
+        service.delete(List.of(1));
+
+        assertThat(meter.getIsDeleted()).isTrue();
+        verify(repository).saveAll(List.of(meter));
+    }
 }

@@ -91,6 +91,7 @@ public enum ErrorCode {
     UTILITY_METER_ALREADY_EXISTS(9042, "Mã đồng hồ đã tồn tại trong khách sạn", HttpStatus.BAD_REQUEST),
     UTILITY_READING_NOT_FOUND(9051, "Không tìm thấy chỉ số điện nước", HttpStatus.NOT_FOUND),
     UTILITY_READING_ALREADY_EXISTS(9052, "Đã có chỉ số ghi nhận cho đồng hồ này trong ngày", HttpStatus.BAD_REQUEST),
+    INVALID_UTILITY_READING_VALUE(9053, "Chỉ số đọc không hợp lệ (nhỏ hơn chỉ số trước đó mà không có cờ reset đồng hồ)", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
