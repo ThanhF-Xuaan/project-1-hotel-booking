@@ -1,6 +1,7 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import { cn } from '../../utils/cn'
+import { hasAnyRole } from '../../../modules/auth/utils/token.utils'
 import {
   Globe,
   Building,
@@ -29,6 +30,7 @@ interface NavItem {
   to: string
   icon: React.ReactNode
   badge?: string
+  roles?: string[]
 }
 
 interface NavGroup {
@@ -69,11 +71,13 @@ const navGroups: NavGroup[] = [
         label: 'Danh sách Đặt phòng',
         to: '/booking/list',
         icon: <CalendarCheck className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE'],
       },
       {
         label: 'Tiếp nhận Khách vãng lai',
         to: '/booking/walk-in',
         icon: <UserPlus className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST'],
       },
     ],
   },
@@ -84,21 +88,25 @@ const navGroups: NavGroup[] = [
         label: 'Thực đơn & Dịch vụ',
         to: '/operation/menus',
         icon: <UtensilsCrossed className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B', 'RECEPTIONIST'],
       },
       {
         label: 'Gọi Dịch vụ Phòng',
         to: '/operation/room-service',
         icon: <BellRing className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B'],
       },
       {
         label: 'Sơ đồ Buồng phòng',
         to: '/operation/housekeeping',
         icon: <Brush className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'],
       },
       {
         label: 'Đóng ngày (Night Audit)',
         to: '/operation/night-audit',
         icon: <Moon className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE'],
       },
     ],
   },
@@ -109,6 +117,7 @@ const navGroups: NavGroup[] = [
         label: 'Quản lý Folio & Thu ngân',
         to: '/finance/folios',
         icon: <Receipt className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE'],
       },
     ],
   },
@@ -119,16 +128,19 @@ const navGroups: NavGroup[] = [
         label: 'Khu vực / Vùng',
         to: '/organization/regions',
         icon: <Globe className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER'],
       },
       {
         label: 'Khách sạn Cơ sở',
         to: '/organization/hotels',
         icon: <Building className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
         label: 'Phòng ban Tiêu chuẩn',
         to: '/organization/departments',
         icon: <Briefcase className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
     ],
   },
@@ -139,26 +151,31 @@ const navGroups: NavGroup[] = [
         label: 'Nhân sự & Tài khoản',
         to: '/identity/staffs',
         icon: <Users className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
         label: 'Vai trò & Quyền hạn',
         to: '/identity/roles',
         icon: <ShieldCheck className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN'],
       },
       {
         label: 'Hồ sơ Khách hàng',
         to: '/identity/guests',
         icon: <UserSquare2 className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP'],
       },
       {
         label: 'Doanh nghiệp Đối tác',
         to: '/identity/companies',
         icon: <Building2 className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'SALES_GROUP'],
       },
       {
         label: 'Nhật ký Kiểm toán',
         to: '/identity/audit-logs',
         icon: <FileSpreadsheet className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE'],
       },
     ],
   },
@@ -169,11 +186,13 @@ const navGroups: NavGroup[] = [
         label: 'Danh mục Loại phòng',
         to: '/inventory/room-types',
         icon: <BedDouble className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
         label: 'Phòng Vật lý Cơ sở',
         to: '/inventory/rooms',
         icon: <DoorOpen className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'ENGINEERING'],
       },
     ],
   },
@@ -184,21 +203,34 @@ const navGroups: NavGroup[] = [
         label: 'Quy tắc Giá Động',
         to: '/pricing/rules',
         icon: <TrendingUp className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
         label: 'Chiến dịch Khuyến mại',
         to: '/pricing/campaigns',
         icon: <Megaphone className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
     ],
   },
 ]
 
 export const Sidebar: React.FC = () => {
+  const token = localStorage.getItem('auth_token')
+
+  const filteredGroups = useMemo(() => {
+    return navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => hasAnyRole(item.roles)),
+      }))
+      .filter((group) => group.items.length > 0)
+  }, [token])
+
   return (
     <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col shrink-0 min-h-[calc(100vh-4rem)]">
       <div className="p-4 space-y-6 flex-1 overflow-y-auto">
-        {navGroups.map((group) => (
+        {filteredGroups.map((group) => (
           <div key={group.groupName} className="space-y-1.5">
             <h3 className="px-3 text-[11px] font-bold text-neutral-400 tracking-wider">
               {group.groupName}
@@ -230,3 +262,4 @@ export const Sidebar: React.FC = () => {
 }
 
 export default Sidebar
+
