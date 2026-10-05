@@ -15,6 +15,9 @@ import {
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import { bookingService } from '../../booking/services/booking.service';
+import { financeService } from '../../finance/services/finance.service';
+import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
+import PaymentErrorModal from '../../finance/components/payment/PaymentErrorModal';
 import type { AvailableRoomOffer, CustomerSearchCriteria } from '../types/portal.types';
 
 export const CheckoutPage: React.FC = () => {
@@ -44,9 +47,49 @@ export const CheckoutPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'VNPAY' | 'CREDIT_CARD' | 'PAY_AT_HOTEL'>('VNPAY');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingConfirmed, setBookingConfirmed] = useState<{
+    id: number;
     bookingNumber: string;
     totalAmount: number;
   } | null>(null);
+
+  // Giai đoạn D — gọi API VNPay thật + popup lỗi §6
+  const [gatewayError, setGatewayError] = useState<ApiErrorInfo | null>(null);
+  const [pendingGatewayBookingId, setPendingGatewayBookingId] = useState<number | null>(null);
+  const [isRetryingGateway, setIsRetryingGateway] = useState(false);
+
+  // Tạo phiên thanh toán VNPay cho booking vừa tạo → redirect ra cổng (tree T06: gọi API thật + redirect)
+  const handlePayWithGateway = async (bookingId: number): Promise<boolean> => {
+    try {
+      const res = await financeService.createVnPayPayment({ bookingId, method: 'VNPAY' });
+      if (res.result) {
+        setPendingGatewayBookingId(null);
+        setGatewayError(null);
+        window.location.href = res.result.paymentUrl;
+        return true;
+      }
+      return false;
+    } catch (err) {
+      // §6 bước ① — popup (8008 GATEWAY_ERROR khi sandbox keys trống / gateway sập)
+      console.error('Lỗi tạo phiên VNPay:', err);
+      setGatewayError(getApiErrorMessage(err, 'Không thể tạo phiên thanh toán VNPay'));
+      setPendingGatewayBookingId(bookingId);
+      return false;
+    }
+  };
+
+  // §6 bước ②③④ — Thử lại = tạo lại phiên cho booking đã có (booking đã tạo, không tạo lại)
+  const handleRetryGateway = async () => {
+    if (!pendingGatewayBookingId) {
+      setGatewayError(null);
+      return;
+    }
+    setIsRetryingGateway(true);
+    try {
+      await handlePayWithGateway(pendingGatewayBookingId);
+    } finally {
+      setIsRetryingGateway(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -113,9 +156,14 @@ export const CheckoutPage: React.FC = () => {
 
       if (res && res.result) {
         setBookingConfirmed({
+          id: res.result.id,
           bookingNumber: res.result.bookingNumber,
           totalAmount: grandTotal,
         });
+        // VNPAY — thay option giả thành gọi API thật + redirect (tree T06 D3)
+        if (paymentMethod === 'VNPAY') {
+          await handlePayWithGateway(res.result.id);
+        }
       }
     } catch (err) {
       console.error('Booking submission failed:', err);
@@ -170,6 +218,16 @@ export const CheckoutPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Popup lỗi tạo phiên VNPay — booking đã tạo nên "Thử lại" = tạo lại phiên cho booking này */}
+        <PaymentErrorModal
+          isOpen={gatewayError !== null}
+          code={gatewayError?.code}
+          message={gatewayError?.message ?? ''}
+          onRetry={handleRetryGateway}
+          onClose={() => setGatewayError(null)}
+          isRetrying={isRetryingGateway}
+        />
       </div>
     );
   }
@@ -423,6 +481,16 @@ export const CheckoutPage: React.FC = () => {
           </div>
         </form>
       </div>
+
+      {/* Popup lỗi tạo phiên VNPay (§6) — nút "Đóng" để khách xem lại xác nhận đơn, "Thử lại" tạo lại phiên */}
+      <PaymentErrorModal
+        isOpen={gatewayError !== null}
+        code={gatewayError?.code}
+        message={gatewayError?.message ?? ''}
+        onRetry={handleRetryGateway}
+        onClose={() => setGatewayError(null)}
+        isRetrying={isRetryingGateway}
+      />
     </div>
   );
 };

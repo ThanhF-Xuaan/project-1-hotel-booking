@@ -14,7 +14,10 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentSearchDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
+import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
+import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
+import jakarta.servlet.http.HttpServletRequest;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -62,6 +65,42 @@ public class PaymentController {
     @Operation(summary = "Xác nhận hoàn tất thanh toán thành công")
     public ApiResponse<PaymentResponse> completePayment(@PathVariable Long id) {
         return ApiResponse.success("Xác nhận thanh toán thành công", paymentService.completePayment(id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
+    @Operation(summary = "Hủy thanh toán đang chờ (PENDING → CANCELLED) — dùng cho flow lỗi: popup → hủy → làm lại")
+    public ApiResponse<PaymentResponse> cancelPayment(@PathVariable Long id) {
+        return ApiResponse.success("Hủy thanh toán thành công", paymentService.cancelPayment(id));
+    }
+
+    @PostMapping("/vnpay/create")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
+    @Operation(summary = "Tạo phiên thanh toán VNPay — trả paymentUrl + txnRef + expiresAt (TTL 10')")
+    public ApiResponse<PaymentUrlResponse> createVnPayPayment(
+            @Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
+        return ApiResponse.success("Tạo phiên thanh toán VNPay thành công",
+                paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
+    }
+
+    @PostMapping("/momo/create")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
+    @Operation(summary = "Tạo phiên thanh toán MoMo — trả paymentUrl + txnRef + expiresAt (TTL 10')")
+    public ApiResponse<PaymentUrlResponse> createMoMoPayment(
+            @Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
+        return ApiResponse.success("Tạo phiên thanh toán MoMo thành công",
+                paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
+    }
+
+    /** Lấy IP thật của khách (qua proxy/load-balancer nếu có) — VNPay yêu cầu vnp_IpAddr */
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     @PostMapping("/{id}/refund")

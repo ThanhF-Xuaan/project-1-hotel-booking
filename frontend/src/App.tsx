@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import AdminLayout from './core/components/layout/AdminLayout'
 import ProtectedRoute from './core/components/auth/ProtectedRoute'
 import LoginPage from './modules/auth/pages/LoginPage'
+import ProtectedRoute from './core/components/auth/ProtectedRoute'
+import LoginPage from './modules/auth/pages/LoginPage'
 import RegionListPage from './modules/organization/pages/RegionListPage'
 import HotelListPage from './modules/organization/pages/HotelListPage'
 import RoomTypeListPage from './modules/inventory/pages/RoomTypeListPage'
@@ -11,6 +13,7 @@ import CampaignListPage from './modules/pricing/pages/CampaignListPage'
 import BookingListPage from './modules/booking/pages/BookingListPage'
 import WalkInBookingPage from './modules/booking/pages/WalkInBookingPage'
 import FolioPaymentPage from './modules/finance/pages/FolioPaymentPage'
+import PaymentResultPage from './modules/finance/pages/PaymentResultPage'
 import { MenuListPage } from './modules/operation/pages/MenuListPage'
 import { RoomServiceOrderPage } from './modules/operation/pages/RoomServiceOrderPage'
 import { HousekeepingPage } from './modules/operation/pages/HousekeepingPage'
@@ -24,8 +27,11 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Authentication */}
+        {/* Đăng nhập (công khai — không qua ProtectedRoute) */}
         <Route path="/login" element={<LoginPage />} />
+
+        {/* Trang kết quả trả về từ cổng thanh toán (VNPay return / MoMo redirect) */}
+        <Route path="/payment/result" element={<PaymentResultPage />} />
 
         {/* Customer-facing Public Booking Portal */}
         <Route path="/portal">
@@ -35,7 +41,7 @@ export function App() {
           <Route path="my-bookings" element={<MyBookingsPage />} />
         </Route>
 
-        {/* Internal Hotel Staff & Executive Admin Console */}
+        {/* Internal Hotel Staff & Executive Admin Console (bắt buộc đăng nhập) */}
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<AdminLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -109,4 +115,4 @@ export function App() {
   )
 }
 
-export default App
+export default App

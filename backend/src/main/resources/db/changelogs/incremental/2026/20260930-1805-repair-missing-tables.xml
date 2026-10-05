@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+      REPAIR: Tạo 8 bảng bị thiếu trong DB dev (schema lệch so với baseline).
+      DDL lấy nguyên văn từ database/01-init-schema.sql.
+      An toàn: CREATE TABLE IF NOT EXISTS — DB sạch hay đã có bảng đều chạy được.
+      Không DROP / TRUNCATE / DELETE nào.
+    -->
+    <changeSet id="1.0.1-repair-missing-tables" author="utc-hotel-team">
+        <comment>Repair: tạo 8 bảng thiếu (regions, departments, menus, services, room_maintenance_blocks, companies, booking_daily_rates, audit_logs) — IF NOT EXISTS, chỉ ADD</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20260930-1805-repair-missing-tables.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>

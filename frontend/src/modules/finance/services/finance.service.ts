@@ -7,6 +7,8 @@ import type {
   InvoiceCreateRequest,
   InvoiceSearchDto,
   InvoiceResponse,
+  GatewayCreateRequest,
+  PaymentUrlResponse,
 } from '../types/finance.types';
 
 const PAYMENT_URL = '/api/v1/payments';
@@ -16,6 +18,17 @@ export const financeService = {
   // Payments
   createPayment: (data: PaymentCreateRequest) =>
     apiClient.post<PaymentResponse>(`${PAYMENT_URL}/create`, data),
+
+  // Giai đoạn D — tạo phiên thanh toán online (trả paymentUrl + txnRef + expiresAt)
+  createVnPayPayment: (data: GatewayCreateRequest) =>
+    apiClient.post<PaymentUrlResponse>(`${PAYMENT_URL}/vnpay/create`, data),
+
+  createMoMoPayment: (data: GatewayCreateRequest) =>
+    apiClient.post<PaymentUrlResponse>(`${PAYMENT_URL}/momo/create`, data),
+
+  // Hủy thanh toán đang dở (PENDING → CANCELLED) — flow lỗi §6
+  cancelPayment: (id: number) =>
+    apiClient.post<PaymentResponse>(`${PAYMENT_URL}/${id}/cancel`, {}),
 
   filterPayments: (params: PaymentSearchDto) =>
     apiClient.post<PageResponse<PaymentResponse>>(`${PAYMENT_URL}/filter`, params),

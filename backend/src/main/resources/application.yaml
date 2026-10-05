@@ -63,3 +63,25 @@ logging:
     org.springframework.security: DEBUG
     org.springframework.web: INFO
     vn.edu.utc.hotel_booking: DEBUG
+
+# =============================================================================
+# CẤU HÌNH CỔNG THANH TOÁN (Giai đoạn A — T06 Payment Gateway)
+# Mọi secret lấy từ env — mặc định rỗng để app vẫn chạy dev khi chưa có key
+# =============================================================================
+payment:
+  gateway:
+    vnpay:
+      tmn-id: ${VNPAY_TMN_ID:}
+      hash-secret: ${VNPAY_HASH_SECRET:}
+      url: ${VNPAY_URL:https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      # vnp_ReturnUrl: trình duyệt quay về ĐÂU — trỏ về BE để verify +302 về FE (contract §4)
+      return-url: ${VNPAY_RETURN_URL:http://localhost:8080/api/v1/public/payments/vnpay/return}
+      # FE result page nhận redirect cuối cùng từ BE /vnpay/return
+      fe-result-url: ${VNPAY_FE_RESULT_URL:http://localhost:3000/payment/result}
+    momo:
+      partner-code: ${MOMO_PARTNER_CODE:}
+      access-key: ${MOMO_ACCESS_KEY:}
+      secret-key: ${MOMO_SECRET_KEY:}
+      url: ${MOMO_URL:https://test-payment.momo.vn/v2/gateway/api/create}
+      ipn-url: ${MOMO_IPN_URL:http://localhost:8080/api/v1/public/payments/momo/callback}
+      redirect-url: ${MOMO_REDIRECT_URL:http://localhost:3000/payment/result}
