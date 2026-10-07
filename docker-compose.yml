@@ -114,14 +114,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       SPRING_REDIS_HOST: redis
-      # Cấu hình mạng nội bộ cho Keycloak IAM
-      KEYCLOAK_SERVER_URL: http://keycloak:8080
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-hotel-realm}
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-hotel-backend}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-hotel-backend-secret-key-123456}
-      KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-admin-cli}
-      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       # OAuth2 JWT Validation
       KEYCLOAK_ISSUER_URI: http://localhost:8081/realms/hotel-realm
       KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/hotel-realm/protocol/openid-connect/certs
