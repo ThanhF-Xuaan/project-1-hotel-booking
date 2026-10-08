@@ -11,7 +11,10 @@ const BASE_URL = '/api/v1/inventory/room-types'
 
 export const roomTypeService = {
   filter: (params: RoomTypeSearchDto) =>
-    apiClient.post<PageResponse<RoomTypeDto>>(`${BASE_URL}/filter`, params),
+    apiClient.post<PageResponse<RoomTypeDto>>(`${BASE_URL}/filter`, {
+      ...params,
+      keyword: params.keyword?.trim() ?? '',
+    }),
 
   getById: (id: number) => apiClient.get<RoomTypeDto>(`${BASE_URL}/${id}`),
 

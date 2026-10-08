@@ -13,7 +13,12 @@ const BASE_URL = '/api/v1/pricing'
 
 export const pricingService = {
   calculate: (request: PriceCalculationRequest) =>
-    apiClient.post<PriceBreakdownDto>(`${BASE_URL}/calculate`, request),
+    apiClient.post<PriceBreakdownDto>(`${BASE_URL}/calculate`, {
+      adults: 1,
+      children: 0,
+      extraBeds: 0,
+      ...request,
+    }),
 
   filterRules: (params: PricingRuleSearchDto) =>
     apiClient.post<PageResponse<PricingRuleDto>>(`${BASE_URL}/rules/filter`, params),

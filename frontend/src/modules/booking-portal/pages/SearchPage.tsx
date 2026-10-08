@@ -108,12 +108,6 @@ export const SearchPage: React.FC = () => {
               <FileSearch className="w-4 h-4" />
               Tra cứu đơn đặt phòng
             </button>
-            <button
-              onClick={() => navigate('/booking/list')}
-              className="px-3.5 py-2 text-xs font-semibold text-white bg-neutral-900 hover:bg-black rounded-xl transition-colors"
-            >
-              Cổng Quản Trị Staff
-            </button>
           </div>
         </div>
       </header>
