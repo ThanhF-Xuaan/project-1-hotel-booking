@@ -10,8 +10,16 @@ import type {
 const BASE_URL = '/api/v1/regions'
 
 export const regionService = {
-  filter: (params: RegionSearchDto) =>
-    apiClient.post<PageResponse<RegionDto>>(`${BASE_URL}/filter`, params),
+  filter: (params: RegionSearchDto) => {
+    const keyword =
+      params.keyword && params.keyword.trim() !== ''
+        ? params.keyword.trim()
+        : '%'
+    return apiClient.post<PageResponse<RegionDto>>(`${BASE_URL}/filter`, {
+      ...params,
+      keyword,
+    })
+  },
 
   getById: (id: number) => apiClient.get<RegionDto>(`${BASE_URL}/${id}`),
 

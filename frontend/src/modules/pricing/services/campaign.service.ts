@@ -11,7 +11,10 @@ const BASE_URL = '/api/v1/pricing/campaigns'
 
 export const campaignService = {
   filter: (params: CampaignSearchDto) =>
-    apiClient.post<PageResponse<CampaignDto>>(`${BASE_URL}/filter`, params),
+    apiClient.post<PageResponse<CampaignDto>>(`${BASE_URL}/filter`, {
+      ...params,
+      name: params.name?.trim() ?? '',
+    }),
 
   getById: (id: number) => apiClient.get<CampaignDto>(`${BASE_URL}/${id}`),
 

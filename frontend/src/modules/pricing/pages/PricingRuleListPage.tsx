@@ -32,7 +32,7 @@ export const PricingRuleListPage: React.FC = () => {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
   const [editingRule, setEditingRule] = useState<PricingRuleDto | null>(null)
   const [formRoomTypeId, setFormRoomTypeId] = useState<number | ''>('')
-  const [formRuleTypeCode, setFormRuleTypeCode] = useState('SEASONAL')
+  const [formRuleTypeCode, setFormRuleTypeCode] = useState('PEAK_SEASON')
   const [formAdjustmentType, setFormAdjustmentType] = useState('PERCENT')
   const [formAdjustmentValue, setFormAdjustmentValue] = useState<number>(10)
   const [formStartDate, setFormStartDate] = useState('')
@@ -104,7 +104,7 @@ export const PricingRuleListPage: React.FC = () => {
   const openCreateModal = () => {
     setEditingRule(null)
     setFormRoomTypeId(hotelRoomTypes.length > 0 ? hotelRoomTypes[0].id : '')
-    setFormRuleTypeCode('SEASONAL')
+    setFormRuleTypeCode('PEAK_SEASON')
     setFormAdjustmentType('PERCENT')
     setFormAdjustmentValue(10)
     setFormStartDate('')
@@ -167,9 +167,30 @@ export const PricingRuleListPage: React.FC = () => {
       setIsFormModalOpen(false)
       loadData()
     } catch (err: unknown) {
-      const errorMsg =
-        err instanceof Error ? err.message : 'Có lỗi xảy ra khi lưu quy tắc giá'
-      setFormError(errorMsg)
+      const axiosError = err as {
+        response?: {
+          status?: number
+          data?: {
+            message?: string
+            error?: string
+            errors?: Record<string, string>
+          }
+        }
+        message?: string
+      }
+      const respData = axiosError?.response?.data
+      let errorMsg = respData?.message
+      if (respData?.errors && Object.keys(respData.errors).length > 0) {
+        errorMsg = Object.values(respData.errors).join(', ')
+      }
+
+      if (errorMsg && !errorMsg.toLowerCase().includes('status code')) {
+        setFormError(errorMsg)
+      } else {
+        setFormError(
+          'Không thể lưu quy tắc giá. Khoảng thời gian của loại quy tắc này có thể đang bị trùng lặp với quy tắc đã có trên cùng loại phòng, hoặc dữ liệu không hợp lệ.'
+        )
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -246,7 +267,7 @@ export const PricingRuleListPage: React.FC = () => {
               className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
             >
               <option value="">Tất cả loại quy tắc</option>
-              <option value="SEASONAL">Theo mùa (SEASONAL)</option>
+              <option value="PEAK_SEASON">Mùa cao điểm (PEAK_SEASON)</option>
               <option value="HOLIDAY">Lễ tết (HOLIDAY)</option>
               <option value="WEEKEND">Cuối tuần (WEEKEND)</option>
             </select>
@@ -482,7 +503,7 @@ export const PricingRuleListPage: React.FC = () => {
                 disabled={!!editingRule}
                 className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
               >
-                <option value="SEASONAL">Theo mùa (SEASONAL)</option>
+                <option value="PEAK_SEASON">Mùa cao điểm (PEAK_SEASON)</option>
                 <option value="HOLIDAY">Lễ tết (HOLIDAY)</option>
                 <option value="WEEKEND">Cuối tuần (WEEKEND)</option>
               </select>

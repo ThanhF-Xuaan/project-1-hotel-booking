@@ -40,7 +40,7 @@ export const RoomTypeListPage: React.FC = () => {
       const response = await roomTypeService.filter({
         page,
         pageSize,
-        keyword: keyword || undefined,
+        keyword: keyword.trim(),
         status: status || undefined,
       })
       if (response && response.result) {

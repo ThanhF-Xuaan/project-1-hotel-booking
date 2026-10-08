@@ -61,7 +61,7 @@ export const CampaignListPage: React.FC = () => {
         page,
         pageSize,
         hotelId: selectedHotelId || undefined,
-        name: name || undefined,
+        name: name.trim(),
         status: status || undefined,
       })
       if (response && response.result) {
