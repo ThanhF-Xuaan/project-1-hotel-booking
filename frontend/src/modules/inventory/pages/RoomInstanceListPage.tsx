@@ -40,6 +40,7 @@ export const RoomInstanceListPage: React.FC = () => {
   const [formStatus, setFormStatus] = useState<string>('READY')
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [existingHotelRooms, setExistingHotelRooms] = useState<RoomInstanceDto[]>([])
 
   // Delete Modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -56,7 +57,7 @@ export const RoomInstanceListPage: React.FC = () => {
       .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
   }, [])
 
-  // Load Hotel Room Types when hotel selected in Form
+  // Load Hotel Room Types & existing rooms when hotel selected in Form
   useEffect(() => {
     if (formHotelId) {
       hotelRoomTypeService
@@ -65,8 +66,17 @@ export const RoomInstanceListPage: React.FC = () => {
           if (res.result) setHotelRoomTypes(res.result.content || [])
         })
         .catch((err) => console.error('Lỗi tải danh mục loại phòng khách sạn:', err))
+
+      // Tải danh sách các phòng hiện có của khách sạn này để kiểm tra tránh trùng tên phòng
+      roomInstanceService
+        .filter({ hotelId: Number(formHotelId), pageSize: 100 })
+        .then((res) => {
+          if (res.result) setExistingHotelRooms(res.result.content || [])
+        })
+        .catch((err) => console.error('Lỗi tải danh sách phòng hiện có:', err))
     } else {
       setHotelRoomTypes([])
+      setExistingHotelRooms([])
     }
   }, [formHotelId])
 
@@ -118,12 +128,21 @@ export const RoomInstanceListPage: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingRoom(null)
-    setFormHotelId(hotels.length > 0 ? hotels[0].id : '')
+    const initialHotelId = selectedHotelId || (hotels.length > 0 ? hotels[0].id : '')
+    setFormHotelId(initialHotelId)
     setFormHotelRoomTypeId('')
     setFormRoomNumber('')
     setFormStatus('READY')
     setFormError(null)
     setIsFormModalOpen(true)
+    if (initialHotelId) {
+      roomInstanceService
+        .filter({ hotelId: Number(initialHotelId), pageSize: 100 })
+        .then((res) => {
+          if (res.result) setExistingHotelRooms(res.result.content || [])
+        })
+        .catch((err) => console.error('Lỗi tải danh sách phòng hiện có:', err))
+    }
   }
 
   const openEditModal = (room: RoomInstanceDto) => {
@@ -136,12 +155,28 @@ export const RoomInstanceListPage: React.FC = () => {
     setIsFormModalOpen(true)
   }
 
+  const isDuplicateRoomNumber = Boolean(
+    formRoomNumber.trim() &&
+    existingHotelRooms.some(
+      (r) =>
+        r.roomNumber.trim().toLowerCase() === formRoomNumber.trim().toLowerCase() &&
+        (!editingRoom || r.id !== editingRoom.id)
+    )
+  )
+
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
 
     if (!formHotelId || !formHotelRoomTypeId || !formRoomNumber.trim()) {
       setFormError('Vui lòng điền đầy đủ các thông tin bắt buộc')
+      return
+    }
+
+    if (isDuplicateRoomNumber) {
+      setFormError(
+        `Số phòng "${formRoomNumber.trim()}" đã tồn tại trong khách sạn này. Vui lòng chọn số phòng khác!`
+      )
       return
     }
 
@@ -165,9 +200,10 @@ export const RoomInstanceListPage: React.FC = () => {
       }
       setIsFormModalOpen(false)
       loadData()
-    } catch (err: unknown) {
+    } catch (err: any) {
       const errorMsg =
-        err instanceof Error ? err.message : 'Có lỗi xảy ra khi lưu thông tin phòng'
+        err?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Có lỗi xảy ra khi lưu thông tin phòng')
       setFormError(errorMsg)
     } finally {
       setIsSubmitting(false)
@@ -533,9 +569,18 @@ export const RoomInstanceListPage: React.FC = () => {
             <Input
               placeholder="VD: 301, 302, VIP-01..."
               value={formRoomNumber}
-              onChange={(e) => setFormRoomNumber(e.target.value)}
+              onChange={(e) => {
+                setFormRoomNumber(e.target.value)
+                if (formError) setFormError(null)
+              }}
+              className={isDuplicateRoomNumber ? 'border-red-500 focus:ring-red-500' : ''}
               required
             />
+            {isDuplicateRoomNumber && (
+              <p className="text-red-600 text-xs mt-1.5 font-medium flex items-center gap-1">
+                <span>⚠️</span> Số phòng &quot;{formRoomNumber.trim()}&quot; đã tồn tại trong khách sạn này. Vui lòng chọn số khác!
+              </p>
+            )}
           </div>
 
           <div>
@@ -563,7 +608,11 @@ export const RoomInstanceListPage: React.FC = () => {
             >
               Hủy
             </Button>
-            <Button type="submit" isLoading={isSubmitting}>
+            <Button
+              type="submit"
+              isLoading={isSubmitting}
+              disabled={isSubmitting || isDuplicateRoomNumber}
+            >
               {editingRoom ? 'Cập Nhật' : 'Tạo Mới'}
             </Button>
           </div>

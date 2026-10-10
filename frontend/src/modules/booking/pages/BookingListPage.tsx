@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
   RefreshCw,
@@ -87,22 +87,71 @@ export const BookingListPage: React.FC = () => {
   }, [page, pageSize, searchBookingNumber, searchStatus]);
 
   useEffect(() => {
-    loadData();
+    let isMounted = true;
+    const init = async () => {
+      if (isMounted) {
+        await loadData();
+      }
+    };
+    void init();
+    return () => {
+      isMounted = false;
+    };
   }, [loadData]);
 
-  // Load available physical rooms when assigning
+  // Load available physical rooms for the booking's hotel and room type
   useEffect(() => {
-    if (isAssignModalOpen) {
+    if (isAssignModalOpen && selectedBooking) {
+      const targetDetail = selectedBooking.bookingDetails?.find((d) =>
+        d.bookingRooms?.some((r) => r.id === targetBookingRoomId)
+      );
+
       roomInstanceService
-        .filter({ pageSize: 100 })
+        .filter({
+          hotelId: selectedBooking.hotelId,
+          hotelRoomTypeId: targetDetail?.hotelRoomTypeId,
+          currentStatus: 'READY',
+          pageSize: 100,
+        })
         .then((res) => {
-          if (res.result) {
+          if (res?.result) {
             setAvailableRooms(res.result.content || []);
           }
         })
         .catch((err) => console.error('Lỗi tải phòng vật lý:', err));
     }
-  }, [isAssignModalOpen]);
+  }, [isAssignModalOpen, selectedBooking, targetBookingRoomId]);
+
+  // Danh sách các ID phòng và số phòng đã được đặt/gán trong hệ thống (cái nào đã đặt rồi sẽ mất đi trong chỗ chọn phòng)
+  const assignedRoomIds = useMemo(() => {
+    return new Set(
+      bookings
+        .filter((b) => b.status !== 'CANCELLED')
+        .flatMap((b) => b.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [])
+        .filter((r) => r.status !== 'CHECKED_OUT' && r.status !== 'CANCELLED' && r.roomInstanceId)
+        .map((r) => r.roomInstanceId)
+    );
+  }, [bookings]);
+
+  const assignedRoomNumbers = useMemo(() => {
+    return new Set(
+      bookings
+        .filter((b) => b.status !== 'CANCELLED' && b.hotelId === selectedBooking?.hotelId)
+        .flatMap((b) => b.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [])
+        .filter((r) => r.status !== 'CHECKED_OUT' && r.status !== 'CANCELLED' && r.roomNumber)
+        .map((r) => r.roomNumber)
+    );
+  }, [bookings, selectedBooking]);
+
+  // Lọc chỉ giữ lại các phòng thực sự còn trống (chưa bị ai đặt, không trùng tên phòng đã đặt)
+  const selectableRooms = useMemo(() => {
+    return availableRooms.filter(
+      (r) =>
+        r.currentStatus === 'READY' &&
+        !assignedRoomIds.has(r.id) &&
+        !assignedRoomNumbers.has(r.roomNumber)
+    );
+  }, [availableRooms, assignedRoomIds, assignedRoomNumbers]);
 
   const handleOpenAssignModal = (bookingRoomId: number) => {
     setTargetBookingRoomId(bookingRoomId);
@@ -119,8 +168,9 @@ export const BookingListPage: React.FC = () => {
       setActionSuccessMessage('Xếp phòng vật lý thành công!');
       loadData();
     } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể xếp phòng. Vui lòng kiểm tra lại phòng có đang bị trùng lịch hay không.';
       console.error('Lỗi xếp phòng:', err);
-      alert('Không thể xếp phòng. Vui lòng kiểm tra lại phòng có đang bị trùng lịch hay không.');
+      alert(msg);
     } finally {
       setIsAssigning(false);
     }
@@ -158,13 +208,23 @@ export const BookingListPage: React.FC = () => {
   };
 
   const handleCheckIn = async (bookingRoomId: number) => {
+    const targetRoom = selectedBooking?.bookingDetails
+      ?.flatMap((d) => d.bookingRooms || [])
+      ?.find((r) => r.id === bookingRoomId);
+
+    if (!targetRoom?.roomNumber && !targetRoom?.roomInstanceId) {
+      alert('Lượt lưu trú này chưa được xếp phòng vật lý. Vui lòng nhấn "Xếp phòng" trước khi Check-in!');
+      return;
+    }
+
     try {
       await bookingService.checkIn(bookingRoomId);
       setActionSuccessMessage('Check-in thành công!');
       loadData();
-    } catch (err) {
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Check-in thất bại.';
       console.error('Lỗi check-in:', err);
-      alert('Check-in thất bại.');
+      alert(msg);
     }
   };
 
@@ -288,7 +348,7 @@ export const BookingListPage: React.FC = () => {
           <table className="w-full text-left border-collapse text-sm">
             <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
               <tr>
-                <th className="p-4">Mã đơn</th>
+                <th className="p-4">Phòng vật lý</th>
                 <th className="p-4">Khách sạn</th>
                 <th className="p-4">Khách hàng</th>
                 <th className="p-4">Loại phòng</th>
@@ -315,11 +375,39 @@ export const BookingListPage: React.FC = () => {
               ) : (
                 bookings.map((booking) => (
                   <tr key={booking.id} className="hover:bg-neutral-50 transition-colors">
-                    <td className="p-4 font-semibold text-neutral-900">
-                      {booking.bookingNumber}
-                      <div className="text-xs text-neutral-400 font-normal mt-0.5">
-                        {booking.bookingType}
-                      </div>
+                    <td className="p-4">
+                      {(() => {
+                        const assignedRooms = booking.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+                        const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber || r.roomInstanceId);
+
+                        if (roomsWithInfo.length === 0) {
+                          return (
+                            <div>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-neutral-100 text-neutral-600">
+                                Chưa xếp phòng
+                              </span>
+                              <div className="text-xs text-neutral-400 font-normal mt-0.5">
+                                {booking.bookingType}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-1">
+                            {roomsWithInfo.map((r, idx) => (
+                              <div key={r.id || idx}>
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+                                  {r.roomNumber ? `Phòng ${r.roomNumber}` : 'Đã xếp phòng'}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="text-xs text-neutral-400 font-normal mt-0.5">
+                              {booking.bookingType}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="p-4 text-neutral-800">{booking.hotelName}</td>
                     <td className="p-4">
@@ -445,8 +533,8 @@ export const BookingListPage: React.FC = () => {
                         <div className="text-sm font-semibold text-neutral-800">
                           Phòng #{idx + 1}:{' '}
                           {room.roomNumber ? (
-                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono">
-                              {room.roomNumber}
+                            <span className="text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg font-mono text-xs font-bold border border-emerald-200">
+                              Phòng {room.roomNumber}
                             </span>
                           ) : (
                             <span className="text-amber-600 italic">Chưa xếp phòng vật lý</span>
@@ -533,20 +621,25 @@ export const BookingListPage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
-              Phòng vật lý khả dụng
+              Phòng vật lý khả dụng (chưa có khách đặt)
             </label>
             <select
               className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
               value={selectedRoomInstanceId}
-              onChange={(e) => setSelectedRoomInstanceId(Number(e.target.value))}
+              onChange={(e) => setSelectedRoomInstanceId(e.target.value ? Number(e.target.value) : '')}
             >
-              <option value="">-- Chọn số phòng --</option>
-              {availableRooms.map((r) => (
+              <option value="">-- Chọn số phòng trống --</option>
+              {selectableRooms.map((r) => (
                 <option key={r.id} value={r.id}>
-                  Phòng {r.roomNumber} - {r.currentStatus}
+                  Phòng {r.roomNumber} ({r.roomTypeName || 'Tiêu chuẩn'}) - Trạng thái: Trống
                 </option>
               ))}
             </select>
+            {selectableRooms.length === 0 && (
+              <p className="text-xs text-rose-600 mt-2 font-medium">
+                ⚠️ Không có phòng trống khả dụng nào cho loại phòng này (các phòng đã có khách đặt hoặc đang ở).
+              </p>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
@@ -556,7 +649,7 @@ export const BookingListPage: React.FC = () => {
             <Button
               variant="primary"
               onClick={handleConfirmAssign}
-              disabled={!selectedRoomInstanceId || isAssigning}
+              disabled={!selectedRoomInstanceId || isAssigning || selectableRooms.length === 0}
             >
               {isAssigning ? 'Đang xếp...' : 'Xác nhận xếp phòng'}
             </Button>

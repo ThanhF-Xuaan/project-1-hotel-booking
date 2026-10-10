@@ -63,17 +63,39 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
     @Override
     @Transactional
     public ServiceOrderResponse createOrder(ServiceOrderCreateRequest request) {
-        Booking booking = bookingRepository.findById(request.getBookingId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + request.getBookingId()));
-
         RoomInstance roomInstance = roomInstanceRepository.findByIdAndIsDeletedFalse(request.getRoomInstanceId())
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng: " + request.getRoomInstanceId()));
 
-        BookingRoom bookingRoom = bookingRoomRepository.findByBookingIdAndRoomInstanceId(booking.getId(), roomInstance.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng này chưa được gán cho đơn đặt phòng: " + booking.getBookingNumber()));
+        Booking booking;
+        BookingRoom bookingRoom;
 
-        if (bookingRoom.getStatus() == BookingRoomStatus.CANCELLED || bookingRoom.getStatus() == BookingRoomStatus.CHECKED_OUT) {
-            throw new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng này không ở trạng thái lưu trú khả dụng");
+        if (request.getBookingId() != null) {
+            booking = bookingRepository.findById(request.getBookingId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + request.getBookingId()));
+
+            bookingRoom = bookingRoomRepository.findByBookingIdAndRoomInstanceId(booking.getId(), roomInstance.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng này chưa được gán cho đơn đặt phòng: " + booking.getBookingNumber()));
+        } else {
+            // Tự động tìm đơn đặt phòng đang lưu trú của phòng vật lý này
+            List<BookingRoom> activeRooms = bookingRoomRepository.findByRoomInstanceIdAndStatusIn(
+                    roomInstance.getId(),
+                    List.of(BookingRoomStatus.CHECKED_IN, BookingRoomStatus.EXPECTED)
+            );
+            if (!activeRooms.isEmpty()) {
+                bookingRoom = activeRooms.get(0);
+            } else {
+                List<BookingRoom> recentRooms = bookingRoomRepository.findActiveOrRecentByRoomInstanceId(roomInstance.getId());
+                if (!recentRooms.isEmpty()) {
+                    bookingRoom = recentRooms.get(0);
+                } else {
+                    throw new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng " + (roomInstance.getRoomNumber() != null ? roomInstance.getRoomNumber() : roomInstance.getId()) + " hiện chưa có đơn đặt phòng nào được gán để hạch toán Folio");
+                }
+            }
+            booking = bookingRoom.getBookingDetail().getBooking();
+        }
+
+        if (bookingRoom.getStatus() == BookingRoomStatus.CANCELLED) {
+            throw new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng này ở trạng thái hủy không thể tạo đơn dịch vụ");
         }
 
         String orderNumber = "SO-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 900 + 100);
@@ -227,14 +249,40 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             throw new AppException(ErrorCode.INVALID_SERVICE_ORDER_STATUS, "Đơn dịch vụ đã bị hủy trước đó");
         }
 
-        // Hoàn trả tồn kho nếu hủy đơn hàng
+        // Hoàn trả tồn kho và tạo bút toán bù trên Folio nếu hủy đơn hàng
         if (status == ServiceOrderStatus.CANCELLED) {
+            BookingRoom bookingRoom = bookingRoomRepository
+                    .findByBookingIdAndRoomInstanceId(order.getBooking().getId(), order.getRoomInstance().getId())
+                    .orElse(null);
+
             for (ServiceOrderDetail detail : order.getDetails()) {
-                if (detail.getMenu().getMenuType() == MenuType.PRODUCT) {
+                // 1. Hoàn trả tồn kho cho sản phẩm
+                if (detail.getMenu() != null && detail.getMenu().getMenuType() == MenuType.PRODUCT) {
                     catalogItemRepository.findById(detail.getMenu().getId()).ifPresent(item -> {
                         item.setStockQuantity(item.getStockQuantity() + detail.getQuantity());
                         catalogItemRepository.save(item);
                     });
+                }
+
+                // 2. Tạo bút toán bù (compensating charge số âm) vào Folio để không tính tiền cho khách
+                if (bookingRoom != null) {
+                    BookingCharge compensatingCharge = BookingCharge.builder()
+                            .bookingRoom(bookingRoom)
+                            .chargeType(BookingChargeType.SERVICE)
+                            .itemName("Hủy " + order.getOrderNumber() + ": " + detail.getItemName())
+                            .description("Bút toán hoàn tiền hủy đơn dịch vụ " + order.getOrderNumber())
+                            .quantity(detail.getQuantity())
+                            .unitPrice(detail.getUnitPrice())
+                            .subtotal(detail.getSubtotal().negate())
+                            .serviceFeeRate(detail.getServiceFeeRate())
+                            .serviceFeeAmount(detail.getServiceFeeAmount().negate())
+                            .vatRate(detail.getVatRate())
+                            .vatAmount(detail.getVatAmount().negate())
+                            .totalAmount(detail.getTotalAmount().negate())
+                            .issuedAt(OffsetDateTime.now())
+                            .build();
+
+                    bookingChargeRepository.save(compensatingCharge);
                 }
             }
         }

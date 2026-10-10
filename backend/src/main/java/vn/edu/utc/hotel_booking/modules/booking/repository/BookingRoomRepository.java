@@ -38,4 +38,7 @@ public interface BookingRoomRepository extends JpaRepository<BookingRoom, Long> 
             @Param("bookingId") Long bookingId,
             @Param("roomInstanceId") Integer roomInstanceId
     );
+
+    @Query("SELECT br FROM BookingRoom br WHERE br.roomInstance.id = :roomInstanceId AND br.status <> vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CANCELLED ORDER BY br.id DESC")
+    List<BookingRoom> findActiveOrRecentByRoomInstanceId(@Param("roomInstanceId") Integer roomInstanceId);
 }

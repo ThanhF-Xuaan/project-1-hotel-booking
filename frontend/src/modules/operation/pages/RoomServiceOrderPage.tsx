@@ -16,17 +16,31 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { Modal, ConfirmModal } from '../../../core/components/ui/Modal';
 import { operationService } from '../services/operation.service';
+import bookingService from '../../booking/services/booking.service';
 import type {
   MenuResponse,
   ServiceOrderResponse,
   ServiceOrderStatus,
 } from '../types/operation.types';
 
+export interface BookedRoomOption {
+  id: number;
+  roomNumber: string;
+  hotelName: string;
+  roomTypeName?: string;
+  bookingId: number;
+  bookingNumber: string;
+  guestName: string;
+  currentStatus: string;
+}
+
 export const RoomServiceOrderPage: React.FC = () => {
-  // Destination
-  const [bookingId, setBookingId] = useState<number | ''>(1);
-  const [roomInstanceId, setRoomInstanceId] = useState<number | ''>(1);
+  // Destination: Chỉ các phòng đã được tạo đơn hàng (đang lưu trú / đã đặt)
+  const [roomInstanceId, setRoomInstanceId] = useState<number | ''>('');
+  const [roomList, setRoomList] = useState<BookedRoomOption[]>([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
 
   // Menu items list
   const [menuItems, setMenuItems] = useState<MenuResponse[]>([]);
@@ -37,8 +51,13 @@ export const RoomServiceOrderPage: React.FC = () => {
   // Cart
   const [cart, setCart] = useState<{ item: MenuResponse; quantity: number }[]>([]);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [isConfirmOrderModalOpen, setIsConfirmOrderModalOpen] = useState(false);
   const [orderSuccessMessage, setOrderSuccessMessage] = useState('');
   const [orderErrorMessage, setOrderErrorMessage] = useState('');
+
+  // Cancel order modal
+  const [orderToCancel, setOrderToCancel] = useState<ServiceOrderResponse | null>(null);
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
 
   // Recent Orders list
   const [recentOrders, setRecentOrders] = useState<ServiceOrderResponse[]>([]);
@@ -75,10 +94,71 @@ export const RoomServiceOrderPage: React.FC = () => {
     }
   }, []);
 
+  const fetchRooms = useCallback(async () => {
+    setIsLoadingRooms(true);
+    try {
+      const res = await bookingService.filter({ size: 100 });
+      const bookings = res?.result?.content || [];
+
+      // Chỉ lấy các phòng vật lý đã được tạo đơn hàng (đang có booking hợp lệ và đã gán phòng)
+      const bookedRoomsMap = new Map<number, BookedRoomOption>();
+
+      for (const b of bookings) {
+        if (b.status === 'CANCELLED') continue;
+
+        for (const detail of b.bookingDetails || []) {
+          for (const room of detail.bookingRooms || []) {
+            if (
+              room.roomInstanceId &&
+              room.status !== 'CANCELLED' &&
+              room.status !== 'CHECKED_OUT'
+            ) {
+              const existing = bookedRoomsMap.get(room.roomInstanceId);
+              if (!existing || room.status === 'CHECKED_IN') {
+                bookedRoomsMap.set(room.roomInstanceId, {
+                  id: room.roomInstanceId,
+                  roomNumber: room.roomNumber || String(room.roomInstanceId),
+                  hotelName: b.hotelName,
+                  roomTypeName: detail.roomTypeName,
+                  bookingId: b.id,
+                  bookingNumber: b.bookingNumber,
+                  guestName: b.guestName || b.guestPhone,
+                  currentStatus: room.status === 'CHECKED_IN' ? 'Đang ở' : 'Đã đặt phòng',
+                });
+              }
+            }
+          }
+        }
+      }
+
+      const activeList = Array.from(bookedRoomsMap.values());
+      setRoomList(activeList);
+      if (activeList.length > 0) {
+        setRoomInstanceId((prev) => (activeList.some((r) => r.id === prev) ? prev : activeList[0].id));
+      } else {
+        setRoomInstanceId('');
+      }
+    } catch (err) {
+      console.error('Failed to load booked rooms:', err);
+    } finally {
+      setIsLoadingRooms(false);
+    }
+  }, []);
+
   useEffect(() => {
-    fetchMenuItems();
-    fetchRecentOrders();
-  }, [fetchMenuItems, fetchRecentOrders]);
+    let isMounted = true;
+    const init = async () => {
+      if (isMounted) {
+        await fetchRooms();
+        await fetchMenuItems();
+        await fetchRecentOrders();
+      }
+    };
+    void init();
+    return () => {
+      isMounted = false;
+    };
+  }, [fetchRooms, fetchMenuItems, fetchRecentOrders]);
 
   const addToCart = (item: MenuResponse) => {
     setCart((prev) => {
@@ -117,8 +197,10 @@ export const RoomServiceOrderPage: React.FC = () => {
   const vatAmount = Math.round(taxableAmount * 0.08);
   const grandTotal = taxableAmount + vatAmount;
 
-  const handlePlaceOrder = async () => {
-    if (!bookingId || !roomInstanceId || cart.length === 0) return;
+  const selectedRoom = roomList.find((r) => r.id === roomInstanceId);
+
+  const handleConfirmPlaceOrder = async () => {
+    if (!roomInstanceId || cart.length === 0) return;
 
     setIsPlacingOrder(true);
     setOrderSuccessMessage('');
@@ -126,8 +208,8 @@ export const RoomServiceOrderPage: React.FC = () => {
 
     try {
       const res = await operationService.createServiceOrder({
-        bookingId: Number(bookingId),
         roomInstanceId: Number(roomInstanceId),
+        bookingId: selectedRoom?.bookingId,
         items: cart.map((c) => ({
           menuId: c.item.id,
           quantity: c.quantity,
@@ -136,13 +218,36 @@ export const RoomServiceOrderPage: React.FC = () => {
 
       setOrderSuccessMessage(`Đã tạo đơn dịch vụ #${res.orderNumber} thành công và tự động đẩy vào Folio phòng!`);
       setCart([]);
+      setIsConfirmOrderModalOpen(false);
       fetchRecentOrders();
       fetchMenuItems(); // Refresh stock
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Có lỗi xảy ra khi tạo đơn dịch vụ';
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Có lỗi xảy ra khi tạo đơn dịch vụ';
       setOrderErrorMessage(msg);
+      setIsConfirmOrderModalOpen(false);
     } finally {
       setIsPlacingOrder(false);
+    }
+  };
+
+  const handleConfirmCancelOrder = async () => {
+    if (!orderToCancel) return;
+    setIsCancellingOrder(true);
+    setOrderSuccessMessage('');
+    setOrderErrorMessage('');
+
+    try {
+      await operationService.updateServiceOrderStatus(orderToCancel.id, 'CANCELLED');
+      setOrderSuccessMessage(`Đã hủy đơn ${orderToCancel.orderNumber} thành công! Kho đã được hoàn trả và bút toán bù âm đã được ghi nhận trên Folio.`);
+      setOrderToCancel(null);
+      fetchRecentOrders();
+      fetchMenuItems();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Không thể hủy đơn dịch vụ này';
+      setOrderErrorMessage(msg);
+      setOrderToCancel(null);
+    } finally {
+      setIsCancellingOrder(false);
     }
   };
 
@@ -174,27 +279,52 @@ export const RoomServiceOrderPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Destination Selector: Booking ID & Room Instance ID */}
+      {/* Destination Selector: Chỉ hiện các phòng đã được tạo đơn hàng */}
       <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap items-center gap-4">
         <div className="text-sm font-semibold text-neutral-800">Thông tin phòng nhận dịch vụ:</div>
-        <div className="w-48">
-          <Input
-            label="ID Đơn đặt phòng (Booking ID)"
-            type="number"
-            value={bookingId}
-            onChange={(e) => setBookingId(e.target.value ? parseInt(e.target.value) : '')}
-            placeholder="VD: 1, 10..."
-          />
-        </div>
-        <div className="w-48">
-          <Input
-            label="ID Phòng vật lý (Room ID)"
-            type="number"
+        <div className="w-80">
+          <select
+            className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600 font-medium text-neutral-900 cursor-pointer"
             value={roomInstanceId}
             onChange={(e) => setRoomInstanceId(e.target.value ? parseInt(e.target.value) : '')}
-            placeholder="VD: 1, 5, 20..."
-          />
+            disabled={isLoadingRooms}
+          >
+            {roomList.length === 0 ? (
+              <option value="">-- Chưa có phòng nào có đơn hàng --</option>
+            ) : (
+              <option value="">-- Chọn phòng đã tạo đơn hàng --</option>
+            )}
+            {roomList.map((room) => (
+              <option key={room.id} value={room.id}>
+                Phòng {room.roomNumber} ({room.roomTypeName || 'Tiêu chuẩn'}) - {room.currentStatus} [{room.bookingNumber}]
+              </option>
+            ))}
+          </select>
         </div>
+        {selectedRoom ? (
+          <div className="text-xs text-neutral-600 bg-neutral-50 px-3.5 py-2 rounded-xl border border-neutral-200 flex flex-wrap items-center gap-3">
+            <span>Số phòng: <strong className="text-neutral-900 font-bold">Phòng {selectedRoom.roomNumber}</strong></span>
+            <span>•</span>
+            <span>Đơn hàng: <strong className="text-neutral-900 font-mono font-bold">{selectedRoom.bookingNumber}</strong></span>
+            <span>•</span>
+            <span>Khách hàng: <strong className="text-neutral-900">{selectedRoom.guestName}</strong></span>
+            <span>•</span>
+            <span>Khách sạn: <strong className="text-neutral-900">{selectedRoom.hotelName}</strong></span>
+            <span>•</span>
+            <span>
+              Trạng thái:{' '}
+              <strong className={selectedRoom.currentStatus === 'Đang ở' ? 'text-blue-700' : 'text-emerald-700'}>
+                {selectedRoom.currentStatus}
+              </strong>
+            </span>
+          </div>
+        ) : (
+          roomList.length === 0 && (
+            <span className="text-xs text-amber-600 italic">
+              Hiện chưa có phòng nào có đơn đặt phòng hợp lệ đang lưu trú để gọi món.
+            </span>
+          )
+        )}
       </div>
 
       {orderSuccessMessage && (
@@ -220,32 +350,29 @@ export const RoomServiceOrderPage: React.FC = () => {
             <div className="flex gap-2">
               <button
                 onClick={() => setCategoryFilter('ALL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  categoryFilter === 'ALL'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${categoryFilter === 'ALL'
                     ? 'bg-red-600 text-white'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
+                  }`}
               >
                 Tất cả danh mục
               </button>
               <button
                 onClick={() => setCategoryFilter('PRODUCT')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-                  categoryFilter === 'PRODUCT'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${categoryFilter === 'PRODUCT'
                     ? 'bg-red-600 text-white'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
+                  }`}
               >
                 <Utensils className="w-3.5 h-3.5" />
                 Đồ ăn & Minibar
               </button>
               <button
                 onClick={() => setCategoryFilter('SERVICE')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
-                  categoryFilter === 'SERVICE'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${categoryFilter === 'SERVICE'
                     ? 'bg-red-600 text-white'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                }`}
+                  }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Dịch vụ phòng
@@ -284,11 +411,10 @@ export const RoomServiceOrderPage: React.FC = () => {
                       </span>
                       {item.menuType === 'PRODUCT' ? (
                         <span
-                          className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                            (item.stockQuantity ?? 0) > 0
+                          className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${(item.stockQuantity ?? 0) > 0
                               ? 'bg-emerald-50 text-emerald-700'
                               : 'bg-rose-50 text-rose-700'
-                          }`}
+                            }`}
                         >
                           Còn {(item.stockQuantity ?? 0)}
                         </span>
@@ -399,12 +525,12 @@ export const RoomServiceOrderPage: React.FC = () => {
               </div>
 
               <Button
-                onClick={handlePlaceOrder}
-                disabled={isPlacingOrder || !bookingId || !roomInstanceId}
-                className="w-full mt-4 flex items-center justify-center gap-2 py-3"
+                onClick={() => setIsConfirmOrderModalOpen(true)}
+                disabled={isPlacingOrder || !roomInstanceId || cart.length === 0}
+                className="w-full mt-4 flex items-center justify-center gap-2 h-12 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
-                {isPlacingOrder ? 'Đang gửi đơn...' : 'Gửi Đơn Dịch Vụ'}
+                Xác nhận đặt đơn & Ghi Folio
               </Button>
             </div>
           )}
@@ -455,9 +581,11 @@ export const RoomServiceOrderPage: React.FC = () => {
                     <td className="py-3 px-4 font-bold text-neutral-900">{order.orderNumber}</td>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-neutral-800">
-                        {order.roomNumber ? `Phòng ${order.roomNumber}` : `Phòng ID ${order.roomInstanceId}`}
+                        {order.roomNumber ? `Phòng ${order.roomNumber}` : 'Phòng dịch vụ'}
                       </div>
-                      <div className="text-xs text-neutral-500">Booking #{order.bookingNumber || order.bookingId}</div>
+                      <div className="text-xs text-neutral-500">
+                        {order.bookingNumber ? `Booking #${order.bookingNumber}` : `Mã đơn: #${order.orderNumber}`}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <div className="text-xs text-neutral-700 space-y-0.5">
@@ -471,17 +599,16 @@ export const RoomServiceOrderPage: React.FC = () => {
                     <td className="py-3 px-4 font-bold text-neutral-900">{formatVND(order.totalAmount)}</td>
                     <td className="py-3 px-4">
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          order.status === 'PENDING'
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${order.status === 'PENDING'
                             ? 'bg-amber-50 text-amber-700 border border-amber-200'
                             : order.status === 'PREPARING'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : order.status === 'DELIVERED'
-                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                            : order.status === 'COMPLETED'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : order.status === 'DELIVERED'
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : order.status === 'COMPLETED'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}
                       >
                         {order.status === 'PENDING' && 'Chờ tiếp nhận'}
                         {order.status === 'PREPARING' && 'Đang chuẩn bị'}
@@ -518,8 +645,8 @@ export const RoomServiceOrderPage: React.FC = () => {
                             </button>
                           )}
                           <button
-                            onClick={() => handleUpdateOrderStatus(order.id, 'CANCELLED')}
-                            className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded text-xs font-semibold"
+                            onClick={() => setOrderToCancel(order)}
+                            className="px-2 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded text-xs font-semibold cursor-pointer"
                           >
                             Hủy
                           </button>
@@ -533,6 +660,110 @@ export const RoomServiceOrderPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal xác nhận đặt đơn và hạch toán Folio */}
+      <Modal
+        isOpen={isConfirmOrderModalOpen}
+        onClose={() => setIsConfirmOrderModalOpen(false)}
+        title="Xác nhận đặt đơn dịch vụ phòng"
+        description="Vui lòng kiểm tra lại thông tin đơn hàng trước khi tự động hạch toán vào hóa đơn Folio."
+        maxWidth="lg"
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs flex justify-between items-center">
+            <div>
+              <span className="text-neutral-500">Phòng nhận dịch vụ:</span>{' '}
+              <strong className="text-neutral-900">
+                {selectedRoom ? `Phòng ${selectedRoom.roomNumber}` : 'Phòng đã chọn'}
+              </strong>
+            </div>
+            <div>
+              <span className="text-neutral-500">Mã đơn đặt phòng:</span>{' '}
+              <strong className="text-neutral-900 font-mono">
+                {selectedRoom?.bookingNumber || 'N/A'}
+              </strong>
+            </div>
+            <div>
+              <span className="text-neutral-500">Loại phòng:</span>{' '}
+              <strong className="text-neutral-900">{selectedRoom?.roomTypeName || 'Tiêu chuẩn'}</strong>
+            </div>
+          </div>
+
+          <div className="max-h-60 overflow-y-auto divide-y divide-neutral-100 border border-neutral-100 rounded-xl">
+            {cart.map(({ item, quantity }) => (
+              <div key={item.id} className="p-3 flex justify-between items-center text-sm">
+                <div>
+                  <div className="font-semibold text-neutral-800">{item.name}</div>
+                  <div className="text-xs text-neutral-500">
+                    {formatVND(item.basePrice)} × {quantity}
+                  </div>
+                </div>
+                <div className="font-bold text-neutral-900">
+                  {formatVND(item.basePrice * quantity)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 bg-neutral-50 rounded-xl space-y-1.5 text-xs">
+            <div className="flex justify-between text-neutral-600">
+              <span>Tiền hàng gốc:</span>
+              <span>{formatVND(subTotal)}</span>
+            </div>
+            <div className="flex justify-between text-neutral-600">
+              <span>Phí dịch vụ khách sạn (5%):</span>
+              <span>{formatVND(serviceFeeAmount)}</span>
+            </div>
+            <div className="flex justify-between text-neutral-600">
+              <span>Thuế GTGT (VAT 8%):</span>
+              <span>{formatVND(vatAmount)}</span>
+            </div>
+            <div className="flex justify-between font-bold text-neutral-900 text-sm pt-2 border-t border-neutral-200">
+              <span>Tổng hạch toán Folio:</span>
+              <span className="text-red-600 font-extrabold">{formatVND(grandTotal)}</span>
+            </div>
+          </div>
+
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <span>
+              <strong>Lưu ý tài chính:</strong> Thao tác này sẽ tự động trừ tồn kho mặt hàng và ghi nhận trực tiếp khoản phí{' '}
+              <strong>{formatVND(grandTotal)}</strong> vào Folio của phòng.
+            </span>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100">
+            <Button
+              variant="secondary"
+              onClick={() => setIsConfirmOrderModalOpen(false)}
+              disabled={isPlacingOrder}
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white rounded-xl h-12 px-6 font-semibold flex items-center gap-2 shadow-xs cursor-pointer"
+              onClick={handleConfirmPlaceOrder}
+              isLoading={isPlacingOrder}
+            >
+              <Send className="w-4 h-4" />
+              Xác nhận đặt & Ghi Folio
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal xác nhận hủy đơn dịch vụ */}
+      <ConfirmModal
+        isOpen={orderToCancel !== null}
+        onClose={() => setOrderToCancel(null)}
+        onConfirm={handleConfirmCancelOrder}
+        title="Xác nhận hủy đơn dịch vụ"
+        description={`Bạn có chắc chắn muốn hủy đơn hàng #${orderToCancel?.orderNumber}? Hệ thống sẽ hoàn trả số lượng tồn kho (đối với hàng hóa) và tự động tạo bút toán bù âm trên Folio của phòng để hoàn tiền cho khách.`}
+        confirmText="Xác nhận hủy đơn"
+        cancelText="Đóng"
+        isLoading={isCancellingOrder}
+        variant="danger"
+      />
     </div>
   );
 };

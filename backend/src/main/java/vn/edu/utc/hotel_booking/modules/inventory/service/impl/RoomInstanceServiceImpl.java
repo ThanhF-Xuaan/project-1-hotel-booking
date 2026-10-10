@@ -47,11 +47,17 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
         HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdAndIsDeletedFalse(request.getHotelRoomTypeId())
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND, "Không tìm thấy cấu hình loại phòng id: " + request.getHotelRoomTypeId()));
 
-        if (roomInstanceRepository.existsByHotelIdAndRoomNumberAndIsDeletedFalse(request.getHotelId(), request.getRoomNumber())) {
-            throw new AppException(ErrorCode.ROOM_NUMBER_ALREADY_EXISTS, "Số phòng " + request.getRoomNumber() + " đã tồn tại trong khách sạn này");
+        String normalizedRoomNumber = request.getRoomNumber() != null ? request.getRoomNumber().trim() : "";
+        if (normalizedRoomNumber.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Số phòng không được để trống");
+        }
+
+        if (roomInstanceRepository.existsByHotelIdAndRoomNumberIgnoreCaseTrim(request.getHotelId(), normalizedRoomNumber)) {
+            throw new AppException(ErrorCode.ROOM_NUMBER_ALREADY_EXISTS, "Số phòng '" + normalizedRoomNumber + "' đã tồn tại trong khách sạn này");
         }
 
         RoomInstance roomInstance = roomInstanceMapper.toEntity(request);
+        roomInstance.setRoomNumber(normalizedRoomNumber);
         roomInstance.setHotel(hotel);
         roomInstance.setHotelRoomType(hotelRoomType);
 
@@ -68,12 +74,18 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
         HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdAndIsDeletedFalse(request.getHotelRoomTypeId())
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND, "Không tìm thấy cấu hình loại phòng id: " + request.getHotelRoomTypeId()));
 
-        if (roomInstanceRepository.existsByHotelIdAndRoomNumberAndIdNotAndIsDeletedFalse(
-                roomInstance.getHotel().getId(), request.getRoomNumber(), id)) {
-            throw new AppException(ErrorCode.ROOM_NUMBER_ALREADY_EXISTS, "Số phòng " + request.getRoomNumber() + " đã tồn tại trong khách sạn");
+        String normalizedRoomNumber = request.getRoomNumber() != null ? request.getRoomNumber().trim() : "";
+        if (normalizedRoomNumber.isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Số phòng không được để trống");
+        }
+
+        if (roomInstanceRepository.existsByHotelIdAndRoomNumberAndIdNotIgnoreCaseTrim(
+                roomInstance.getHotel().getId(), normalizedRoomNumber, id)) {
+            throw new AppException(ErrorCode.ROOM_NUMBER_ALREADY_EXISTS, "Số phòng '" + normalizedRoomNumber + "' đã tồn tại trong khách sạn");
         }
 
         roomInstanceMapper.updateEntity(roomInstance, request);
+        roomInstance.setRoomNumber(normalizedRoomNumber);
         roomInstance.setHotelRoomType(hotelRoomType);
 
         RoomInstance updated = roomInstanceRepository.save(roomInstance);

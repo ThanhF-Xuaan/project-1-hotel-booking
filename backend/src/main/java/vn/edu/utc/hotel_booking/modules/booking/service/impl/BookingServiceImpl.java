@@ -395,8 +395,22 @@ public class BookingServiceImpl implements BookingService {
                         "Không tìm thấy phòng vật lý ID: " + roomInstanceId));
 
         BookingDetail detail = bookingRoom.getBookingDetail();
+        Booking booking = detail != null ? detail.getBooking() : null;
 
-        // Kiểm tra xung đột lịch
+        // 1. Kiểm tra khách sạn: phòng vật lý phải thuộc đúng khách sạn của đơn đặt phòng
+        if (booking != null && booking.getHotel() != null && roomInstance.getHotel() != null 
+                && !roomInstance.getHotel().getId().equals(booking.getHotel().getId())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Phòng " + roomInstance.getRoomNumber() + " không thuộc khách sạn của đơn đặt phòng này");
+        }
+
+        // 2. Không được xếp vào phòng đang có khách ở
+        if ("OCCUPIED".equalsIgnoreCase(roomInstance.getCurrentStatus())) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                    "Phòng " + roomInstance.getRoomNumber() + " đang có khách lưu trú, không thể xếp phòng");
+        }
+
+        // 3. Kiểm tra xung đột lịch
         List<BookingRoom> overlapping = bookingRoomRepository.findOverlappingAssignedRooms(
                 roomInstance.getId(), detail.getCheckInDate(), detail.getCheckOutDate());
         for (BookingRoom o : overlapping) {
@@ -417,7 +431,6 @@ public class BookingServiceImpl implements BookingService {
 
         createRoomSlotsForAssignedRoom(roomInstance, detail.getCheckInDate(), detail.getCheckOutDate(), bookingRoom.getId());
 
-        Booking booking = detail.getBooking();
         return bookingMapper.toResponse(booking);
     }
 
@@ -470,23 +483,36 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND,
                         "Không tìm thấy phòng đặt ID: " + bookingRoomId));
 
+        if (bookingRoom.getRoomInstance() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Lượt đặt này chưa được xếp phòng vật lý. Vui lòng xếp phòng trước khi Check-in");
+        }
+
+        RoomInstance roomInstance = bookingRoom.getRoomInstance();
+        if ("OCCUPIED".equalsIgnoreCase(roomInstance.getCurrentStatus())) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                    "Phòng " + roomInstance.getRoomNumber() + " hiện đang có khách lưu trú, không thể check-in trùng phòng");
+        }
+
         bookingRoom.setStatus(BookingRoomStatus.CHECKED_IN);
         bookingRoom.setActualCheckInAt(OffsetDateTime.now());
         bookingRoomRepository.save(bookingRoom);
 
-        if (bookingRoom.getRoomInstance() != null) {
-            BookingDetail detail = bookingRoom.getBookingDetail();
-            LocalDate cur = detail.getCheckInDate();
-            while (cur.isBefore(detail.getCheckOutDate())) {
-                Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(
-                        bookingRoom.getRoomInstance().getId(), cur);
-                if (optSlot.isPresent()) {
-                    RoomSlot slot = optSlot.get();
-                    slot.setStatus("OCCUPIED");
-                    roomSlotRepository.save(slot);
-                }
-                cur = cur.plusDays(1);
+        // Đổi trạng thái phòng sang OCCUPIED để các lượt khác không thể chọn trùng
+        roomInstance.setCurrentStatus("OCCUPIED");
+        roomInstanceRepository.save(roomInstance);
+
+        BookingDetail detail = bookingRoom.getBookingDetail();
+        LocalDate cur = detail.getCheckInDate();
+        while (cur.isBefore(detail.getCheckOutDate())) {
+            Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(
+                    roomInstance.getId(), cur);
+            if (optSlot.isPresent()) {
+                RoomSlot slot = optSlot.get();
+                slot.setStatus("OCCUPIED");
+                roomSlotRepository.save(slot);
             }
+            cur = cur.plusDays(1);
         }
 
         return bookingMapper.toResponse(bookingRoom.getBookingDetail().getBooking());
@@ -504,11 +530,16 @@ public class BookingServiceImpl implements BookingService {
         bookingRoomRepository.save(bookingRoom);
 
         if (bookingRoom.getRoomInstance() != null) {
+            RoomInstance roomInstance = bookingRoom.getRoomInstance();
+            // Trả phòng: giải phóng trạng thái OCCUPIED sang CLEANING để dọn dẹp
+            roomInstance.setCurrentStatus("CLEANING");
+            roomInstanceRepository.save(roomInstance);
+
             BookingDetail detail = bookingRoom.getBookingDetail();
             LocalDate cur = detail.getCheckInDate();
             while (cur.isBefore(detail.getCheckOutDate())) {
                 Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(
-                        bookingRoom.getRoomInstance().getId(), cur);
+                        roomInstance.getId(), cur);
                 if (optSlot.isPresent()) {
                     RoomSlot slot = optSlot.get();
                     slot.setStatus("DIRTY"); // Cần dọn phòng sau check-out
