@@ -19,6 +19,7 @@ public class BookingSearchDto extends BaseSearchDto {
     Short hotelId;
     Long guestId;
     String bookingNumber;
+    String roomNumber;
     BookingType bookingType;
     BookingStatus status;
     LocalDate checkInDate;

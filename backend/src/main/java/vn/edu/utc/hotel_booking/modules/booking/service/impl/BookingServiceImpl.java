@@ -1,5 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.booking.service.impl;
 
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -316,6 +318,16 @@ public class BookingServiceImpl implements BookingService {
             if (searchDto.getBookingNumber() != null && !searchDto.getBookingNumber().isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("bookingNumber")),
                         "%" + searchDto.getBookingNumber().trim().toLowerCase() + "%"));
+            }
+            if (searchDto.getRoomNumber() != null && !searchDto.getRoomNumber().isBlank()) {
+                String cleanRoomNumber = searchDto.getRoomNumber().trim().toLowerCase();
+                Join<Booking, BookingDetail> detailsJoin = root.join("bookingDetails", JoinType.LEFT);
+                Join<BookingDetail, BookingRoom> roomsJoin = detailsJoin.join("bookingRooms", JoinType.LEFT);
+                Join<BookingRoom, RoomInstance> instanceJoin = roomsJoin.join("roomInstance", JoinType.LEFT);
+                predicates.add(cb.like(cb.lower(instanceJoin.get("roomNumber")), "%" + cleanRoomNumber + "%"));
+                if (query != null && !Long.class.equals(query.getResultType()) && !long.class.equals(query.getResultType())) {
+                    query.distinct(true);
+                }
             }
             if (searchDto.getBookingType() != null) {
                 predicates.add(cb.equal(root.get("bookingType"), searchDto.getBookingType()));
