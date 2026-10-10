@@ -10,10 +10,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingCharge;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingChargeRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -48,7 +46,6 @@ class ServiceOrderServiceTest {
     @Mock BookingRepository bookingRepository;
     @Mock RoomInstanceRepository roomInstanceRepository;
     @Mock BookingRoomRepository bookingRoomRepository;
-    @Mock BookingChargeRepository bookingChargeRepository;
     @Mock MenuRepository menuRepository;
     @Mock CatalogItemRepository catalogItemRepository;
     @Mock VatRuleRepository vatRuleRepository;
@@ -147,8 +144,6 @@ class ServiceOrderServiceTest {
         assertThat(testCatalogItem.getStockQuantity()).isEqualTo(18);
         verify(catalogItemRepository, times(1)).save(testCatalogItem);
 
-        // Kiểm tra tự động đẩy phụ phí vào BookingCharge
-        verify(bookingChargeRepository, times(1)).save(any(BookingCharge.class));
         verify(serviceOrderRepository, times(1)).save(any(ServiceOrder.class));
     }
 
@@ -228,5 +223,21 @@ class ServiceOrderServiceTest {
         // Tồn kho được hoàn trả từ 10 thành 13
         assertThat(testCatalogItem.getStockQuantity()).isEqualTo(13);
         verify(catalogItemRepository, times(1)).save(testCatalogItem);
+    }
+
+    @Test
+    @DisplayName("getOrdersByBookingId trả về danh sách các đơn không bị CANCELLED")
+    void getOrdersByBookingId_Success() {
+        ServiceOrder activeOrder = ServiceOrder.builder().id(1L).status(ServiceOrderStatus.PENDING).build();
+        ServiceOrder cancelledOrder = ServiceOrder.builder().id(2L).status(ServiceOrderStatus.CANCELLED).build();
+
+        when(serviceOrderRepository.findByBookingIdAndIsDeletedFalse(100L))
+                .thenReturn(List.of(activeOrder, cancelledOrder));
+        when(operationMapper.toResponse(activeOrder)).thenReturn(ServiceOrderResponse.builder().id(1L).build());
+
+        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(100L);
+
+        assertThat(orders).hasSize(1);
+        assertThat(orders.get(0).getId()).isEqualTo(1L);
     }
 }

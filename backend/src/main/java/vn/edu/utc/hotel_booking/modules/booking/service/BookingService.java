@@ -16,6 +16,8 @@ public interface BookingService {
 
     BookingResponse getById(Long id);
 
+    vn.edu.utc.hotel_booking.modules.booking.entity.Booking getEntityById(Long id);
+
     BookingResponse getByBookingNumber(String bookingNumber);
 
     BookingResponse updateStatus(Long id, BookingStatus status);
