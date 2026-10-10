@@ -10,21 +10,20 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PriceCalculationRequest;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.AppliedAdjustmentDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.DailyPriceDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PriceBreakdownDto;
-import vn.edu.utc.hotel_booking.modules.pricing.entity.DiscountRule;
-import vn.edu.utc.hotel_booking.modules.pricing.entity.PricingRule;
-import vn.edu.utc.hotel_booking.modules.pricing.entity.SurchargeRule;
-import vn.edu.utc.hotel_booking.modules.pricing.entity.VatRule;
-import vn.edu.utc.hotel_booking.modules.pricing.repository.*;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.ServiceItemDto;
+import vn.edu.utc.hotel_booking.modules.pricing.pipeline.DailyRateContext;
+import vn.edu.utc.hotel_booking.modules.pricing.pipeline.PricingContext;
+import vn.edu.utc.hotel_booking.modules.pricing.pipeline.PricingHandler;
+import vn.edu.utc.hotel_booking.modules.pricing.pipeline.ServiceItemContext;
 import vn.edu.utc.hotel_booking.modules.pricing.service.PriceEngine;
+import vn.edu.utc.hotel_booking.modules.pricing.service.PricingPipelineFactory;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,15 +32,12 @@ import java.util.Optional;
 public class PriceEngineImpl implements PriceEngine {
 
     HotelRoomTypeRepository hotelRoomTypeRepository;
-    PricingRuleRepository pricingRuleRepository;
-    HolidayCalendarRepository holidayCalendarRepository;
-    DiscountRuleRepository discountRuleRepository;
-    SurchargeRuleRepository surchargeRuleRepository;
-    VatRuleRepository vatRuleRepository;
+    PricingPipelineFactory pricingPipelineFactory;
 
     @Override
     public PriceBreakdownDto calculatePrice(PriceCalculationRequest request) {
-        if (!request.getCheckOutDate().isAfter(request.getCheckInDate())) {
+        if (request.getCheckInDate() == null || request.getCheckOutDate() == null
+                || !request.getCheckOutDate().isAfter(request.getCheckInDate())) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ngày check-out phải sau ngày check-in");
         }
 
@@ -50,161 +46,133 @@ public class PriceEngineImpl implements PriceEngine {
                         "Không tìm thấy cấu hình loại phòng id: " + request.getHotelRoomTypeId()));
 
         // Check capacity
-        int totalGuests = request.getAdults() + request.getChildren();
+        int totalGuests = (request.getAdults() != null ? request.getAdults() : 0)
+                + (request.getChildren() != null ? request.getChildren() : 0);
         if (totalGuests > hotelRoomType.getMaxTotalGuests()) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
                     "Tổng số khách (" + totalGuests + ") vượt quá sức chứa tối đa (" + hotelRoomType.getMaxTotalGuests() + ")");
         }
-        if (request.getExtraBeds() > hotelRoomType.getExtraBeds()) {
+        if (request.getExtraBeds() != null && request.getExtraBeds() > hotelRoomType.getExtraBeds()) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
                     "Số giường phụ (" + request.getExtraBeds() + ") vượt quá số lượng cho phép (" + hotelRoomType.getExtraBeds() + ")");
         }
 
-        // Fetch active rules for the entire booking range
-        List<PricingRule> pricingRules = pricingRuleRepository.findActiveRulesForRoomType(
-                hotelRoomType.getId(), request.getCheckInDate(), request.getCheckOutDate());
-
-        List<DiscountRule> discountRules = discountRuleRepository.findActiveDiscountsForRoomType(
-                hotelRoomType.getId(), request.getCheckInDate(), request.getCheckOutDate());
-
-        List<SurchargeRule> surchargeRules = surchargeRuleRepository.findActiveSurchargesForRoomType(
-                hotelRoomType.getId(), request.getCheckInDate(), request.getCheckOutDate());
-
-        BigDecimal basePrice = hotelRoomType.getBasePrice();
-        List<DailyPriceDto> dailyPrices = new ArrayList<>();
-        BigDecimal totalBase = BigDecimal.ZERO;
-        BigDecimal totalDiscount = BigDecimal.ZERO;
-        BigDecimal totalSurcharge = BigDecimal.ZERO;
-        BigDecimal totalPreTax = BigDecimal.ZERO;
-
-        LocalDate cur = request.getCheckInDate();
-        while (cur.isBefore(request.getCheckOutDate())) {
-            final LocalDate date = cur;
-
-            // 1. Base rate
-            totalBase = totalBase.add(basePrice);
-
-            // 2. Pricing Rule adjustment (Seasonal or Holiday)
-            BigDecimal seasonalAdj = BigDecimal.ZERO;
-            BigDecimal holidayAdj = BigDecimal.ZERO;
-
-            Optional<PricingRule> activeRuleOpt = pricingRules.stream()
-                    .filter(r -> !date.isBefore(r.getStartDate()) && !date.isAfter(r.getEndDate()))
-                    .findFirst();
-
-            if (activeRuleOpt.isPresent()) {
-                PricingRule rule = activeRuleOpt.get();
-                BigDecimal adj = "PERCENT".equalsIgnoreCase(rule.getAdjustmentType())
-                        ? basePrice.multiply(rule.getAdjustmentValue()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                        : rule.getAdjustmentValue();
-
-                if (rule.getHolidayCalendar() != null || "HOLIDAY".equalsIgnoreCase(rule.getRuleType().getCode())) {
-                    holidayAdj = adj;
-                } else {
-                    seasonalAdj = adj;
-                }
-            }
-
-            BigDecimal adjustedRate = basePrice.add(seasonalAdj).add(holidayAdj);
-
-            // 3. Discount Rules
-            BigDecimal dailyDiscount = BigDecimal.ZERO;
-            Optional<DiscountRule> activeDiscountOpt = discountRules.stream()
-                    .filter(d -> !date.isBefore(d.getStartDate()) && !date.isAfter(d.getEndDate()))
-                    .findFirst();
-
-            if (activeDiscountOpt.isPresent()) {
-                DiscountRule d = activeDiscountOpt.get();
-                dailyDiscount = "PERCENT".equalsIgnoreCase(d.getDiscountType())
-                        ? adjustedRate.multiply(d.getDiscountValue()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                        : d.getDiscountValue();
-            }
-
-            // 4. Surcharges (Extra Person, Extra Bed)
-            BigDecimal dailySurcharge = BigDecimal.ZERO;
-
-            // Extra Adults
-            if (request.getAdults() > hotelRoomType.getStandardAdults()) {
-                int extraAdultCount = request.getAdults() - hotelRoomType.getStandardAdults();
-                Optional<SurchargeRule> personSurchargeRule = surchargeRules.stream()
-                        .filter(s -> "EXTRA_PERSON".equalsIgnoreCase(s.getRuleType()) && !date.isBefore(s.getStartDate()) && !date.isAfter(s.getEndDate()))
-                        .findFirst();
-
-                BigDecimal extraAdultFee;
-                if (personSurchargeRule.isPresent()) {
-                    SurchargeRule sr = personSurchargeRule.get();
-                    extraAdultFee = "PERCENT".equalsIgnoreCase(sr.getAdjustmentType())
-                            ? basePrice.multiply(sr.getAdjustmentValue()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                            : sr.getAdjustmentValue();
-                } else {
-                    // Default fallback 20% of basePrice per extra adult
-                    extraAdultFee = basePrice.multiply(BigDecimal.valueOf(0.20)).setScale(2, RoundingMode.HALF_UP);
-                }
-                dailySurcharge = dailySurcharge.add(extraAdultFee.multiply(BigDecimal.valueOf(extraAdultCount)));
-            }
-
-            // Extra Bed
-            if (request.getExtraBeds() > 0) {
-                Optional<SurchargeRule> bedSurchargeRule = surchargeRules.stream()
-                        .filter(s -> "EXTRA_BED".equalsIgnoreCase(s.getRuleType()) && !date.isBefore(s.getStartDate()) && !date.isAfter(s.getEndDate()))
-                        .findFirst();
-
-                BigDecimal extraBedFee;
-                if (bedSurchargeRule.isPresent()) {
-                    SurchargeRule sr = bedSurchargeRule.get();
-                    extraBedFee = "PERCENT".equalsIgnoreCase(sr.getAdjustmentType())
-                            ? basePrice.multiply(sr.getAdjustmentValue()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
-                            : sr.getAdjustmentValue();
-                } else {
-                    // Default fallback 30% of basePrice per extra bed
-                    extraBedFee = basePrice.multiply(BigDecimal.valueOf(0.30)).setScale(2, RoundingMode.HALF_UP);
-                }
-                dailySurcharge = dailySurcharge.add(extraBedFee.multiply(BigDecimal.valueOf(request.getExtraBeds())));
-            }
-
-            BigDecimal netAmount = adjustedRate.subtract(dailyDiscount).add(dailySurcharge);
-
-            totalDiscount = totalDiscount.add(dailyDiscount);
-            totalSurcharge = totalSurcharge.add(dailySurcharge);
-            totalPreTax = totalPreTax.add(netAmount);
-
-            dailyPrices.add(DailyPriceDto.builder()
-                    .date(date)
-                    .baseRate(basePrice)
-                    .seasonalAdjustment(seasonalAdj)
-                    .holidayAdjustment(holidayAdj)
-                    .adjustedRate(adjustedRate)
-                    .discountAmount(dailyDiscount)
-                    .surchargeAmount(dailySurcharge)
-                    .netAmount(netAmount)
-                    .build());
-
-            cur = cur.plusDays(1);
+        BigDecimal serviceFeePercent = BigDecimal.valueOf(5.00);
+        if (hotelRoomType.getHotel() != null && hotelRoomType.getHotel().getServiceFeePercent() != null) {
+            serviceFeePercent = hotelRoomType.getHotel().getServiceFeePercent();
         }
 
-        // 5. VAT Tax Calculation
-        BigDecimal vatPercent = BigDecimal.valueOf(10.00); // default 10%
-        Optional<VatRule> vatRuleOpt = vatRuleRepository.findActiveVatRule(
-                hotelRoomType.getTaxCategoryId(), request.getCheckInDate());
-        if (vatRuleOpt.isPresent()) {
-            vatPercent = vatRuleOpt.get().getVatPercent();
+        // Khởi tạo PricingContext
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(hotelRoomType)
+                .hotel(hotelRoomType.getHotel())
+                .serviceFeePercent(serviceFeePercent)
+                .build();
+
+        // Thực thi Pipeline 6 bước
+        PricingHandler pipeline = pricingPipelineFactory.createFullBookingPipeline();
+        pipeline.handle(context);
+
+        // Map kết quả sang DTO
+        List<DailyPriceDto> dailyPriceDtos = new ArrayList<>();
+        if (context.getDailyRates() != null) {
+            for (DailyRateContext d : context.getDailyRates()) {
+                List<AppliedAdjustmentDto> appliedAdjustmentDtos = new ArrayList<>();
+                if (d.getAppliedAdjustments() != null) {
+                    for (var a : d.getAppliedAdjustments()) {
+                        appliedAdjustmentDtos.add(AppliedAdjustmentDto.builder()
+                                .ruleCode(a.getRuleCode())
+                                .ruleName(a.getRuleName())
+                                .adjustmentType(a.getAdjustmentType())
+                                .adjustmentValue(a.getAdjustmentValue())
+                                .appliedAmount(a.getAppliedAmount())
+                                .build());
+                    }
+                }
+
+                dailyPriceDtos.add(DailyPriceDto.builder()
+                        .date(d.getDate())
+                        .baseRate(d.getBaseRate())
+                        .surchargeAmount(d.getSurchargeAmount())
+                        .rateAfterSurcharge(d.getRateAfterSurcharge())
+                        .rateAdjustmentAmount(d.getRateAdjustmentAmount())
+                        .appliedAdjustments(appliedAdjustmentDtos)
+                        .seasonalAdjustment(d.getSeasonalAdjustment())
+                        .holidayAdjustment(d.getHolidayAdjustment())
+                        .adjustedRate(d.getAdjustedRate())
+                        .autoDiscountAmount(d.getAutoDiscountAmount())
+                        .voucherDiscountAmount(d.getVoucherDiscountAmount())
+                        .discountAmount(d.getTotalDiscountAmount())
+                        .netAmount(d.getNetRoomRate())
+                        .serviceFeeAmount(d.getServiceFeeAmount())
+                        .roomRateWithServiceFee(d.getRoomRateWithServiceFee())
+                        .vatPercent(d.getVatPercent())
+                        .vatAmount(d.getVatAmount())
+                        .grossDailyTotal(d.getGrossDailyTotal())
+                        .build());
+            }
         }
 
-        BigDecimal vatAmount = totalPreTax.multiply(vatPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal finalTotal = totalPreTax.add(vatAmount);
+        List<ServiceItemDto> serviceItemDtos = new ArrayList<>();
+        if (context.getServiceItems() != null) {
+            for (ServiceItemContext s : context.getServiceItems()) {
+                serviceItemDtos.add(ServiceItemDto.builder()
+                        .serviceId(s.getServiceId())
+                        .serviceName(s.getServiceName())
+                        .pricingType(s.getPricingType())
+                        .unitPrice(s.getUnitPrice())
+                        .quantity(s.getQuantity())
+                        .subtotal(s.getSubtotal())
+                        .serviceFeeAmount(s.getServiceFeeAmount())
+                        .vatPercent(s.getVatPercent())
+                        .vatAmount(s.getVatAmount())
+                        .grossTotal(s.getGrossServiceTotal())
+                        .build());
+            }
+        }
+
+        String roomTypeName = hotelRoomType.getRoomType() != null
+                ? hotelRoomType.getRoomType().getName()
+                : "Phòng tiêu chuẩn";
+
+        String voucherCode = context.getAppliedVoucher() != null
+                ? context.getAppliedVoucher().getVoucherCode()
+                : request.getVoucherCode();
+
+        String promoName = context.getAppliedPromotionName() != null
+                ? context.getAppliedPromotionName()
+                : (context.getAppliedVoucher() != null ? context.getAppliedVoucher().getTitle() : null);
+
+        var sum = context.getSummary();
 
         return PriceBreakdownDto.builder()
                 .hotelRoomTypeId(hotelRoomType.getId())
-                .roomTypeName(hotelRoomType.getRoomType().getName())
-                .totalNights(dailyPrices.size())
-                .dailyPrices(dailyPrices)
-                .totalBasePrice(totalBase)
-                .totalDiscountAmount(totalDiscount)
-                .totalSurchargeAmount(totalSurcharge)
-                .preTaxAmount(totalPreTax)
-                .vatPercent(vatPercent)
-                .vatAmount(vatAmount)
-                .finalTotalAmount(finalTotal)
+                .roomTypeName(roomTypeName)
+                .totalNights(dailyPriceDtos.size())
+                .appliedVoucherCode(voucherCode)
+                .appliedPromotionName(promoName)
+                .dailyPrices(dailyPriceDtos)
+                .serviceItems(serviceItemDtos)
+                .totalBasePrice(sum != null ? sum.getTotalBasePrice() : BigDecimal.ZERO)
+                .totalSurchargeAmount(sum != null ? sum.getTotalSurchargeAmount() : BigDecimal.ZERO)
+                .totalRateAdjustmentAmount(sum != null && sum.getTotalRateAdjustmentAmount() != null
+                        ? sum.getTotalRateAdjustmentAmount()
+                        : (sum != null ? sum.getTotalSeasonalAdjustment().add(sum.getTotalHolidayAdjustment()) : BigDecimal.ZERO))
+                .totalSeasonalAdjustment(sum != null ? sum.getTotalSeasonalAdjustment().add(sum.getTotalHolidayAdjustment()) : BigDecimal.ZERO)
+                .totalDiscountAmount(sum != null ? sum.getTotalDiscountAmount() : BigDecimal.ZERO)
+                .totalRoomNetAmount(sum != null ? sum.getTotalRoomNetAmount() : BigDecimal.ZERO)
+                .totalRoomServiceFee(sum != null ? sum.getTotalRoomServiceFee() : BigDecimal.ZERO)
+                .totalRoomVat(sum != null ? sum.getTotalRoomVat() : BigDecimal.ZERO)
+                .totalRoomGrossAmount(sum != null ? sum.getTotalRoomGrossAmount() : BigDecimal.ZERO)
+                .totalServiceSubtotal(sum != null ? sum.getTotalServiceSubtotal() : BigDecimal.ZERO)
+                .totalServiceFee(sum != null ? sum.getTotalServiceFee() : BigDecimal.ZERO)
+                .totalServiceVat(sum != null ? sum.getTotalServiceVat() : BigDecimal.ZERO)
+                .totalServiceGrossAmount(sum != null ? sum.getTotalServiceGrossAmount() : BigDecimal.ZERO)
+                .preTaxAmount(sum != null ? sum.getTotalRoomNetAmount() : BigDecimal.ZERO)
+                .vatAmount(sum != null ? sum.getTotalRoomVat() : BigDecimal.ZERO)
+                .vatPercent(dailyPriceDtos.isEmpty() ? BigDecimal.ZERO : dailyPriceDtos.get(0).getVatPercent())
+                .finalTotalAmount(sum != null ? sum.getGrandTotal() : BigDecimal.ZERO)
                 .build();
     }
 }

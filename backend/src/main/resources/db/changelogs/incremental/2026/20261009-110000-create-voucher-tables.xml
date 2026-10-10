@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261009-110000-create-voucher-tables" author="utc-hotel-team">
+        <comment>Tạo bảng vouchers và voucher_usages cho quản lý voucher độc lập</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261009-110000-create-voucher-tables.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -42,6 +42,9 @@ public class PriceCalculationRequest {
     @Builder.Default
     Short extraBeds = 0;
 
-    @Schema(description = "Mã chiến dịch khuyến mại (nếu có)", example = "SUMMER2026")
-    String campaignCode;
+    @Schema(description = "Mã voucher người dùng nhập/chọn (nếu có)", example = "NEWYEAR10")
+    String voucherCode;
+
+    @Schema(description = "Danh sách dịch vụ add-on đi kèm")
+    java.util.List<SelectedServiceRequest> selectedServices;
 }

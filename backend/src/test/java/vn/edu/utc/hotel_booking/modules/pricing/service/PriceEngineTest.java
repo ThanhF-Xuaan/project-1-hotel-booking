@@ -51,7 +51,12 @@ class PriceEngineTest {
     @Mock
     VatRuleRepository vatRuleRepository;
 
-    @InjectMocks
+    @Mock
+    VoucherRepository voucherRepository;
+
+    @Mock
+    vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository menuRepository;
+
     PriceEngineImpl priceEngine;
 
     HotelRoomType hotelRoomType;
@@ -60,6 +65,29 @@ class PriceEngineTest {
 
     @BeforeEach
     void setUp() {
+        vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.BaseRateHandler baseRateHandler =
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.BaseRateHandler();
+        vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SurchargeHandler surchargeHandler =
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SurchargeHandler(surchargeRuleRepository);
+        vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SeasonalityHandler seasonalityHandler =
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SeasonalityHandler(pricingRuleRepository);
+        vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.PromotionHandler promotionHandler =
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.PromotionHandler(discountRuleRepository, voucherRepository);
+        vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.AddonServiceHandler addonServiceHandler =
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.AddonServiceHandler(menuRepository);
+        vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.TaxAndFeeHandler taxAndFeeHandler =
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.TaxAndFeeHandler(vatRuleRepository);
+
+        PricingPipelineFactory pipelineFactory = new PricingPipelineFactory(
+                baseRateHandler,
+                surchargeHandler,
+                seasonalityHandler,
+                promotionHandler,
+                addonServiceHandler,
+                taxAndFeeHandler
+        );
+
+        priceEngine = new PriceEngineImpl(hotelRoomTypeRepository, pipelineFactory);
         RoomType roomType = RoomType.builder()
                 .id((short) 1)
                 .code("DELUXE")
@@ -116,9 +144,10 @@ class PriceEngineTest {
         assertThat(breakdown.getTotalDiscountAmount()).isEqualByComparingTo("0.00");
         assertThat(breakdown.getTotalSurchargeAmount()).isEqualByComparingTo("0.00");
         assertThat(breakdown.getPreTaxAmount()).isEqualByComparingTo("2000000.00");
+        assertThat(breakdown.getTotalRoomServiceFee()).isEqualByComparingTo("100000.00");
         assertThat(breakdown.getVatPercent()).isEqualByComparingTo("10.00");
-        assertThat(breakdown.getVatAmount()).isEqualByComparingTo("200000.00");
-        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("2200000.00");
+        assertThat(breakdown.getVatAmount()).isEqualByComparingTo("210000.00");
+        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("2310000.00");
     }
 
     @Test
@@ -153,8 +182,9 @@ class PriceEngineTest {
 
         // Base 1,000,000 + 150,000 = 1,150,000 / night -> 2 nights = 2,300,000
         assertThat(breakdown.getPreTaxAmount()).isEqualByComparingTo("2300000.00");
-        assertThat(breakdown.getVatAmount()).isEqualByComparingTo("230000.00");
-        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("2530000.00");
+        assertThat(breakdown.getTotalRoomServiceFee()).isEqualByComparingTo("115000.00");
+        assertThat(breakdown.getVatAmount()).isEqualByComparingTo("241500.00");
+        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("2656500.00");
     }
 
     @Test
@@ -190,8 +220,9 @@ class PriceEngineTest {
         // Base 1,000,000 - 100,000 = 900,000
         assertThat(breakdown.getTotalDiscountAmount()).isEqualByComparingTo("100000.00");
         assertThat(breakdown.getPreTaxAmount()).isEqualByComparingTo("900000.00");
-        assertThat(breakdown.getVatAmount()).isEqualByComparingTo("90000.00");
-        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("990000.00");
+        assertThat(breakdown.getTotalRoomServiceFee()).isEqualByComparingTo("45000.00");
+        assertThat(breakdown.getVatAmount()).isEqualByComparingTo("94500.00");
+        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("1039500.00");
     }
 
     @Test
@@ -217,7 +248,9 @@ class PriceEngineTest {
         // Fallback 20% of basePrice (1,000,000) = 200,000
         assertThat(breakdown.getTotalSurchargeAmount()).isEqualByComparingTo("200000.00");
         assertThat(breakdown.getPreTaxAmount()).isEqualByComparingTo("1200000.00");
-        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("1320000.00");
+        assertThat(breakdown.getTotalRoomServiceFee()).isEqualByComparingTo("60000.00");
+        assertThat(breakdown.getVatAmount()).isEqualByComparingTo("126000.00");
+        assertThat(breakdown.getFinalTotalAmount()).isEqualByComparingTo("1386000.00");
     }
 
     @Test
