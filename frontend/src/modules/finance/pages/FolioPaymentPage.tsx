@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   DollarSign,
   Search,
@@ -10,7 +10,7 @@ import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import Modal from '../../../core/components/ui/Modal';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
-import { isSessionExpiredError, getErrorStatus } from '../../../core/api/client';
+import { isSessionExpiredError } from '../../../core/api/client';
 import financeService from '../services/finance.service';
 import bookingService from '../../booking/services/booking.service';
 import CheckoutModal from '../components/payment/CheckoutModal';
@@ -79,15 +79,63 @@ export const FolioPaymentPage: React.FC = () => {
   // Invoicing Modal
   const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
 
-  const fetchFolioData = useCallback(async (bookingNum: string) => {
-    if (!bookingNum) return;
+  // ── Danh sách đơn đặt phòng — chọn nhanh, không cần nhập mã ───────────────
+  const [bookingList, setBookingList] = useState<BookingResponse[]>([]);
+  const [isListLoading, setIsListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [listFilterKeyword, setListFilterKeyword] = useState('');
+
+  const fetchFolioData = useCallback(async (query: string) => {
+    if (!query) return;
     setIsLoading(true);
     setErrorMessage(null);
 
+    const cleanInput = query.trim();
+
     try {
-      const bRes = await bookingService.getByNumber(bookingNum.trim());
-      if (bRes.result) {
-        const booking = bRes.result;
+      let booking: BookingResponse | null = null;
+
+      // 1. Thử tìm nhanh trong danh sách bookingList theo mã booking (khớp chính xác hoặc chứa chuỗi)
+      let matchedInList = bookingList.find(
+        (b) => b.bookingNumber.toLowerCase() === cleanInput.toLowerCase()
+      );
+      if (!matchedInList) {
+        matchedInList = bookingList.find((b) =>
+          b.bookingNumber.toLowerCase().includes(cleanInput.toLowerCase())
+        );
+      }
+
+      if (matchedInList) {
+        booking = matchedInList;
+      } else {
+        // 2. Tra cứu theo mã booking từ API getByNumber (thử chuỗi gốc và viết hoa)
+        try {
+          const bRes = await bookingService.getByNumber(cleanInput);
+          if (bRes.result) booking = bRes.result;
+        } catch {
+          try {
+            const bResUpper = await bookingService.getByNumber(cleanInput.toUpperCase());
+            if (bResUpper.result) booking = bResUpper.result;
+          } catch {
+            // 3. Thử tìm gần đúng theo mã booking qua API filter
+            try {
+              const filterRes = await bookingService.filter({
+                bookingNumber: cleanInput,
+                page: 1,
+                size: 1,
+              });
+              if (filterRes.result?.content && filterRes.result.content.length > 0) {
+                booking = filterRes.result.content[0];
+              }
+            } catch {
+              // Bỏ qua
+            }
+          }
+        }
+      }
+
+      if (booking) {
+        setBookingNumberInput(booking.bookingNumber);
         setCurrentBooking(booking);
 
         // Load payments
@@ -107,16 +155,20 @@ export const FolioPaymentPage: React.FC = () => {
         } catch {
           setInvoice(null);
         }
+      } else {
+        setErrorMessage(
+          `Không tìm thấy đơn đặt phòng với mã booking "${cleanInput}". Vui lòng kiểm tra lại mã đơn.`
+        );
+        setCurrentBooking(null);
+        setPayments([]);
+        setInvoice(null);
       }
     } catch (err: unknown) {
-      console.error('Lỗi tra cứu Folio:', err);
+      console.error('Lỗi tra cứu Folio theo mã booking:', err);
       if (isSessionExpiredError(err)) {
-        // 401 + không refresh được token → sai thông báo "không tìm thấy" trước đây
         setErrorMessage('Phiên đăng nhập đã hết hạn — vui lòng đăng nhập lại để tra cứu Folio');
-      } else if (getErrorStatus(err) === 404) {
-        setErrorMessage('Không tìm thấy đơn đặt phòng với mã đã nhập');
       } else {
-        setErrorMessage('Không tra cứu được Folio — vui lòng thử lại (lỗi hệ thống)');
+        setErrorMessage('Không tra cứu được Folio — vui lòng kiểm tra lại mã đặt phòng');
       }
       setCurrentBooking(null);
       setPayments([]);
@@ -124,19 +176,14 @@ export const FolioPaymentPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  // ── Danh sách đơn đặt phòng — chọn nhanh, không cần nhập mã ───────────────
-  const [bookingList, setBookingList] = useState<BookingResponse[]>([]);
-  const [isListLoading, setIsListLoading] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
+  }, [bookingList]);
 
   const fetchBookingList = useCallback(async () => {
     setIsListLoading(true);
     setListError(null);
     try {
-      // Lấy 20 đơn mới nhất (không lọc trạng thái — hiển thị badge để người dùng tự chọn)
-      const res = await bookingService.filter({ page: 1, size: 20 });
+      // Lấy 50 đơn mới nhất để nhân viên tìm kiếm thuận tiện
+      const res = await bookingService.filter({ page: 1, size: 50 });
       if (res.result) {
         setBookingList(res.result.content || []);
       }
@@ -164,6 +211,135 @@ export const FolioPaymentPage: React.FC = () => {
       isMounted = false;
     };
   }, [fetchBookingList]);
+
+  // Lọc realtime danh sách booking theo cả MÃ BOOKING và SỐ PHÒNG (nhập từng số nhảy tìm kiếm luôn)
+  const filteredBookingList = useMemo(() => {
+    let list = bookingList;
+
+    // 1. Nhập từng số/chữ ở ô mã booking nhảy tìm kiếm ngay lập tức
+    if (bookingNumberInput.trim()) {
+      const bKw = bookingNumberInput.trim().toLowerCase();
+      list = list.filter((b) => b.bookingNumber.toLowerCase().includes(bKw));
+    }
+
+    // 2. Nhập số phòng ở ô dưới nhảy tìm kiếm theo số phòng ngay lập tức
+    if (listFilterKeyword.trim()) {
+      const kw = listFilterKeyword.trim().toLowerCase();
+      const cleanKw = kw.replace(/^(phòng|phong|p\.?)\s*/i, '').trim();
+      list = list.filter((b) => {
+        const rooms = b.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+        return rooms.some((r) => {
+          if (!r.roomNumber) return false;
+          const rNum = r.roomNumber.toLowerCase();
+          return (
+            rNum === kw ||
+            rNum.includes(kw) ||
+            (cleanKw ? rNum === cleanKw || rNum.includes(cleanKw) : false)
+          );
+        });
+      });
+    }
+
+    return list;
+  }, [bookingList, bookingNumberInput, listFilterKeyword]);
+
+  // Tự động tìm kiếm backend và nhảy nạp Folio ngay khi nhập từng số mã booking
+  useEffect(() => {
+    const trimmed = bookingNumberInput.trim().toLowerCase();
+    if (!trimmed) {
+      setErrorMessage(null);
+      return;
+    }
+
+    // Nếu in-memory chưa có đơn nào khớp, truy vấn backend sau 300ms
+    const hasLocalMatch = bookingList.some((b) =>
+      b.bookingNumber.toLowerCase().includes(trimmed)
+    );
+    if (!hasLocalMatch && trimmed.length >= 2) {
+      const fetchTimer = setTimeout(async () => {
+        try {
+          const res = await bookingService.filter({
+            bookingNumber: trimmed,
+            page: 1,
+            size: 50,
+          });
+          if (res.result?.content && res.result.content.length > 0) {
+            setBookingList((prev) => {
+              const existingIds = new Set(prev.map((b) => b.id));
+              const newItems = res.result?.content.filter((b) => !existingIds.has(b.id)) || [];
+              return [...prev, ...newItems];
+            });
+          }
+        } catch (err) {
+          console.warn('Lỗi tìm kiếm booking từ backend:', err);
+        }
+      }, 300);
+
+      return () => clearTimeout(fetchTimer);
+    }
+
+    // Tự động nạp Folio khi khớp chính xác hoặc chỉ còn đúng 1 đơn khớp
+    const folioTimer = setTimeout(() => {
+      const exactMatch = bookingList.find(
+        (b) => b.bookingNumber.toLowerCase() === trimmed
+      );
+      if (exactMatch) {
+        if (currentBooking?.id !== exactMatch.id) {
+          fetchFolioData(exactMatch.bookingNumber);
+        }
+      } else if (trimmed.length >= 3) {
+        const matches = bookingList.filter((b) =>
+          b.bookingNumber.toLowerCase().includes(trimmed)
+        );
+        if (matches.length === 1 && currentBooking?.id !== matches[0].id) {
+          fetchFolioData(matches[0].bookingNumber);
+        }
+      }
+    }, 350);
+
+    return () => clearTimeout(folioTimer);
+  }, [bookingNumberInput, bookingList, currentBooking, fetchFolioData]);
+
+  // Tìm kiếm số phòng qua backend nếu danh sách in-memory chưa nạp
+  const handleSearchByRoom = async () => {
+    if (!listFilterKeyword.trim()) {
+      await fetchBookingList();
+      return;
+    }
+    const kw = listFilterKeyword.trim().toLowerCase();
+    const cleanKw = kw.replace(/^(phòng|phong|p\.?)\s*/i, '').trim();
+
+    const inMemoryMatches = bookingList.filter((b) => {
+      const rooms = b.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+      return rooms.some((r) => {
+        if (!r.roomNumber) return false;
+        const rNum = r.roomNumber.toLowerCase();
+        return (
+          rNum === kw ||
+          rNum.includes(kw) ||
+          (cleanKw ? rNum === cleanKw || rNum.includes(cleanKw) : false)
+        );
+      });
+    });
+
+    if (inMemoryMatches.length === 0) {
+      setIsListLoading(true);
+      try {
+        const res = await bookingService.filter({ roomNumber: cleanKw || kw, page: 1, size: 50 });
+        if (res.result?.content) {
+          setBookingList((prev) => {
+            const existingIds = new Set(prev.map((b) => b.id));
+            const newItems = res.result?.content.filter((b) => !existingIds.has(b.id)) || [];
+            return [...prev, ...newItems];
+          });
+        }
+      } catch (err) {
+        console.warn('Lỗi tìm kiếm theo số phòng từ backend:', err);
+      } finally {
+        setIsListLoading(false);
+      }
+    }
+  };
 
   /** Click 1 dòng trong danh sách → nạp thẳng Folio của đơn đó */
   const handleSelectBooking = (booking: BookingResponse) => {
@@ -358,26 +534,44 @@ export const FolioPaymentPage: React.FC = () => {
         </div>
       )}
 
-      {/* SEARCH FOLIO BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex gap-4 items-center">
-        <div className="flex-1">
-          <Input
-            placeholder="Nhập mã đơn đặt phòng (VD: BK...)"
-            value={bookingNumberInput}
-            onChange={(e) => setBookingNumberInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') fetchFolioData(bookingNumberInput);
-            }}
-          />
+      {/* SEARCH FOLIO BAR — TÌM KIẾM THEO MÃ BOOKING */}
+      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs">
+        <label className="block text-xs font-semibold text-neutral-700 mb-1.5 flex items-center gap-1.5">
+          <Receipt className="w-3.5 h-3.5 text-red-600" />
+          <span>Tra cứu Folio theo mã đơn đặt phòng (Booking Code)</span>
+        </label>
+        <div className="flex gap-3 items-center">
+          <div className="flex-1">
+            <Input
+              placeholder="Nhập mã đơn đặt phòng (VD: BK-TEST-1001, BK...)..."
+              value={bookingNumberInput}
+              onChange={(e) => setBookingNumberInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') fetchFolioData(bookingNumberInput);
+              }}
+              leftIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => fetchFolioData(bookingNumberInput)}
+            disabled={isLoading || !bookingNumberInput.trim()}
+          >
+            <Search className="w-4 h-4 mr-2" />
+            Tra cứu Folio
+          </Button>
+          {bookingNumberInput && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setBookingNumberInput('');
+                setErrorMessage(null);
+              }}
+            >
+              Đặt lại
+            </Button>
+          )}
         </div>
-        <Button
-          variant="primary"
-          onClick={() => fetchFolioData(bookingNumberInput)}
-          disabled={isLoading || !bookingNumberInput}
-        >
-          <Search className="w-4 h-4 mr-2" />
-          Tra cứu Folio
-        </Button>
       </div>
 
       {errorMessage && (
@@ -386,14 +580,27 @@ export const FolioPaymentPage: React.FC = () => {
         </div>
       )}
 
-      {/* DANH SÁCH ĐẶT PHÒNG — chọn nhanh, không cần nhập mã */}
+      {/* DANH SÁCH ĐẶT PHÒNG — TÌM KIẾM THEO SỐ PHÒNG */}
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden">
-        <div className="p-4 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <span className="font-bold text-neutral-900">Danh sách đơn đặt phòng</span>
-            <span className="text-xs text-neutral-500 ml-2">
-              Nhấn vào đơn để mở Folio — chỉ cần nhập mã ở ô tìm kiếm khi đơn không có trong danh sách
-            </span>
+        <div className="p-4 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+            <div>
+              <span className="font-bold text-neutral-900 block sm:inline">Danh sách đơn đặt phòng</span>
+              <span className="text-xs text-neutral-500 sm:ml-2 block sm:inline">
+                (Tìm kiếm theo số phòng để mở Folio)
+              </span>
+            </div>
+            <div className="relative flex-1 max-w-xs ml-auto sm:ml-2">
+              <Input
+                placeholder="🔍 Tìm theo số phòng (VD: 101, 201...)"
+                value={listFilterKeyword}
+                onChange={(e) => setListFilterKeyword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSearchByRoom();
+                }}
+                className="h-9 text-xs"
+              />
+            </div>
           </div>
           <Button
             variant="ghost"
@@ -412,11 +619,15 @@ export const FolioPaymentPage: React.FC = () => {
           </div>
         )}
 
-        {isListLoading && bookingList.length === 0 ? (
+        {isListLoading && filteredBookingList.length === 0 ? (
           <div className="p-6 text-center text-sm text-neutral-500">Đang tải danh sách...</div>
-        ) : bookingList.length === 0 && !listError ? (
+        ) : filteredBookingList.length === 0 && !listError ? (
           <div className="p-6 text-center text-sm text-neutral-500">
-            Chưa có đơn đặt phòng nào — hãy tạo đơn ở mục Đặt phòng
+            {bookingNumberInput.trim()
+              ? `Không tìm thấy đơn đặt phòng nào khớp mã "${bookingNumberInput}"`
+              : listFilterKeyword.trim()
+              ? `Không tìm thấy đơn đặt phòng nào cho số phòng "${listFilterKeyword}"`
+              : 'Chưa có đơn đặt phòng nào — hãy tạo đơn ở mục Đặt phòng'}
           </div>
         ) : (
           <div className="overflow-auto max-h-80">
@@ -432,7 +643,7 @@ export const FolioPaymentPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
-                {bookingList.map((b) => {
+                {filteredBookingList.map((b) => {
                   const isActive = currentBooking?.bookingNumber === b.bookingNumber;
                   const hasName = b.guestName && b.guestName !== b.guestPhone;
                   return (
