@@ -16,9 +16,6 @@ public interface BookingRoomRepository extends JpaRepository<BookingRoom, Long> 
 
     List<BookingRoom> findByBookingDetailId(Long bookingDetailId);
 
-    @Query("SELECT br FROM BookingRoom br JOIN br.bookingDetail bd WHERE bd.booking.id = :bookingId")
-    List<BookingRoom> findByBookingId(@Param("bookingId") Long bookingId);
-
     @Query("SELECT br FROM BookingRoom br WHERE br.roomInstance.id = :roomInstanceId AND br.status IN :statuses")
     List<BookingRoom> findByRoomInstanceIdAndStatusIn(
             @Param("roomInstanceId") Integer roomInstanceId,
@@ -42,15 +39,6 @@ public interface BookingRoomRepository extends JpaRepository<BookingRoom, Long> 
             @Param("roomInstanceId") Integer roomInstanceId
     );
 
-    @Query("SELECT br FROM BookingRoom br " +
-            "JOIN FETCH br.bookingDetail bd " +
-            "JOIN FETCH bd.booking b " +
-            "LEFT JOIN FETCH br.stayGuests sg " +
-            "LEFT JOIN FETCH b.bookingGuest bg " +
-            "WHERE br.roomInstance.id IN :roomInstanceIds " +
-            "AND br.status IN :statuses")
-    List<BookingRoom> findActiveByRoomInstanceIdInWithDetails(
-            @Param("roomInstanceIds") Collection<Integer> roomInstanceIds,
-            @Param("statuses") Collection<BookingRoomStatus> statuses
-    );
+    @Query("SELECT br FROM BookingRoom br WHERE br.roomInstance.id = :roomInstanceId AND br.status <> vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CANCELLED ORDER BY br.id DESC")
+    List<BookingRoom> findActiveOrRecentByRoomInstanceId(@Param("roomInstanceId") Integer roomInstanceId);
 }

@@ -4,33 +4,32 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
-import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
-import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
+import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
 import vn.edu.utc.hotel_booking.modules.operation.entity.*;
 import vn.edu.utc.hotel_booking.modules.operation.mapper.OperationMapper;
+import vn.edu.utc.hotel_booking.modules.operation.repository.CatalogItemRepository;
+import vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository;
+import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderDetailRepository;
 import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderRepository;
-import vn.edu.utc.hotel_booking.modules.operation.service.MenuService;
-import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
 import vn.edu.utc.hotel_booking.modules.operation.service.impl.ServiceOrderServiceImpl;
-import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
-import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
-import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
+import vn.edu.utc.hotel_booking.modules.pricing.repository.VatRuleRepository;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -43,50 +42,56 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ServiceOrderServiceTest {
 
-    @Mock ServiceOrderRepository serviceOrderRepository;
-    @Mock BookingLookupService bookingLookupService;
-    @Mock StayGuestService stayGuestService;
-    @Mock HotelService hotelService;
-    @Mock MenuService menuService;
-    @Mock VatRuleService vatRuleService;
-    @Mock OperationMapper operationMapper;
+    @Mock
+    ServiceOrderRepository serviceOrderRepository;
+    @Mock
+    ServiceOrderDetailRepository serviceOrderDetailRepository;
+    @Mock
+    BookingRepository bookingRepository;
+    @Mock
+    RoomInstanceRepository roomInstanceRepository;
+    @Mock
+    BookingRoomRepository bookingRoomRepository;
+    @Mock
+    MenuRepository menuRepository;
+    @Mock
+    CatalogItemRepository catalogItemRepository;
+    @Mock
+    VatRuleRepository vatRuleRepository;
+    @Mock
+    OperationMapper operationMapper;
 
     @InjectMocks
     ServiceOrderServiceImpl serviceOrderService;
 
-    private Hotel testHotel;
     private Booking testBooking;
+    private RoomInstance testRoom;
     private BookingRoom testBookingRoom;
-    private StayGuest testStayGuest;
     private Menu testMenu;
+    private CatalogItem testCatalogItem;
 
     @BeforeEach
     void setUp() {
-        testHotel = Hotel.builder().name("Khách sạn Grand Hà Nội").build();
-        testHotel.setId((short) 1);
-
         testBooking = Booking.builder()
                 .id(100L)
-                .hotel(testHotel)
                 .bookingNumber("BK12345678")
                 .build();
 
-        BookingDetail detail = BookingDetail.builder()
-                .id(10L)
+        testRoom = RoomInstance.builder()
+                .id(50)
+                .roomNumber("P.302")
+                .build();
+
+        BookingDetail testDetail = BookingDetail.builder()
+                .id(15L)
                 .booking(testBooking)
                 .build();
 
         testBookingRoom = BookingRoom.builder()
                 .id(20L)
-                .bookingDetail(detail)
+                .bookingDetail(testDetail)
+                .roomInstance(testRoom)
                 .status(BookingRoomStatus.CHECKED_IN)
-                .build();
-
-        testStayGuest = StayGuest.builder()
-                .id(30L)
-                .bookingRoom(testBookingRoom)
-                .hotel(testHotel)
-                .fullName("Nguyễn Văn A")
                 .build();
 
         TaxCategory taxCat = TaxCategory.builder()
@@ -96,22 +101,25 @@ class ServiceOrderServiceTest {
 
         testMenu = Menu.builder()
                 .id(10)
-                .hotel(testHotel)
                 .menuType(MenuType.PRODUCT)
                 .name("Snack khoai tây Lays")
                 .basePrice(BigDecimal.valueOf(25000))
-                .stockQuantity(20)
                 .taxCategory(taxCat)
                 .status("ACTIVE")
+                .build();
+
+        testCatalogItem = CatalogItem.builder()
+                .menu(testMenu)
+                .stockQuantity(20)
                 .build();
     }
 
     @Test
-    @DisplayName("Đặt món ăn cấp BOOKING thành công: trừ tồn kho trên menu, tính thuế và lưu đơn")
-    void createOrder_BookingLevel_Success() {
+    @DisplayName("Đặt món ăn/dịch vụ thành công: trừ tồn kho, tính thuế & đẩy vào BookingCharge")
+    void createOrder_Success() {
         ServiceOrderCreateRequest request = ServiceOrderCreateRequest.builder()
-                .referenceType(ServiceOrderReferenceType.BOOKING)
-                .referenceId(100L)
+                .bookingId(100L)
+                .roomInstanceId(50)
                 .items(List.of(
                         ServiceOrderCreateRequest.OrderItemRequest.builder()
                                 .menuId(10)
@@ -120,16 +128,18 @@ class ServiceOrderServiceTest {
                 ))
                 .build();
 
-        when(bookingLookupService.getBookingEntityById(100L)).thenReturn(testBooking);
-        when(menuService.getEntityById(10)).thenReturn(testMenu);
-        when(vatRuleService.getActiveVatPercent(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(testBooking));
+        when(roomInstanceRepository.findByIdAndIsDeletedFalse(50)).thenReturn(Optional.of(testRoom));
+        when(bookingRoomRepository.findByBookingIdAndRoomInstanceId(100L, 50)).thenReturn(Optional.of(testBookingRoom));
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testMenu));
+        when(catalogItemRepository.findById(10)).thenReturn(Optional.of(testCatalogItem));
+        when(vatRuleRepository.findActiveVatRule(any(), any())).thenReturn(Optional.empty());
 
         ServiceOrder savedOrder = ServiceOrder.builder()
                 .id(1L)
                 .orderNumber("SO-12345")
-                .hotel(testHotel)
-                .referenceType(ServiceOrderReferenceType.BOOKING)
-                .referenceId(100L)
+                .booking(testBooking)
+                .roomInstance(testRoom)
                 .subTotal(BigDecimal.valueOf(50000))
                 .totalAmount(BigDecimal.valueOf(52500))
                 .build();
@@ -138,8 +148,6 @@ class ServiceOrderServiceTest {
         when(operationMapper.toResponse(any(ServiceOrder.class))).thenReturn(ServiceOrderResponse.builder()
                 .id(1L)
                 .orderNumber("SO-12345")
-                .referenceType(ServiceOrderReferenceType.BOOKING)
-                .referenceId(100L)
                 .totalAmount(BigDecimal.valueOf(52500))
                 .build());
 
@@ -147,19 +155,19 @@ class ServiceOrderServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(1L);
-        assertThat(response.getReferenceType()).isEqualTo(ServiceOrderReferenceType.BOOKING);
 
-        // Kiểm tra ủy quyền trừ tồn kho qua MenuService
-        verify(menuService, times(1)).deductStock(10, 2);
+        // Kiểm tra tồn kho bị trừ từ 20 xuống 18
+        assertThat(testCatalogItem.getStockQuantity()).isEqualTo(18);
+        verify(catalogItemRepository, times(1)).save(testCatalogItem);
+
         verify(serviceOrderRepository, times(1)).save(any(ServiceOrder.class));
     }
 
     @Test
-    @DisplayName("Đặt món ăn cấp BOOKING_ROOM (theo phòng) thành công")
-    void createOrder_BookingRoomLevel_Success() {
+    @DisplayName("Đặt món chỉ với ID phòng vật lý (không cần bookingId): tự động tìm đơn đặt phòng đang lưu trú")
+    void createOrder_WithoutBookingId_AutoLookupSuccess() {
         ServiceOrderCreateRequest request = ServiceOrderCreateRequest.builder()
-                .referenceType(ServiceOrderReferenceType.BOOKING_ROOM)
-                .referenceId(20L)
+                .roomInstanceId(50)
                 .items(List.of(
                         ServiceOrderCreateRequest.OrderItemRequest.builder()
                                 .menuId(10)
@@ -168,38 +176,43 @@ class ServiceOrderServiceTest {
                 ))
                 .build();
 
-        when(bookingLookupService.getBookingRoomEntityById(20L)).thenReturn(testBookingRoom);
-        when(menuService.getEntityById(10)).thenReturn(testMenu);
-        when(vatRuleService.getActiveVatPercent(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(roomInstanceRepository.findByIdAndIsDeletedFalse(50)).thenReturn(Optional.of(testRoom));
+        when(bookingRoomRepository.findByRoomInstanceIdAndStatusIn(eq(50), any())).thenReturn(List.of(testBookingRoom));
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testMenu));
+        when(catalogItemRepository.findById(10)).thenReturn(Optional.of(testCatalogItem));
+        when(vatRuleRepository.findActiveVatRule(any(), any())).thenReturn(Optional.empty());
 
         ServiceOrder savedOrder = ServiceOrder.builder()
                 .id(2L)
-                .orderNumber("SO-ROOM-001")
-                .hotel(testHotel)
-                .referenceType(ServiceOrderReferenceType.BOOKING_ROOM)
-                .referenceId(20L)
+                .orderNumber("SO-99999")
+                .booking(testBooking)
+                .roomInstance(testRoom)
+                .status(ServiceOrderStatus.PENDING)
+                .details(new ArrayList<>())
                 .build();
 
         when(serviceOrderRepository.save(any(ServiceOrder.class))).thenReturn(savedOrder);
         when(operationMapper.toResponse(any(ServiceOrder.class))).thenReturn(ServiceOrderResponse.builder()
                 .id(2L)
-                .referenceType(ServiceOrderReferenceType.BOOKING_ROOM)
-                .referenceId(20L)
+                .orderNumber("SO-99999")
+                .bookingId(100L)
+                .roomInstanceId(50)
+                .status(ServiceOrderStatus.PENDING)
                 .build());
 
         ServiceOrderResponse response = serviceOrderService.createOrder(request);
 
         assertThat(response).isNotNull();
-        assertThat(response.getReferenceType()).isEqualTo(ServiceOrderReferenceType.BOOKING_ROOM);
-        verify(menuService, times(1)).deductStock(10, 1);
+        assertThat(response.getId()).isEqualTo(2L);
+        assertThat(response.getBookingId()).isEqualTo(100L);
+        verify(bookingChargeRepository, times(1)).save(any(BookingCharge.class));
     }
 
     @Test
-    @DisplayName("Đặt dịch vụ cấp STAY_GUEST (cá nhân khách) thành công")
-    void createOrder_StayGuestLevel_Success() {
+    @DisplayName("Đặt món chỉ với ID phòng: fallback tìm đặt phòng gần nhất khi không có phòng CHECKED_IN")
+    void createOrder_WithoutBookingId_FallbackToRecentBooking() {
         ServiceOrderCreateRequest request = ServiceOrderCreateRequest.builder()
-                .referenceType(ServiceOrderReferenceType.STAY_GUEST)
-                .referenceId(30L)
+                .roomInstanceId(50)
                 .items(List.of(
                         ServiceOrderCreateRequest.OrderItemRequest.builder()
                                 .menuId(10)
@@ -208,79 +221,44 @@ class ServiceOrderServiceTest {
                 ))
                 .build();
 
-        when(stayGuestService.getEntityById(30L)).thenReturn(testStayGuest);
-        when(menuService.getEntityById(10)).thenReturn(testMenu);
-        when(vatRuleService.getActiveVatPercent(any(), any())).thenReturn(BigDecimal.ZERO);
+        when(roomInstanceRepository.findByIdAndIsDeletedFalse(50)).thenReturn(Optional.of(testRoom));
+        when(bookingRoomRepository.findByRoomInstanceIdAndStatusIn(eq(50), any())).thenReturn(List.of());
+        when(bookingRoomRepository.findActiveOrRecentByRoomInstanceId(50)).thenReturn(List.of(testBookingRoom));
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testMenu));
+        when(catalogItemRepository.findById(10)).thenReturn(Optional.of(testCatalogItem));
+        when(vatRuleRepository.findActiveVatRule(any(), any())).thenReturn(Optional.empty());
 
         ServiceOrder savedOrder = ServiceOrder.builder()
                 .id(3L)
-                .orderNumber("SO-GUEST-001")
-                .hotel(testHotel)
-                .referenceType(ServiceOrderReferenceType.STAY_GUEST)
-                .referenceId(30L)
+                .orderNumber("SO-88888")
+                .booking(testBooking)
+                .roomInstance(testRoom)
+                .status(ServiceOrderStatus.PENDING)
+                .details(new ArrayList<>())
                 .build();
 
         when(serviceOrderRepository.save(any(ServiceOrder.class))).thenReturn(savedOrder);
         when(operationMapper.toResponse(any(ServiceOrder.class))).thenReturn(ServiceOrderResponse.builder()
                 .id(3L)
-                .referenceType(ServiceOrderReferenceType.STAY_GUEST)
-                .referenceId(30L)
+                .orderNumber("SO-88888")
+                .bookingId(100L)
+                .roomInstanceId(50)
+                .status(ServiceOrderStatus.PENDING)
                 .build());
 
         ServiceOrderResponse response = serviceOrderService.createOrder(request);
 
         assertThat(response).isNotNull();
-        assertThat(response.getReferenceType()).isEqualTo(ServiceOrderReferenceType.STAY_GUEST);
-        verify(menuService, times(1)).deductStock(10, 1);
-    }
-
-    @Test
-    @DisplayName("Đặt món cho khách vãng lai WALK_IN thành công với referenceId = NULL")
-    void createOrder_WalkIn_Success() {
-        ServiceOrderCreateRequest request = ServiceOrderCreateRequest.builder()
-                .referenceType(ServiceOrderReferenceType.WALK_IN)
-                .hotelId((short) 1)
-                .items(List.of(
-                        ServiceOrderCreateRequest.OrderItemRequest.builder()
-                                .menuId(10)
-                                .quantity(2)
-                                .build()
-                ))
-                .build();
-
-        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
-        when(menuService.getEntityById(10)).thenReturn(testMenu);
-        when(vatRuleService.getActiveVatPercent(any(), any())).thenReturn(BigDecimal.ZERO);
-
-        ServiceOrder savedOrder = ServiceOrder.builder()
-                .id(4L)
-                .orderNumber("SO-WALKIN-001")
-                .hotel(testHotel)
-                .referenceType(ServiceOrderReferenceType.WALK_IN)
-                .referenceId(null) // NULL chuẩn theo nghiệp vụ
-                .build();
-
-        when(serviceOrderRepository.save(any(ServiceOrder.class))).thenReturn(savedOrder);
-        when(operationMapper.toResponse(any(ServiceOrder.class))).thenReturn(ServiceOrderResponse.builder()
-                .id(4L)
-                .referenceType(ServiceOrderReferenceType.WALK_IN)
-                .referenceId(null)
-                .build());
-
-        ServiceOrderResponse response = serviceOrderService.createOrder(request);
-
-        assertThat(response).isNotNull();
-        assertThat(response.getReferenceType()).isEqualTo(ServiceOrderReferenceType.WALK_IN);
-        assertThat(response.getReferenceId()).isNull();
-        verify(menuService, times(1)).deductStock(10, 2);
+        assertThat(response.getId()).isEqualTo(3L);
+        verify(bookingRoomRepository, times(1)).findActiveOrRecentByRoomInstanceId(50);
     }
 
     @Test
     @DisplayName("Báo lỗi OUT_OF_STOCK khi số lượng đặt vượt quá tồn kho khả dụng")
     void createOrder_OutOfStock_ThrowsException() {
         ServiceOrderCreateRequest request = ServiceOrderCreateRequest.builder()
-                .referenceType(ServiceOrderReferenceType.BOOKING)
-                .referenceId(100L)
+                .bookingId(100L)
+                .roomInstanceId(50)
                 .items(List.of(
                         ServiceOrderCreateRequest.OrderItemRequest.builder()
                                 .menuId(10)
@@ -289,10 +267,11 @@ class ServiceOrderServiceTest {
                 ))
                 .build();
 
-        when(bookingLookupService.getBookingEntityById(100L)).thenReturn(testBooking);
-        when(menuService.getEntityById(10)).thenReturn(testMenu);
-        doThrow(new AppException(ErrorCode.OUT_OF_STOCK, "Sản phẩm Snack khoai tây Lays không đủ tồn kho"))
-                .when(menuService).deductStock(10, 50);
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(testBooking));
+        when(roomInstanceRepository.findByIdAndIsDeletedFalse(50)).thenReturn(Optional.of(testRoom));
+        when(bookingRoomRepository.findByBookingIdAndRoomInstanceId(100L, 50)).thenReturn(Optional.of(testBookingRoom));
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testMenu));
+        when(catalogItemRepository.findById(10)).thenReturn(Optional.of(testCatalogItem));
 
         assertThatThrownBy(() -> serviceOrderService.createOrder(request))
                 .isInstanceOf(AppException.class)
@@ -300,20 +279,55 @@ class ServiceOrderServiceTest {
     }
 
     @Test
-    @DisplayName("Hủy đơn dịch vụ hoàn trả tồn kho sản phẩm trực tiếp trên Menu")
-    void updateStatus_Cancelled_RestoresStock() {
+    @DisplayName("Báo lỗi ROOM_NOT_OCCUPIED khi phòng không thuộc về booking")
+    void createOrder_RoomNotOccupied_ThrowsException() {
+        ServiceOrderCreateRequest request = ServiceOrderCreateRequest.builder()
+                .bookingId(100L)
+                .roomInstanceId(50)
+                .items(List.of(
+                        ServiceOrderCreateRequest.OrderItemRequest.builder().menuId(10).quantity(1).build()
+                ))
+                .build();
+
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(testBooking));
+        when(roomInstanceRepository.findByIdAndIsDeletedFalse(50)).thenReturn(Optional.of(testRoom));
+        when(bookingRoomRepository.findByBookingIdAndRoomInstanceId(100L, 50)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> serviceOrderService.createOrder(request))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.ROOM_NOT_OCCUPIED));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn dịch vụ: hoàn trả tồn kho sản phẩm và tạo bút toán bù âm trên Folio")
+    void updateStatus_Cancelled_RestoresStockAndCreatesCompensatingCharge() {
         ServiceOrderDetail detail = ServiceOrderDetail.builder()
                 .menu(testMenu)
                 .quantity(3)
+                .unitPrice(BigDecimal.valueOf(25000))
+                .subtotal(BigDecimal.valueOf(75000))
+                .serviceFeeRate(BigDecimal.valueOf(5))
+                .serviceFeeAmount(BigDecimal.valueOf(3750))
+                .vatRate(BigDecimal.valueOf(8))
+                .vatAmount(BigDecimal.valueOf(6300))
+                .totalAmount(BigDecimal.valueOf(85050))
+                .itemName("Snack khoai tây Lays")
                 .build();
 
         ServiceOrder order = ServiceOrder.builder()
                 .id(1L)
+                .orderNumber("SO-12345")
+                .booking(testBooking)
+                .roomInstance(testRoom)
                 .status(ServiceOrderStatus.PENDING)
                 .details(new ArrayList<>(List.of(detail)))
                 .build();
 
+        testCatalogItem.setStockQuantity(10);
+
         when(serviceOrderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(catalogItemRepository.findById(10)).thenReturn(Optional.of(testCatalogItem));
+        when(bookingRoomRepository.findByBookingIdAndRoomInstanceId(100L, 50)).thenReturn(Optional.of(testBookingRoom));
         when(serviceOrderRepository.save(any(ServiceOrder.class))).thenReturn(order);
         when(operationMapper.toResponse(any(ServiceOrder.class))).thenReturn(ServiceOrderResponse.builder()
                 .id(1L)
@@ -324,17 +338,18 @@ class ServiceOrderServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(ServiceOrderStatus.CANCELLED);
-        // Tồn kho được hoàn trả qua MenuService
-        verify(menuService, times(1)).restoreStock(10, 3);
+
+        // 1. Tồn kho được hoàn trả từ 10 thành 13
+        assertThat(testCatalogItem.getStockQuantity()).isEqualTo(13);
+        verify(catalogItemRepository, times(1)).save(testCatalogItem);
     }
 
     @Test
-    @DisplayName("getOrdersByBookingId trả về danh sách các đơn không bị CANCELLED khi không có phòng phụ thuộc")
+    @DisplayName("getOrdersByBookingId trả về danh sách các đơn không bị CANCELLED")
     void getOrdersByBookingId_Success() {
         ServiceOrder activeOrder = ServiceOrder.builder().id(1L).status(ServiceOrderStatus.PENDING).build();
         ServiceOrder cancelledOrder = ServiceOrder.builder().id(2L).status(ServiceOrderStatus.CANCELLED).build();
 
-        when(bookingLookupService.getBookingRoomsByBookingId(100L)).thenReturn(List.of());
         when(serviceOrderRepository.findByBookingIdAndIsDeletedFalse(100L))
                 .thenReturn(List.of(activeOrder, cancelledOrder));
         when(operationMapper.toResponse(activeOrder)).thenReturn(ServiceOrderResponse.builder().id(1L).build());
@@ -343,48 +358,5 @@ class ServiceOrderServiceTest {
 
         assertThat(orders).hasSize(1);
         assertThat(orders.get(0).getId()).isEqualTo(1L);
-    }
-
-    @Test
-    @DisplayName("getOrdersByBookingId lấy cả đơn đặt phòng cấp BOOKING và cấp BOOKING_ROOM qua hierarchy")
-    void getOrdersByBookingId_WithRooms_Success() {
-        ServiceOrder bookingOrder = ServiceOrder.builder().id(1L).status(ServiceOrderStatus.PENDING).build();
-        ServiceOrder roomOrder = ServiceOrder.builder().id(2L).status(ServiceOrderStatus.COMPLETED).build();
-
-        when(bookingLookupService.getBookingRoomsByBookingId(100L)).thenReturn(List.of(testBookingRoom));
-        when(serviceOrderRepository.findAllOrdersForBookingAndRooms(100L, List.of(20L)))
-                .thenReturn(List.of(bookingOrder, roomOrder));
-        when(operationMapper.toResponse(bookingOrder)).thenReturn(ServiceOrderResponse.builder().id(1L).build());
-        when(operationMapper.toResponse(roomOrder)).thenReturn(ServiceOrderResponse.builder().id(2L).build());
-
-        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(100L);
-
-        assertThat(orders).hasSize(2);
-        assertThat(orders.get(0).getId()).isEqualTo(1L);
-        assertThat(orders.get(1).getId()).isEqualTo(2L);
-    }
-
-    @Test
-    @DisplayName("getDailyServiceRevenue tính tổng doanh thu của các đơn dịch vụ hợp lệ trong ngày")
-    void getDailyServiceRevenue_Success() {
-        LocalDate date = LocalDate.of(2026, 6, 1);
-        ServiceOrder order1 = ServiceOrder.builder().totalAmount(BigDecimal.valueOf(300000)).build();
-        ServiceOrder order2 = ServiceOrder.builder().totalAmount(BigDecimal.valueOf(700000)).build();
-
-        when(serviceOrderRepository.findActiveOrdersForHotelAndDate(eq((short) 1), any(OffsetDateTime.class), any(OffsetDateTime.class)))
-                .thenReturn(List.of(order1, order2));
-
-        BigDecimal total = serviceOrderService.getDailyServiceRevenue((short) 1, date);
-
-        assertThat(total).isEqualByComparingTo(BigDecimal.valueOf(1000000));
-        verify(serviceOrderRepository).findActiveOrdersForHotelAndDate(eq((short) 1), any(OffsetDateTime.class), any(OffsetDateTime.class));
-    }
-
-    @Test
-    @DisplayName("getDailyServiceRevenue trả về ZERO khi tham số hotelId hoặc date bị null")
-    void getDailyServiceRevenue_NullArgs_ReturnsZero() {
-        assertThat(serviceOrderService.getDailyServiceRevenue(null, LocalDate.now())).isEqualByComparingTo(BigDecimal.ZERO);
-        assertThat(serviceOrderService.getDailyServiceRevenue((short) 1, null)).isEqualByComparingTo(BigDecimal.ZERO);
-        verifyNoInteractions(serviceOrderRepository);
     }
 }

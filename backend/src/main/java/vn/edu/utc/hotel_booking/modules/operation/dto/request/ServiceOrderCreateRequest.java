@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,20 +17,11 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ServiceOrderCreateRequest {
 
-    Short hotelId;
-
-    ServiceOrderReferenceType referenceType;
-
-    Long referenceId;
-
-    // Optional legacy fields for backward compatibility
+    // Optional: Nếu không truyền, hệ thống tự động tìm đơn đặt phòng đang lưu trú của phòng vật lý này
     Long bookingId;
+
+    @NotNull(message = "ID phòng vật lý không được để trống")
     Integer roomInstanceId;
-
-    @Builder.Default
-    vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod paymentMethod = vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM;
-
-    vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus paymentStatus;
 
     @NotEmpty(message = "Danh sách món ăn/dịch vụ không được để trống")
     @Valid
