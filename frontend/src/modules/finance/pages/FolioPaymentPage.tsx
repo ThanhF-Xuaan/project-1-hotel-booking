@@ -153,7 +153,16 @@ export const FolioPaymentPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchBookingList();
+    let isMounted = true;
+    const init = async () => {
+      if (isMounted) {
+        await fetchBookingList();
+      }
+    };
+    void init();
+    return () => {
+      isMounted = false;
+    };
   }, [fetchBookingList]);
 
   /** Click 1 dòng trong danh sách → nạp thẳng Folio của đơn đó */
@@ -414,7 +423,7 @@ export const FolioPaymentPage: React.FC = () => {
             <table className="w-full text-left border-collapse text-sm">
               <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
                 <tr>
-                  <th className="p-3">Mã đơn</th>
+                  <th className="p-3">Phòng vật lý / Mã đơn</th>
                   <th className="p-3">Khách hàng</th>
                   <th className="p-3">Khách sạn</th>
                   <th className="p-3 text-right">Tổng tiền</th>
@@ -442,8 +451,40 @@ export const FolioPaymentPage: React.FC = () => {
                         isActive ? 'bg-red-50' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <td className="p-3 font-mono text-xs font-semibold text-neutral-800">
-                        {b.bookingNumber}
+                      <td className="p-3">
+                        {(() => {
+                          const assignedRooms = b.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+                          const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber);
+                          if (roomsWithInfo.length > 0) {
+                            return (
+                              <div className="space-y-0.5">
+                                <div className="flex flex-wrap gap-1">
+                                  {roomsWithInfo.map((r, idx) => (
+                                    <span
+                                      key={r.id || idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200"
+                                    >
+                                      Phòng {r.roomNumber}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="text-[11px] font-mono text-neutral-400">
+                                  {b.bookingNumber}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-neutral-100 text-neutral-600">
+                                Chưa xếp phòng
+                              </span>
+                              <div className="text-[11px] font-mono text-neutral-400 mt-0.5">
+                                {b.bookingNumber}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="p-3">
                         <div className="font-medium text-neutral-900">
@@ -481,6 +522,50 @@ export const FolioPaymentPage: React.FC = () => {
 
       {currentBooking && (
         <div className="space-y-6">
+          {/* THÔNG TIN PHÒNG VẬT LÝ & KHÁCH HÀNG CỦA HÓA ĐƠN FOLIO */}
+          <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="space-y-1">
+                <span className="text-xs text-neutral-500 font-medium block">Phòng nhận hóa đơn / lưu trú:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {(() => {
+                    const assignedRooms = currentBooking.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+                    const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber);
+                    if (roomsWithInfo.length > 0) {
+                      return roomsWithInfo.map((r, idx) => (
+                        <span
+                          key={r.id || idx}
+                          className="inline-flex items-center px-3 py-1 rounded-xl text-sm font-bold bg-red-50 text-red-700 border border-red-200"
+                        >
+                          Phòng {r.roomNumber}
+                        </span>
+                      ));
+                    }
+                    return (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-neutral-100 text-neutral-600">
+                        Chưa xếp phòng vật lý
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="h-8 w-px bg-neutral-200 hidden sm:block mx-2" />
+
+              <div className="text-sm">
+                <div className="font-bold text-neutral-900">{currentBooking.guestName || currentBooking.guestPhone}</div>
+                <div className="text-xs text-neutral-500">
+                  SĐT: <span className="font-medium text-neutral-700">{currentBooking.guestPhone}</span> • Khách sạn: <span className="font-medium text-neutral-700">{currentBooking.hotelName}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right text-xs text-neutral-500">
+              <div>Mã đơn đặt phòng: <strong className="font-mono text-neutral-800">{currentBooking.bookingNumber}</strong></div>
+              <div>Trạng thái đơn: <span className="font-semibold text-neutral-800">{currentBooking.status}</span></div>
+            </div>
+          </div>
+
           {/* FOLIO SUMMARY CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs">
@@ -622,9 +707,26 @@ export const FolioPaymentPage: React.FC = () => {
             <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs p-6 space-y-4">
               <div className="flex justify-between items-start border-b border-neutral-100 pb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-neutral-900">Hóa đơn GTGT: {invoice.invoiceNumber}</h3>
-                  <span className="text-xs text-neutral-500">
-                    Trạng thái: <b className="text-neutral-800">{invoice.status}</b> | Ngày lập:{' '}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-bold text-neutral-900">Hóa đơn GTGT: {invoice.invoiceNumber}</h3>
+                    {(() => {
+                      const assignedRooms = currentBooking?.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+                      const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber);
+                      if (roomsWithInfo.length > 0) {
+                        return roomsWithInfo.map((r, idx) => (
+                          <span
+                            key={r.id || idx}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200"
+                          >
+                            Phòng {r.roomNumber}
+                          </span>
+                        ));
+                      }
+                      return null;
+                    })()}
+                  </div>
+                  <span className="text-xs text-neutral-500 mt-1 block">
+                    Đơn đặt phòng: <b className="font-mono text-neutral-800">{currentBooking?.bookingNumber}</b> | Khách hàng: <b className="text-neutral-800">{currentBooking?.guestName}</b> | Trạng thái: <b className="text-neutral-800">{invoice.status}</b> | Ngày lập:{' '}
                     {new Date(invoice.createdAt).toLocaleDateString('vi-VN')}
                   </span>
                 </div>

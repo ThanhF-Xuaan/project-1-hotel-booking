@@ -25,6 +25,19 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
 
     Optional<RoomInstance> findByIdAndIsDeletedFalse(Integer id);
 
+    @Query("SELECT COUNT(r) > 0 FROM RoomInstance r " +
+            "WHERE r.hotel.id = :hotelId " +
+            "AND LOWER(TRIM(r.roomNumber)) = LOWER(TRIM(:roomNumber)) " +
+            "AND r.isDeleted = false")
+    boolean existsByHotelIdAndRoomNumberIgnoreCaseTrim(@Param("hotelId") Short hotelId, @Param("roomNumber") String roomNumber);
+
+    @Query("SELECT COUNT(r) > 0 FROM RoomInstance r " +
+            "WHERE r.hotel.id = :hotelId " +
+            "AND LOWER(TRIM(r.roomNumber)) = LOWER(TRIM(:roomNumber)) " +
+            "AND r.id <> :id " +
+            "AND r.isDeleted = false")
+    boolean existsByHotelIdAndRoomNumberAndIdNotIgnoreCaseTrim(@Param("hotelId") Short hotelId, @Param("roomNumber") String roomNumber, @Param("id") Integer id);
+
     boolean existsByHotelIdAndRoomNumberAndIsDeletedFalse(Short hotelId, String roomNumber);
 
     boolean existsByHotelIdAndRoomNumberAndIdNotAndIsDeletedFalse(Short hotelId, String roomNumber, Integer id);

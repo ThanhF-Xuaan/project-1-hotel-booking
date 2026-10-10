@@ -76,11 +76,15 @@ public class InvoiceServiceImpl implements InvoiceService {
                     BigDecimal lineVat = lineTaxable.multiply(dr.getVatPercent()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     BigDecimal lineTotal = lineTaxable.add(lineVat);
 
+                    String roomPrefix = (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null)
+                            ? "Phòng " + br.getRoomInstance().getRoomNumber() + " - "
+                            : "";
+
                     InvoiceDetail invDetail = InvoiceDetail.builder()
                             .invoice(invoice)
                             .referenceId(dr.getId())
                             .lineType(InvoiceLineType.ROOM_RATE)
-                            .description(detail.getRoomTypeName() + " (" + dr.getStayDate() + ")")
+                            .description(roomPrefix + detail.getRoomTypeName() + " (" + dr.getStayDate() + ")")
                             .quantity(1)
                             .unitPrice(dr.getNetPrice())
                             .subtotal(lineSubtotal)

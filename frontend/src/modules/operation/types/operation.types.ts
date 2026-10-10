@@ -55,7 +55,7 @@ export interface OrderItemRequest {
 }
 
 export interface ServiceOrderCreateRequest {
-  bookingId: number;
+  bookingId?: number;
   roomInstanceId: number;
   items: OrderItemRequest[];
 }
