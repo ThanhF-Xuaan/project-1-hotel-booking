@@ -14,11 +14,8 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingCharge;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingChargeType;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingChargeRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -54,7 +51,6 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
     BookingRepository bookingRepository;
     RoomInstanceRepository roomInstanceRepository;
     BookingRoomRepository bookingRoomRepository;
-    BookingChargeRepository bookingChargeRepository;
     MenuRepository menuRepository;
     CatalogItemRepository catalogItemRepository;
     VatRuleRepository vatRuleRepository;
@@ -151,25 +147,6 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             orderTotalServiceFee = orderTotalServiceFee.add(lineServiceFee);
             orderTotalVat = orderTotalVat.add(lineVat);
             orderGrandTotal = orderGrandTotal.add(lineTotal);
-
-            // Tự động đẩy phụ phí vào BookingCharge (loại SERVICE) của BookingRoom để tích hợp Folio
-            BookingCharge charge = BookingCharge.builder()
-                    .bookingRoom(bookingRoom)
-                    .chargeType(BookingChargeType.SERVICE)
-                    .itemName("Order " + orderNumber + ": " + menu.getName())
-                    .description("Chi tiết: " + itemReq.getQuantity() + "x " + menu.getName())
-                    .quantity(itemReq.getQuantity())
-                    .unitPrice(unitPrice)
-                    .subtotal(subtotal)
-                    .serviceFeeRate(standardServiceFeeRate)
-                    .serviceFeeAmount(lineServiceFee)
-                    .vatRate(vatRate)
-                    .vatAmount(lineVat)
-                    .totalAmount(lineTotal)
-                    .issuedAt(OffsetDateTime.now())
-                    .build();
-
-            bookingChargeRepository.save(charge);
         }
 
         order.setDetails(details);
@@ -187,6 +164,14 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
         ServiceOrder order = serviceOrderRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.SERVICE_ORDER_NOT_FOUND, "Không tìm thấy đơn dịch vụ ID: " + id));
         return operationMapper.toResponse(order);
+    }
+
+    @Override
+    public List<ServiceOrderResponse> getOrdersByBookingId(Long bookingId) {
+        return serviceOrderRepository.findByBookingIdAndIsDeletedFalse(bookingId).stream()
+                .filter(so -> so.getStatus() != ServiceOrderStatus.CANCELLED)
+                .map(operationMapper::toResponse)
+                .toList();
     }
 
     @Override

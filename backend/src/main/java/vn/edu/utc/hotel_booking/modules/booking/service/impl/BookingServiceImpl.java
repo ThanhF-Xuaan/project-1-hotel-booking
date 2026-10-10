@@ -333,9 +333,14 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingResponse getById(Long id) {
-        Booking booking = bookingRepository.findById(id)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng ID: " + id));
+        Booking booking = getEntityById(id);
         return bookingMapper.toResponse(booking);
+    }
+
+    @Override
+    public Booking getEntityById(Long id) {
+        return bookingRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng ID: " + id));
     }
 
     @Override
