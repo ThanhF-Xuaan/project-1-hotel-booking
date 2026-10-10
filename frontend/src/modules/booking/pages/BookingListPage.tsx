@@ -9,6 +9,7 @@ import {
   DollarSign,
   BedDouble,
   UserCheck,
+  Receipt,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -33,6 +34,7 @@ export const BookingListPage: React.FC = () => {
 
   // Filters
   const [searchBookingNumber, setSearchBookingNumber] = useState('');
+  const [searchRoomNumber, setSearchRoomNumber] = useState('');
   const [searchStatus, setSearchStatus] = useState<BookingStatus | ''>('');
 
   // Modals & Selected Booking
@@ -67,8 +69,14 @@ export const BookingListPage: React.FC = () => {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
+      const bNum = searchBookingNumber ? searchBookingNumber.trim() : undefined;
+      const rNum = searchRoomNumber
+        ? searchRoomNumber.trim().replace(/^(phòng|phong|p\.?)\s*/i, '')
+        : undefined;
+
       const res = await bookingService.filter({
-        bookingNumber: searchBookingNumber ? searchBookingNumber.trim() : undefined,
+        bookingNumber: bNum,
+        roomNumber: rNum,
         status: searchStatus || undefined,
         page: page + 1,
         size: pageSize,
@@ -84,7 +92,7 @@ export const BookingListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, searchBookingNumber, searchStatus]);
+  }, [page, pageSize, searchBookingNumber, searchRoomNumber, searchStatus]);
 
   useEffect(() => {
     let isMounted = true;
@@ -289,54 +297,94 @@ export const BookingListPage: React.FC = () => {
         </div>
       )}
 
-      {/* HÀNG 1: SEARCH & FILTER BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap gap-4 items-center">
-        <div className="flex-1 min-w-[240px]">
-          <Input
-            placeholder="Tìm theo mã đặt phòng (VD: BK...)"
-            value={searchBookingNumber}
-            onChange={(e) => setSearchBookingNumber(e.target.value)}
-          />
-        </div>
-
-        <div className="w-48">
-          <select
-            className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600"
-            value={searchStatus}
-            onChange={(e) => setSearchStatus(e.target.value as BookingStatus | '')}
+      {/* SEARCH BAR — TÌM KIẾM THEO MÃ BOOKING (GIỐNG QUẢN LÝ TÀI CHÍNH) */}
+      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs">
+        <label className="block text-xs font-semibold text-neutral-700 mb-1.5 flex items-center gap-1.5">
+          <Receipt className="w-3.5 h-3.5 text-red-600" />
+          <span>Tra cứu theo mã đơn đặt phòng (Booking Code)</span>
+        </label>
+        <div className="flex gap-3 items-center">
+          <div className="flex-1">
+            <Input
+              placeholder="Nhập mã đơn đặt phòng (VD: BK-TEST-1001, BK...)..."
+              value={searchBookingNumber}
+              onChange={(e) => setSearchBookingNumber(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setPage(0);
+                  loadData();
+                }
+              }}
+              leftIcon={<Search className="w-4 h-4" />}
+            />
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => {
+              setPage(0);
+              loadData();
+            }}
+            disabled={isLoading}
           >
-            <option value="">Tất cả trạng thái</option>
-            <option value="CONFIRMED">Đã xác nhận</option>
-            <option value="CANCELLED">Đã hủy</option>
-            <option value="NO_SHOW">Vắng mặt (No-show)</option>
-          </select>
+            <Search className="w-4 h-4 mr-2" />
+            Tra cứu đơn
+          </Button>
+          {searchBookingNumber && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchBookingNumber('');
+                setPage(0);
+              }}
+            >
+              Đặt lại
+            </Button>
+          )}
         </div>
-
-        <Button variant="primary" onClick={() => { setPage(0); loadData(); }}>
-          <Search className="w-4 h-4 mr-2" />
-          Tìm kiếm
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={() => {
-            setSearchBookingNumber('');
-            setSearchStatus('');
-            setPage(0);
-          }}
-        >
-          Đặt lại
-        </Button>
       </div>
 
-      {/* HÀNG 2: ACTION TOOLBAR */}
-      <div className="flex justify-between items-center bg-neutral-50 p-3 rounded-2xl border border-neutral-200">
-        <div className="text-sm text-neutral-600 font-medium">
-          Tổng số: <span className="font-bold text-neutral-900">{totalElements}</span> đơn đặt phòng
+      {/* ACTION TOOLBAR & LỌC THEO SỐ PHÒNG, TRẠNG THÁI */}
+      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+          <div>
+            <span className="font-bold text-neutral-900 block sm:inline">Danh sách đơn đặt phòng</span>
+            <span className="text-xs text-neutral-500 sm:ml-2 block sm:inline">
+              (Tổng số: <strong className="text-neutral-800">{totalElements}</strong> đơn)
+            </span>
+          </div>
+          <div className="relative flex-1 max-w-xs ml-auto sm:ml-2">
+            <Input
+              placeholder="🔍 Tìm theo số phòng (VD: 101, 201...)"
+              value={searchRoomNumber}
+              onChange={(e) => setSearchRoomNumber(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  setPage(0);
+                  loadData();
+                }
+              }}
+              className="h-10 text-xs"
+            />
+          </div>
+          <div className="w-44">
+            <select
+              className="w-full h-10 px-3 text-xs bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600"
+              value={searchStatus}
+              onChange={(e) => {
+                setSearchStatus(e.target.value as BookingStatus | '');
+                setPage(0);
+              }}
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="CONFIRMED">Đã xác nhận</option>
+              <option value="CANCELLED">Đã hủy</option>
+              <option value="NO_SHOW">Vắng mặt (No-show)</option>
+            </select>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
-            <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
             Làm mới
           </Button>
         </div>
@@ -348,7 +396,7 @@ export const BookingListPage: React.FC = () => {
           <table className="w-full text-left border-collapse text-sm">
             <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
               <tr>
-                <th className="p-4">Phòng vật lý</th>
+                <th className="p-4">Phòng vật lý / Mã đơn</th>
                 <th className="p-4">Khách sạn</th>
                 <th className="p-4">Khách hàng</th>
                 <th className="p-4">Loại phòng</th>
@@ -382,11 +430,14 @@ export const BookingListPage: React.FC = () => {
 
                         if (roomsWithInfo.length === 0) {
                           return (
-                            <div>
+                            <div className="space-y-0.5">
                               <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-neutral-100 text-neutral-600">
                                 Chưa xếp phòng
                               </span>
-                              <div className="text-xs text-neutral-400 font-normal mt-0.5">
+                              <div className="text-[11px] font-mono font-semibold text-neutral-500">
+                                {booking.bookingNumber}
+                              </div>
+                              <div className="text-[10px] text-neutral-400">
                                 {booking.bookingType}
                               </div>
                             </div>
@@ -394,15 +445,21 @@ export const BookingListPage: React.FC = () => {
                         }
 
                         return (
-                          <div className="space-y-1">
-                            {roomsWithInfo.map((r, idx) => (
-                              <div key={r.id || idx}>
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+                          <div className="space-y-0.5">
+                            <div className="flex flex-wrap gap-1">
+                              {roomsWithInfo.map((r, idx) => (
+                                <span
+                                  key={r.id || idx}
+                                  className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200"
+                                >
                                   {r.roomNumber ? `Phòng ${r.roomNumber}` : 'Đã xếp phòng'}
                                 </span>
-                              </div>
-                            ))}
-                            <div className="text-xs text-neutral-400 font-normal mt-0.5">
+                              ))}
+                            </div>
+                            <div className="text-[11px] font-mono font-semibold text-neutral-500">
+                              {booking.bookingNumber}
+                            </div>
+                            <div className="text-[10px] text-neutral-400">
                               {booking.bookingType}
                             </div>
                           </div>
@@ -417,7 +474,20 @@ export const BookingListPage: React.FC = () => {
                       )}
                     </td>
                     <td className="p-4 text-neutral-700">
-                      {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
+                      {booking.bookingDetails && booking.bookingDetails.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {booking.bookingDetails.map((d, idx) => (
+                            <div key={d.id || idx} className="font-medium text-neutral-900">
+                              {d.roomTypeName || 'Chưa xác định'}
+                              {d.quantity > 1 && (
+                                <span className="text-xs text-neutral-500 ml-1">x{d.quantity}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-neutral-400 italic">N/A</span>
+                      )}
                     </td>
                     <td className="p-4 text-neutral-600 text-xs">
                       {booking.bookingDetails?.[0] ? (

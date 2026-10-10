@@ -43,6 +43,7 @@ export interface BookingSearchDto {
   hotelId?: number;
   guestId?: number;
   bookingNumber?: string;
+  roomNumber?: string;
   bookingType?: BookingType;
   status?: BookingStatus;
   checkInDate?: string;
