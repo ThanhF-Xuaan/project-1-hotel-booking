@@ -59,7 +59,7 @@ export interface OrderItemRequest {
 }
 
 export interface ServiceOrderCreateRequest {
-  bookingId: number;
+  bookingId?: number;
   roomInstanceId: number;
   paymentMethod?: ServiceOrderPaymentMethod;
   items: OrderItemRequest[];
