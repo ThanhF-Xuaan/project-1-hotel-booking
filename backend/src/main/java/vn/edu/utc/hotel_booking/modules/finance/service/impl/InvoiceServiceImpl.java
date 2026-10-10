@@ -13,8 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
-import vn.edu.utc.hotel_booking.modules.booking.entity.*;
-import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
+import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingCharge;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceSearchDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
@@ -25,9 +29,6 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
-import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
-import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
-import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -42,48 +43,31 @@ import java.util.List;
 public class InvoiceServiceImpl implements InvoiceService {
 
     InvoiceRepository invoiceRepository;
-    BookingLookupService bookingLookupService;
-    ServiceOrderService serviceOrderService;
+    BookingRepository bookingRepository;
     FinanceMapper financeMapper;
 
     @Override
     @Transactional
     public InvoiceResponse createInvoice(InvoiceCreateRequest request) {
-        Booking booking = bookingLookupService.getBookingEntityById(request.getBookingId());
+        Booking booking = bookingRepository.findById(request.getBookingId())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + request.getBookingId()));
+
+        String invoiceNumber = generateInvoiceNumber();
 
         BigDecimal serviceFeeRate = request.getServiceFeeRate() != null ? request.getServiceFeeRate() : booking.getServiceFeeRate();
 
-        List<Invoice> existingInvoices = invoiceRepository.findByBookingId(booking.getId());
-        Invoice invoice;
-        if (existingInvoices != null && !existingInvoices.isEmpty()) {
-            invoice = existingInvoices.get(0);
-            if (invoice.getStatus() == InvoiceStatus.ISSUED || invoice.getStatus() == InvoiceStatus.PAID) {
-                return financeMapper.toResponse(invoice);
-            }
-            invoice.getDetails().clear();
-            invoice.setServiceFeeRate(serviceFeeRate);
-        } else {
-            String invoiceNumber = generateInvoiceNumber();
-            invoice = Invoice.builder()
-                    .booking(booking)
-                    .invoiceNumber(invoiceNumber)
-                    .serviceFeeRate(serviceFeeRate)
-                    .status(InvoiceStatus.DRAFT)
-                    .build();
-        }
+        Invoice invoice = Invoice.builder()
+                .booking(booking)
+                .invoiceNumber(invoiceNumber)
+                .serviceFeeRate(serviceFeeRate)
+                .status(InvoiceStatus.DRAFT)
+                .build();
 
-        populateInvoiceData(invoice, booking, serviceFeeRate);
-
-        Invoice saved = invoiceRepository.save(invoice);
-        return financeMapper.toResponse(saved);
-    }
-
-    private void populateInvoiceData(Invoice invoice, Booking booking, BigDecimal serviceFeeRate) {
         List<InvoiceDetail> details = new ArrayList<>();
         BigDecimal subTotal = BigDecimal.ZERO;
         BigDecimal totalVat = BigDecimal.ZERO;
 
-        // 1. Tiền phòng lưu trú (BookingDailyRate -> ROOM_RATE)
+        // Snapshot bất biến từng dòng tiền theo quy chuẩn tài chính (§3 hotel-concurrency-and-pricing.md)
         for (BookingDetail detail : booking.getBookingDetails()) {
             for (BookingRoom br : detail.getBookingRooms()) {
                 for (BookingDailyRate dr : br.getDailyRates()) {
@@ -117,17 +101,16 @@ public class InvoiceServiceImpl implements InvoiceService {
                     totalVat = totalVat.add(lineVat);
                 }
 
-                // 2. Phụ thu phòng & Phí phạt (BookingCharge -> SURCHARGE / PENALTY)
                 for (BookingCharge charge : br.getCharges()) {
-                    InvoiceLineType chargeLineType = (charge.getChargeType() == BookingChargeType.PENALTY)
-                            ? InvoiceLineType.PENALTY
-                            : InvoiceLineType.SURCHARGE;
+                    String roomSuffix = (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null)
+                            ? " [Phòng " + br.getRoomInstance().getRoomNumber() + "]"
+                            : "";
 
                     InvoiceDetail invDetail = InvoiceDetail.builder()
                             .invoice(invoice)
                             .referenceId(charge.getId())
-                            .lineType(chargeLineType)
-                            .description(charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name())
+                            .lineType(InvoiceLineType.SURCHARGE)
+                            .description((charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name()) + roomSuffix)
                             .quantity(charge.getQuantity())
                             .unitPrice(charge.getUnitPrice())
                             .subtotal(charge.getSubtotal())
@@ -145,47 +128,6 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
         }
 
-        // 3. Tiêu dùng POS / Dịch vụ khách sạn (ServiceOrder -> PRODUCT / SERVICE)
-        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
-        if (orders != null) {
-            for (ServiceOrderResponse order : orders) {
-                // Chống thu tiền 2 lần: Bỏ qua các đơn đã thanh toán tại POS hoặc không ghi nợ phòng
-                if (order.getPaymentMethod() != null && order.getPaymentMethod() != vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM) {
-                    continue;
-                }
-                if (order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID) {
-                    continue;
-                }
-
-                if (order.getDetails() != null) {
-                    for (ServiceOrderDetailResponse item : order.getDetails()) {
-                        InvoiceLineType itemLineType = "PRODUCT".equalsIgnoreCase(item.getItemType())
-                                ? InvoiceLineType.PRODUCT
-                                : InvoiceLineType.SERVICE;
-
-                        InvoiceDetail invDetail = InvoiceDetail.builder()
-                                .invoice(invoice)
-                                .referenceId(item.getId())
-                                .lineType(itemLineType)
-                                .description(item.getItemName() != null ? item.getItemName() : "Dịch vụ/Sản phẩm POS")
-                                .quantity(item.getQuantity())
-                                .unitPrice(item.getUnitPrice())
-                                .subtotal(item.getSubtotal())
-                                .serviceFeeRate(item.getServiceFeeRate())
-                                .serviceFeeAmount(item.getServiceFeeAmount())
-                                .vatRate(item.getVatRate())
-                                .vatAmount(item.getVatAmount())
-                                .totalAmount(item.getTotalAmount())
-                                .build();
-
-                        details.add(invDetail);
-                        subTotal = subTotal.add(item.getSubtotal());
-                        totalVat = totalVat.add(item.getVatAmount());
-                    }
-                }
-            }
-        }
-
         BigDecimal serviceFeeAmount = subTotal.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
         BigDecimal grandTotal = subTotal.add(serviceFeeAmount).add(totalVat);
 
@@ -194,30 +136,6 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setServiceFeeAmount(serviceFeeAmount);
         invoice.setVatAmount(totalVat);
         invoice.setGrandTotal(grandTotal);
-    }
-
-    @Override
-    @Transactional
-    public InvoiceResponse settleAndCloseInvoice(Long bookingId) {
-        Booking booking = bookingLookupService.getBookingEntityById(bookingId);
-        List<Invoice> existingInvoices = invoiceRepository.findByBookingId(bookingId);
-
-        Invoice invoice;
-        BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
-
-        if (existingInvoices != null && !existingInvoices.isEmpty()) {
-            invoice = existingInvoices.get(0);
-        } else {
-            invoice = Invoice.builder()
-                    .booking(booking)
-                    .invoiceNumber(generateInvoiceNumber())
-                    .serviceFeeRate(serviceFeeRate)
-                    .build();
-        }
-
-        populateInvoiceData(invoice, booking, serviceFeeRate);
-        invoice.setStatus(InvoiceStatus.PAID);
-        invoice.setIssuedAt(OffsetDateTime.now());
 
         Invoice saved = invoiceRepository.save(invoice);
         return financeMapper.toResponse(saved);

@@ -11,8 +11,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingCharge;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingChargeType;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingChargeRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -42,24 +46,16 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ServiceOrderServiceTest {
 
-    @Mock
-    ServiceOrderRepository serviceOrderRepository;
-    @Mock
-    ServiceOrderDetailRepository serviceOrderDetailRepository;
-    @Mock
-    BookingRepository bookingRepository;
-    @Mock
-    RoomInstanceRepository roomInstanceRepository;
-    @Mock
-    BookingRoomRepository bookingRoomRepository;
-    @Mock
-    MenuRepository menuRepository;
-    @Mock
-    CatalogItemRepository catalogItemRepository;
-    @Mock
-    VatRuleRepository vatRuleRepository;
-    @Mock
-    OperationMapper operationMapper;
+    @Mock ServiceOrderRepository serviceOrderRepository;
+    @Mock ServiceOrderDetailRepository serviceOrderDetailRepository;
+    @Mock BookingRepository bookingRepository;
+    @Mock RoomInstanceRepository roomInstanceRepository;
+    @Mock BookingRoomRepository bookingRoomRepository;
+    @Mock BookingChargeRepository bookingChargeRepository;
+    @Mock MenuRepository menuRepository;
+    @Mock CatalogItemRepository catalogItemRepository;
+    @Mock VatRuleRepository vatRuleRepository;
+    @Mock OperationMapper operationMapper;
 
     @InjectMocks
     ServiceOrderServiceImpl serviceOrderService;
@@ -159,6 +155,14 @@ class ServiceOrderServiceTest {
         // Kiểm tra tồn kho bị trừ từ 20 xuống 18
         assertThat(testCatalogItem.getStockQuantity()).isEqualTo(18);
         verify(catalogItemRepository, times(1)).save(testCatalogItem);
+
+        // Kiểm tra tự động đẩy phụ phí vào BookingCharge
+        ArgumentCaptor<BookingCharge> chargeCaptor = ArgumentCaptor.forClass(BookingCharge.class);
+        verify(bookingChargeRepository, times(1)).save(chargeCaptor.capture());
+        BookingCharge capturedCharge = chargeCaptor.getValue();
+        assertThat(capturedCharge.getChargeType()).isEqualTo(BookingChargeType.SERVICE);
+        assertThat(capturedCharge.getItemName()).contains("Snack khoai tây Lays");
+        assertThat(capturedCharge.getTotalAmount()).isGreaterThan(BigDecimal.ZERO);
 
         verify(serviceOrderRepository, times(1)).save(any(ServiceOrder.class));
     }
@@ -342,21 +346,30 @@ class ServiceOrderServiceTest {
         // 1. Tồn kho được hoàn trả từ 10 thành 13
         assertThat(testCatalogItem.getStockQuantity()).isEqualTo(13);
         verify(catalogItemRepository, times(1)).save(testCatalogItem);
+
+        // 2. Tạo bút toán bù (compensating charge) âm trên Folio
+        ArgumentCaptor<BookingCharge> refundCaptor = ArgumentCaptor.forClass(BookingCharge.class);
+        verify(bookingChargeRepository, times(1)).save(refundCaptor.capture());
+        BookingCharge refundCharge = refundCaptor.getValue();
+        assertThat(refundCharge.getChargeType()).isEqualTo(BookingChargeType.SERVICE);
+        assertThat(refundCharge.getItemName()).isEqualTo("Hủy SO-12345: Snack khoai tây Lays");
+        assertThat(refundCharge.getTotalAmount()).isEqualTo(BigDecimal.valueOf(-85050));
+        assertThat(refundCharge.getSubtotal()).isEqualTo(BigDecimal.valueOf(-75000));
     }
 
     @Test
-    @DisplayName("getOrdersByBookingId trả về danh sách các đơn không bị CANCELLED")
-    void getOrdersByBookingId_Success() {
-        ServiceOrder activeOrder = ServiceOrder.builder().id(1L).status(ServiceOrderStatus.PENDING).build();
-        ServiceOrder cancelledOrder = ServiceOrder.builder().id(2L).status(ServiceOrderStatus.CANCELLED).build();
+    @DisplayName("Báo lỗi INVALID_SERVICE_ORDER_STATUS khi cố gắng hủy đơn đã bị hủy trước đó")
+    void updateStatus_CancelledTwice_ThrowsException() {
+        ServiceOrder order = ServiceOrder.builder()
+                .id(1L)
+                .orderNumber("SO-12345")
+                .status(ServiceOrderStatus.CANCELLED)
+                .build();
 
-        when(serviceOrderRepository.findByBookingIdAndIsDeletedFalse(100L))
-                .thenReturn(List.of(activeOrder, cancelledOrder));
-        when(operationMapper.toResponse(activeOrder)).thenReturn(ServiceOrderResponse.builder().id(1L).build());
+        when(serviceOrderRepository.findById(1L)).thenReturn(Optional.of(order));
 
-        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(100L);
-
-        assertThat(orders).hasSize(1);
-        assertThat(orders.get(0).getId()).isEqualTo(1L);
+        assertThatThrownBy(() -> serviceOrderService.updateStatus(1L, ServiceOrderStatus.CANCELLED))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_SERVICE_ORDER_STATUS));
     }
 }

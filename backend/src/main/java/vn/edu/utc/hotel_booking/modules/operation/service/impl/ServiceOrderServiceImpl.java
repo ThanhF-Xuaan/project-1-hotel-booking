@@ -14,8 +14,11 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingCharge;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingChargeType;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingChargeRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -51,6 +54,7 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
     BookingRepository bookingRepository;
     RoomInstanceRepository roomInstanceRepository;
     BookingRoomRepository bookingRoomRepository;
+    BookingChargeRepository bookingChargeRepository;
     MenuRepository menuRepository;
     CatalogItemRepository catalogItemRepository;
     VatRuleRepository vatRuleRepository;
@@ -169,6 +173,25 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             orderTotalServiceFee = orderTotalServiceFee.add(lineServiceFee);
             orderTotalVat = orderTotalVat.add(lineVat);
             orderGrandTotal = orderGrandTotal.add(lineTotal);
+
+            // Tự động đẩy phụ phí vào BookingCharge (loại SERVICE) của BookingRoom để tích hợp Folio
+            BookingCharge charge = BookingCharge.builder()
+                    .bookingRoom(bookingRoom)
+                    .chargeType(BookingChargeType.SERVICE)
+                    .itemName("Order " + orderNumber + ": " + menu.getName())
+                    .description("Chi tiết: " + itemReq.getQuantity() + "x " + menu.getName())
+                    .quantity(itemReq.getQuantity())
+                    .unitPrice(unitPrice)
+                    .subtotal(subtotal)
+                    .serviceFeeRate(standardServiceFeeRate)
+                    .serviceFeeAmount(lineServiceFee)
+                    .vatRate(vatRate)
+                    .vatAmount(lineVat)
+                    .totalAmount(lineTotal)
+                    .issuedAt(OffsetDateTime.now())
+                    .build();
+
+            bookingChargeRepository.save(charge);
         }
 
         order.setDetails(details);
@@ -186,14 +209,6 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
         ServiceOrder order = serviceOrderRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.SERVICE_ORDER_NOT_FOUND, "Không tìm thấy đơn dịch vụ ID: " + id));
         return operationMapper.toResponse(order);
-    }
-
-    @Override
-    public List<ServiceOrderResponse> getOrdersByBookingId(Long bookingId) {
-        return serviceOrderRepository.findByBookingIdAndIsDeletedFalse(bookingId).stream()
-                .filter(so -> so.getStatus() != ServiceOrderStatus.CANCELLED)
-                .map(operationMapper::toResponse)
-                .toList();
     }
 
     @Override
@@ -234,15 +249,40 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             throw new AppException(ErrorCode.INVALID_SERVICE_ORDER_STATUS, "Đơn dịch vụ đã bị hủy trước đó");
         }
 
-        // Hoàn trả tồn kho nếu hủy đơn hàng
+        // Hoàn trả tồn kho và tạo bút toán bù trên Folio nếu hủy đơn hàng
         if (status == ServiceOrderStatus.CANCELLED) {
+            BookingRoom bookingRoom = bookingRoomRepository
+                    .findByBookingIdAndRoomInstanceId(order.getBooking().getId(), order.getRoomInstance().getId())
+                    .orElse(null);
+
             for (ServiceOrderDetail detail : order.getDetails()) {
-                // Hoàn trả tồn kho cho sản phẩm vật lý
+                // 1. Hoàn trả tồn kho cho sản phẩm
                 if (detail.getMenu() != null && detail.getMenu().getMenuType() == MenuType.PRODUCT) {
                     catalogItemRepository.findById(detail.getMenu().getId()).ifPresent(item -> {
                         item.setStockQuantity(item.getStockQuantity() + detail.getQuantity());
                         catalogItemRepository.save(item);
                     });
+                }
+
+                // 2. Tạo bút toán bù (compensating charge số âm) vào Folio để không tính tiền cho khách
+                if (bookingRoom != null) {
+                    BookingCharge compensatingCharge = BookingCharge.builder()
+                            .bookingRoom(bookingRoom)
+                            .chargeType(BookingChargeType.SERVICE)
+                            .itemName("Hủy " + order.getOrderNumber() + ": " + detail.getItemName())
+                            .description("Bút toán hoàn tiền hủy đơn dịch vụ " + order.getOrderNumber())
+                            .quantity(detail.getQuantity())
+                            .unitPrice(detail.getUnitPrice())
+                            .subtotal(detail.getSubtotal().negate())
+                            .serviceFeeRate(detail.getServiceFeeRate())
+                            .serviceFeeAmount(detail.getServiceFeeAmount().negate())
+                            .vatRate(detail.getVatRate())
+                            .vatAmount(detail.getVatAmount().negate())
+                            .totalAmount(detail.getTotalAmount().negate())
+                            .issuedAt(OffsetDateTime.now())
+                            .build();
+
+                    bookingChargeRepository.save(compensatingCharge);
                 }
             }
         }
