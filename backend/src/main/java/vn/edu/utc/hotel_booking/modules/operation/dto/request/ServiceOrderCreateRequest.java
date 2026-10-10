@@ -17,7 +17,7 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ServiceOrderCreateRequest {
 
-    @NotNull(message = "ID đơn đặt phòng không được để trống")
+    // Optional: Nếu không truyền, hệ thống tự động tìm đơn đặt phòng đang lưu trú của phòng vật lý này
     Long bookingId;
 
     @NotNull(message = "ID phòng vật lý không được để trống")
