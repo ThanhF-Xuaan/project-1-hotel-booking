@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Không đặt context: luôn chạy ở mọi môi trường để đảm bảo đồng bộ với enum Java BookingChargeType -->
+    <changeSet id="20261010-161600-fix-booking-charge-type" author="utc-hotel-team">
+        <comment>Bổ sung SERVICE vào chk_booking_charge_type cho bảng booking_charges (POS F&amp;B / Dịch vụ phòng T09)</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261010-161600-fix-booking-charge-type.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>
