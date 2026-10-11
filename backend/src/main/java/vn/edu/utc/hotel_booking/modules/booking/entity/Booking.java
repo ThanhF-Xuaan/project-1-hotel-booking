@@ -88,6 +88,9 @@ public class Booking {
     @Builder.Default
     BookingStatus status = BookingStatus.CONFIRMED;
 
+    @Column(columnDefinition = "TEXT")
+    String notes;
+
     @Column(name = "issued_at")
     OffsetDateTime issuedAt;
 

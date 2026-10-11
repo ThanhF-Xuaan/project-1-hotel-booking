@@ -20,7 +20,7 @@ public interface ServiceOrderRepository extends JpaRepository<ServiceOrder, Long
     List<ServiceOrder> findByRoomInstanceIdAndIsDeletedFalse(Integer roomInstanceId);
 
     @org.springframework.data.jpa.repository.Query("SELECT so FROM ServiceOrder so " +
-            "WHERE so.roomInstance.hotel.id = :hotelId " +
+            "WHERE (so.booking.hotel.id = :hotelId OR (so.roomInstance IS NOT NULL AND so.roomInstance.hotel.id = :hotelId)) " +
             "AND so.isDeleted = false " +
             "AND so.status NOT IN ('CANCELLED') " +
             "AND so.issuedAt >= :startOfDay AND so.issuedAt <= :endOfDay")

@@ -33,6 +33,7 @@ public class BookingResponse {
     BigDecimal totalVatAmount;
     BigDecimal totalAmount;
     BookingStatus status;
+    String notes;
     OffsetDateTime issuedAt;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;

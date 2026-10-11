@@ -15,12 +15,16 @@ import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HoldInventoryReque
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.ReleaseInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAvailabilitySearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAvailabilityResponse;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.HoldReleaseReason;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomAvailability;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInventoryHold;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInventoryHoldStatus;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.mapper.RoomAvailabilityMapper;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomAvailabilityRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInventoryHoldService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.impl.RoomAvailabilityServiceImpl;
 
 import java.math.BigDecimal;
@@ -41,7 +45,10 @@ class RoomAvailabilityServiceTest {
     RoomAvailabilityRepository roomAvailabilityRepository;
 
     @Mock
-    HotelRoomTypeRepository hotelRoomTypeRepository;
+    HotelRoomTypeService hotelRoomTypeService;
+
+    @Mock
+    RoomInventoryHoldService roomInventoryHoldService;
 
     @Mock
     RoomAvailabilityMapper roomAvailabilityMapper;
@@ -79,8 +86,8 @@ class RoomAvailabilityServiceTest {
                 .endDate(LocalDate.of(2026, 10, 2))
                 .build();
 
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(10))
-                .thenReturn(Optional.of(hotelRoomType));
+        when(hotelRoomTypeService.getEntityById(10))
+                .thenReturn(hotelRoomType);
         when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(eq(10), any(), any()))
                 .thenReturn(Collections.emptyList());
 
@@ -103,8 +110,8 @@ class RoomAvailabilityServiceTest {
                 .holdMinutes(15)
                 .build();
 
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(10))
-                .thenReturn(Optional.of(hotelRoomType));
+        when(hotelRoomTypeService.getEntityById(10))
+                .thenReturn(hotelRoomType);
         when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(10, LocalDate.of(2026, 10, 1)))
                 .thenReturn(Optional.empty());
 
@@ -124,8 +131,8 @@ class RoomAvailabilityServiceTest {
                 .holdMinutes(15)
                 .build();
 
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(10))
-                .thenReturn(Optional.of(hotelRoomType));
+        when(hotelRoomTypeService.getEntityById(10))
+                .thenReturn(hotelRoomType);
         when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(10, LocalDate.of(2026, 10, 1)))
                 .thenReturn(Optional.empty());
 
@@ -176,8 +183,8 @@ class RoomAvailabilityServiceTest {
                 .oooRooms(0)
                 .build();
 
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(10))
-                .thenReturn(Optional.of(hotelRoomType));
+        when(hotelRoomTypeService.getEntityById(10))
+                .thenReturn(hotelRoomType);
         when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(10, LocalDate.of(2026, 10, 1)))
                 .thenReturn(Optional.of(availability));
 
@@ -197,8 +204,8 @@ class RoomAvailabilityServiceTest {
                 .totalQuantity(3)
                 .build();
 
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(hotelRoomType));
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(20)).thenReturn(Optional.of(hrt20));
+        when(hotelRoomTypeService.getEntityById(10)).thenReturn(hotelRoomType);
+        when(hotelRoomTypeService.getEntityById(20)).thenReturn(hrt20);
 
         // Unordered items: 20 comes before 10
         BatchHoldInventoryRequest.RoomTypeHoldItem item1 = BatchHoldInventoryRequest.RoomTypeHoldItem.builder()
@@ -220,6 +227,7 @@ class RoomAvailabilityServiceTest {
 
         // Verify that inventory was held for both
         verify(roomAvailabilityRepository, times(2)).save(any(RoomAvailability.class));
+        verify(roomInventoryHoldService, times(1)).saveAll(any());
     }
 
     @Test
@@ -250,5 +258,105 @@ class RoomAvailabilityServiceTest {
 
         assertThat(av10.getLockedRooms()).isEqualTo(1);
         verify(roomAvailabilityRepository, times(1)).save(av10);
+    }
+
+    @Test
+    @DisplayName("batchReleaseInventory with sessionId releases all granular holds for that session and marks RELEASED")
+    void testBatchReleaseInventory_BySessionId() {
+        String sessionId = "session-test-123";
+        RoomAvailability av10 = RoomAvailability.builder()
+                .hotelRoomType(hotelRoomType)
+                .date(LocalDate.of(2026, 10, 1))
+                .totalRooms(5)
+                .lockedRooms(2)
+                .build();
+
+        RoomInventoryHold hold = RoomInventoryHold.builder()
+                .id(1L)
+                .sessionId(sessionId)
+                .hotelRoomType(hotelRoomType)
+                .holdDate(LocalDate.of(2026, 10, 1))
+                .quantity(2)
+                .status(RoomInventoryHoldStatus.HELD)
+                .build();
+
+        when(roomInventoryHoldService.findActiveHoldsBySessionId(sessionId))
+                .thenReturn(List.of(hold));
+        when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(10, LocalDate.of(2026, 10, 1)))
+                .thenReturn(Optional.of(av10));
+
+        BatchReleaseInventoryRequest request = BatchReleaseInventoryRequest.builder()
+                .sessionId(sessionId)
+                .releaseReason(HoldReleaseReason.USER_CANCELLED)
+                .build();
+
+        roomAvailabilityService.batchReleaseInventory(request);
+
+        assertThat(av10.getLockedRooms()).isEqualTo(0);
+        verify(roomInventoryHoldService, times(1)).markHoldsReleased(List.of(hold), HoldReleaseReason.USER_CANCELLED);
+    }
+
+    @Test
+    @DisplayName("commitHoldInventory transfers locked rooms to booked rooms and marks COMMITTED")
+    void testCommitHoldInventory_Success() {
+        String sessionId = "session-commit-123";
+        RoomAvailability av10 = RoomAvailability.builder()
+                .hotelRoomType(hotelRoomType)
+                .date(LocalDate.of(2026, 10, 1))
+                .totalRooms(5)
+                .lockedRooms(2)
+                .bookedRooms(1)
+                .build();
+
+        RoomInventoryHold hold = RoomInventoryHold.builder()
+                .id(1L)
+                .sessionId(sessionId)
+                .hotelRoomType(hotelRoomType)
+                .holdDate(LocalDate.of(2026, 10, 1))
+                .quantity(2)
+                .status(RoomInventoryHoldStatus.HELD)
+                .build();
+
+        when(roomInventoryHoldService.findActiveHoldsBySessionId(sessionId))
+                .thenReturn(List.of(hold));
+        when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(10, LocalDate.of(2026, 10, 1)))
+                .thenReturn(Optional.of(av10));
+
+        roomAvailabilityService.commitHoldInventory(sessionId);
+
+        assertThat(av10.getLockedRooms()).isEqualTo(0);
+        assertThat(av10.getBookedRooms()).isEqualTo(3);
+        verify(roomInventoryHoldService, times(1)).markHoldsCommitted(List.of(hold));
+    }
+
+    @Test
+    @DisplayName("releaseExpiredHolds finds expired holds and releases locked rooms with REASON_EXPIRED")
+    void testReleaseExpiredHolds_Success() {
+        RoomAvailability av10 = RoomAvailability.builder()
+                .hotelRoomType(hotelRoomType)
+                .date(LocalDate.of(2026, 10, 1))
+                .totalRooms(5)
+                .lockedRooms(1)
+                .build();
+
+        RoomInventoryHold expiredHold = RoomInventoryHold.builder()
+                .id(1L)
+                .sessionId("expired-session")
+                .hotelRoomType(hotelRoomType)
+                .holdDate(LocalDate.of(2026, 10, 1))
+                .quantity(1)
+                .status(RoomInventoryHoldStatus.HELD)
+                .build();
+
+        when(roomInventoryHoldService.findExpiredHolds(any()))
+                .thenReturn(List.of(expiredHold));
+        when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(10, LocalDate.of(2026, 10, 1)))
+                .thenReturn(Optional.of(av10));
+
+        int released = roomAvailabilityService.releaseExpiredHolds();
+
+        assertThat(released).isEqualTo(1);
+        assertThat(av10.getLockedRooms()).isEqualTo(0);
+        verify(roomInventoryHoldService, times(1)).markHoldsReleased(List.of(expiredHold), HoldReleaseReason.EXPIRED);
     }
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261011-210000-add-full-name-to-booking-guests-and-notes-to-bookings" author="utc-hotel-team">
+        <comment>Bổ sung cột full_name cho booking_guests và cột notes cho bookings</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261011-210000-add-full-name-to-booking-guests-and-notes-to-bookings.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

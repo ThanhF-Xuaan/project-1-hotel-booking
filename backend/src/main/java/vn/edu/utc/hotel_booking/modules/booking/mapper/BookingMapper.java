@@ -12,7 +12,7 @@ public interface BookingMapper {
     @Mapping(target = "hotelName", source = "hotel.name")
     @Mapping(target = "guestId", source = "guest.id")
     @Mapping(target = "guestPhone", source = "guest.phone")
-    @Mapping(target = "guestName", source = "guest.phone")
+    @Mapping(target = "guestName", source = "guest.fullName")
     @Mapping(target = "companyId", source = "company.id")
     @Mapping(target = "companyName", source = "company.name")
     @Mapping(target = "bookingDetails", source = "bookingDetails")
