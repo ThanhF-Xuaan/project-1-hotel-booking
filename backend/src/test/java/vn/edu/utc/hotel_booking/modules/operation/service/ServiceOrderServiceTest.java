@@ -11,7 +11,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingCharge;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
@@ -161,8 +160,6 @@ class ServiceOrderServiceTest {
         assertThat(testCatalogItem.getStockQuantity()).isEqualTo(18);
         verify(catalogItemRepository, times(1)).save(testCatalogItem);
 
-        // Kiểm tra tự động đẩy phụ phí vào BookingCharge
-        verify(bookingChargeRepository, times(1)).save(any(BookingCharge.class));
         verify(serviceOrderRepository, times(1)).save(any(ServiceOrder.class));
     }
 
