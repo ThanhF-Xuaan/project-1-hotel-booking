@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.PublicBookingSearchService;
@@ -84,6 +85,19 @@ public class PublicBookingSearchController {
         return ApiResponse.<RoomPriceQuoteResponse>builder()
                 .code(HttpStatus.OK.value())
                 .message("Tính toán báo giá phòng thành công")
+                .result(response)
+                .build();
+    }
+
+    @PostMapping("/cart-quote")
+    @Operation(summary = "Tính toán lại toàn bộ báo giá giỏ hàng đa hạng phòng thời gian thực (Multi-room Cart Quote)")
+    public ApiResponse<CartPriceQuoteResponse> calculateCartQuote(
+            @Valid @RequestBody CartPriceQuoteRequest request
+    ) {
+        CartPriceQuoteResponse response = publicBookingSearchService.calculateCartQuote(request);
+        return ApiResponse.<CartPriceQuoteResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Tính toán báo giá giỏ hàng thành công")
                 .result(response)
                 .build();
     }

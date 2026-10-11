@@ -49,4 +49,21 @@ public class PublicAvailabilityController {
         roomAvailabilityService.releaseInventory(request);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
+
+    @PostMapping("/batch-hold")
+    @Operation(summary = "Khóa tạm giữ đồng thời nhiều hạng phòng trong giỏ hàng (Batch TTL-based lock)")
+    public ResponseEntity<ApiResponse<Void>> batchHoldInventory(
+            @Valid @RequestBody vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchHoldInventoryRequest request) {
+        roomAvailabilityService.batchHoldInventory(request);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @PostMapping("/batch-release")
+    @Operation(summary = "Hủy khóa tạm giữ giỏ hàng nhiều hạng phòng khi khách hủy thanh toán")
+    public ResponseEntity<ApiResponse<Void>> batchReleaseInventory(
+            @Valid @RequestBody vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchReleaseInventoryRequest request) {
+        roomAvailabilityService.batchReleaseInventory(request);
+        return ResponseEntity.ok(ApiResponse.success(null));
+    }
 }
+

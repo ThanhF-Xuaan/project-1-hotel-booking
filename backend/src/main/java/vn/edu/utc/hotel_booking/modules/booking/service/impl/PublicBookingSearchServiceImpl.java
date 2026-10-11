@@ -8,6 +8,7 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.DestinationType;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
@@ -510,6 +511,93 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                 .requestedExtraBeds(extraBeds)
                 .surchargeSummary(surchargeSummary)
                 .priceBreakdown(breakdown)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CartPriceQuoteResponse calculateCartQuote(CartPriceQuoteRequest request) {
+        if (request == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Dữ liệu yêu cầu báo giá giỏ hàng không được để trống");
+        }
+        validateDates(request.getCheckInDate(), request.getCheckOutDate());
+
+        if (request.getHotelId() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID khách sạn không được để trống");
+        }
+
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Giỏ hàng không được để trống");
+        }
+
+        List<RoomPriceQuoteResponse> itemizedQuotes = new ArrayList<>();
+        BigDecimal totalBasePrice = BigDecimal.ZERO;
+        BigDecimal totalSurchargeAmount = BigDecimal.ZERO;
+        BigDecimal totalDiscountAmount = BigDecimal.ZERO;
+        BigDecimal totalRoomNetAmount = BigDecimal.ZERO;
+        BigDecimal totalRoomServiceFee = BigDecimal.ZERO;
+        BigDecimal totalRoomVat = BigDecimal.ZERO;
+        BigDecimal finalTotalAmount = BigDecimal.ZERO;
+
+        String appliedVoucherCode = null;
+        String appliedPromotionName = null;
+        int totalRoomsCount = 0;
+
+        for (CartPriceQuoteRequest.CartItemQuoteRequest item : request.getItems()) {
+            short quantity = (item.getQuantity() != null && item.getQuantity() > 0) ? item.getQuantity() : (short) 1;
+
+            for (int i = 0; i < quantity; i++) {
+                RoomPriceQuoteRequest singleReq = RoomPriceQuoteRequest.builder()
+                        .hotelRoomTypeId(item.getHotelRoomTypeId())
+                        .checkInDate(request.getCheckInDate())
+                        .checkOutDate(request.getCheckOutDate())
+                        .adults(item.getAdults() != null ? item.getAdults() : (short) 2)
+                        .children(item.getChildren() != null ? item.getChildren() : (short) 0)
+                        .infants(item.getInfants() != null ? item.getInfants() : (short) 0)
+                        .extraBeds(item.getExtraBeds() != null ? item.getExtraBeds() : (short) 0)
+                        .voucherCode(request.getVoucherCode())
+                        .build();
+
+                RoomPriceQuoteResponse singleQuote = calculateRoomQuote(singleReq);
+                itemizedQuotes.add(singleQuote);
+                totalRoomsCount++;
+
+                PriceBreakdownDto breakdown = singleQuote.getPriceBreakdown();
+                if (breakdown != null) {
+                    if (appliedVoucherCode == null && breakdown.getAppliedVoucherCode() != null) {
+                        appliedVoucherCode = breakdown.getAppliedVoucherCode();
+                        appliedPromotionName = breakdown.getAppliedPromotionName();
+                    }
+
+                    totalBasePrice = totalBasePrice.add(breakdown.getTotalBasePrice() != null ? breakdown.getTotalBasePrice() : BigDecimal.ZERO);
+                    totalSurchargeAmount = totalSurchargeAmount.add(breakdown.getTotalSurchargeAmount() != null ? breakdown.getTotalSurchargeAmount() : BigDecimal.ZERO);
+                    totalDiscountAmount = totalDiscountAmount.add(breakdown.getTotalDiscountAmount() != null ? breakdown.getTotalDiscountAmount() : BigDecimal.ZERO);
+                    totalRoomNetAmount = totalRoomNetAmount.add(breakdown.getTotalRoomNetAmount() != null ? breakdown.getTotalRoomNetAmount() : BigDecimal.ZERO);
+                    totalRoomServiceFee = totalRoomServiceFee.add(breakdown.getTotalRoomServiceFee() != null ? breakdown.getTotalRoomServiceFee() : BigDecimal.ZERO);
+                    totalRoomVat = totalRoomVat.add(breakdown.getTotalRoomVat() != null ? breakdown.getTotalRoomVat() : BigDecimal.ZERO);
+                    finalTotalAmount = finalTotalAmount.add(breakdown.getFinalTotalAmount() != null ? breakdown.getFinalTotalAmount() : BigDecimal.ZERO);
+                }
+            }
+        }
+
+        long totalNights = ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
+
+        return CartPriceQuoteResponse.builder()
+                .hotelId(request.getHotelId())
+                .checkInDate(request.getCheckInDate())
+                .checkOutDate(request.getCheckOutDate())
+                .totalNights((int) totalNights)
+                .totalRooms(totalRoomsCount)
+                .appliedVoucherCode(appliedVoucherCode)
+                .appliedPromotionName(appliedPromotionName)
+                .totalBasePrice(totalBasePrice)
+                .totalSurchargeAmount(totalSurchargeAmount)
+                .totalDiscountAmount(totalDiscountAmount)
+                .totalRoomNetAmount(totalRoomNetAmount)
+                .totalRoomServiceFee(totalRoomServiceFee)
+                .totalRoomVat(totalRoomVat)
+                .finalTotalAmount(finalTotalAmount)
+                .itemizedQuotes(itemizedQuotes)
                 .build();
     }
 }

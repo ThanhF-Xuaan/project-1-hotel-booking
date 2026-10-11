@@ -506,27 +506,119 @@ class PublicBookingSearchServiceTest {
     }
 
     @Test
-    @DisplayName("calculateRoomQuote: Ném ngoại lệ khi số giường phụ vượt quá giới hạn cho phép của phòng")
-    void calculateRoomQuote_ExtraBedsExceedMax_ThrowsException() {
-        HotelRoomTypeResponse rt = HotelRoomTypeResponse.builder()
+    @DisplayName("calculateCartQuote: Tính báo giá giỏ hàng nhiều phòng thành công kèm voucher")
+    void calculateCartQuote_Success() {
+        HotelRoomTypeResponse rt1 = HotelRoomTypeResponse.builder()
                 .id(101)
-                .extraBeds((short) 0) // Không cho phép giường phụ
-                .build();
-
-        when(hotelRoomTypeService.getHotelRoomTypeById(101)).thenReturn(rt);
-
-        RoomPriceQuoteRequest req = RoomPriceQuoteRequest.builder()
-                .hotelRoomTypeId(101)
-                .checkInDate(checkIn)
-                .checkOutDate(checkOut)
-                .adults((short) 1)
+                .hotelId((short) 1)
+                .roomTypeCode("STD")
+                .roomTypeName("Standard")
+                .standardAdults((short) 2)
+                .maxAdults((short) 2)
+                .maxChildren((short) 1)
+                .maxInfants((short) 1)
+                .maxTotalGuests((short) 3)
                 .extraBeds((short) 1)
+                .basePrice(BigDecimal.valueOf(1000000))
                 .build();
 
-        assertThatThrownBy(() -> publicBookingSearchService.calculateRoomQuote(req))
+        HotelRoomTypeResponse rt2 = HotelRoomTypeResponse.builder()
+                .id(102)
+                .hotelId((short) 1)
+                .roomTypeCode("DLX")
+                .roomTypeName("Deluxe")
+                .standardAdults((short) 2)
+                .maxAdults((short) 3)
+                .maxChildren((short) 2)
+                .maxInfants((short) 1)
+                .maxTotalGuests((short) 4)
+                .extraBeds((short) 1)
+                .basePrice(BigDecimal.valueOf(2000000))
+                .build();
+
+        when(hotelRoomTypeService.getHotelRoomTypeById(101)).thenReturn(rt1);
+        when(hotelRoomTypeService.getHotelRoomTypeById(102)).thenReturn(rt2);
+
+        PriceBreakdownDto breakdown1 = PriceBreakdownDto.builder()
+                .totalBasePrice(BigDecimal.valueOf(2000000))
+                .totalSurchargeAmount(BigDecimal.ZERO)
+                .totalDiscountAmount(BigDecimal.valueOf(200000))
+                .preTaxAmount(BigDecimal.valueOf(1800000))
+                .totalRoomServiceFee(BigDecimal.valueOf(90000))
+                .vatAmount(BigDecimal.valueOf(189000))
+                .finalTotalAmount(BigDecimal.valueOf(2079000))
+                .dailyPrices(Collections.emptyList())
+                .build();
+
+        PriceBreakdownDto breakdown2 = PriceBreakdownDto.builder()
+                .totalBasePrice(BigDecimal.valueOf(4000000))
+                .totalSurchargeAmount(BigDecimal.valueOf(300000))
+                .totalDiscountAmount(BigDecimal.valueOf(400000))
+                .preTaxAmount(BigDecimal.valueOf(3900000))
+                .totalRoomServiceFee(BigDecimal.valueOf(195000))
+                .vatAmount(BigDecimal.valueOf(409500))
+                .finalTotalAmount(BigDecimal.valueOf(4504500))
+                .dailyPrices(Collections.emptyList())
+                .build();
+
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class)))
+                .thenReturn(breakdown1)
+                .thenReturn(breakdown2);
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest item1 =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest.builder()
+                        .hotelRoomTypeId(101)
+                        .quantity((short) 1)
+                        .adults((short) 2)
+                        .children((short) 0)
+                        .infants((short) 0)
+                        .extraBeds((short) 0)
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest item2 =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest.builder()
+                        .hotelRoomTypeId(102)
+                        .quantity((short) 1)
+                        .adults((short) 2)
+                        .children((short) 1)
+                        .infants((short) 0)
+                        .extraBeds((short) 1)
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest cartReq =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.builder()
+                        .hotelId((short) 1)
+                        .checkInDate(checkIn)
+                        .checkOutDate(checkOut)
+                        .voucherCode("SUMMERPROMO")
+                        .items(List.of(item1, item2))
+                        .build();
+
+        CartPriceQuoteResponse response = publicBookingSearchService.calculateCartQuote(cartReq);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getItemizedQuotes()).hasSize(2);
+        assertThat(response.getTotalBasePrice()).isEqualByComparingTo(BigDecimal.valueOf(6000000));
+        assertThat(response.getTotalSurchargeAmount()).isEqualByComparingTo(BigDecimal.valueOf(300000));
+        assertThat(response.getTotalDiscountAmount()).isEqualByComparingTo(BigDecimal.valueOf(600000));
+        assertThat(response.getFinalTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(6583500));
+    }
+
+    @Test
+    @DisplayName("calculateCartQuote: Ném ngoại lệ khi giỏ hàng rỗng")
+    void calculateCartQuote_EmptyItems_ThrowsException() {
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest cartReq =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.builder()
+                        .hotelId((short) 1)
+                        .checkInDate(checkIn)
+                        .checkOutDate(checkOut)
+                        .items(Collections.emptyList())
+                        .build();
+
+        assertThatThrownBy(() -> publicBookingSearchService.calculateCartQuote(cartReq))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA)
-                .hasMessageContaining("vượt quá số giường phụ tối đa có thể kê thêm");
+                .hasMessageContaining("Giỏ hàng không được để trống");
     }
 }
 

@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchHoldInventoryRequest;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchReleaseInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HoldInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.ReleaseInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAvailabilitySearchDto;
@@ -151,6 +153,56 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
                 roomAvailabilityRepository.save(availability);
             }
             cur = cur.plusDays(1);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void batchHoldInventory(BatchHoldInventoryRequest request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Danh sách hạng phòng cần giữ không được để trống");
+        }
+        if (!request.getCheckOutDate().isAfter(request.getCheckInDate())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ngày check-out phải sau ngày check-in");
+        }
+
+        // Lock Ordering: Sắp xếp danh sách hạng phòng theo hotelRoomTypeId tăng dần (ASC) để tránh Deadlock
+        List<BatchHoldInventoryRequest.RoomTypeHoldItem> sortedItems = new ArrayList<>(request.getItems());
+        sortedItems.sort(Comparator.comparing(BatchHoldInventoryRequest.RoomTypeHoldItem::getHotelRoomTypeId));
+
+        for (BatchHoldInventoryRequest.RoomTypeHoldItem item : sortedItems) {
+            HoldInventoryRequest holdReq = HoldInventoryRequest.builder()
+                    .hotelRoomTypeId(item.getHotelRoomTypeId())
+                    .checkInDate(request.getCheckInDate())
+                    .checkOutDate(request.getCheckOutDate())
+                    .roomsCount(item.getRoomsCount())
+                    .holdMinutes(request.getHoldMinutes() != null ? request.getHoldMinutes() : 15)
+                    .build();
+            holdInventory(holdReq);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void batchReleaseInventory(BatchReleaseInventoryRequest request) {
+        if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
+            return;
+        }
+        if (!request.getCheckOutDate().isAfter(request.getCheckInDate())) {
+            return;
+        }
+
+        List<BatchHoldInventoryRequest.RoomTypeHoldItem> sortedItems = new ArrayList<>(request.getItems());
+        sortedItems.sort(Comparator.comparing(BatchHoldInventoryRequest.RoomTypeHoldItem::getHotelRoomTypeId));
+
+        for (BatchHoldInventoryRequest.RoomTypeHoldItem item : sortedItems) {
+            ReleaseInventoryRequest relReq = ReleaseInventoryRequest.builder()
+                    .hotelRoomTypeId(item.getHotelRoomTypeId())
+                    .checkInDate(request.getCheckInDate())
+                    .checkOutDate(request.getCheckOutDate())
+                    .roomsCount(item.getRoomsCount())
+                    .build();
+            releaseInventory(relReq);
         }
     }
 

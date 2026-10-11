@@ -45,6 +45,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,7 +87,7 @@ public class BookingServiceImpl implements BookingService {
         Company company = null;
         if (request.getCompanyId() != null) {
             company = companyRepository.findByIdAndIsDeletedFalse(request.getCompanyId())
-                    .orElseThrow(() -> new AppException(ErrorCode.COMPANY_NOT_FOUND, "Không tìm thấy doanh nghiệp đối tác ID: " + request.getCompanyId()));
+                .orElseThrow(() -> new AppException(ErrorCode.COMPANY_NOT_FOUND, "Không tìm thấy doanh nghiệp đối tác ID: " + request.getCompanyId()));
         }
 
         String bookingNumber = generateBookingNumber();
@@ -110,7 +111,11 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal bookingVatTotal = BigDecimal.ZERO;
         List<BookingDetail> details = new ArrayList<>();
 
-        for (BookingCreateRequest.RoomItemRequest roomReq : request.getRooms()) {
+        // Sắp xếp danh sách phòng theo hotelRoomTypeId tăng dần để đảm bảo Sequential Lock Ordering tránh Deadlock
+        List<BookingCreateRequest.RoomItemRequest> sortedRooms = new ArrayList<>(request.getRooms());
+        sortedRooms.sort(Comparator.comparing(BookingCreateRequest.RoomItemRequest::getHotelRoomTypeId));
+
+        for (BookingCreateRequest.RoomItemRequest roomReq : sortedRooms) {
             if (!roomReq.getCheckInDate().isBefore(roomReq.getCheckOutDate())) {
                 throw new AppException(ErrorCode.INVALID_BOOKING_DATES,
                         "Ngày nhận phòng (" + roomReq.getCheckInDate() + ") phải trước ngày trả phòng (" + roomReq.getCheckOutDate() + ")");
@@ -119,6 +124,34 @@ public class BookingServiceImpl implements BookingService {
             HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdAndIsDeletedFalse(roomReq.getHotelRoomTypeId())
                     .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND,
                             "Không tìm thấy cấu hình loại phòng: " + roomReq.getHotelRoomTypeId()));
+
+            // Kiểm tra ràng buộc sức chứa (Capacity Constraints)
+            short reqAdults = roomReq.getAdultCount() != null ? roomReq.getAdultCount() : (short) 1;
+            short reqChildren = roomReq.getChildCount() != null ? roomReq.getChildCount() : (short) 0;
+            short reqInfants = roomReq.getInfantCount() != null ? roomReq.getInfantCount() : (short) 0;
+            short reqExtraBeds = roomReq.getExtraBeds() != null ? roomReq.getExtraBeds() : (short) 0;
+            short totalGuests = (short) (reqAdults + reqChildren + reqInfants);
+
+            if (hotelRoomType.getMaxAdults() != null && reqAdults > hotelRoomType.getMaxAdults()) {
+                throw new AppException(ErrorCode.EXCEEDS_MAX_CAPACITY,
+                        "Số người lớn (" + reqAdults + ") vượt quá số người lớn tối đa (" + hotelRoomType.getMaxAdults() + ") của hạng phòng " + hotelRoomType.getRoomType().getName());
+            }
+            if (hotelRoomType.getMaxChildren() != null && reqChildren > hotelRoomType.getMaxChildren()) {
+                throw new AppException(ErrorCode.EXCEEDS_MAX_CAPACITY,
+                        "Số trẻ em (" + reqChildren + ") vượt quá số trẻ em tối đa (" + hotelRoomType.getMaxChildren() + ") của hạng phòng " + hotelRoomType.getRoomType().getName());
+            }
+            if (hotelRoomType.getMaxInfants() != null && reqInfants > hotelRoomType.getMaxInfants()) {
+                throw new AppException(ErrorCode.EXCEEDS_MAX_CAPACITY,
+                        "Số em bé (" + reqInfants + ") vượt quá số em bé tối đa (" + hotelRoomType.getMaxInfants() + ") của hạng phòng " + hotelRoomType.getRoomType().getName());
+            }
+            if (hotelRoomType.getMaxTotalGuests() != null && totalGuests > hotelRoomType.getMaxTotalGuests()) {
+                throw new AppException(ErrorCode.EXCEEDS_MAX_CAPACITY,
+                        "Tổng số khách (" + totalGuests + ") vượt quá sức chứa tối đa (" + hotelRoomType.getMaxTotalGuests() + ") của hạng phòng " + hotelRoomType.getRoomType().getName());
+            }
+            if (hotelRoomType.getExtraBeds() != null && reqExtraBeds > hotelRoomType.getExtraBeds()) {
+                throw new AppException(ErrorCode.EXCEEDS_MAX_CAPACITY,
+                        "Số giường phụ (" + reqExtraBeds + ") vượt quá số giường phụ tối đa (" + hotelRoomType.getExtraBeds() + ") của hạng phòng " + hotelRoomType.getRoomType().getName());
+            }
 
             // 1. Giữ/Trừ quỹ phòng tổng hợp (Aggregate Inventory)
             int quantity = roomReq.getQuantity() != null ? roomReq.getQuantity().intValue() : 1;
@@ -129,8 +162,11 @@ public class BookingServiceImpl implements BookingService {
                     .hotelRoomTypeId(hotelRoomType.getId())
                     .checkInDate(roomReq.getCheckInDate())
                     .checkOutDate(roomReq.getCheckOutDate())
-                    .adults(roomReq.getAdultCount() != null ? roomReq.getAdultCount() : (short) 1)
-                    .children(roomReq.getChildCount() != null ? roomReq.getChildCount() : (short) 0)
+                    .adults(reqAdults)
+                    .children(reqChildren)
+                    .infants(reqInfants)
+                    .extraBeds(reqExtraBeds)
+                    .voucherCode(request.getVoucherCode())
                     .build();
             PriceBreakdownDto priceBreakdown = priceEngine.calculatePrice(priceReq);
 
@@ -162,10 +198,10 @@ public class BookingServiceImpl implements BookingService {
                     }
                 }
 
-                short adultCount = roomReq.getAdultCount() != null ? roomReq.getAdultCount() : 1;
-                short childCount = roomReq.getChildCount() != null ? roomReq.getChildCount() : 0;
-                short infantCount = roomReq.getInfantCount() != null ? roomReq.getInfantCount() : 0;
-                short guestCount = (short) (adultCount + childCount + infantCount);
+                short adultCount = reqAdults;
+                short childCount = reqChildren;
+                short infantCount = reqInfants;
+                short guestCount = totalGuests;
 
                 BookingRoom bookingRoom = BookingRoom.builder()
                         .bookingDetail(detail)

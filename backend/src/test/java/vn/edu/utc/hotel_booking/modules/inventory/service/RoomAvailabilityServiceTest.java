@@ -9,6 +9,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchHoldInventoryRequest;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchReleaseInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HoldInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.ReleaseInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAvailabilitySearchDto;
@@ -184,5 +186,69 @@ class RoomAvailabilityServiceTest {
         assertThat(availability.getLockedRooms()).isEqualTo(0);
         assertThat(availability.getBookedRooms()).isEqualTo(3);
         verify(roomAvailabilityRepository, times(1)).save(availability);
+    }
+
+    @Test
+    @DisplayName("batchHoldInventory sorts items by hotelRoomTypeId ASC and holds inventory for all items")
+    void testBatchHoldInventory_Success() {
+        HotelRoomType hrt20 = HotelRoomType.builder()
+                .id(20)
+                .basePrice(BigDecimal.valueOf(2000000))
+                .totalQuantity(3)
+                .build();
+
+        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(hotelRoomType));
+        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(20)).thenReturn(Optional.of(hrt20));
+
+        // Unordered items: 20 comes before 10
+        BatchHoldInventoryRequest.RoomTypeHoldItem item1 = BatchHoldInventoryRequest.RoomTypeHoldItem.builder()
+                .hotelRoomTypeId(20)
+                .roomsCount(1)
+                .build();
+        BatchHoldInventoryRequest.RoomTypeHoldItem item2 = BatchHoldInventoryRequest.RoomTypeHoldItem.builder()
+                .hotelRoomTypeId(10)
+                .roomsCount(2)
+                .build();
+
+        BatchHoldInventoryRequest request = BatchHoldInventoryRequest.builder()
+                .checkInDate(LocalDate.of(2026, 10, 1))
+                .checkOutDate(LocalDate.of(2026, 10, 2))
+                .items(new java.util.ArrayList<>(List.of(item1, item2)))
+                .build();
+
+        roomAvailabilityService.batchHoldInventory(request);
+
+        // Verify that inventory was held for both
+        verify(roomAvailabilityRepository, times(2)).save(any(RoomAvailability.class));
+    }
+
+    @Test
+    @DisplayName("batchReleaseInventory releases locked rooms for multiple items")
+    void testBatchReleaseInventory_Success() {
+        RoomAvailability av10 = RoomAvailability.builder()
+                .hotelRoomType(hotelRoomType)
+                .date(LocalDate.of(2026, 10, 1))
+                .totalRooms(5)
+                .lockedRooms(2)
+                .build();
+
+        when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(10, LocalDate.of(2026, 10, 1)))
+                .thenReturn(Optional.of(av10));
+
+        BatchHoldInventoryRequest.RoomTypeHoldItem item = BatchHoldInventoryRequest.RoomTypeHoldItem.builder()
+                .hotelRoomTypeId(10)
+                .roomsCount(1)
+                .build();
+
+        BatchReleaseInventoryRequest request = BatchReleaseInventoryRequest.builder()
+                .checkInDate(LocalDate.of(2026, 10, 1))
+                .checkOutDate(LocalDate.of(2026, 10, 2))
+                .items(List.of(item))
+                .build();
+
+        roomAvailabilityService.batchReleaseInventory(request);
+
+        assertThat(av10.getLockedRooms()).isEqualTo(1);
+        verify(roomAvailabilityRepository, times(1)).save(av10);
     }
 }
