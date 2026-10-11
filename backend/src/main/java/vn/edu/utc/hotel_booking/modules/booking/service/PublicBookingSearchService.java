@@ -7,6 +7,9 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.AvailableRoomTypeRe
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.DestinationSuggestionResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.UnifiedBookingSearchResponse;
 
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomPriceQuoteResponse;
+
 import java.util.List;
 
 public interface PublicBookingSearchService {
@@ -18,4 +21,7 @@ public interface PublicBookingSearchService {
     PageResponse<AvailableHotelResponse> searchHotels(BookingSearchRequest request);
 
     List<AvailableRoomTypeResponse> searchRooms(BookingSearchRequest request);
+
+    RoomPriceQuoteResponse calculateRoomQuote(RoomPriceQuoteRequest request);
 }
+

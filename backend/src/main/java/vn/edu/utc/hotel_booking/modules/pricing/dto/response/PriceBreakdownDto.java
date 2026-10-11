@@ -41,6 +41,15 @@ public class PriceBreakdownDto {
     @Schema(description = "Tổng số tiền phụ thu tiền phòng", example = "400000.00")
     BigDecimal totalSurchargeAmount;
 
+    @Schema(description = "Tổng phụ thu người lớn toàn kỳ", example = "400000.00")
+    BigDecimal totalExtraAdultsSurcharge;
+
+    @Schema(description = "Tổng phụ thu trẻ em toàn kỳ", example = "200000.00")
+    BigDecimal totalExtraChildrenSurcharge;
+
+    @Schema(description = "Tổng phụ thu giường phụ toàn kỳ", example = "600000.00")
+    BigDecimal totalExtraBedsSurcharge;
+
     @Schema(description = "Tổng điều chỉnh tăng giá (mùa vụ, cuối tuần, lễ tết)", example = "480000.00")
     BigDecimal totalRateAdjustmentAmount;
 

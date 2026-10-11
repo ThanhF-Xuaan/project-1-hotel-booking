@@ -17,6 +17,12 @@ public class DailyRateContext {
     LocalDate date;
     BigDecimal baseRate;
     BigDecimal surchargeAmount;
+    @Builder.Default
+    BigDecimal extraAdultsSurcharge = BigDecimal.ZERO;
+    @Builder.Default
+    BigDecimal extraChildrenSurcharge = BigDecimal.ZERO;
+    @Builder.Default
+    BigDecimal extraBedsSurcharge = BigDecimal.ZERO;
     BigDecimal rateAfterSurcharge;
 
     // Dynamic Rate Adjustment Resolution (Itemized Modifiers)

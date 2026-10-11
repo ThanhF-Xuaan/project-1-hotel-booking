@@ -237,16 +237,26 @@ class PriceEngineTest {
                 .extraBeds((short) 0)
                 .build();
 
+        SurchargeRule extraAdultRule = SurchargeRule.builder()
+                .id(1)
+                .ruleType("EXTRA_PERSON")
+                .adjustmentType("FIXED")
+                .adjustmentValue(new BigDecimal("200000.00"))
+                .startDate(LocalDate.of(2026, 1, 1))
+                .endDate(LocalDate.of(2027, 12, 31))
+                .build();
+
         when(hotelRoomTypeRepository.findByIdWithDetails(1)).thenReturn(Optional.of(hotelRoomType));
         when(pricingRuleRepository.findActiveRulesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
         when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
-        when(surchargeRuleRepository.findActiveSurchargesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
+        when(surchargeRuleRepository.findActiveSurchargesForRoomType(eq(1), any(), any())).thenReturn(List.of(extraAdultRule));
         when(vatRuleRepository.findActiveVatRule(eq(1), any())).thenReturn(Optional.of(vatRule));
 
         PriceBreakdownDto breakdown = priceEngine.calculatePrice(request);
 
-        // Fallback 20% of basePrice (1,000,000) = 200,000
+        // Extra Adult rule: 200,000 VND
         assertThat(breakdown.getTotalSurchargeAmount()).isEqualByComparingTo("200000.00");
+        assertThat(breakdown.getTotalExtraAdultsSurcharge()).isEqualByComparingTo("200000.00");
         assertThat(breakdown.getPreTaxAmount()).isEqualByComparingTo("1200000.00");
         assertThat(breakdown.getTotalRoomServiceFee()).isEqualByComparingTo("60000.00");
         assertThat(breakdown.getVatAmount()).isEqualByComparingTo("126000.00");

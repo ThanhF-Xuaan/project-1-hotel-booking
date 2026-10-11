@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.PublicBookingSearchService;
 
@@ -73,4 +74,18 @@ public class PublicBookingSearchController {
                 .result(response)
                 .build();
     }
+
+    @PostMapping("/quote")
+    @Operation(summary = "Tính toán lại giá phòng và các khoản phụ thu thời gian thực khi khách chọn số lượng Người lớn, Trẻ em, Trẻ sơ sinh và Giường phụ")
+    public ApiResponse<RoomPriceQuoteResponse> calculateRoomQuote(
+            @Valid @RequestBody RoomPriceQuoteRequest request
+    ) {
+        RoomPriceQuoteResponse response = publicBookingSearchService.calculateRoomQuote(request);
+        return ApiResponse.<RoomPriceQuoteResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Tính toán báo giá phòng thành công")
+                .result(response)
+                .build();
+    }
 }
+
