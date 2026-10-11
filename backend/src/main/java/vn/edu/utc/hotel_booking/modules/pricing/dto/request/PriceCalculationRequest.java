@@ -37,6 +37,11 @@ public class PriceCalculationRequest {
     @Builder.Default
     Short children = 0;
 
+    @Min(value = 0, message = "Số trẻ sơ sinh tối thiểu là 0")
+    @Schema(description = "Số trẻ sơ sinh (0-5 tuổi)", example = "0")
+    @Builder.Default
+    Short infants = 0;
+
     @Min(value = 0, message = "Số giường phụ tối thiểu là 0")
     @Schema(description = "Số giường phụ yêu cầu", example = "0")
     @Builder.Default

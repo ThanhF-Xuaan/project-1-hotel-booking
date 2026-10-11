@@ -13,6 +13,9 @@ import java.math.BigDecimal;
 public class PricingSummary {
     BigDecimal totalBasePrice;
     BigDecimal totalSurchargeAmount;
+    BigDecimal totalExtraAdultsSurcharge;
+    BigDecimal totalExtraChildrenSurcharge;
+    BigDecimal totalExtraBedsSurcharge;
     BigDecimal totalRateAdjustmentAmount;
     BigDecimal totalSeasonalAdjustment;
     BigDecimal totalHolidayAdjustment;

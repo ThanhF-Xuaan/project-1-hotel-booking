@@ -12,6 +12,7 @@ import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.DestinationType;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.impl.PublicBookingSearchServiceImpl;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeSearchDto;
@@ -385,4 +386,147 @@ class PublicBookingSearchServiceTest {
         assertThat(suggestions.get(1).getType()).isEqualTo(DestinationType.HOTEL);
         assertThat(suggestions.get(1).getTitle()).isEqualTo("Viettel Luxury Hà Nội");
     }
+
+    @Test
+    @DisplayName("calculateRoomQuote: Tính toán lại giá phòng và phụ thu thành công với đầy đủ bóc tách")
+    void calculateRoomQuote_Success() {
+        // Arrange
+        HotelRoomTypeResponse rt = HotelRoomTypeResponse.builder()
+                .id(101)
+                .roomTypeCode("DLX")
+                .roomTypeName("Deluxe Sea View")
+                .standardAdults((short) 2)
+                .standardChildren((short) 0)
+                .maxAdults((short) 4)
+                .maxChildren((short) 2)
+                .maxInfants((short) 2)
+                .maxTotalGuests((short) 5)
+                .extraBeds((short) 1)
+                .build();
+
+        when(hotelRoomTypeService.getHotelRoomTypeById(101)).thenReturn(rt);
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .hotelRoomTypeId(101)
+                .totalBasePrice(new BigDecimal("2000000.00"))
+                .totalExtraAdultsSurcharge(new BigDecimal("400000.00"))
+                .totalExtraChildrenSurcharge(new BigDecimal("200000.00"))
+                .totalExtraBedsSurcharge(new BigDecimal("600000.00"))
+                .totalSurchargeAmount(new BigDecimal("1200000.00"))
+                .totalRoomGrossAmount(new BigDecimal("3528000.00"))
+                .finalTotalAmount(new BigDecimal("3528000.00"))
+                .build();
+
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class))).thenReturn(breakdown);
+
+        RoomPriceQuoteRequest req = RoomPriceQuoteRequest.builder()
+                .hotelRoomTypeId(101)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .adults((short) 3)
+                .children((short) 1)
+                .infants((short) 1)
+                .extraBeds((short) 1)
+                .build();
+
+        // Act
+        RoomPriceQuoteResponse quote = publicBookingSearchService.calculateRoomQuote(req);
+
+        // Assert
+        assertThat(quote).isNotNull();
+        assertThat(quote.getHotelRoomTypeId()).isEqualTo(101);
+        assertThat(quote.getRequestedAdults()).isEqualTo((short) 3);
+        assertThat(quote.getRequestedChildren()).isEqualTo((short) 1);
+        assertThat(quote.getRequestedInfants()).isEqualTo((short) 1);
+        assertThat(quote.getRequestedExtraBeds()).isEqualTo((short) 1);
+
+        ItemizedSurchargeDto summary = quote.getSurchargeSummary();
+        assertThat(summary).isNotNull();
+        assertThat(summary.getExtraAdultsCount()).isEqualTo((short) 1);
+        assertThat(summary.getExtraAdultsSurchargeTotal()).isEqualByComparingTo(new BigDecimal("400000.00"));
+        assertThat(summary.getExtraChildrenCount()).isEqualTo((short) 1);
+        assertThat(summary.getExtraChildrenSurchargeTotal()).isEqualByComparingTo(new BigDecimal("200000.00"));
+        assertThat(summary.getInfantsCount()).isEqualTo((short) 1);
+        assertThat(summary.getInfantsSurchargeTotal()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(summary.getExtraBedsCount()).isEqualTo((short) 1);
+        assertThat(summary.getExtraBedsSurchargeTotal()).isEqualByComparingTo(new BigDecimal("600000.00"));
+        assertThat(summary.getTotalSurchargeAmount()).isEqualByComparingTo(new BigDecimal("1200000.00"));
+        assertThat(summary.getSurchargeNotes()).hasSize(4);
+    }
+
+    @Test
+    @DisplayName("calculateRoomQuote: Ném ngoại lệ khi số người lớn vượt quá maxAdults")
+    void calculateRoomQuote_AdultsExceedMax_ThrowsException() {
+        HotelRoomTypeResponse rt = HotelRoomTypeResponse.builder()
+                .id(101)
+                .maxAdults((short) 2)
+                .build();
+
+        when(hotelRoomTypeService.getHotelRoomTypeById(101)).thenReturn(rt);
+
+        RoomPriceQuoteRequest req = RoomPriceQuoteRequest.builder()
+                .hotelRoomTypeId(101)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .adults((short) 3)
+                .build();
+
+        assertThatThrownBy(() -> publicBookingSearchService.calculateRoomQuote(req))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA)
+                .hasMessageContaining("vượt quá giới hạn tối đa cho phép của hạng phòng");
+    }
+
+    @Test
+    @DisplayName("calculateRoomQuote: Ném ngoại lệ khi tổng số khách vượt quá maxTotalGuests")
+    void calculateRoomQuote_TotalGuestsExceedMax_ThrowsException() {
+        HotelRoomTypeResponse rt = HotelRoomTypeResponse.builder()
+                .id(101)
+                .maxAdults((short) 3)
+                .maxChildren((short) 2)
+                .maxInfants((short) 2)
+                .maxTotalGuests((short) 4)
+                .build();
+
+        when(hotelRoomTypeService.getHotelRoomTypeById(101)).thenReturn(rt);
+
+        RoomPriceQuoteRequest req = RoomPriceQuoteRequest.builder()
+                .hotelRoomTypeId(101)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .adults((short) 2)
+                .children((short) 2)
+                .infants((short) 1) // Tổng = 5 > 4
+                .build();
+
+        assertThatThrownBy(() -> publicBookingSearchService.calculateRoomQuote(req))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA)
+                .hasMessageContaining("vượt quá sức chứa tối đa của phòng");
+    }
+
+    @Test
+    @DisplayName("calculateRoomQuote: Ném ngoại lệ khi số giường phụ vượt quá giới hạn cho phép của phòng")
+    void calculateRoomQuote_ExtraBedsExceedMax_ThrowsException() {
+        HotelRoomTypeResponse rt = HotelRoomTypeResponse.builder()
+                .id(101)
+                .extraBeds((short) 0) // Không cho phép giường phụ
+                .build();
+
+        when(hotelRoomTypeService.getHotelRoomTypeById(101)).thenReturn(rt);
+
+        RoomPriceQuoteRequest req = RoomPriceQuoteRequest.builder()
+                .hotelRoomTypeId(101)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .adults((short) 1)
+                .extraBeds((short) 1)
+                .build();
+
+        assertThatThrownBy(() -> publicBookingSearchService.calculateRoomQuote(req))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA)
+                .hasMessageContaining("vượt quá số giường phụ tối đa có thể kê thêm");
+    }
 }
+

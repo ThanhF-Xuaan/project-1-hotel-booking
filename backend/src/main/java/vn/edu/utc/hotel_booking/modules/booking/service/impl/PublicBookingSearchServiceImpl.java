@@ -9,6 +9,7 @@ import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.DestinationType;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.PublicBookingSearchService;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeSearchDto;
@@ -382,4 +383,134 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                 .build();
         return priceEngine.calculatePrice(calcReq);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public RoomPriceQuoteResponse calculateRoomQuote(RoomPriceQuoteRequest request) {
+        if (request == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Dữ liệu yêu cầu báo giá không được để trống");
+        }
+        validateDates(request.getCheckInDate(), request.getCheckOutDate());
+
+        if (request.getHotelRoomTypeId() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Vui lòng chọn hạng phòng để tính giá");
+        }
+
+        HotelRoomTypeResponse roomType = hotelRoomTypeService.getHotelRoomTypeById(request.getHotelRoomTypeId());
+        if (roomType == null) {
+            throw new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND, "Không tìm thấy cấu hình loại phòng với ID: " + request.getHotelRoomTypeId());
+        }
+
+        short adults = (request.getAdults() != null && request.getAdults() > 0) ? request.getAdults() : (short) 1;
+        short children = request.getChildren() != null ? request.getChildren() : (short) 0;
+        short infants = request.getInfants() != null ? request.getInfants() : (short) 0;
+        short extraBeds = request.getExtraBeds() != null ? request.getExtraBeds() : (short) 0;
+        int totalGuests = adults + children + infants;
+
+        // 1. Kiểm tra sức chứa
+        if (roomType.getMaxAdults() != null && adults > roomType.getMaxAdults()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    String.format("Số người lớn (%d) vượt quá giới hạn tối đa cho phép của hạng phòng (%d)",
+                            adults, roomType.getMaxAdults()));
+        }
+
+        if (roomType.getMaxChildren() != null && children > roomType.getMaxChildren()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    String.format("Số trẻ em (%d) vượt quá giới hạn tối đa cho phép của hạng phòng (%d)",
+                            children, roomType.getMaxChildren()));
+        }
+
+        if (roomType.getMaxInfants() != null && infants > roomType.getMaxInfants()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    String.format("Số trẻ sơ sinh (%d) vượt quá giới hạn tối đa cho phép của hạng phòng (%d)",
+                            infants, roomType.getMaxInfants()));
+        }
+
+        if (roomType.getMaxTotalGuests() != null && totalGuests > roomType.getMaxTotalGuests()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    String.format("Tổng số khách (%d) vượt quá sức chứa tối đa của phòng (%d)",
+                            totalGuests, roomType.getMaxTotalGuests()));
+        }
+
+        if (roomType.getExtraBeds() != null && extraBeds > roomType.getExtraBeds()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    String.format("Số giường phụ yêu cầu (%d) vượt quá số giường phụ tối đa có thể kê thêm (%d)",
+                            extraBeds, roomType.getExtraBeds()));
+        }
+
+        // 2. Định giá qua Pricing Pipeline
+        PriceCalculationRequest calcReq = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(roomType.getId())
+                .checkInDate(request.getCheckInDate())
+                .checkOutDate(request.getCheckOutDate())
+                .adults(adults)
+                .children(children)
+                .infants(infants)
+                .extraBeds(extraBeds)
+                .voucherCode(request.getVoucherCode())
+                .build();
+
+        PriceBreakdownDto breakdown = priceEngine.calculatePrice(calcReq);
+
+        // 3. Tính toán Itemized Surcharge
+        short standardAdults = roomType.getStandardAdults() != null ? roomType.getStandardAdults() : (short) 2;
+        short standardChildren = roomType.getStandardChildren() != null ? roomType.getStandardChildren() : (short) 0;
+
+        short extraAdultsCount = (short) Math.max(0, adults - standardAdults);
+        short extraChildrenCount = (short) Math.max(0, children - standardChildren);
+
+        BigDecimal extraAdultsTotal = breakdown.getTotalExtraAdultsSurcharge() != null
+                ? breakdown.getTotalExtraAdultsSurcharge() : BigDecimal.ZERO;
+        BigDecimal extraChildrenTotal = breakdown.getTotalExtraChildrenSurcharge() != null
+                ? breakdown.getTotalExtraChildrenSurcharge() : BigDecimal.ZERO;
+        BigDecimal extraBedsTotal = breakdown.getTotalExtraBedsSurcharge() != null
+                ? breakdown.getTotalExtraBedsSurcharge() : BigDecimal.ZERO;
+        BigDecimal totalSurcharge = breakdown.getTotalSurchargeAmount() != null
+                ? breakdown.getTotalSurchargeAmount() : BigDecimal.ZERO;
+
+        List<String> notes = new ArrayList<>();
+        if (extraAdultsCount > 0) {
+            notes.add(String.format("Phụ thu %d người lớn vượt tiêu chuẩn (%s VND)", extraAdultsCount, extraAdultsTotal.toPlainString()));
+        }
+        if (extraChildrenCount > 0) {
+            notes.add(String.format("Phụ thu %d trẻ em vượt tiêu chuẩn (%s VND)", extraChildrenCount, extraChildrenTotal.toPlainString()));
+        }
+        if (infants > 0) {
+            notes.add(String.format("%d trẻ sơ sinh (0-5 tuổi) được miễn phí lưu trú", infants));
+        }
+        if (extraBeds > 0) {
+            notes.add(String.format("Phụ thu kê thêm %d giường phụ (%s VND)", extraBeds, extraBedsTotal.toPlainString()));
+        }
+
+        ItemizedSurchargeDto surchargeSummary = ItemizedSurchargeDto.builder()
+                .extraAdultsCount(extraAdultsCount)
+                .extraAdultsSurchargeTotal(extraAdultsTotal)
+                .extraChildrenCount(extraChildrenCount)
+                .extraChildrenSurchargeTotal(extraChildrenTotal)
+                .infantsCount(infants)
+                .infantsSurchargeTotal(BigDecimal.ZERO)
+                .extraBedsCount(extraBeds)
+                .extraBedsSurchargeTotal(extraBedsTotal)
+                .totalSurchargeAmount(totalSurcharge)
+                .surchargeNotes(notes)
+                .build();
+
+        long nights = ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
+
+        return RoomPriceQuoteResponse.builder()
+                .hotelRoomTypeId(roomType.getId())
+                .roomTypeCode(roomType.getRoomTypeCode())
+                .roomTypeName(roomType.getRoomTypeName())
+                .checkInDate(request.getCheckInDate())
+                .checkOutDate(request.getCheckOutDate())
+                .totalNights((int) nights)
+                .requestedAdults(adults)
+                .requestedChildren(children)
+                .requestedInfants(infants)
+                .requestedExtraBeds(extraBeds)
+                .surchargeSummary(surchargeSummary)
+                .priceBreakdown(breakdown)
+                .build();
+    }
 }
+

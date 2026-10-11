@@ -24,6 +24,15 @@ public class DailyPriceDto {
     @Schema(description = "Số tiền phụ thu (người thêm, giường phụ)", example = "200000.00")
     BigDecimal surchargeAmount;
 
+    @Schema(description = "Phụ thu người lớn thêm", example = "200000.00")
+    BigDecimal extraAdultsSurcharge;
+
+    @Schema(description = "Phụ thu trẻ em thêm", example = "100000.00")
+    BigDecimal extraChildrenSurcharge;
+
+    @Schema(description = "Phụ thu giường phụ", example = "300000.00")
+    BigDecimal extraBedsSurcharge;
+
     @Schema(description = "Giá cơ sở sau phụ thu", example = "1200000.00")
     BigDecimal rateAfterSurcharge;
 

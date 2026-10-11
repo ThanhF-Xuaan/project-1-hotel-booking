@@ -22,6 +22,9 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
 
         BigDecimal totalBase = BigDecimal.ZERO;
         BigDecimal totalSurcharge = BigDecimal.ZERO;
+        BigDecimal totalExtraAdults = BigDecimal.ZERO;
+        BigDecimal totalExtraChildren = BigDecimal.ZERO;
+        BigDecimal totalExtraBeds = BigDecimal.ZERO;
         BigDecimal totalRateAdjustment = BigDecimal.ZERO;
         BigDecimal totalSeasonal = BigDecimal.ZERO;
         BigDecimal totalHoliday = BigDecimal.ZERO;
@@ -36,6 +39,9 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
             for (DailyRateContext daily : context.getDailyRates()) {
                 totalBase = totalBase.add(daily.getBaseRate() != null ? daily.getBaseRate() : BigDecimal.ZERO);
                 totalSurcharge = totalSurcharge.add(daily.getSurchargeAmount() != null ? daily.getSurchargeAmount() : BigDecimal.ZERO);
+                totalExtraAdults = totalExtraAdults.add(daily.getExtraAdultsSurcharge() != null ? daily.getExtraAdultsSurcharge() : BigDecimal.ZERO);
+                totalExtraChildren = totalExtraChildren.add(daily.getExtraChildrenSurcharge() != null ? daily.getExtraChildrenSurcharge() : BigDecimal.ZERO);
+                totalExtraBeds = totalExtraBeds.add(daily.getExtraBedsSurcharge() != null ? daily.getExtraBedsSurcharge() : BigDecimal.ZERO);
                 BigDecimal dailyAdj = daily.getRateAdjustmentAmount() != null ? daily.getRateAdjustmentAmount() : BigDecimal.ZERO;
                 totalRateAdjustment = totalRateAdjustment.add(dailyAdj);
                 totalSeasonal = totalSeasonal.add(daily.getSeasonalAdjustment() != null ? daily.getSeasonalAdjustment() : BigDecimal.ZERO);
@@ -121,6 +127,9 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
         PricingSummary summary = PricingSummary.builder()
                 .totalBasePrice(totalBase)
                 .totalSurchargeAmount(totalSurcharge)
+                .totalExtraAdultsSurcharge(totalExtraAdults)
+                .totalExtraChildrenSurcharge(totalExtraChildren)
+                .totalExtraBedsSurcharge(totalExtraBeds)
                 .totalRateAdjustmentAmount(totalRateAdjustment)
                 .totalSeasonalAdjustment(totalSeasonal)
                 .totalHolidayAdjustment(totalHoliday)
