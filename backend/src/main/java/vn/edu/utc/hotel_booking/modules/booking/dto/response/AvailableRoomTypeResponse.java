@@ -29,11 +29,17 @@ public class AvailableRoomTypeResponse {
     @Schema(description = "Số người lớn tiêu chuẩn", example = "2")
     Short standardAdults;
 
+    @Schema(description = "Số trẻ em tiêu chuẩn", example = "0")
+    Short standardChildren;
+
     @Schema(description = "Số người lớn tối đa", example = "2")
     Short maxAdults;
 
     @Schema(description = "Số trẻ em tối đa", example = "1")
     Short maxChildren;
+
+    @Schema(description = "Số trẻ sơ sinh tối đa", example = "1")
+    Short maxInfants;
 
     @Schema(description = "Tổng số khách tối đa", example = "3")
     Short maxTotalGuests;
