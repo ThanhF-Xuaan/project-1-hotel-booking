@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import CurrencyInput from '../../../core/components/ui/CurrencyInput';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import { operationService } from '../services/operation.service';
@@ -459,12 +460,11 @@ export const MenuListPage: React.FC = () => {
               <label className="block text-xs font-medium text-neutral-700 mb-1">
                 Đơn giá (VNĐ) <span className="text-red-500">*</span>
               </label>
-              <Input
-                type="number"
-                min="0"
-                step="1000"
+              <CurrencyInput
                 value={formData.basePrice}
-                onChange={(e) => setFormData({ ...formData, basePrice: parseFloat(e.target.value) || 0 })}
+                onChangeValue={(val) => setFormData({ ...formData, basePrice: val })}
+                placeholder="0"
+                suffix="VNĐ"
                 required
               />
             </div>
