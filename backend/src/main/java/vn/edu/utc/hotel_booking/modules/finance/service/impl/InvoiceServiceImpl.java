@@ -106,10 +106,14 @@ public class InvoiceServiceImpl implements InvoiceService {
                             ? " [Phòng " + br.getRoomInstance().getRoomNumber() + "]"
                             : "";
 
+                    InvoiceLineType lineType = (charge.getChargeType() == BookingChargeType.PENALTY)
+                            ? InvoiceLineType.PENALTY
+                            : InvoiceLineType.SURCHARGE;
+
                     InvoiceDetail invDetail = InvoiceDetail.builder()
                             .invoice(invoice)
                             .referenceId(charge.getId())
-                            .lineType(InvoiceLineType.SURCHARGE)
+                            .lineType(lineType)
                             .description((charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name()) + roomSuffix)
                             .quantity(charge.getQuantity())
                             .unitPrice(charge.getUnitPrice())
