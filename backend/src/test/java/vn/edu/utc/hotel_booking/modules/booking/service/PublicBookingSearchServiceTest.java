@@ -183,8 +183,10 @@ class PublicBookingSearchServiceTest {
                 .roomTypeCode("DLX")
                 .roomTypeName("Deluxe Hướng Biển")
                 .standardAdults((short) 2)
+                .standardChildren((short) 1)
                 .maxAdults((short) 3)
                 .maxChildren((short) 1)
+                .maxInfants((short) 1)
                 .features(Set.of(feature))
                 .build();
 
@@ -230,6 +232,8 @@ class PublicBookingSearchServiceTest {
         assertThat(result).hasSize(1);
         AvailableRoomTypeResponse room = result.get(0);
         assertThat(room.getHotelRoomTypeId()).isEqualTo(101);
+        assertThat(room.getStandardChildren()).isEqualTo((short) 1);
+        assertThat(room.getMaxInfants()).isEqualTo((short) 1);
         assertThat(room.getAvailableRooms()).isEqualTo(4); // min(5, 4) = 4
         assertThat(room.getPriceBreakdown().getFinalTotalAmount()).isEqualByComparingTo("2200000.00");
 
