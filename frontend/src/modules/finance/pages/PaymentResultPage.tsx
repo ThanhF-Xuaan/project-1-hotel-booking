@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
+import { formatCurrency } from '../../../core/utils/currency';
 import financeService from '../services/finance.service';
 import PaymentStatusBadge from '../components/payment/PaymentStatusBadge';
 import type { PaymentResponse, PaymentStatus } from '../types/finance.types';
@@ -147,7 +148,7 @@ export const PaymentResultPage: React.FC = () => {
               <div className="flex justify-between">
                 <span>Số tiền:</span>
                 <b className="text-neutral-900">
-                  {new Intl.NumberFormat('vi-VN').format(Number(payment.totalAmount))} đ
+                  {formatCurrency(payment.totalAmount)}
                 </b>
               </div>
             )}

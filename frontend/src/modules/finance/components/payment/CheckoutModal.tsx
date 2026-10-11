@@ -3,6 +3,7 @@ import { ExternalLink, QrCode } from 'lucide-react';
 import Modal from '../../../../core/components/ui/Modal';
 import Button from '../../../../core/components/ui/Button';
 import CountdownBadge from './CountdownBadge';
+import { formatCurrency } from '../../../../core/utils/currency';
 import type { GatewayMethod, PaymentUrlResponse } from '../../types/finance.types';
 
 interface CheckoutModalProps {
@@ -56,7 +57,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           <div>
             <span className="text-xs font-medium text-neutral-500 block">Số tiền thanh toán</span>
             <span className="text-lg font-bold text-red-600">
-              {amount !== undefined ? new Intl.NumberFormat('vi-VN').format(amount) : '—'} đ
+              {amount !== undefined ? formatCurrency(amount) : '—'}
             </span>
           </div>
           <CountdownBadge expiresAt={session.expiresAt} />
