@@ -264,4 +264,146 @@ class BookingServiceTest {
         assertThat(response.getId()).isEqualTo(1L);
         verify(bookingRepository, times(1)).save(testBooking);
     }
+
+    @Test
+    @DisplayName("Tạo đơn đặt nhiều loại phòng cùng lúc thành công, sắp xếp theo ID để chống deadlock")
+    void createBooking_MultiRoomTypes_Success() {
+        LocalDate checkIn = LocalDate.now().plusDays(2);
+        LocalDate checkOut = LocalDate.now().plusDays(4);
+
+        // Hạng phòng thứ hai (ID = 8)
+        RoomType rt2 = RoomType.builder().code("STE").name("Phòng Suite").build();
+        rt2.setId((short) 2);
+
+        HotelRoomType hotelRoomType2 = HotelRoomType.builder()
+                .hotel(testHotel)
+                .roomType(rt2)
+                .taxCategoryId(1)
+                .basePrice(BigDecimal.valueOf(2000000))
+                .standardAdults((short) 2)
+                .maxAdults((short) 4)
+                .maxChildren((short) 2)
+                .maxInfants((short) 2)
+                .maxTotalGuests((short) 6)
+                .extraBeds((short) 2)
+                .build();
+        hotelRoomType2.setId(8);
+
+        // Danh sách phòng gửi lên không theo thứ tự (ID 8 trước, ID 5 sau)
+        BookingCreateRequest.RoomItemRequest roomItem1 = BookingCreateRequest.RoomItemRequest.builder()
+                .hotelRoomTypeId(8)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 1)
+                .adultCount((short) 2)
+                .extraBeds((short) 1)
+                .build();
+
+        BookingCreateRequest.RoomItemRequest roomItem2 = BookingCreateRequest.RoomItemRequest.builder()
+                .hotelRoomTypeId(5)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 1)
+                .adultCount((short) 2)
+                .build();
+
+        BookingCreateRequest request = BookingCreateRequest.builder()
+                .hotelId((short) 1)
+                .guestId(10L)
+                .voucherCode("MULTIROOM10")
+                .serviceFeeRate(BigDecimal.valueOf(5))
+                .rooms(List.of(roomItem1, roomItem2))
+                .build();
+
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
+        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
+        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(testHotelRoomType));
+        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(8)).thenReturn(Optional.of(hotelRoomType2));
+
+        DailyPriceDto daily1 = DailyPriceDto.builder()
+                .date(checkIn)
+                .baseRate(BigDecimal.valueOf(1000000))
+                .netAmount(BigDecimal.valueOf(1000000))
+                .build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .dailyPrices(List.of(daily1))
+                .totalBasePrice(BigDecimal.valueOf(1000000))
+                .preTaxAmount(BigDecimal.valueOf(1000000))
+                .build();
+
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class))).thenReturn(breakdown);
+        when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
+        when(bookingMapper.toResponse(any(Booking.class))).thenReturn(BookingResponse.builder()
+                .id(100L)
+                .bookingNumber("BK12345678")
+                .build());
+
+        BookingResponse response = bookingService.createBooking(request);
+
+        assertThat(response).isNotNull();
+        // Kiểm tra giữ tồn kho được gọi cho cả 2 hạng phòng
+        verify(roomAvailabilityService, times(1)).confirmBookingInventory(eq(5), eq(checkIn), eq(checkOut), eq(1));
+        verify(roomAvailabilityService, times(1)).confirmBookingInventory(eq(8), eq(checkIn), eq(checkOut), eq(1));
+        verify(bookingRepository, times(1)).save(any(Booking.class));
+    }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi số người lớn vượt quá maxAdults của hạng phòng")
+    void createBooking_ExceedsCapacity_ThrowsException() {
+        LocalDate checkIn = LocalDate.now().plusDays(2);
+        LocalDate checkOut = LocalDate.now().plusDays(4);
+
+        BookingCreateRequest.RoomItemRequest roomItem = BookingCreateRequest.RoomItemRequest.builder()
+                .hotelRoomTypeId(5)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 1)
+                .adultCount((short) 4) // maxAdults = 2
+                .build();
+
+        BookingCreateRequest request = BookingCreateRequest.builder()
+                .hotelId((short) 1)
+                .guestId(10L)
+                .rooms(List.of(roomItem))
+                .build();
+
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
+        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
+        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(testHotelRoomType));
+
+        assertThatThrownBy(() -> bookingService.createBooking(request))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.EXCEEDS_MAX_CAPACITY));
+    }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi số giường phụ vượt quá extraBeds của hạng phòng")
+    void createBooking_ExceedsExtraBeds_ThrowsException() {
+        LocalDate checkIn = LocalDate.now().plusDays(2);
+        LocalDate checkOut = LocalDate.now().plusDays(4);
+
+        BookingCreateRequest.RoomItemRequest roomItem = BookingCreateRequest.RoomItemRequest.builder()
+                .hotelRoomTypeId(5)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 1)
+                .adultCount((short) 2)
+                .extraBeds((short) 2) // extraBeds = 0
+                .build();
+
+        BookingCreateRequest request = BookingCreateRequest.builder()
+                .hotelId((short) 1)
+                .guestId(10L)
+                .rooms(List.of(roomItem))
+                .build();
+
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
+        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
+        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(testHotelRoomType));
+
+        assertThatThrownBy(() -> bookingService.createBooking(request))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.EXCEEDS_MAX_CAPACITY));
+    }
 }

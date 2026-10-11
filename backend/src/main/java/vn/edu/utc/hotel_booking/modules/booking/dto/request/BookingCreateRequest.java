@@ -35,6 +35,8 @@ public class BookingCreateRequest {
     @Builder.Default
     BigDecimal serviceFeeRate = BigDecimal.ZERO;
 
+    String voucherCode;
+
     @NotEmpty(message = "Danh sách phòng đặt không được để trống")
     @Valid
     @Builder.Default
@@ -66,6 +68,9 @@ public class BookingCreateRequest {
 
         @Builder.Default
         Short infantCount = 0;
+
+        @Builder.Default
+        Short extraBeds = 0;
 
         // Cho trường hợp Front desk walk-in chọn trực tiếp phòng vật lý
         Integer roomInstanceId;
