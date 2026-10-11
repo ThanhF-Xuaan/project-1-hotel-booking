@@ -40,6 +40,29 @@ public class CartPriceQuoteRequest {
     @Schema(description = "Danh sách các hạng phòng cần báo giá trong giỏ hàng")
     List<CartItemQuoteRequest> items = new ArrayList<>();
 
+    @Valid
+    @Builder.Default
+    @Schema(description = "Danh sách dịch vụ bổ sung được chọn trong giỏ hàng (SERVICE only)")
+    List<SelectedServiceRequest> selectedServices = new ArrayList<>();
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class SelectedServiceRequest {
+
+        @NotNull(message = "ID dịch vụ không được để trống")
+        @Schema(description = "ID menu dịch vụ (phải là type SERVICE)", example = "10")
+        Integer menuId;
+
+        @Min(value = 1, message = "Số lượng dịch vụ tối thiểu là 1")
+        @NotNull(message = "Số lượng dịch vụ không được để trống")
+        @Schema(description = "Số lượng dịch vụ", example = "1")
+        @Builder.Default
+        Integer quantity = 1;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

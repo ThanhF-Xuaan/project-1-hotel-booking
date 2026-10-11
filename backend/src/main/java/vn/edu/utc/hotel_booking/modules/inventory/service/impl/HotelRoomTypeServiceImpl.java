@@ -96,6 +96,12 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
     }
 
     @Override
+    public HotelRoomType getEntityById(Integer id) {
+        return hotelRoomTypeRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND, "Không tìm thấy cấu hình loại phòng id: " + id));
+    }
+
+    @Override
     public PageResponse<HotelRoomTypeResponse> filterHotelRoomTypes(HotelRoomTypeSearchDto searchDto) {
         Pageable pageable = PageRequest.of(
                 searchDto.getPage(),

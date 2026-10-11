@@ -55,10 +55,33 @@ public class CartPriceQuoteResponse {
     @Schema(description = "Tổng thuế VAT phòng", example = "415800.00")
     BigDecimal totalRoomVat;
 
-    @Schema(description = "Tổng tiền thanh toán cuối cùng của toàn bộ giỏ hàng", example = "4573800.00")
+    @Schema(description = "Tổng tiền phòng sau thuế & phí", example = "4573800.00")
     BigDecimal finalTotalAmount;
+
+    @Schema(description = "Tổng tiền dịch vụ trước thuế & phí", example = "500000.00")
+    @Builder.Default
+    BigDecimal totalServiceSubtotal = BigDecimal.ZERO;
+
+    @Schema(description = "Tổng phí phục vụ dịch vụ (5%)", example = "25000.00")
+    @Builder.Default
+    BigDecimal totalServiceFee = BigDecimal.ZERO;
+
+    @Schema(description = "Tổng thuế VAT dịch vụ (10%)", example = "52500.00")
+    @Builder.Default
+    BigDecimal totalServiceVat = BigDecimal.ZERO;
+
+    @Schema(description = "Tổng tiền dịch vụ đã gồm thuế & phí", example = "577500.00")
+    @Builder.Default
+    BigDecimal totalServiceGrossAmount = BigDecimal.ZERO;
+
+    @Schema(description = "Tổng cộng thanh toán toàn bộ đơn hàng (Phòng + Dịch vụ)", example = "5151300.00")
+    BigDecimal grandTotal;
 
     @Schema(description = "Chi tiết báo giá từng hạng phòng trong giỏ hàng")
     @Builder.Default
     List<RoomPriceQuoteResponse> itemizedQuotes = new ArrayList<>();
+
+    @Schema(description = "Chi tiết các dịch vụ bổ sung được chọn kèm theo")
+    @Builder.Default
+    List<ServiceQuoteItemResponse> serviceItems = new ArrayList<>();
 }

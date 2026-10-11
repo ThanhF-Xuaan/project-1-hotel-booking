@@ -18,10 +18,13 @@ public interface RoomAvailabilityService {
 
     void releaseInventory(ReleaseInventoryRequest request);
 
-    void batchHoldInventory(BatchHoldInventoryRequest request);
+    String batchHoldInventory(BatchHoldInventoryRequest request);
 
     void batchReleaseInventory(BatchReleaseInventoryRequest request);
 
+    void commitHoldInventory(String sessionId);
+
+    int releaseExpiredHolds();
+
     void confirmBookingInventory(Integer hotelRoomTypeId, LocalDate startDate, LocalDate endDate, Integer roomsCount);
 }
-

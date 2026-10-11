@@ -34,7 +34,7 @@ public class ServiceOrder extends BaseEntity {
     Booking booking;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_instance_id", nullable = false)
+    @JoinColumn(name = "room_instance_id")
     RoomInstance roomInstance;
 
     @Column(name = "sub_total", nullable = false, precision = 15, scale = 2)

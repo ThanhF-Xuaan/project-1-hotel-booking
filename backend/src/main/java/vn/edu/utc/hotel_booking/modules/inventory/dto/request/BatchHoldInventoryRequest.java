@@ -19,6 +19,9 @@ import java.util.List;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class BatchHoldInventoryRequest {
 
+    @Schema(description = "Mã phiên giữ phòng (UUID). Nếu để trống hệ thống sẽ tự sinh mới", example = "550e8400-e29b-41d4-a716-446655440000")
+    String sessionId;
+
     @NotNull(message = "ID khách sạn không được để trống")
     @Schema(description = "ID khách sạn", example = "1")
     Short hotelId;

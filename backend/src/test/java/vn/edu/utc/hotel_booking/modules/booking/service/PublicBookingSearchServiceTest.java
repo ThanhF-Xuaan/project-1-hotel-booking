@@ -55,6 +55,8 @@ class PublicBookingSearchServiceTest {
     @Mock HotelRoomTypeInclusionService hotelRoomTypeInclusionService;
     @Mock SurchargeRuleService surchargeRuleService;
     @Mock PriceEngine priceEngine;
+    @Mock vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository menuRepository;
+    @Mock vn.edu.utc.hotel_booking.modules.pricing.repository.VatRuleRepository vatRuleRepository;
 
     @InjectMocks
     PublicBookingSearchServiceImpl publicBookingSearchService;
@@ -619,6 +621,144 @@ class PublicBookingSearchServiceTest {
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA)
                 .hasMessageContaining("Giỏ hàng không được để trống");
+    }
+
+    @Test
+    @DisplayName("calculateCartQuote: Tính toán chính xác giá dịch vụ kèm theo (SERVICE only) và Grand Total")
+    void calculateCartQuote_WithServiceAddons_CalculatesTaxesAndGrandTotal() {
+        HotelRoomTypeResponse roomType1 = HotelRoomTypeResponse.builder()
+                .id(1)
+                .hotelId((short) 1)
+                .roomTypeCode("DLX")
+                .roomTypeName("Deluxe Room")
+                .maxAdults((short) 2)
+                .maxChildren((short) 1)
+                .maxInfants((short) 1)
+                .maxTotalGuests((short) 3)
+                .extraBeds((short) 1)
+                .build();
+        when(hotelRoomTypeService.getHotelRoomTypeById(1)).thenReturn(roomType1);
+
+        PriceBreakdownDto breakdown1 = PriceBreakdownDto.builder()
+                .totalBasePrice(BigDecimal.valueOf(2000000))
+                .totalSurchargeAmount(BigDecimal.ZERO)
+                .totalDiscountAmount(BigDecimal.ZERO)
+                .totalRoomNetAmount(BigDecimal.valueOf(2000000))
+                .totalRoomServiceFee(BigDecimal.valueOf(100000))
+                .totalRoomVat(BigDecimal.valueOf(210000))
+                .finalTotalAmount(BigDecimal.valueOf(2310000))
+                .build();
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class))).thenReturn(breakdown1);
+
+        vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory taxCat = vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory.builder()
+                .id(10)
+                .categoryName("Dịch vụ VAT 10%")
+                .build();
+        vn.edu.utc.hotel_booking.modules.operation.entity.Menu serviceMenu = vn.edu.utc.hotel_booking.modules.operation.entity.Menu.builder()
+                .id(100)
+                .name("Đón tiễn sân bay")
+                .menuType(vn.edu.utc.hotel_booking.modules.operation.entity.MenuType.SERVICE)
+                .basePrice(BigDecimal.valueOf(500000))
+                .status("ACTIVE")
+                .taxCategory(taxCat)
+                .build();
+        when(menuRepository.findByIdAndIsDeletedFalse(100)).thenReturn(java.util.Optional.of(serviceMenu));
+
+        vn.edu.utc.hotel_booking.modules.pricing.entity.VatRule vatRule = vn.edu.utc.hotel_booking.modules.pricing.entity.VatRule.builder()
+                .id(1)
+                .taxCategory(taxCat)
+                .vatPercent(BigDecimal.valueOf(10))
+                .build();
+        when(vatRuleRepository.findActiveVatRule(any(), any())).thenReturn(java.util.Optional.of(vatRule));
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest item =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest.builder()
+                        .hotelRoomTypeId(1)
+                        .quantity((short) 1)
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.SelectedServiceRequest serviceReq =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.SelectedServiceRequest.builder()
+                        .menuId(100)
+                        .quantity(1)
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest cartReq =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.builder()
+                        .hotelId((short) 1)
+                        .checkInDate(checkIn)
+                        .checkOutDate(checkOut)
+                        .items(List.of(item))
+                        .selectedServices(List.of(serviceReq))
+                        .build();
+
+        CartPriceQuoteResponse response = publicBookingSearchService.calculateCartQuote(cartReq);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getFinalTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(2310000));
+        assertThat(response.getServiceItems()).hasSize(1);
+        assertThat(response.getTotalServiceSubtotal()).isEqualByComparingTo(BigDecimal.valueOf(500000));
+        assertThat(response.getTotalServiceFee()).isEqualByComparingTo(BigDecimal.valueOf(25000));
+        assertThat(response.getTotalServiceVat()).isEqualByComparingTo(BigDecimal.valueOf(52500));
+        assertThat(response.getTotalServiceGrossAmount()).isEqualByComparingTo(BigDecimal.valueOf(577500));
+        assertThat(response.getGrandTotal()).isEqualByComparingTo(BigDecimal.valueOf(2887500));
+    }
+
+    @Test
+    @DisplayName("calculateCartQuote: Ném ngoại lệ khi cố tình chọn PRODUCT (Chỉ cho phép SERVICE)")
+    void calculateCartQuote_WithProductAddons_ThrowsException() {
+        HotelRoomTypeResponse roomType1 = HotelRoomTypeResponse.builder()
+                .id(1)
+                .hotelId((short) 1)
+                .roomTypeCode("DLX")
+                .roomTypeName("Deluxe Room")
+                .maxAdults((short) 2)
+                .maxChildren((short) 1)
+                .maxInfants((short) 1)
+                .maxTotalGuests((short) 3)
+                .extraBeds((short) 1)
+                .build();
+        when(hotelRoomTypeService.getHotelRoomTypeById(1)).thenReturn(roomType1);
+
+        PriceBreakdownDto breakdown1 = PriceBreakdownDto.builder()
+                .finalTotalAmount(BigDecimal.valueOf(2000000))
+                .build();
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class))).thenReturn(breakdown1);
+
+        vn.edu.utc.hotel_booking.modules.operation.entity.Menu productMenu = vn.edu.utc.hotel_booking.modules.operation.entity.Menu.builder()
+                .id(200)
+                .name("Bia Heineken lon")
+                .menuType(vn.edu.utc.hotel_booking.modules.operation.entity.MenuType.PRODUCT)
+                .basePrice(BigDecimal.valueOf(35000))
+                .status("ACTIVE")
+                .build();
+        when(menuRepository.findByIdAndIsDeletedFalse(200)).thenReturn(java.util.Optional.of(productMenu));
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest item =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.CartItemQuoteRequest.builder()
+                        .hotelRoomTypeId(1)
+                        .quantity((short) 1)
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.SelectedServiceRequest productReq =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.SelectedServiceRequest.builder()
+                        .menuId(200)
+                        .quantity(2)
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest cartReq =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest.builder()
+                        .hotelId((short) 1)
+                        .checkInDate(checkIn)
+                        .checkOutDate(checkOut)
+                        .items(List.of(item))
+                        .selectedServices(List.of(productReq))
+                        .build();
+
+        assertThatThrownBy(() -> publicBookingSearchService.calculateCartQuote(cartReq))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA)
+                .hasMessageContaining("Chỉ được phép chọn dịch vụ (SERVICE) kèm theo khi đặt phòng online");
     }
 }
 

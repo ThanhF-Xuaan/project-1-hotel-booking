@@ -51,6 +51,8 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
     private final HotelRoomTypeInclusionService hotelRoomTypeInclusionService;
     private final SurchargeRuleService surchargeRuleService;
     private final PriceEngine priceEngine;
+    private final vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository menuRepository;
+    private final vn.edu.utc.hotel_booking.modules.pricing.repository.VatRuleRepository vatRuleRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -582,6 +584,69 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
 
         long totalNights = ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
 
+        // Tính toán dịch vụ bổ sung (SERVICE only)
+        List<ServiceQuoteItemResponse> serviceItems = new ArrayList<>();
+        BigDecimal totalServiceSubtotal = BigDecimal.ZERO;
+        BigDecimal totalServiceFee = BigDecimal.ZERO;
+        BigDecimal totalServiceVat = BigDecimal.ZERO;
+        BigDecimal totalServiceGrossAmount = BigDecimal.ZERO;
+        BigDecimal standardServiceFeeRate = new BigDecimal("5.00"); // 5% Hotel Service Charge
+
+        if (request.getSelectedServices() != null && !request.getSelectedServices().isEmpty()) {
+            for (CartPriceQuoteRequest.SelectedServiceRequest sReq : request.getSelectedServices()) {
+                if (sReq == null || sReq.getMenuId() == null) {
+                    continue;
+                }
+                vn.edu.utc.hotel_booking.modules.operation.entity.Menu menu = menuRepository.findByIdAndIsDeletedFalse(sReq.getMenuId())
+                        .orElseThrow(() -> new AppException(ErrorCode.MENU_ITEM_NOT_FOUND,
+                                "Không tìm thấy dịch vụ ID: " + sReq.getMenuId()));
+
+                // BẮT BUỘC CHỈ CHO PHÉP SERVICE, KHÔNG CHO PHÉP PRODUCT KHI ĐẶT ONLINE
+                if (menu.getMenuType() != vn.edu.utc.hotel_booking.modules.operation.entity.MenuType.SERVICE) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                            "Chỉ được phép chọn dịch vụ (SERVICE) kèm theo khi đặt phòng online: " + menu.getName());
+                }
+
+                if (!"ACTIVE".equalsIgnoreCase(menu.getStatus()) && !"AVAILABLE".equalsIgnoreCase(menu.getStatus())) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                            "Dịch vụ tạm ngưng phục vụ: " + menu.getName());
+                }
+
+                int qty = sReq.getQuantity() != null && sReq.getQuantity() > 0 ? sReq.getQuantity() : 1;
+                BigDecimal unitPrice = menu.getBasePrice();
+                BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(qty));
+                BigDecimal lineServiceFee = subtotal.multiply(standardServiceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal taxableAmount = subtotal.add(lineServiceFee);
+
+                BigDecimal vatRate = BigDecimal.ZERO;
+                if (menu.getTaxCategory() != null) {
+                    vatRate = vatRuleRepository.findActiveVatRule(menu.getTaxCategory().getId(), LocalDate.now())
+                            .map(vn.edu.utc.hotel_booking.modules.pricing.entity.VatRule::getVatPercent)
+                            .orElse(BigDecimal.ZERO);
+                }
+                BigDecimal lineVat = taxableAmount.multiply(vatRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal lineTotal = taxableAmount.add(lineVat);
+
+                serviceItems.add(ServiceQuoteItemResponse.builder()
+                        .menuId(menu.getId())
+                        .name(menu.getName())
+                        .unitPrice(unitPrice)
+                        .quantity(qty)
+                        .subtotal(subtotal)
+                        .serviceFee(lineServiceFee)
+                        .vatAmount(lineVat)
+                        .totalAmount(lineTotal)
+                        .build());
+
+                totalServiceSubtotal = totalServiceSubtotal.add(subtotal);
+                totalServiceFee = totalServiceFee.add(lineServiceFee);
+                totalServiceVat = totalServiceVat.add(lineVat);
+                totalServiceGrossAmount = totalServiceGrossAmount.add(lineTotal);
+            }
+        }
+
+        BigDecimal grandTotal = finalTotalAmount.add(totalServiceGrossAmount);
+
         return CartPriceQuoteResponse.builder()
                 .hotelId(request.getHotelId())
                 .checkInDate(request.getCheckInDate())
@@ -597,7 +662,13 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                 .totalRoomServiceFee(totalRoomServiceFee)
                 .totalRoomVat(totalRoomVat)
                 .finalTotalAmount(finalTotalAmount)
+                .totalServiceSubtotal(totalServiceSubtotal)
+                .totalServiceFee(totalServiceFee)
+                .totalServiceVat(totalServiceVat)
+                .totalServiceGrossAmount(totalServiceGrossAmount)
+                .grandTotal(grandTotal)
                 .itemizedQuotes(itemizedQuotes)
+                .serviceItems(serviceItems)
                 .build();
     }
 }

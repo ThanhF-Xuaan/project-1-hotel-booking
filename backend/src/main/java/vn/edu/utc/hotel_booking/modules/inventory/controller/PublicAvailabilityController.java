@@ -52,10 +52,10 @@ public class PublicAvailabilityController {
 
     @PostMapping("/batch-hold")
     @Operation(summary = "Khóa tạm giữ đồng thời nhiều hạng phòng trong giỏ hàng (Batch TTL-based lock)")
-    public ResponseEntity<ApiResponse<Void>> batchHoldInventory(
+    public ResponseEntity<ApiResponse<String>> batchHoldInventory(
             @Valid @RequestBody vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchHoldInventoryRequest request) {
-        roomAvailabilityService.batchHoldInventory(request);
-        return ResponseEntity.ok(ApiResponse.success(null));
+        String sessionId = roomAvailabilityService.batchHoldInventory(request);
+        return ResponseEntity.ok(ApiResponse.success(sessionId));
     }
 
     @PostMapping("/batch-release")
