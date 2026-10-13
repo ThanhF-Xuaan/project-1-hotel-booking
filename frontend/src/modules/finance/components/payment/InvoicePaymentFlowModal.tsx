@@ -3,7 +3,6 @@ import {
   X,
   CheckCircle2,
   XCircle,
-  QrCode,
   CreditCard,
   Banknote,
   Receipt,
@@ -14,10 +13,10 @@ import {
   RefreshCw,
   Tag,
   Printer,
-  Smartphone,
   ShieldCheck,
   Clock,
   Sparkles,
+  Building2,
 } from 'lucide-react';
 import Button from '../../../../core/components/ui/Button';
 import Input from '../../../../core/components/ui/Input';
@@ -32,6 +31,7 @@ import type {
   PaymentUrlResponse,
 } from '../../types/finance.types';
 import type { BookingResponse } from '../../../booking/types/booking.types';
+import { VNPAY_ATM_TEST_CARD } from '../../utils/vnpay.utils';
 
 export interface InvoicePaymentFlowModalProps {
   isOpen: boolean;
@@ -50,42 +50,21 @@ const METHOD_OPTIONS: Array<{
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
 }> = [
-  {
-    id: 'CASH',
-    name: 'Tiền mặt tại quầy',
-    desc: 'Thu tiền mặt trực tiếp tại quầy lễ tân',
-    icon: Banknote,
-    badge: 'Trực tiếp',
-  },
-  {
-    id: 'BANK_TRANSFER',
-    name: 'Chuyển khoản VietQR',
-    desc: 'Quét mã VietQR chuẩn NAPAS 247 mọi ngân hàng',
-    icon: QrCode,
-    badge: 'Khuyên dùng',
-  },
-  {
-    id: 'CREDIT_CARD',
-    name: 'Cà thẻ POS / Thẻ tín dụng',
-    desc: 'Quẹt thẻ hoặc chạm thẻ NFC qua máy POS',
-    icon: CreditCard,
-    badge: 'POS',
-  },
-  {
-    id: 'VNPAY',
-    name: 'Cổng VNPAY QR & Thẻ ATM',
-    desc: 'Thanh toán trực tuyến qua cổng VNPAY Sandbox',
-    icon: ExternalLink,
-    badge: 'Sandbox API',
-  },
-  {
-    id: 'MOMO',
-    name: 'Ví điện tử MoMo',
-    desc: 'Quét mã QR qua ứng dụng ví điện tử MoMo',
-    icon: Smartphone,
-    badge: 'Ví điện tử',
-  },
-];
+    {
+      id: 'CASH',
+      name: 'Tiền mặt tại quầy',
+      desc: 'Thu tiền mặt trực tiếp tại quầy lễ tân',
+      icon: Banknote,
+      badge: 'Trực tiếp',
+    },
+    {
+      id: 'VNPAY',
+      name: 'Thẻ ATM nội địa (Cổng VNPAY Sandbox)',
+      desc: 'Thanh toán thẻ ATM NCB trực tuyến qua cổng VNPAY (không quét QR)',
+      icon: CreditCard,
+      badge: 'Thẻ ATM Sandbox',
+    },
+  ];
 
 export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = ({
   isOpen,
@@ -112,22 +91,19 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   const [cashGiven, setCashGiven] = useState<number>(0);
   const [cashReceiptCode, setCashReceiptCode] = useState('');
 
-  // ── Bank Details (Step 2) ──────────────────────────────────────────────────
-  const [copiedBank, setCopiedBank] = useState(false);
-  const [copiedContent, setCopiedContent] = useState(false);
+  // ── VNPay Card Details (Step 2: Thẻ ATM nội địa - tự nhập & gợi ý test) ────
+  const [vnpayCardNumber, setVnpayCardNumber] = useState('');
+  const [vnpayCardHolder, setVnpayCardHolder] = useState('');
+  const [vnpayIssueDate, setVnpayIssueDate] = useState('');
+  const [vnpayCardError, setVnpayCardError] = useState<string | null>(null);
 
-  // ── Card Details (Step 2) ──────────────────────────────────────────────────
-  const [cardHolder, setCardHolder] = useState('NGUYEN VAN A');
-  const [cardNumber, setCardNumber] = useState('9704 1985 2619 1432');
-  const [cardExpiry, setCardExpiry] = useState('07/28');
-  const [cardCvv, setCardCvv] = useState('123');
-
-  // ── VNPay State & Real API / Polling (Step 2) ──────────────────────────────
-  const [vnpayTab, setVnpayTab] = useState<'QR' | 'CARD'>('QR');
+  // ── VNPay State & Real API / Polling (Step 2: Thẻ ATM nội địa) ────────────
   const [vnPaySession, setVnPaySession] = useState<PaymentUrlResponse | null>(null);
   const [isCreatingVnPay, setIsCreatingVnPay] = useState(false);
   const [vnPayError, setVnPayError] = useState<string | null>(null);
+  const [vnpayCopiedField, setVnpayCopiedField] = useState<string | null>(null);
   const vnpayPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
 
   // ── OTP State (Step 3) ─────────────────────────────────────────────────────
   const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
@@ -135,7 +111,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   const otpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
-  // ── Final Result State (Step 4) ────────────────────────────────────────────
+  // ── Final Result State (Step 4) ────────────────────────────────────
   const [isSuccess, setIsSuccess] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [completedPayment, setCompletedPayment] = useState<PaymentResponse | null>(null);
@@ -150,6 +126,10 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
       setAppliedVoucher(null);
       setVoucherError(null);
       setVnPaySession(null);
+      setVnpayCardNumber('');
+      setVnpayCardHolder('');
+      setVnpayIssueDate('');
+      setVnpayCardError(null);
       setOtpValues(['', '', '', '', '', '']);
       setOtpSecondsLeft(60);
       setIsSuccess(true);
@@ -356,6 +336,8 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
       const res = await financeService.createVnPayPayment({
         bookingId: booking.id,
         method: 'VNPAY',
+        bankCode: 'NCB',
+        amount: grandTotal,
       });
       if (res.result) {
         setVnPaySession(res.result);
@@ -363,19 +345,14 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
       }
     } catch (err: unknown) {
       console.warn('Lỗi tạo phiên VNPay sandbox thật:', err);
-      setVnPayError('Chưa kết nối cổng VNPay thật — đang dùng phiên Sandbox mô phỏng.');
-      // Fallback phiên sandbox giả lập nội bộ
-      const fakeSession: PaymentUrlResponse = {
-        paymentUrl: `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?vnp_Amount=${grandTotal * 100}&vnp_TmnCode=DEMO001`,
-        paymentId: Date.now(),
-        txnRef: `VNP${Date.now()}`,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-      };
-      setVnPaySession(fakeSession);
+      setVnPayError(
+        'Không thể tạo phiên thanh toán VNPay Sandbox. Hãy đảm bảo VNPAY_TMN_ID và VNPAY_HASH_SECRET đã được thiết lập đúng trong file .env và backend đang chạy.'
+      );
     } finally {
       setIsCreatingVnPay(false);
     }
   };
+
 
   // Polling lắng nghe VNPay redirect về BE /vnpay/return
   const startVnPayPolling = (paymentId: number) => {
@@ -426,20 +403,45 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     }
   };
 
+  // Định dạng số thẻ hiển thị trên thẻ đồ họa
+  const formatCardNumberPreview = (raw: string) => {
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return '•••• •••• •••• •••• •••';
+    return digits.replace(/(\d{4})/g, '$1 ').trim();
+  };
+
   // ── Chuyển bước 2 ➔ 3 (hoặc hoàn tất tiền mặt) ────────────────────────────
   const handleProceedFromStep2 = () => {
     if (selectedMethod === 'CASH') {
       // Tiền mặt: Hoàn tất trực tiếp, không cần OTP
       executeRecordPayment('CASH', cashReceiptCode || `PT-${Date.now().toString().slice(-6)}`);
-    } else {
-      // Chuyển sang Form 3 xác thực OTP
-      setCurrentStep(3);
-      setOtpValues(['', '', '', '', '', '']);
-      startOtpCountdown();
-      setTimeout(() => {
-        otpInputsRef.current[0]?.focus();
-      }, 150);
+      return;
     }
+
+    if (selectedMethod === 'VNPAY') {
+      const cleanVnCard = vnpayCardNumber.replace(/\s+/g, '');
+      if (!cleanVnCard || cleanVnCard.length < 16) {
+        setVnpayCardError('Vui lòng nhập số thẻ ATM NCB hợp lệ (16 - 19 số, hoặc bấm "Điền nhanh tài khoản test").');
+        return;
+      }
+      if (!vnpayCardHolder.trim()) {
+        setVnpayCardError('Vui lòng nhập tên in trên thẻ ATM.');
+        return;
+      }
+      if (!vnpayIssueDate.trim()) {
+        setVnpayCardError('Vui lòng nhập ngày phát hành thẻ (MM/YY).');
+        return;
+      }
+      setVnpayCardError(null);
+    }
+
+    // Chuyển sang Form 3 xác thực OTP
+    setCurrentStep(3);
+    setOtpValues(['', '', '', '', '', '']);
+    startOtpCountdown();
+    setTimeout(() => {
+      otpInputsRef.current[0]?.focus();
+    }, 150);
   };
 
   // ── Điền nhanh OTP test ────────────────────────────────────────────────────
@@ -482,14 +484,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     }
 
     // OTP đúng 123456 -> Ghi nhận thanh toán thành công
-    const refPrefix =
-      selectedMethod === 'BANK_TRANSFER'
-        ? 'FT'
-        : selectedMethod === 'CREDIT_CARD'
-        ? 'AP'
-        : selectedMethod === 'VNPAY'
-        ? 'VNP'
-        : 'MOMO';
+    const refPrefix = selectedMethod === 'VNPAY' ? 'VNP' : 'PT';
 
     const generatedRef = `${refPrefix}${Date.now().toString().slice(-8)}`;
     executeRecordPayment(selectedMethod, generatedRef);
@@ -515,15 +510,9 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         paymentPurpose: 'FULL_PAYMENT' as PaymentPurpose,
         transactionReference: refCode,
         paymentProvider:
-          method === 'BANK_TRANSFER'
-            ? 'VietinBank'
-            : method === 'CREDIT_CARD'
-            ? 'POS Terminal'
-            : method === 'VNPAY'
+          method === 'VNPAY'
             ? 'VNPAY Gateway'
-            : method === 'MOMO'
-            ? 'MoMo Wallet'
-            : 'Quầy Lễ tân',
+            : 'Quầy Lễ tân (Trực tiếp)',
       });
 
       if (res.result) {
@@ -701,17 +690,15 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                               setSelectedMethod(item.id);
                             }
                           }}
-                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                            isSelected
+                          className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${isSelected
                               ? 'border-red-600 bg-red-50/30 ring-2 ring-red-600/20 shadow-xs'
                               : 'border-neutral-200 hover:border-neutral-300 bg-white'
-                          }`}
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                                isSelected ? 'bg-red-600 text-white' : 'bg-neutral-100 text-neutral-600'
-                              }`}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSelected ? 'bg-red-600 text-white' : 'bg-neutral-100 text-neutral-600'
+                                }`}
                             >
                               <Icon className="w-5 h-5" />
                             </div>
@@ -720,11 +707,10 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                                 <span>{item.name}</span>
                                 {item.badge && (
                                   <span
-                                    className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold ${
-                                      isSelected
+                                    className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold ${isSelected
                                         ? 'bg-red-100 text-red-700'
                                         : 'bg-neutral-100 text-neutral-600'
-                                    }`}
+                                      }`}
                                   >
                                     {item.badge}
                                   </span>
@@ -735,9 +721,8 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                           </div>
 
                           <div
-                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                              isSelected ? 'border-red-600' : 'border-neutral-300'
-                            }`}
+                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-red-600' : 'border-neutral-300'
+                              }`}
                           >
                             {isSelected && <div className="w-2 h-2 rounded-full bg-red-600" />}
                           </div>
@@ -1012,301 +997,30 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                 </div>
               )}
 
-              {/* 🏦 PHƯƠNG THỨC 2: CHUYỂN KHOẢN VIETQR */}
-              {selectedMethod === 'BANK_TRANSFER' && (
-                <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
-                  {/* Cột mã VietQR */}
-                  <div className="bg-white p-4 rounded-2xl border border-neutral-200 text-center space-y-3 flex flex-col items-center justify-center">
-                    <span className="text-xs font-bold text-neutral-700 block uppercase">
-                      Mã VietQR Động NAPAS 247
-                    </span>
-                    <div className="p-3 bg-white border border-neutral-200 rounded-xl shadow-xs">
-                      {/* SVG VietQR mô phỏng chuẩn ngân hàng */}
-                      <svg
-                        viewBox="0 0 200 200"
-                        className="w-48 h-48 mx-auto text-neutral-900"
-                        fill="currentColor"
-                      >
-                        <rect x="0" y="0" width="200" height="200" fill="#ffffff" />
-                        {/* 3 góc định vị chuẩn QR */}
-                        <rect x="10" y="10" width="50" height="50" fill="#000000" />
-                        <rect x="18" y="18" width="34" height="34" fill="#ffffff" />
-                        <rect x="26" y="26" width="18" height="18" fill="#EE0000" />
-
-                        <rect x="140" y="10" width="50" height="50" fill="#000000" />
-                        <rect x="148" y="18" width="34" height="34" fill="#ffffff" />
-                        <rect x="156" y="26" width="18" height="18" fill="#EE0000" />
-
-                        <rect x="10" y="140" width="50" height="50" fill="#000000" />
-                        <rect x="18" y="148" width="34" height="34" fill="#ffffff" />
-                        <rect x="26" y="156" width="18" height="18" fill="#EE0000" />
-
-                        {/* Ma trận QR giả lập */}
-                        <rect x="70" y="15" width="10" height="10" />
-                        <rect x="90" y="15" width="20" height="10" />
-                        <rect x="120" y="15" width="10" height="10" />
-                        <rect x="70" y="35" width="20" height="10" />
-                        <rect x="100" y="35" width="15" height="10" />
-                        <rect x="70" y="55" width="10" height="20" />
-                        <rect x="90" y="65" width="30" height="10" />
-                        <rect x="15" y="70" width="20" height="10" />
-                        <rect x="45" y="70" width="10" height="20" />
-                        <rect x="15" y="100" width="30" height="10" />
-                        <rect x="55" y="100" width="10" height="30" />
-
-                        <rect x="70" y="90" width="60" height="60" fill="#EE0000" rx="10" />
-                        <text
-                          x="100"
-                          y="126"
-                          fill="#ffffff"
-                          fontSize="13"
-                          fontWeight="bold"
-                          textAnchor="middle"
-                          fontFamily="sans-serif"
-                        >
-                          VietQR
-                        </text>
-
-                        <rect x="140" y="70" width="15" height="20" />
-                        <rect x="165" y="70" width="25" height="10" />
-                        <rect x="140" y="100" width="20" height="20" />
-                        <rect x="170" y="110" width="20" height="10" />
-                        <rect x="70" y="160" width="20" height="20" />
-                        <rect x="100" y="160" width="30" height="10" />
-                        <rect x="140" y="150" width="10" height="30" />
-                        <rect x="160" y="160" width="30" height="20" />
-                      </svg>
-                    </div>
-                    <span className="text-[11px] text-neutral-500">
-                      Mở ứng dụng ngân hàng bất kỳ để quét mã
-                    </span>
-                  </div>
-
-                  {/* Cột thông tin tài khoản chuyển khoản */}
-                  <div className="space-y-4 flex flex-col justify-between">
-                    <div className="space-y-3">
-                      <div className="p-3 bg-white rounded-xl border border-neutral-200">
-                        <span className="text-[11px] text-neutral-400 block">Ngân hàng thụ hưởng</span>
-                        <strong className="text-sm text-neutral-900 block">
-                          VietinBank (Ngân hàng TMCP Công Thương VN)
-                        </strong>
-                      </div>
-
-                      <div className="p-3 bg-white rounded-xl border border-neutral-200 flex justify-between items-center">
-                        <div>
-                          <span className="text-[11px] text-neutral-400 block">Số tài khoản</span>
-                          <strong className="text-base font-mono text-neutral-900">102888999999</strong>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText('102888999999');
-                            setCopiedBank(true);
-                            setTimeout(() => setCopiedBank(false), 2000);
-                          }}
-                          className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-600 transition-colors"
-                          title="Sao chép"
-                        >
-                          {copiedBank ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="p-3 bg-white rounded-xl border border-neutral-200">
-                        <span className="text-[11px] text-neutral-400 block">Tên chủ tài khoản</span>
-                        <strong className="text-sm text-neutral-900 block">
-                          KHACH SAN PROJECT 1 HOTEL
-                        </strong>
-                      </div>
-
-                      <div className="p-3 bg-white rounded-xl border border-neutral-200 flex justify-between items-center">
-                        <div>
-                          <span className="text-[11px] text-neutral-400 block">Nội dung chuyển khoản</span>
-                          <strong className="text-sm font-mono text-red-600">
-                            {booking.bookingNumber}
-                          </strong>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(booking.bookingNumber);
-                            setCopiedContent(true);
-                            setTimeout(() => setCopiedContent(false), 2000);
-                          }}
-                          className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-600 transition-colors"
-                          title="Sao chép"
-                        >
-                          {copiedContent ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="pt-2 flex flex-col gap-2">
-                      <Button
-                        variant="primary"
-                        onClick={handleProceedFromStep2}
-                        rightIcon={<ArrowRight className="w-4 h-4" />}
-                        className="w-full font-bold"
-                      >
-                        Tiếp tục xác thực OTP ➔
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          executeRecordPayment('BANK_TRANSFER', `FT${Date.now().toString().slice(-8)}`)
-                        }
-                        className="w-full text-xs"
-                      >
-                        Mô phỏng ngân hàng báo có tiền tức thì
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 💳 PHƯƠNG THỨC 3: CÀ THẺ POS / THẺ TÍN DỤNG */}
-              {selectedMethod === 'CREDIT_CARD' && (
-                <div className="max-w-xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                      <CreditCard className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-base text-neutral-900">
-                        Mô Phỏng Máy POS Cà Thẻ &amp; Thẻ Quốc Tế
-                      </h3>
-                      <p className="text-xs text-neutral-500">
-                        Chạm thẻ không tiếp xúc hoặc quẹt thẻ trên thiết bị đầu cuối
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Thẻ ngân hàng đồ họa */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-tr from-neutral-900 via-neutral-800 to-neutral-700 text-white space-y-4 shadow-lg">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold tracking-widest text-xs uppercase text-neutral-300">
-                        Smart Hotel POS Card
-                      </span>
-                      <CreditCard className="w-6 h-6 text-neutral-300" />
-                    </div>
-
-                    <div className="text-lg font-mono tracking-widest pt-2">{cardNumber}</div>
-
-                    <div className="flex justify-between text-xs text-neutral-300 pt-1">
-                      <div>
-                        <span className="text-[10px] block text-neutral-400">CHỦ THẺ</span>
-                        <strong className="text-white">{cardHolder}</strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] block text-neutral-400">HẾT HẠN</span>
-                        <strong className="text-white">{cardExpiry}</strong>
-                      </div>
-                      <div>
-                        <span className="text-[10px] block text-neutral-400">CVV</span>
-                        <strong className="text-white">***</strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Form điều chỉnh thẻ test */}
-                  <div className="grid grid-cols-2 gap-3 bg-white p-4 rounded-2xl border border-neutral-200 text-xs">
-                    <div>
-                      <label className="text-neutral-500 block mb-1">Số thẻ test</label>
-                      <Input
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        className="h-9 font-mono text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-neutral-500 block mb-1">Tên chủ thẻ</label>
-                      <Input
-                        value={cardHolder}
-                        onChange={(e) => setCardHolder(e.target.value)}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-neutral-500 block mb-1">Hạn dùng (MM/YY)</label>
-                      <Input
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-neutral-500 block mb-1">Mã bảo mật CVV</label>
-                      <Input
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value)}
-                        className="h-9 text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                      Hủy
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={handleProceedFromStep2}
-                      rightIcon={<ArrowRight className="w-4 h-4" />}
-                      className="px-6 font-bold"
-                    >
-                      Chạm thẻ / Quẹt thẻ POS ➔ OTP
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* 🌐 PHƯƠNG THỨC 4: CỔNG VNPAY (QR / ATM) */}
+              {/* 🌐 PHƯƠNG THỨC 2: CỔNG VNPAY (THẺ ATM NỘI ĐỊA) */}
               {selectedMethod === 'VNPAY' && (
                 <div className="max-w-2xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center font-bold text-lg">
-                        VNP
+                      <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg">
+                        <CreditCard className="w-6 h-6 text-blue-700" />
                       </div>
                       <div>
-                        <h3 className="font-bold text-base text-neutral-900">
-                          Cổng Thanh Toán VNPAY Sandbox
+                        <h3 className="font-bold text-base text-neutral-900 flex items-center gap-2">
+                          <span>Thanh Toán Thẻ ATM Cổng VNPAY Sandbox</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">
+                            Không cần QR
+                          </span>
                         </h3>
                         <p className="text-xs text-neutral-500">
-                          Kết nối API VNPAY thật &amp; Lắng nghe kết quả xác nhận tự động
+                          Thanh toán thẻ ghi nợ nội địa NCB (Napas) trực tiếp qua cổng VNPAY
                         </p>
                       </div>
                     </div>
 
-                    {/* Tab chuyển đổi QR / Thẻ nội địa */}
-                    <div className="flex p-1 bg-neutral-200 rounded-xl text-xs font-semibold">
-                      <button
-                        type="button"
-                        onClick={() => setVnpayTab('QR')}
-                        className={`px-3 py-1 rounded-lg transition-colors ${
-                          vnpayTab === 'QR' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-600'
-                        }`}
-                      >
-                        VNPAY-QR
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setVnpayTab('CARD')}
-                        className={`px-3 py-1 rounded-lg transition-colors ${
-                          vnpayTab === 'CARD' ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-600'
-                        }`}
-                      >
-                        Thẻ ATM NCB
-                      </button>
-                    </div>
+                    <span className="text-xs px-2.5 py-1 bg-neutral-200 text-neutral-800 rounded-xl font-bold">
+                      NCB Bank
+                    </span>
                   </div>
 
                   {/* Thông báo lỗi hoặc cảnh báo VNPAY */}
@@ -1316,30 +1030,211 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     </div>
                   )}
 
-                  {/* Thanh thông tin phiên VNPAY từ Backend */}
+                  {/* HÌNH ẢNH MÔ PHỎNG THẺ ATM NỘI ĐỊA NCB CHUẨN */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-tr from-blue-900 via-indigo-900 to-cyan-800 text-white space-y-4 shadow-xl relative overflow-hidden">
+                    <div className="absolute right-0 top-0 w-44 h-44 bg-cyan-400/10 rounded-full blur-2xl pointer-events-none" />
+
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-sm tracking-wider uppercase text-cyan-300">
+                          NCB BANK
+                        </span>
+                        <span className="text-[10px] text-neutral-300 font-semibold px-2 py-0.5 rounded bg-white/10">
+                          THẺ GHI NỢ NỘI ĐỊA
+                        </span>
+                      </div>
+                      <span className="font-black text-xs italic tracking-widest text-cyan-200">
+                        NAPAS
+                      </span>
+                    </div>
+
+                    {/* Chip EMV */}
+                    <div className="w-10 h-7 rounded-md bg-amber-300/80 border border-amber-200/50 flex items-center justify-center">
+                      <div className="w-6 h-4 border border-amber-700/40 rounded-xs" />
+                    </div>
+
+                    {/* Dãy 19 số thẻ */}
+                    <div className="text-xl font-mono tracking-widest font-black text-white pt-1">
+                      {formatCardNumberPreview(vnpayCardNumber)}
+                    </div>
+
+                    <div className="flex justify-between items-end text-xs text-neutral-200 pt-1">
+                      <div>
+                        <span className="text-[9px] block text-cyan-300/80 uppercase font-semibold">
+                          CHỦ THẺ
+                        </span>
+                        <strong className="text-white tracking-wider">
+                          {vnpayCardHolder ? vnpayCardHolder.toUpperCase() : 'HỌ VÀ TÊN CHỦ THẺ'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[9px] block text-cyan-300/80 uppercase font-semibold">
+                          NGÀY PHÁT HÀNH
+                        </span>
+                        <strong className="text-white font-mono">
+                          {vnpayIssueDate || 'MM/YY'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span className="text-[9px] block text-cyan-300/80 uppercase font-semibold">
+                          MÃ OTP TEST
+                        </span>
+                        <strong className="text-emerald-300 font-mono font-bold">
+                          {VNPAY_ATM_TEST_CARD.otp}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* FORM NHẬP THÔNG TIN THẺ ATM & HỘP GỢI Ý TEST */}
+                  <div className="bg-white p-4 rounded-2xl border border-neutral-200 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-neutral-800 text-xs flex items-center gap-1.5">
+                        <CreditCard className="w-4 h-4 text-blue-600" />
+                        Thông tin thẻ ATM thanh toán (Tự nhập):
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {(vnpayCardNumber || vnpayCardHolder || vnpayIssueDate) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVnpayCardNumber('');
+                              setVnpayCardHolder('');
+                              setVnpayIssueDate('');
+                              setVnpayCardError(null);
+                            }}
+                            className="text-[11px] text-red-600 hover:underline font-semibold"
+                          >
+                            Xóa trắng
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVnpayCardNumber(VNPAY_ATM_TEST_CARD.cardNumber);
+                            setVnpayCardHolder(VNPAY_ATM_TEST_CARD.cardHolder);
+                            setVnpayIssueDate(VNPAY_ATM_TEST_CARD.issueDate);
+                            setVnpayCardError(null);
+                          }}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg transition-colors text-[11px] border border-blue-200"
+                        >
+                          ⚡ Điền nhanh tài khoản test
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="sm:col-span-2">
+                        <label className="text-neutral-600 font-semibold block mb-1">
+                          Số thẻ ATM nội địa <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          placeholder="Nhập 16 - 19 số thẻ (VD: 9704 1985 2619 1432 198)"
+                          value={vnpayCardNumber}
+                          onChange={(e) => {
+                            setVnpayCardNumber(e.target.value);
+                            setVnpayCardError(null);
+                          }}
+                          className="h-10 font-mono text-sm"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-neutral-600 font-semibold block mb-1">
+                          Tên in trên thẻ (không dấu) <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          placeholder="VD: NGUYEN VAN A"
+                          value={vnpayCardHolder}
+                          onChange={(e) => {
+                            setVnpayCardHolder(e.target.value.toUpperCase());
+                            setVnpayCardError(null);
+                          }}
+                          className="h-10 uppercase text-xs"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-neutral-600 font-semibold block mb-1">
+                          Ngày phát hành (MM/YY) <span className="text-red-500">*</span>
+                        </label>
+                        <Input
+                          placeholder="VD: 07/15"
+                          value={vnpayIssueDate}
+                          onChange={(e) => {
+                            setVnpayIssueDate(e.target.value);
+                            setVnpayCardError(null);
+                          }}
+                          className="h-10 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    {vnpayCardError && (
+                      <p className="text-xs text-red-600 font-medium">{vnpayCardError}</p>
+                    )}
+
+                    {/* HỘP GỢI Ý TÀI KHOẢN TEST THEO DOCS VNPAY SANDBOX */}
+                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                          <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                          Gợi ý tài khoản kiểm thử VNPAY Sandbox (NCB Bank):
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allInfo = `Ngân hàng: ${VNPAY_ATM_TEST_CARD.bankName}\nSố thẻ: ${VNPAY_ATM_TEST_CARD.cardNumber}\nTên chủ thẻ: ${VNPAY_ATM_TEST_CARD.cardHolder}\nNgày phát hành: ${VNPAY_ATM_TEST_CARD.issueDate}\nOTP: ${VNPAY_ATM_TEST_CARD.otp}`;
+                            navigator.clipboard.writeText(allInfo);
+                            setVnpayCopiedField('all');
+                            setTimeout(() => setVnpayCopiedField(null), 2000);
+                          }}
+                          className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+                        >
+                          {vnpayCopiedField === 'all' ? (
+                            <span className="text-emerald-600 font-bold">✓ Đã sao chép</span>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              Sao chép thông tin
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-neutral-700 font-medium">
+                        <div>Ngân hàng: <strong className="text-neutral-900">NCB</strong></div>
+                        <div>Số thẻ: <strong className="font-mono text-neutral-900">{VNPAY_ATM_TEST_CARD.cardNumber}</strong></div>
+                        <div>Chủ thẻ: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.cardHolder}</strong></div>
+                        <div>Hạn: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.issueDate}</strong> • OTP: <strong className="text-emerald-700 font-bold">{VNPAY_ATM_TEST_CARD.otp}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Thanh thông tin phiên VNPAY từ Backend & Link mở cổng */}
                   {vnPaySession ? (
                     <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
                       <div>
-                        <span className="text-blue-600 font-semibold block">
+                        <span className="text-blue-700 font-semibold block">
                           Đã tạo phiên VNPAY: <strong className="font-mono">{vnPaySession.txnRef}</strong>
                         </span>
                         <span className="text-neutral-500">
-                          Đang tự động lắng nghe kết quả từ cổng VNPAY...
+                          Nhấp nút để mở cổng thanh toán VNPAY nhập thông tin thẻ ATM NCB
                         </span>
                       </div>
                       <a
                         href={vnPaySession.paymentUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-xs"
                       >
-                        <span>Mở Cổng VNPAY Thật</span>
+                        <span>Mở Cổng VNPAY (Thẻ ATM)</span>
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     </div>
                   ) : (
                     <div className="p-3 bg-neutral-100 rounded-xl text-xs text-neutral-600 flex items-center justify-between">
-                      <span>Đang kết nối backend tạo phiên VNPAY...</span>
+                      <span>Đang kết nối backend tạo phiên VNPAY Thẻ ATM...</span>
                       <Button
                         size="sm"
                         variant="secondary"
@@ -1348,42 +1243,6 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       >
                         {isCreatingVnPay ? 'Đang tạo...' : 'Tạo lại phiên VNPAY'}
                       </Button>
-                    </div>
-                  )}
-
-                  {/* Nội dung Tab QR hoặc Thẻ */}
-                  {vnpayTab === 'QR' ? (
-                    <div className="bg-white p-5 rounded-2xl border border-neutral-200 text-center space-y-3">
-                      <div className="w-40 h-40 mx-auto p-2 border-2 border-red-500 rounded-2xl bg-white shadow-xs flex items-center justify-center">
-                        <QrCode className="w-32 h-32 text-red-600" />
-                      </div>
-                      <p className="text-xs text-neutral-600">
-                        Quét mã VNPAY-QR qua hơn 30+ ứng dụng ngân hàng: VCB, VietinBank, BIDV, Agribank...
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="bg-white p-4 rounded-2xl border border-neutral-200 space-y-3 text-xs">
-                      <div className="font-bold text-neutral-800">
-                        Thông tin thẻ ngân hàng kiểm thử Sandbox (NCB Bank):
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-2.5 bg-neutral-50 rounded-xl">
-                          <span className="text-neutral-400 block text-[10px]">NGÂN HÀNG</span>
-                          <strong>NCB (Quốc Dân)</strong>
-                        </div>
-                        <div className="p-2.5 bg-neutral-50 rounded-xl">
-                          <span className="text-neutral-400 block text-[10px]">SỐ THẺ TEST</span>
-                          <strong className="font-mono">97041985261914321</strong>
-                        </div>
-                        <div className="p-2.5 bg-neutral-50 rounded-xl">
-                          <span className="text-neutral-400 block text-[10px]">TÊN CHỦ THẺ</span>
-                          <strong>NGUYEN VAN A</strong>
-                        </div>
-                        <div className="p-2.5 bg-neutral-50 rounded-xl">
-                          <span className="text-neutral-400 block text-[10px]">NGÀY PHÁT HÀNH</span>
-                          <strong>07/15</strong>
-                        </div>
-                      </div>
                     </div>
                   )}
 
@@ -1398,46 +1257,6 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       className="px-6 font-bold"
                     >
                       Tiếp tục xác thực OTP VNPAY ➔
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* 📱 PHƯƠNG THỨC 5: VÍ MOMO */}
-              {selectedMethod === 'MOMO' && (
-                <div className="max-w-xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200 text-center">
-                  <div className="w-14 h-14 mx-auto rounded-2xl bg-pink-100 text-pink-700 flex items-center justify-center font-bold text-xl">
-                    MoMo
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base text-neutral-900">
-                      Cổng Thanh Toán Ví Điện Tử MoMo
-                    </h3>
-                    <p className="text-xs text-neutral-500">
-                      Quét mã QR bằng ứng dụng MoMo trên điện thoại
-                    </p>
-                  </div>
-
-                  <div className="w-44 h-44 mx-auto p-3 bg-white border-2 border-pink-500 rounded-2xl shadow-xs flex items-center justify-center">
-                    <QrCode className="w-36 h-36 text-pink-600" />
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-neutral-200 text-xs text-neutral-600">
-                    Số điện thoại ví sandbox: <strong className="text-neutral-900">0987654321</strong> •
-                    Mật khẩu: <strong className="text-neutral-900">123456</strong>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                      Hủy
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={handleProceedFromStep2}
-                      rightIcon={<ArrowRight className="w-4 h-4" />}
-                      className="px-6 font-bold"
-                    >
-                      Tiếp tục xác thực OTP MoMo ➔
                     </Button>
                   </div>
                 </div>
@@ -1589,6 +1408,25 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                         <strong className="text-neutral-900">Phòng {roomNames.join(', ')}</strong>
                       </div>
                     )}
+
+                    {/* Đối chiếu kỹ thuật nếu thanh toán VNPAY Thẻ ATM */}
+                    {selectedMethod === 'VNPAY' && (
+                      <div className="p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-1 text-[11px] text-blue-900">
+                        <div className="font-bold flex items-center justify-between text-blue-950">
+                          <span>Đối chiếu Cổng VNPAY (Thẻ ATM):</span>
+                          <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded text-[10px]">
+                            Mã 00 - Thành công
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1 text-neutral-700 pt-1">
+                          <div>Ngân hàng: <strong>NCB</strong></div>
+                          <div>Loại thẻ: <strong>ATM nội địa</strong></div>
+                          <div>Mã GD VNPAY: <strong className="font-mono">{completedPayment?.transactionReference || vnPaySession?.txnRef}</strong></div>
+                          <div>Mã tham chiếu: <strong className="font-mono">{completedPayment?.gatewayTxnId || vnPaySession?.txnRef}</strong></div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex justify-between pt-2 border-t border-neutral-200 text-sm font-bold">
                       <span className="text-neutral-700">Tổng tiền đã trả:</span>
                       <span className="text-emerald-700">
