@@ -9,8 +9,10 @@ import {
   CheckCircle2,
   Lock,
   ArrowLeft,
-  QrCode,
   Banknote,
+  Sparkles,
+  Copy,
+  Check,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -18,6 +20,7 @@ import { bookingService } from '../../booking/services/booking.service';
 import { financeService } from '../../finance/services/finance.service';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
 import PaymentErrorModal from '../../finance/components/payment/PaymentErrorModal';
+import { VNPAY_ATM_TEST_CARD } from '../../finance/utils/vnpay.utils';
 import type { AvailableRoomOffer, CustomerSearchCriteria } from '../types/portal.types';
 
 export const CheckoutPage: React.FC = () => {
@@ -44,13 +47,16 @@ export const CheckoutPage: React.FC = () => {
   const [specialRequest, setSpecialRequest] = useState('');
 
   // Payment method
-  const [paymentMethod, setPaymentMethod] = useState<'VNPAY' | 'CREDIT_CARD' | 'PAY_AT_HOTEL'>('VNPAY');
+  const [paymentMethod, setPaymentMethod] = useState<'VNPAY' | 'PAY_AT_HOTEL'>('VNPAY');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bookingConfirmed, setBookingConfirmed] = useState<{
     id: number;
     bookingNumber: string;
     totalAmount: number;
   } | null>(null);
+
+  // VNPay test account copy state
+  const [copiedVnpayCard, setCopiedVnpayCard] = useState(false);
 
   // Giai đoạn D — gọi API VNPay thật + popup lỗi §6
   const [gatewayError, setGatewayError] = useState<ApiErrorInfo | null>(null);
@@ -60,7 +66,7 @@ export const CheckoutPage: React.FC = () => {
   // Tạo phiên thanh toán VNPay cho booking vừa tạo → redirect ra cổng (tree T06: gọi API thật + redirect)
   const handlePayWithGateway = async (bookingId: number): Promise<boolean> => {
     try {
-      const res = await financeService.createVnPayPayment({ bookingId, method: 'VNPAY' });
+      const res = await financeService.createVnPayPayment({ bookingId, method: 'VNPAY', bankCode: 'NCB' });
       if (res.result) {
         setPendingGatewayBookingId(null);
         setGatewayError(null);
@@ -371,36 +377,55 @@ export const CheckoutPage: React.FC = () => {
                       className="text-red-600 focus:ring-red-600"
                     />
                     <div>
-                      <div className="font-bold text-neutral-900 text-sm">Cổng VNPay QR / Thẻ nội địa</div>
-                      <div className="text-xs text-neutral-500">Quét mã QR qua tất cả ứng dụng ngân hàng & ví điện tử</div>
+                      <div className="font-bold text-neutral-900 text-sm">Thẻ ATM nội địa (Cổng VNPAY Sandbox)</div>
+                      <div className="text-xs text-neutral-500">Thanh toán bằng thẻ ATM NCB (Napas) trực tuyến qua VNPAY</div>
                     </div>
                   </div>
-                  <QrCode className="w-6 h-6 text-red-600" />
+                  <CreditCard className="w-6 h-6 text-red-600" />
                 </label>
 
-                <label
-                  onClick={() => setPaymentMethod('CREDIT_CARD')}
-                  className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all ${
-                    paymentMethod === 'CREDIT_CARD'
-                      ? 'border-red-600 bg-red-50/20 shadow-xs'
-                      : 'border-neutral-200 hover:border-neutral-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === 'CREDIT_CARD'}
-                      onChange={() => setPaymentMethod('CREDIT_CARD')}
-                      className="text-red-600 focus:ring-red-600"
-                    />
-                    <div>
-                      <div className="font-bold text-neutral-900 text-sm">Thẻ Quốc Tế (Visa / Mastercard / JCB)</div>
-                      <div className="text-xs text-neutral-500">Thanh toán bảo mật tức thì</div>
+                {/* Hộp gợi ý tài khoản VNPAY Sandbox */}
+                {paymentMethod === 'VNPAY' && (
+                  <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-2.5 text-xs animate-in fade-in">
+                    <div className="flex items-center justify-between text-blue-900 font-bold">
+                      <span className="flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-blue-600" />
+                        Gợi ý tài khoản kiểm thử Cổng VNPAY Sandbox:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text = `Ngân hàng: ${VNPAY_ATM_TEST_CARD.bankName}\nSố thẻ: ${VNPAY_ATM_TEST_CARD.cardNumber}\nTên chủ thẻ: ${VNPAY_ATM_TEST_CARD.cardHolder}\nNgày phát hành: ${VNPAY_ATM_TEST_CARD.issueDate}\nOTP: ${VNPAY_ATM_TEST_CARD.otp}`;
+                          navigator.clipboard.writeText(text);
+                          setCopiedVnpayCard(true);
+                          setTimeout(() => setCopiedVnpayCard(false), 2000);
+                        }}
+                        className="text-[11px] text-blue-700 hover:underline font-semibold flex items-center gap-1"
+                      >
+                        {copiedVnpayCard ? (
+                          <span className="text-emerald-600 font-bold flex items-center gap-1">
+                            <Check className="w-3.5 h-3.5" />
+                            Đã sao chép thông tin!
+                          </span>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Sao chép thông tin thẻ test
+                          </>
+                        )}
+                      </button>
                     </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-neutral-700 font-medium">
+                      <div>Ngân hàng: <strong className="text-neutral-900 font-bold">NCB</strong></div>
+                      <div>Số thẻ test: <strong className="font-mono text-neutral-900 font-bold">{VNPAY_ATM_TEST_CARD.cardNumber}</strong></div>
+                      <div>Chủ thẻ: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.cardHolder}</strong></div>
+                      <div>Hạn: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.issueDate}</strong> • OTP: <strong className="text-emerald-700 font-bold">{VNPAY_ATM_TEST_CARD.otp}</strong></div>
+                    </div>
+                    <p className="text-[11px] text-neutral-500 pt-1 border-t border-blue-100">
+                      * Sau khi bấm <strong>"Xác Nhận Đặt Phòng"</strong>, bạn sẽ được chuyển hướng sang Cổng VNPAY Sandbox để nhập các thông tin thẻ ATM NCB này.
+                    </p>
                   </div>
-                  <CreditCard className="w-6 h-6 text-blue-600" />
-                </label>
+                )}
 
                 <label
                   onClick={() => setPaymentMethod('PAY_AT_HOTEL')}

@@ -71,6 +71,11 @@ public class VnPayGateway implements PaymentGateway {
 
     @Override
     public String createPaymentUrl(String txnRef, BigDecimal amount, String orderInfo, String ipAddress) {
+        return createPaymentUrl(txnRef, amount, orderInfo, ipAddress, "VNBANK");
+    }
+
+    @Override
+    public String createPaymentUrl(String txnRef, BigDecimal amount, String orderInfo, String ipAddress, String bankCode) {
         // Chưa cấu hình key sandbox (dev) → lỗi rõ ràng thay vì crash khi ký
         if (tmnId == null || tmnId.isBlank() || hashSecret == null || hashSecret.isBlank()) {
             throw new AppException(ErrorCode.GATEWAY_ERROR,
@@ -84,6 +89,11 @@ public class VnPayGateway implements PaymentGateway {
         // VNPay nhận số tiền VND × 100 (không decimals)
         data.put("vnp_Amount", amount.multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.DOWN).toPlainString());
+
+        // Theo yêu cầu chỉ thanh toán thẻ ATM (VNBANK hoặc NCB), không quét QR
+        String effectiveBankCode = (bankCode != null && !bankCode.isBlank()) ? bankCode : "VNBANK";
+        data.put("vnp_BankCode", effectiveBankCode);
+
         data.put("vnp_CreateDate", LocalDateTime.now(VN_TZ).format(VNPAY_DATE));
         data.put("vnp_CurrCode", VNPAY_CURR_CODE);
         data.put("vnp_IpAddr", ipAddress);
@@ -139,6 +149,13 @@ public class VnPayGateway implements PaymentGateway {
                 .responseCode(responseCode)
                 .success(valid && "00".equals(responseCode))
                 .rawPayload(toJson(params))
+                .bankCode(params.get("vnp_BankCode"))
+                .bankTranNo(params.get("vnp_BankTranNo"))
+                .cardType(params.get("vnp_CardType"))
+                .payDate(params.get("vnp_PayDate"))
+                .orderInfo(params.get("vnp_OrderInfo"))
+                .tmnCode(params.get("vnp_TmnCode"))
+                .transactionStatus(params.get("vnp_TransactionStatus"))
                 .build();
     }
 

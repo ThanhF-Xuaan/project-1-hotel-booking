@@ -44,4 +44,26 @@ public class CallbackResult {
 
     /** JSON dump toàn bộ payload — ghi vào payments.raw_callback_payload để debug */
     String rawPayload;
+
+    /** Mã ngân hàng thanh toán: vnp_BankCode (VD: NCB, VCB...) */
+    String bankCode;
+
+    /** Mã giao dịch tại Ngân hàng: vnp_BankTranNo */
+    String bankTranNo;
+
+    /** Loại thẻ: vnp_CardType (VD: ATM, QRCODE, VISA...) */
+    String cardType;
+
+    /** Thời gian thanh toán: vnp_PayDate (định dạng yyyyMMddHHmmss) */
+    String payDate;
+
+    /** Thông tin mô tả đơn hàng: vnp_OrderInfo */
+    String orderInfo;
+
+    /** Mã website của merchant: vnp_TmnCode */
+    String tmnCode;
+
+    /** Tình trạng giao dịch: vnp_TransactionStatus (00 = thành công) */
+    String transactionStatus;
 }
+

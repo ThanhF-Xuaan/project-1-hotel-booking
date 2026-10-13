@@ -28,4 +28,15 @@ public class PaymentResponse {
     OffsetDateTime paidAt;
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;
+
+    // Các trường đối chiếu dữ liệu cổng thanh toán (VNPay Reconciliation)
+    String gatewayTxnId;
+    String gatewayResponseCode;
+    String gatewayResponseDescription;
+    String bankCode;
+    String cardType;
+    String bankTranNo;
+    String payDate;
+    String rawCallbackPayload;
 }
+

@@ -94,8 +94,24 @@ public class PaymentCallbackController {
         }
         String status = paid ? "PAID" : "FAILED";
         String txnRef = params.get("vnp_TxnRef") != null ? params.get("vnp_TxnRef") : "";
-        URI redirect = URI.create(feResultUrl + "?status=" + status
-                + "&txnRef=" + txnRef + paymentIdPart + bookingIdPart);
+
+        StringBuilder queryParams = new StringBuilder();
+        queryParams.append("?status=").append(status);
+        queryParams.append("&txnRef=").append(java.net.URLEncoder.encode(txnRef, java.nio.charset.StandardCharsets.UTF_8));
+        queryParams.append(paymentIdPart).append(bookingIdPart);
+
+        // Chuyển tiếp các thông tin đối chiếu kỹ thuật theo chuẩn Docs VNPay
+        String[] forwardFields = {"vnp_ResponseCode", "vnp_TransactionNo", "vnp_BankCode",
+                "vnp_CardType", "vnp_PayDate", "vnp_BankTranNo", "vnp_OrderInfo", "vnp_TransactionStatus", "vnp_Amount"};
+        for (String field : forwardFields) {
+            String val = params.get(field);
+            if (val != null && !val.isBlank()) {
+                queryParams.append("&").append(field).append("=")
+                        .append(java.net.URLEncoder.encode(val, java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+
+        URI redirect = URI.create(feResultUrl + queryParams.toString());
         return ResponseEntity.status(HttpStatus.FOUND).location(redirect).build();
     }
 

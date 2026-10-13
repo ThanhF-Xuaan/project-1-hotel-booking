@@ -27,6 +27,13 @@ public interface PaymentGateway {
     String createPaymentUrl(String txnRef, BigDecimal amount, String orderInfo, String ipAddress);
 
     /**
+     * Tạo URL thanh toán đã ký chữ ký kèm chỉ định phương thức/mã ngân hàng (VD: VNBANK, NCB).
+     */
+    default String createPaymentUrl(String txnRef, BigDecimal amount, String orderInfo, String ipAddress, String bankCode) {
+        return createPaymentUrl(txnRef, amount, orderInfo, ipAddress);
+    }
+
+    /**
      * Xác thực chữ ký callback (IPN) và trích xuất thông tin giao dịch.
      * Trả về CallbackResult.valid = false nếu chữ ký sai/thiếu param.
      */
