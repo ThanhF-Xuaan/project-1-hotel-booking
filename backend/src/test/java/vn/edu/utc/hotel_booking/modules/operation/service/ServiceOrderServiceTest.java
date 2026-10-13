@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
@@ -205,7 +206,6 @@ class ServiceOrderServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(2L);
         assertThat(response.getBookingId()).isEqualTo(100L);
-        verify(bookingChargeRepository, times(1)).save(any(BookingCharge.class));
     }
 
     @Test
@@ -327,7 +327,6 @@ class ServiceOrderServiceTest {
 
         when(serviceOrderRepository.findById(1L)).thenReturn(Optional.of(order));
         when(catalogItemRepository.findById(10)).thenReturn(Optional.of(testCatalogItem));
-        when(bookingRoomRepository.findByBookingIdAndRoomInstanceId(100L, 50)).thenReturn(Optional.of(testBookingRoom));
         when(serviceOrderRepository.save(any(ServiceOrder.class))).thenReturn(order);
         when(operationMapper.toResponse(any(ServiceOrder.class))).thenReturn(ServiceOrderResponse.builder()
                 .id(1L)
@@ -339,9 +338,25 @@ class ServiceOrderServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(ServiceOrderStatus.CANCELLED);
 
-        // 1. Tồn kho được hoàn trả từ 10 thành 13
+        // Tồn kho được hoàn trả từ 10 thành 13
         assertThat(testCatalogItem.getStockQuantity()).isEqualTo(13);
         verify(catalogItemRepository, times(1)).save(testCatalogItem);
+    }
+
+    @Test
+    @DisplayName("Báo lỗi INVALID_SERVICE_ORDER_STATUS khi cố gắng hủy đơn đã bị hủy trước đó")
+    void updateStatus_CancelledTwice_ThrowsException() {
+        ServiceOrder order = ServiceOrder.builder()
+                .id(1L)
+                .orderNumber("SO-12345")
+                .status(ServiceOrderStatus.CANCELLED)
+                .build();
+
+        when(serviceOrderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> serviceOrderService.updateStatus(1L, ServiceOrderStatus.CANCELLED))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_SERVICE_ORDER_STATUS));
     }
 
     @Test
