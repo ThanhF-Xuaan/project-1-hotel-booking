@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.finance.gateway.dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -9,6 +10,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
+
+import java.math.BigDecimal;
 
 /**
  * Request tạo phiên thanh toán online (POST /payments/vnpay/create, /payments/momo/create).
@@ -22,6 +25,13 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CreatePaymentRequest {
 
+    /** Tùy chọn: số tiền thanh toán (nếu null/rỗng thì tính theo số dư nợ của booking) */
+    @DecimalMin(value = "0.01", message = "Số tiền thanh toán phải lớn hơn 0")
+    BigDecimal amount;
+
+    /** Tùy chọn: mã ngân hàng (mặc định VNBANK cho thẻ ATM nội địa) */
+    String bankCode;
+
     /** Tùy chọn: nếu FE đã tạo Payment (qua /payments/create) thì gửi kèm để tái sử dụng */
     Long paymentId;
 
@@ -32,3 +42,4 @@ public class CreatePaymentRequest {
     @NotNull(message = "method không được để trống")
     PaymentMethod method;
 }
+

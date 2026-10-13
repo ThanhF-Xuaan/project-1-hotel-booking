@@ -44,7 +44,7 @@ const REFERENCE_CONFIG: Record<
   OTHER: { label: 'Mã tham chiếu / Biên lai', required: false, placeholder: 'VD: HD-001' },
 };
 
-const isGatewayMethod = (m: PaymentMethod): m is GatewayMethod => m === 'VNPAY' || m === 'MOMO';
+const isGatewayMethod = (m: PaymentMethod): m is GatewayMethod => m === 'VNPAY';
 
 export const FolioPaymentPage: React.FC = () => {
   const [bookingNumberInput, setBookingNumberInput] = useState('');
@@ -406,13 +406,14 @@ export const FolioPaymentPage: React.FC = () => {
     try {
       if (isGatewayMethod(payMethod)) {
         // D3 — tạo phiên thanh toán online → mở CheckoutModal (countdown + link gateway)
-        const create =
-          payMethod === 'VNPAY'
-            ? financeService.createVnPayPayment
-            : financeService.createMoMoPayment;
-        const res = await create({ bookingId: currentBooking.id, method: payMethod });
+        const res = await financeService.createVnPayPayment({
+          bookingId: currentBooking.id,
+          method: 'VNPAY',
+          bankCode: 'NCB',
+          amount: payAmount,
+        });
         if (res.result) {
-          setActiveGateway(payMethod);
+          setActiveGateway('VNPAY');
           setGatewaySession(res.result);
           setIsPaymentModalOpen(false);
           setIsCheckoutModalOpen(true);
@@ -630,8 +631,8 @@ export const FolioPaymentPage: React.FC = () => {
             {bookingNumberInput.trim()
               ? `Không tìm thấy đơn đặt phòng nào khớp mã "${bookingNumberInput}"`
               : listFilterKeyword.trim()
-              ? `Không tìm thấy đơn đặt phòng nào cho số phòng "${listFilterKeyword}"`
-              : 'Chưa có đơn đặt phòng nào — hãy tạo đơn ở mục Đặt phòng'}
+                ? `Không tìm thấy đơn đặt phòng nào cho số phòng "${listFilterKeyword}"`
+                : 'Chưa có đơn đặt phòng nào — hãy tạo đơn ở mục Đặt phòng'}
           </div>
         ) : (
           <div className="overflow-auto max-h-80">
@@ -662,9 +663,8 @@ export const FolioPaymentPage: React.FC = () => {
                           handleSelectBooking(b);
                         }
                       }}
-                      className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${
-                        isActive ? 'bg-red-50' : 'hover:bg-neutral-50'
-                      }`}
+                      className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${isActive ? 'bg-red-50' : 'hover:bg-neutral-50'
+                        }`}
                     >
                       <td className="p-3">
                         {(() => {
@@ -1043,12 +1043,8 @@ export const FolioPaymentPage: React.FC = () => {
                 value={payMethod}
                 onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
               >
-                <option value="CASH">Tiền mặt (Cash)</option>
-                <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
-                <option value="CREDIT_CARD">Thẻ tín dụng (Credit Card)</option>
-                <option value="DEBIT_CARD">Thẻ ghi nợ (Debit Card)</option>
-                <option value="VNPAY">VNPAY QR</option>
-                <option value="MOMO">Ví MoMo</option>
+                <option value="CASH">Tiền mặt tại quầy (Trực tiếp)</option>
+                <option value="VNPAY">Thẻ ATM nội địa (Cổng VNPAY)</option>
               </select>
             </div>
             <div>
@@ -1066,12 +1062,12 @@ export const FolioPaymentPage: React.FC = () => {
           </div>
 
           {isGatewayMethod(payMethod) ? (
-            // D2 — VNPAY/MOMO: KHÔNG nhập tay mã tham chiếu (webhook tự ghi) + hiện số tiền theo tổng đơn
+            // D2 — VNPAY: KHÔNG nhập tay mã tham chiếu (webhook tự ghi) + hiện số tiền theo tổng đơn
             <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl p-4 text-xs leading-relaxed">
-              Thanh toán qua <b>{payMethod === 'VNPAY' ? 'VNPay' : 'MoMo'}</b>: mã tham chiếu sẽ
+              Thanh toán qua <b>Cổng VNPay</b>: mã tham chiếu sẽ
               <b> tự động ghi từ webhook</b> của cổng thanh toán (không nhập tay).
               <br />
-              Số tiền thu theo <b>tổng tiền đơn</b>: <b className="text-blue-900">{formatCurrency(currentBooking?.totalAmount)}</b>{' '}
+              Số tiền thanh toán: <b className="text-blue-900">{formatCurrency(payAmount)}</b>{' '}
               — hệ thống tự mở phiên thanh toán có hiệu lực 10 phút.
             </div>
           ) : (
@@ -1109,8 +1105,8 @@ export const FolioPaymentPage: React.FC = () => {
               {isProcessingPayment
                 ? 'Đang xử lý...'
                 : isGatewayMethod(payMethod)
-                ? 'Tạo phiên thanh toán'
-                : 'Xác nhận thu tiền'}
+                  ? 'Tạo phiên thanh toán'
+                  : 'Xác nhận thu tiền'}
             </Button>
           </div>
         </form>

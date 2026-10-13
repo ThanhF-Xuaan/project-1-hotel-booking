@@ -49,6 +49,16 @@ export interface PaymentResponse {
   paidAt?: string;
   createdAt: string;
   updatedAt: string;
+
+  // Dữ liệu đối chiếu cổng thanh toán VNPay theo chuẩn Docs VNPay
+  gatewayTxnId?: string;
+  gatewayResponseCode?: string;
+  gatewayResponseDescription?: string;
+  bankCode?: string;
+  cardType?: string;
+  bankTranNo?: string;
+  payDate?: string;
+  rawCallbackPayload?: string;
 }
 
 export interface TransactionResponse {
@@ -120,6 +130,10 @@ export interface GatewayCreateRequest {
   method: GatewayMethod;
   /** Tùy chọn: tái sử dụng Payment PENDING đã tạo trước đó */
   paymentId?: number;
+  /** Tùy chọn: chỉ định số tiền thanh toán (thay vì toàn bộ công nợ) */
+  amount?: number;
+  /** Tùy chọn: mã ngân hàng (mặc định 'VNBANK' hoặc 'NCB' cho thẻ ATM nội địa) */
+  bankCode?: string;
 }
 
 /** Phản hồi tạo phiên — FE redirect khách ra paymentUrl, countdown theo expiresAt (TTL 10') */
@@ -132,3 +146,4 @@ export interface PaymentUrlResponse {
 
 /** Trạng thái hiển thị ở trang kết quả (poll PENDING → PAID/FAILED) */
 export type CallbackStatus = 'PENDING' | 'PAID' | 'FAILED';
+

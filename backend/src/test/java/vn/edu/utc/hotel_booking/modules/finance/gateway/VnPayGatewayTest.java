@@ -67,10 +67,24 @@ class VnPayGatewayTest {
                 .contains("vnp_TxnRef=VNP20261001120000-1234")
                 .contains("vnp_Amount=150000000")
                 .contains("vnp_TmnCode=TESTTMN01")
+                .contains("vnp_BankCode=VNBANK")
                 .contains("vnp_SecureHash=")
                 .contains("vnp_SecureHashType=SHA512")
                 .contains("vnp_ReturnUrl=");
     }
+
+    @Test
+    @DisplayName("createPaymentUrl với chỉ định mã ngân hàng NCB → vnp_BankCode=NCB")
+    void createPaymentUrl_ChiDinhNganHangNCB() {
+        String url = gateway.createPaymentUrl(
+                "VNP20261001120000-5678", BigDecimal.valueOf(500000),
+                "Thanh toan dat phong BK2", "127.0.0.1", "NCB");
+
+        assertThat(url)
+                .contains("vnp_BankCode=NCB")
+                .contains("vnp_Amount=50000000");
+    }
+
 
     @Test
     @DisplayName("Round-trip: URL đã ký → parse query → verifyCallback valid=true, success=true")
@@ -89,6 +103,10 @@ class VnPayGatewayTest {
         }
         params.put("vnp_ResponseCode", "00");
         params.put("vnp_TransactionNo", "TM1263456789");
+        params.put("vnp_BankCode", "NCB");
+        params.put("vnp_CardType", "ATM");
+        params.put("vnp_BankTranNo", "VNP123456");
+        params.put("vnp_PayDate", "20261013170530");
         // responseCode/transactionNo thêm vào sau → ký lại như IPN thật
         Map<String, String> data = new LinkedHashMap<>(params);
         data.remove("vnp_SecureHash");
@@ -102,8 +120,13 @@ class VnPayGatewayTest {
         assertThat(result.getTxnRef()).isEqualTo("VNP20261001120000-1234");
         assertThat(result.getTransactionReference()).isEqualTo("TM1263456789");
         assertThat(result.getAmount()).isEqualByComparingTo("1500000");
+        assertThat(result.getBankCode()).isEqualTo("NCB");
+        assertThat(result.getCardType()).isEqualTo("ATM");
+        assertThat(result.getBankTranNo()).isEqualTo("VNP123456");
+        assertThat(result.getPayDate()).isEqualTo("20261013170530");
         assertThat(result.getRawPayload()).contains("vnp_TxnRef");
     }
+
 
     @Test
     @DisplayName("verifyCallback: chữ ký KHÁC secret → valid=false, success=false")
