@@ -111,11 +111,7 @@ public class PaymentCallbackController {
             }
         }
 
-        String separator = feResultUrl.contains("?") ? "&" : "?";
-        String queryString = queryParams.length() > 0 && queryParams.charAt(0) == '?'
-                ? queryParams.substring(1)
-                : queryParams.toString();
-        URI redirect = URI.create(feResultUrl + separator + queryString);
+        URI redirect = URI.create(feResultUrl + queryParams.toString());
         return ResponseEntity.status(HttpStatus.FOUND).location(redirect).build();
     }
 
