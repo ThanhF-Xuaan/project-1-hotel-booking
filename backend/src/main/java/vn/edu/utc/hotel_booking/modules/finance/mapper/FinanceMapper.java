@@ -18,6 +18,24 @@ public interface FinanceMapper {
     @Mapping(target = "bookingNumber", source = "booking.bookingNumber")
     PaymentResponse toResponse(Payment entity);
 
+    @org.mapstruct.AfterMapping
+    default void enrichGatewayDetails(@org.mapstruct.MappingTarget PaymentResponse response, Payment entity) {
+        if (entity.getRawCallbackPayload() != null && !entity.getRawCallbackPayload().isBlank()) {
+            try {
+                com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(entity.getRawCallbackPayload());
+                if (node.hasNonNull("vnp_BankCode")) response.setBankCode(node.get("vnp_BankCode").asText());
+                if (node.hasNonNull("vnp_CardType")) response.setCardType(node.get("vnp_CardType").asText());
+                if (node.hasNonNull("vnp_BankTranNo")) response.setBankTranNo(node.get("vnp_BankTranNo").asText());
+                if (node.hasNonNull("vnp_PayDate")) response.setPayDate(node.get("vnp_PayDate").asText());
+            } catch (Exception ignored) {
+            }
+        }
+        if (response.getGatewayResponseCode() != null) {
+            response.setGatewayResponseDescription(VnPayResponseHelper.getVnPayResponseDescription(response.getGatewayResponseCode()));
+        }
+    }
+
     @Mapping(target = "paymentId", source = "payment.id")
     @Mapping(target = "bookingId", source = "booking.id")
     TransactionResponse toResponse(Transaction entity);
@@ -29,3 +47,4 @@ public interface FinanceMapper {
 
     InvoiceDetailResponse toDetailResponse(InvoiceDetail entity);
 }
+
