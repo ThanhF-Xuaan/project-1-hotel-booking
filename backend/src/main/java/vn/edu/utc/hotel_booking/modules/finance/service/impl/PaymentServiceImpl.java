@@ -175,14 +175,18 @@ public class PaymentServiceImpl implements PaymentService {
                 }
                 payment.setGatewayTxnId(txnRef);
             } else {
-                // Contract { bookingId, method } — số tiền lấy từ đơn đặt phòng
-                if (booking.getTotalAmount() == null || booking.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+                // Contract { bookingId, method } — số tiền lấy từ request hoặc đơn đặt phòng
+                BigDecimal paymentAmount = request.getAmount();
+                if (paymentAmount == null) {
+                    paymentAmount = booking.getTotalAmount();
+                }
+                if (paymentAmount == null || paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
                     throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT,
-                            "Đơn đặt phòng chưa có số tiền thanh toán");
+                            "Đơn đặt phòng chưa có số tiền thanh toán hợp lệ");
                 }
                 payment = Payment.builder()
                         .booking(booking)
-                        .totalAmount(booking.getTotalAmount())
+                        .totalAmount(paymentAmount)
                         .paymentPurpose(PaymentPurpose.FULL_PAYMENT)
                         .paymentMethod(request.getMethod())
                         .gatewayTxnId(txnRef)
@@ -192,7 +196,11 @@ public class PaymentServiceImpl implements PaymentService {
             Payment saved = paymentRepository.save(payment);
 
             String orderInfo = "Thanh toan dat phong " + booking.getBookingNumber();
-            String paymentUrl = gateway.createPaymentUrl(txnRef, saved.getTotalAmount(), orderInfo, ipAddress);
+            String effectiveBankCode = request.getBankCode();
+            if ((effectiveBankCode == null || effectiveBankCode.isBlank()) && request.getMethod() == PaymentMethod.VNPAY) {
+                effectiveBankCode = "VNBANK";
+            }
+            String paymentUrl = gateway.createPaymentUrl(txnRef, saved.getTotalAmount(), orderInfo, ipAddress, effectiveBankCode);
 
             return PaymentUrlResponse.builder()
                     .paymentUrl(paymentUrl)
@@ -240,6 +248,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         payment.setRawCallbackPayload(result.getRawPayload());
         payment.setGatewayResponseCode(result.getResponseCode());
+        if (result.getBankCode() != null && !result.getBankCode().isBlank()) {
+            payment.setPaymentProvider(result.getBankCode());
+        }
         Payment saved;
 
         if (result.isSuccess()) {
