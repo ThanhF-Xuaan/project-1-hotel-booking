@@ -1,0 +1,560 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.example.invalid/t12/2.0.0-draft.1/core.schema.json",
+  "$defs": {
+    "PricingRequest": {
+      "type": "object",
+      "properties": {
+        "hotelRoomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "checkInDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "checkOutDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "adults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "children": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "extraBeds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "campaignCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "hotelRoomTypeId",
+        "checkInDate",
+        "checkOutDate",
+        "adults",
+        "children",
+        "extraBeds"
+      ],
+      "additionalProperties": false
+    },
+    "DailyPrice": {
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "baseRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "holidayAdjustment": {
+          "type": "number",
+          "minimum": 0
+        },
+        "adjustedRate": {
+          "type": "number",
+          "minimum": 0
+        },
+        "discountAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "surchargeAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "netAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "seasonalAdjustment": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "date",
+        "baseRate",
+        "holidayAdjustment",
+        "adjustedRate",
+        "discountAmount",
+        "surchargeAmount",
+        "netAmount",
+        "seasonalAdjustment"
+      ],
+      "additionalProperties": false
+    },
+    "PricingResult": {
+      "type": "object",
+      "properties": {
+        "hotelRoomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "roomTypeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "totalNights": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "dailyPrices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DailyPrice"
+          },
+          "minItems": 1
+        },
+        "totalBasePrice": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalDiscountAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalSurchargeAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "preTaxAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "vatPercent": {
+          "type": "number",
+          "minimum": 0
+        },
+        "vatAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "finalTotalAmount": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "hotelRoomTypeId",
+        "roomTypeName",
+        "totalNights",
+        "dailyPrices",
+        "totalBasePrice",
+        "totalDiscountAmount",
+        "totalSurchargeAmount",
+        "preTaxAmount",
+        "vatPercent",
+        "vatAmount",
+        "finalTotalAmount"
+      ],
+      "additionalProperties": false
+    },
+    "PricingResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "const": 200
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "result": {
+          "$ref": "#/$defs/PricingResult"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "AvailabilityRequest": {
+      "type": "object",
+      "properties": {
+        "hotelRoomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        }
+      },
+      "required": [
+        "hotelRoomTypeId",
+        "startDate",
+        "endDate"
+      ],
+      "additionalProperties": false
+    },
+    "AvailabilityNight": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "hotelRoomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "availabilityDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "totalRooms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "bookedRooms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "lockedRooms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "oooRooms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "availableCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "lockedUntil": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "hotelRoomTypeId",
+        "availabilityDate",
+        "totalRooms",
+        "bookedRooms",
+        "lockedRooms",
+        "oooRooms",
+        "availableCount"
+      ],
+      "additionalProperties": false
+    },
+    "AvailabilityResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "const": 200
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "result": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AvailabilityNight"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "PublicRoom": {
+      "type": "object",
+      "properties": {
+        "hotelId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "hotelName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "hotelRoomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "roomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "roomTypeCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "roomTypeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "maxAdults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "maxChildren": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "maxTotalGuests": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "extraBedsAllowed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "code",
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 50
+        },
+        "status": {
+          "const": "ACTIVE"
+        }
+      },
+      "required": [
+        "hotelId",
+        "hotelName",
+        "hotelRoomTypeId",
+        "roomTypeId",
+        "roomTypeCode",
+        "roomTypeName",
+        "maxAdults",
+        "maxChildren",
+        "maxTotalGuests",
+        "extraBedsAllowed",
+        "features",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "DiscoveryRequest": {
+      "type": "object",
+      "properties": {
+        "hotelId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "locationKeyword": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "sortBy": {
+          "const": "id"
+        },
+        "sortDirection": {
+          "const": "ASC"
+        }
+      },
+      "required": [
+        "page",
+        "pageSize",
+        "sortBy",
+        "sortDirection"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "hotelId"
+          ]
+        },
+        {
+          "required": [
+            "locationKeyword"
+          ]
+        }
+      ]
+    },
+    "DiscoveryResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "const": 200
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/PublicRoom"
+              },
+              "maxItems": 100
+            },
+            "pageNumber": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "totalElements": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "totalPages": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "first": {
+              "type": "boolean"
+            },
+            "last": {
+              "type": "boolean"
+            },
+            "empty": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "content",
+            "pageNumber",
+            "pageSize",
+            "totalElements",
+            "totalPages",
+            "first",
+            "last",
+            "empty"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "DetailResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "const": 200
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "result": {
+          "$ref": "#/$defs/PublicRoom"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "result"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "description": "Pricing/Availability: source-shaped synthetic fixtures; Discovery/Detail: PROPOSED, không tồn tại trong baseline."
+}

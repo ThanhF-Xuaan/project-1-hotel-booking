@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "evaluationVersion",
+    "contractArtifactVersion",
+    "humanApproved",
+    "executionStatus",
+    "cases"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "evaluationVersion": {
+      "const": "0.1.0-draft"
+    },
+    "contractArtifactVersion": {
+      "const": "2.0.0-draft.1"
+    },
+    "humanApproved": {
+      "const": false
+    },
+    "executionStatus": {
+      "const": "NOT_RUN_NO_ENGINE"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "name",
+          "approval",
+          "fixtureManifest",
+          "turns",
+          "fixtureMutations",
+          "context",
+          "expected"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^R1-[0-9]{3}$"
+          },
+          "category": {
+            "enum": [
+              "hard_constraints",
+              "ranking",
+              "pricing",
+              "multi_turn",
+              "security",
+              "no_write",
+              "errors"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "approval": {
+            "type": "object",
+            "required": [
+              "status",
+              "approvedBy",
+              "approvedAt"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "status": {
+                "const": "PENDING"
+              },
+              "approvedBy": {
+                "type": "null"
+              },
+              "approvedAt": {
+                "type": "null"
+              }
+            }
+          },
+          "fixtureManifest": {
+            "type": "string",
+            "minLength": 1
+          },
+          "context": {
+            "type": "object",
+            "required": [
+              "clock",
+              "ownerId",
+              "allowedHotelIds",
+              "sessionFixtureVersion",
+              "llmState",
+              "ragState",
+              "rateLimitExceeded",
+              "runtimeCandidateBudget"
+            ],
+            "properties": {
+              "clock": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "ownerId": {
+                "type": "string"
+              },
+              "allowedHotelIds": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "uniqueItems": true
+              },
+              "sessionFixtureVersion": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "llmState": {
+                "enum": [
+                  "AVAILABLE",
+                  "UNAVAILABLE"
+                ]
+              },
+              "ragState": {
+                "enum": [
+                  "DISABLED",
+                  "UNAVAILABLE"
+                ]
+              },
+              "rateLimitExceeded": {
+                "type": "boolean"
+              },
+              "runtimeCandidateBudget": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "bindExplicitSessionToPriorTurn": {
+                "type": "boolean"
+              },
+              "nativeResponsesForChangedDates": {
+                "const": "REMAP_OCCUPIED_DATES_KEEP_VALUES"
+              },
+              "locationAmbiguity": {
+                "type": "boolean"
+              },
+              "detailRouteFixtureApproved": {
+                "type": "boolean"
+              },
+              "sessionExpired": {
+                "type": "boolean"
+              },
+              "llmOutputOverride": {
+                "type": "object"
+              },
+              "corePricingHttpStatus": {
+                "enum": [
+                  429
+                ]
+              },
+              "retryPolicyFixtureMaxAttempts": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3
+              }
+            },
+            "additionalProperties": false
+          },
+          "turns": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "operation",
+                "request"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "operation": {
+                  "enum": [
+                    "CHAT",
+                    "SEARCH",
+                    "REFRESH"
+                  ]
+                },
+                "request": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "fixtureMutations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "file",
+                "op",
+                "path",
+                "value"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "file": {
+                  "type": "string"
+                },
+                "op": {
+                  "enum": [
+                    "add",
+                    "replace",
+                    "remove"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^(/.*)?$"
+                },
+                "value": {}
+              }
+            }
+          },
+          "expected": {
+            "type": "object",
+            "required": [
+              "businessWriteCalls"
+            ],
+            "minProperties": 2,
+            "properties": {
+              "businessWriteCalls": {
+                "const": 0
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "capturedFor": "USER_CONFIRMED_GOVERNANCE_CONTINUATION",
+  "head": "afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb",
+  "files": [
+    {
+      "path": ".agents/agents/pii-auditor.md",
+      "sha256": "47391DA13DA507BB59AF40D87169ED1BE00265C9AE0585119E3C3E0454ABD057"
+    },
+    {
+      "path": ".agents/agents/plan-reviewer.md",
+      "sha256": "FAEF72FA6FCE6E4529D60E75C47C3A7C664DEC244B81DAAFA0792492C08E2826"
+    },
+    {
+      "path": ".agents/agents/rag-evaluator.md",
+      "sha256": "DDD9488F832A8256BE3AE4E2D5AE351145483B631671F51AB2F8B9252CE7B563"
+    },
+    {
+      "path": ".agents/rules/00-INDEX.template.md",
+      "sha256": "E50AC44A0C9240209243A819CC9D1356A1F1DF86516F51AF36FBC0483262F38D"
+    },
+    {
+      "path": ".agents/rules/01-core-ai-guidelines.template.md",
+      "sha256": "96124C4ECB82FEE070A18B4A32BE3F34307ADBA6FD21E8C6916F6A24AEF83E24"
+    },
+    {
+      "path": ".agents/rules/07-member-1-architecture-pipeline.md",
+      "sha256": "CDD57EA4C519FD84707F297712FDA70729950519C897A7D88538FDD1035712F6"
+    },
+    {
+      "path": ".agents/skills/m1-ai-evaluation-security/SKILL.md",
+      "sha256": "54AB44DBDC8D14F232489EBBC2E6A6B601825C106B5C9DCEAD278344692481DB"
+    },
+    {
+      "path": ".agents/skills/m1-ai-rag-developer/SKILL.md",
+      "sha256": "9493C6680C6C0CAE5EE5195C700FB698750ED1E0CA0FCE48B97783C2AFD06423"
+    },
+    {
+      "path": ".agents/skills/m1-data-processing-developer/SKILL.md",
+      "sha256": "20E61FD8160BEC946A4636DDE823011E6B5E7B644FBADCCC86B8DCFD2A4C1ABB"
+    },
+    {
+      "path": ".agents/skills/m1-execution-planner/SKILL.md",
+      "sha256": "F72716A13050B2C6F269BE33AAB40A156157357C4651DE63D37C7F3CD688D8D4"
+    },
+    {
+      "path": ".agents/skills/m1-quality-and-git-delivery/SKILL.md",
+      "sha256": "0BB812F178DF1FB6A22A7D35440205083476F8ED3BC7F8190FA286B4045A3575"
+    },
+    {
+      "path": ".agents/skills/m1-rag-knowledge-lifecycle/SKILL.md",
+      "sha256": "A3E9BAA8990E406E1367EE96B89B6BB2D53141E7DF8BF9C943D2A4855DF88A53"
+    },
+    {
+      "path": ".agents/skills/m1-room-recommendation-engine/SKILL.md",
+      "sha256": "83F31981C5DE5099FFB9D3AE981E595CBE0C22406FA4FD141B5D95409352265F"
+    },
+    {
+      "path": ".agents/skills/m1-spec-designer/SKILL.md",
+      "sha256": "7E65E44E56C0C7BA30F496628CDD8DEEBD373AB905CA3FCA319E40B2F8A9C7E3"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "2C168A464501D30DA3B2CE2AB65189596D480E0E3B1C4D7B836C201804ACD152"
+    },
+    {
+      "path": "AGENTS.member1.md",
+      "sha256": "C9363A811EFFF8964E724800D6E4EF32D5B923D9962461CCADF5F940EECA2915"
+    },
+    {
+      "path": "docs/member1-agent-system.md",
+      "sha256": "19967F704ED0975F1963E0C9A8F4432FD5E4689DCE3015C95E88CECEC2E81A83"
+    },
+    {
+      "path": "docs/member1-prompts.md",
+      "sha256": "C0F9D94773DA8C0C9DF782416822D1F8F22193824950A0B1C2312618FA94975D"
+    },
+    {
+      "path": "docs/PROPOSED-AGENTS-MERGE.md",
+      "sha256": "9DB3D2CC915834AFBE021FAA93EBBA3E3A48C269D7EBC97FDC4A5FCE4836D1D5"
+    },
+    {
+      "path": "docs/T12-contract-requests.md",
+      "sha256": "FBEB631938F173DC361AD80B93CBDF7A93677B543EDA12478EDF250F4B4A3AE8"
+    },
+    {
+      "path": "docs/T12-room-advisor-ADR.md",
+      "sha256": "F313DF2A93F4E6CC67B5641578CE857B5D3B478CCEC6E5ADEDF5D4CE274BE5F7"
+    },
+    {
+      "path": "eval/eval-set-t12-rag.md",
+      "sha256": "21EC7655E1DBC7F89A59CA94DABC346B174AA19A09FDE04F21E576B72CED36F0"
+    },
+    {
+      "path": "eval/eval-set-t12-room-recommendation-v2-draft.md",
+      "sha256": "311C00724D804C6539DBD7A7D563E90291560A5809677B20C6DD499AED53CCDD"
+    }
+  ]
+}

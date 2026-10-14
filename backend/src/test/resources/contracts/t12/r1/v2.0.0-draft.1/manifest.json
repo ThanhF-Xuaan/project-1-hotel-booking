@@ -1,0 +1,59 @@
+{
+  "artifactVersion": "2.0.0-draft.1",
+  "classification": "SYNTHETIC_TEST_ONLY",
+  "humanApproval": "PENDING",
+  "files": [
+    {
+      "path": "discovery-request-proposed.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/core.schema.json#/$defs/DiscoveryRequest",
+      "arrayOf": false,
+      "status": "PROPOSED"
+    },
+    {
+      "path": "discovery-pages-proposed.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/core.schema.json#/$defs/DiscoveryResponse",
+      "arrayOf": true,
+      "status": "PROPOSED"
+    },
+    {
+      "path": "detail-proposed.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/core.schema.json#/$defs/DetailResponse",
+      "arrayOf": false,
+      "status": "PROPOSED"
+    },
+    {
+      "path": "pricing-request-native.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/core.schema.json#/$defs/PricingRequest",
+      "arrayOf": false,
+      "status": "SOURCE_SHAPED_NOT_RUNTIME_CAPTURE"
+    },
+    {
+      "path": "pricing-responses-native.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/core.schema.json#/$defs/PricingResponse",
+      "arrayOf": true,
+      "status": "SOURCE_SHAPED_NOT_RUNTIME_CAPTURE"
+    },
+    {
+      "path": "availability-request-native.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/core.schema.json#/$defs/AvailabilityRequest",
+      "arrayOf": false,
+      "status": "SOURCE_SHAPED_NOT_RUNTIME_CAPTURE"
+    },
+    {
+      "path": "availability-responses-native.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/core.schema.json#/$defs/AvailabilityResponse",
+      "arrayOf": true,
+      "status": "SOURCE_SHAPED_NOT_RUNTIME_CAPTURE"
+    },
+    {
+      "path": "quotes-normalized-proposed.json",
+      "schema": "docs/t12/r1-00/v2.0.0-draft.1/schemas/advisor.schema.json#/$defs/PriceQuote",
+      "arrayOf": true,
+      "status": "PROPOSED_NORMALIZATION"
+    },
+    {
+      "path": "transport-failures.json",
+      "status": "NEGATIVE_TRANSPORT_SCENARIOS_NO_SUCCESS_SCHEMA"
+    }
+  ]
+}

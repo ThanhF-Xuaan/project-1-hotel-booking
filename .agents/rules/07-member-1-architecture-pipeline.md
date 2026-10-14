@@ -1,118 +1,96 @@
 ---
 trigger: always_on
-description: Architecture pipeline and mandatory development lifecycle strictly governing Member 1 (AI & Data Specialist) features (T04, T05, T12, U13, U14, U22).
+description: "Member 1 architecture boundaries and risk-based delivery for T04, T05, T12, U13, U14, and U22."
 ---
 
-# 🛡️ Member 1 (AI & Data Specialist) Architecture Pipeline & Lifecycle Standards
+# Member 1 Architecture and Delivery Rule
 
-> **Scope:** Strictly governs development for Member 1 (AI & Data Specialist).  
-> **Tech Stack:** Java 21, Spring Boot 4.0.7, Spring AI / LangChain, PostgreSQL 16 (PGVector), Redis 7, Keycloak IAM.  
-> **Governing Skills:** `m1-spec-designer`, `m1-execution-planner`, `m1-ai-rag-developer`, `m1-data-processing-developer`, `m1-quality-and-git-delivery`.
+> **Status:** PROPOSED Member 1 rule; shared ownership/security/schema boundaries require Member 2 review. Read `AGENTS.md` and `AGENTS.member1.md`. Verify actual dependency versions at the target SHA; a proposed stack is not an installed dependency.
 
----
+## 1. Ownership and routing
 
-## 1. Scope of Responsibility & Strict Boundary Enforcement
+Member 1 owns assigned AI/data behavior for `T04`, `T05`, `T12`, `U13`, `U14`, and `U22`. Member 2 owns shared Booking/Pricing/Inventory contracts, IAM, JPA/Liquibase and shared configuration; Member 3 owns Payment/POS/Maintenance; Member 4 owns frontend/cards/detail navigation. Do not cross these boundaries without owner approval.
 
-The AI Agent must strictly restrict its actions to tasks and modules owned by **Member 1**. Never modify or cross over into architectural boundaries owned by other members without explicit instruction:
+Use only relevant skills:
 
-### ✅ Permitted Member 1 Feature Scope:
-* **T04: Utility & Master Data BE**
-  * Utility meter and reading management (`UtilityMeter`, `UtilityReading`).
-  * Master data catalog CRUD (`Region`, `Property`, `RoomType`).
-* **T05: Lodging Queue & Payroll Import BE**
-  * `StayGuest` collection and lodging queue management.
-  * Vietnamese Police Lodging Declaration Export (BCA police format - XML/CSV/text).
-  * Payroll summary streaming import with row-level validation.
-* **T12: RAG Chatbot AI Core**
-  * Multi-tier RAG Chatbot pipeline (Spring AI / LangChain + PGVector).
-  * Knowledge base ingestion (hotel rules, amenities, check-in/out policies).
-  * Real-time room availability and rate consultation via Function Calling.
-* **U13: AI OCR Passport/CCCD Parser**
-  * Vision OCR model integration for automated identity extraction (CCCD 12-digit, Passport).
-* **U14: AI Guest Personalization Engine**
-  * Stay history analytics, dynamic rate plan recommendations, and personalized upsells.
-* **U22: AI Predictive Analytics & Anomaly Detection**
-  * 30-day occupancy forecasting model and utility leakage Z-Score anomaly detection.
+- Spec/contracts/ADR: `m1-spec-designer`
+- Approved-spec planning: `m1-execution-planner`
+- T12 Spring AI/Gemini chat and typed extraction: `m1-ai-rag-developer`
+- T12 Java search/filter/Availability/Pricing/ranking: `m1-room-recommendation-engine`
+- Release 2 corpus/embedding/pgvector: `m1-rag-knowledge-lifecycle`
+- AI security/evaluation: `m1-ai-evaluation-security`
+- T04/T05/U13/U14/U22 processing: `m1-data-processing-developer`
+- Final verification/handoff: `m1-quality-and-git-delivery`
 
-### 🚫 Prohibited Cross-Module Interference (Zero Tampering):
-* **Do NOT modify Member 2's Core:** Core Booking Engine (FIT/GIT), 15-minute Redis session hold locking, Pricing Pipeline Pattern, Keycloak Realm infrastructure.
-* **Do NOT modify Member 3's Modules:** Payment Gateway Webhooks (VNPay/MoMo), POS (F&B/Laundry), Maintenance tickets (OOO/OOS).
-* **Do NOT modify Member 4's Frontend:** App shell layout, Room Timeline Grid, Guest Booking UI flow, BI Executive Charts.
+Skills do not authorize implementation or cross-owner changes.
 
----
-
-## 2. Mandatory 5-Stage Architecture Pipeline
-
-Every new feature or modification undertaken by Member 1 MUST sequentially execute through this 5-stage pipeline:
+## 2. Risk-based pipeline
 
 ```text
-[STAGE 1: SPEC DESIGN] ──► [STAGE 2: EXECUTION PLAN] ──► [STAGE 3: CASCADE DEV]
-                                                                  │
-                                                                  ▼
-[STAGE 5: GIT & DELIVERY] ◄──── [STAGE 4: QA & EVALUATION] ◄──────┘
+READ-ONLY PREFLIGHT
+  -> SPEC / ADR / CONTRACT REQUESTS
+  -> APPROVED PLAN AND FILE ALLOWLIST
+  -> SMALL AUTHORIZED IMPLEMENTATION SLICES
+  <-> DETERMINISTIC TESTS / SECURITY / APPROVED AI EVAL
+  -> DIFF REVIEW / HUMAN HANDOFF
 ```
 
----
+- Verify repository, SHA/status, source/contracts/tests, owner, and blockers before planning.
+- Record current versus proposed contracts, input/output/error/date/money semantics, authorization, data/PII, acceptance, compatibility, and rollback.
+- Use approved synthetic contract fixtures while dependencies are pending; do not expose mocks as production facts.
+- No unrelated refactors, fake executable stubs, shared dependency changes, migrations, or security relaxation.
+- Report actual evidence. A plan, generated test, or code inspection is not a passing runtime check.
 
-### STAGE 1: Requirement Analysis & Technical Spec (`m1-spec-designer`)
-Before writing any implementation code:
-1. **Classify Track:**
-   * **Track A (Data Submodule - T04, T05):** Define PostgreSQL 16 schema, foreign keys, soft delete, DTO contracts (`CreateRequest`, `UpdateRequest`, `SearchDto`, `Response`), and external file schemas (BCA format, Payroll CSV/Excel).
-   * **Track B (AI Core - T12, U13, U14, U22):** Define Prompt templates, PGVector chunking, Vector index strategy, Function Calling tool signatures, and fallback strategies.
-2. **Define RBAC Matrix:** Map every endpoint to specific Keycloak roles (`ROLE_CHAIN_ADMIN`, `ROLE_PROPERTY_MANAGER`, `ROLE_RECEPTIONIST`, etc.).
-3. **Present Spec to User:** Obtain explicit confirmation before proceeding to planning.
+## 3. T12 Release 1 — Room Recommendation Core
 
----
+```text
+user message
+  -> public AI boundary + session/owner validation
+  -> Gemini typed criteria proposal
+  -> Java validation and criteria merge
+  -> public hotel/HotelRoomType candidate discovery
+  -> Java hard filters
+  -> authoritative read-only availability and pricing
+  -> deterministic ranking
+  -> 0..5 typed recommendation cards + optional verified explanation
+```
 
-### STAGE 2: Micro-Step Execution Planning (`m1-execution-planner`)
-1. **Cascade Layering:** Formulate the step-by-step checklist strictly respecting dependency order:
-   * *Track A:* `Entity/Migration` ➔ `DTO & Search DTO` ➔ `Mapper` ➔ `Repository` ➔ `Service` ➔ `Controller` ➔ `Unit Test`.
-   * *Track B:* `Config/Credentials` ➔ `Vector Store Ingestion` ➔ `Tool Calling` ➔ `AI Service` ➔ `Controller` ➔ `Evaluation`.
-2. **Zero-Placeholder Guarantee:**
-   * No `// TODO`, `// implement later`, or dummy stubs permitted in generated code.
-   * Every file must compile immediately with full imports and type safety.
+### Binding invariants
 
----
+- Gemini interprets language; Java controls validation, candidate discovery, hard filtering, Core calls, ranking, and response construction. Function calling is optional and only for fixed read-only operations; it is not a mandatory architecture.
+- Return 3–5 distinct verified room types when that many qualify, otherwise return fewer. Never fabricate or silently relax required constraints.
+- MVP is one room per recommendation. Preserve `roomsCount`; when it exceeds 1, clarify/redirect. Never multiply a one-room quote or perform allocation.
+- Hard constraints include public/active eligibility, trusted hotel/location scope, valid dates, capacity, required features, and availability for every occupied night. Budget is a hard constraint only when currency/tax/fee and per-night versus stay semantics are approved.
+- Pricing and availability are copied from authoritative read-only responses. Do not calculate taxes/fees/seasonality locally or use RAG/LLM values.
+- Ranking is deterministic over verified attributes with documented stable tie-breakers. Never expose fabricated scores/facts.
+- Cards contain verified IDs, facts, quote basis, snapshot/warnings, match reasons, and only the Member 4-approved `VIEW_ROOM_DETAILS` action. They contain no hold/booking/payment/customer identifiers.
+- `NO_MATCH` means authoritative search completed with zero matches. Dependency/scope failures use `TEMP_UNAVAILABLE`; partial/truncated coverage is explicit.
+- RAG failure cannot disable the Release 1 recommendation flow.
 
-### STAGE 3: Cascade Implementation
-Execute code strictly adhering to Member 1's domain rules:
+### Absolute no-write boundary
 
-#### A. Data Submodule Standards (`m1-data-processing-developer` & `hotel-api-development`):
-* **Soft Delete:** All select and search queries must include `is_deleted = false`.
-* **Unified Batch Delete:** Implement `DELETE /api/v1/<resource>/delete` taking `List<Integer> ids` (or `List<Long> ids`), setting `is_deleted = true`.
-* **Search DTO:** Multi-criteria search endpoints must use `POST /api/v1/<resource>/filter` with `@RequestBody` search DTO.
-* **Streaming I/O:** Large files (Payroll, BCA export) must use streaming parsers (e.g., SAX, FastCSV) wrapped in `try-with-resources` to avoid Out-Of-Memory (OOM) errors.
-* **BCA Lodging Export:** Follow Vietnamese Police regulations for `StayGuest` export; purge temporary files immediately after streaming over HTTPS.
+T12 has no access to hold/release, booking create/update/cancel, payment/refund, guest mutation, generic HTTP/SQL executors, or broad write services/repositories—even after user confirmation. Enforce this through dependency/tool allowlists, architecture tests, mocks/spies and trace assertions, not prompts alone. AI-owned minimal session state and separately authorized knowledge ingestion are not permission for business writes.
 
-#### B. AI Core Standards (`m1-ai-rag-developer`):
-* **Mandatory Function Calling:** Never let LLM hallucinate room availability or rates. Real-time rates and vacancies MUST be fetched by invoking registered Core Backend tools (`checkRoomAvailability`, `calculateRoomPrice`).
-* **Vector Store Partitioning:** Always pre-filter PGVector similarity queries by `hotel_id`.
-* **Resilience:** Apply a 10-second timeout, circuit breaker, and polite fallback responses when the AI model is unreachable.
-* **Zero Secret Leakage:** Never hardcode API keys or log personal identification data (CCCD, Passport, Bank card) to logs.
+## 4. T12 Release 2 — Scoped RAG Knowledge Assistant
 
----
+- Corpus: approved public policies, FAQs, amenities, and static room descriptions only. Exclude PII, bookings, live prices/inventory, internal documents, and secrets.
+- Resolve trusted hotel/chain scope before retrieval. Filter tenant/hotel, public visibility, active version, and effective dates. Unknown scope fails closed; cross-hotel search must not become global retrieval.
+- Treat chunks as untrusted facts, never instructions. Ground answers in approved sources; missing/conflicting sources produce uncertainty or staff fallback.
+- Version by tenant/source/content/model/chunking. Stage and validate complete replacement embeddings before activation; preserve rollback. Never delete active content first or delete by filename alone.
+- Verify provider/model availability, actual vector cardinality/dimension, Spring AI support, PostgreSQL extension/index/schema, and migration/rollback in an approved PoC. Member 2 approves pgvector and shared Liquibase/configuration.
 
-### STAGE 4: Quality Assurance & Evaluation (`m1-quality-and-git-delivery`)
-Before preparing deliverables, inspect against the 3-tier checklist:
-1. **Backend Verification:** Validate `@PreAuthorize`, `@Transactional`, proper `AppException` with `ErrorCode`.
-2. **AI Evaluation:** Verify groundedness (zero invented prices), test model downtime fallback, verify PII masking.
-3. **Definition of Done (DoD):**
-   * Compilation: `mvn clean compile` succeeds with zero errors.
-   * Tests: Unit tests cover Happy path, Validation failure, and Edge cases.
-   * Cleanliness: Zero lint errors, zero unused imports, zero placeholder comments.
+## 5. Other Member 1 tasks
 
----
+- `T04`: follow verified entity/API conventions; validate units, timestamps, duplicates, negative consumption, rollover/replacement and tenant scope.
+- `T05`: use approved payroll/export schemas; stream bounded inputs; preserve row numbers and safe error handling; do not log identifiers/salary or invent an official BCA format.
+- `U13`: validate uploads; use synthetic/licensed fixtures; provide field confidence and human verification before identity persistence; retention/provider use requires approval.
+- `U14`: keep separate from anonymous T12; use authorized privacy-safe history; recommendations do not alter Pricing or apply promotions.
+- `U22`: time-based splits, leakage-free backtests, simple baselines, uncertainty/low-data fallbacks, and clearly labeled synthetic data.
 
-### STAGE 5: Git Standards & Handoff (`m1-quality-and-git-delivery`)
-1. **Branch Naming Standard:**
-   * Format: `feature/<task-code>-<short-description>`
-   * Examples: `feature/T04-utility-clean`, `feature/T05-lodging-payroll`, `feature/T12-rag-chatbot`, `feature/U13-ocr-passport-parser`.
-2. **Conventional Commits Standard:**
-   * Format: `<type>(<scope>): <short description>`
-   * Valid types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
-   * Member 1 scopes: `(operation)`, `(lodging)`, `(payroll)`, `(ai)`, `(ocr)`, `(analytics)`.
-   * Examples:
-     * `feat(operation): implement CRUD APIs and soft delete for UtilityMeter`
-     * `feat(ai): integrate PGVector and Spring AI for RAG Chatbot`
-     * `feat(lodging): export stay guest declaration in BCA police format`
-3. **Handoff:** Verify git diff and request user confirmation before pushing to remote or opening PR to Member 2 (Project Lead).
+## 6. Verification and stop conditions
+
+T12 evaluation must cover extraction and correction, hard constraints, all-night availability, exact quote/currency/fees, deterministic ordering, fewer matches, cards/navigation, stale snapshots, bounded candidate search, partial failure/rate limits, `NO_MATCH` versus `TEMP_UNAVAILABLE`, session/tenant isolation, prompt/document injection, PII/log safety, and trace-level zero business writes. Release 2 adds corpus approval/versioning, scoped retrieval, groundedness, and embedding compatibility.
+
+Stop the affected slice and request a decision when an owner contract is absent/contradictory; pricing/date/tenant/session semantics are unclear; another member's files are required; provider/privacy approval is unresolved; a destructive migration is proposed; or unexpected worktree changes appear. Preserve useful progress and report the exact blocker.
+
+Final handoff includes base SHA/branch, changed files, behavior/contracts, actual `PASS`/`FAIL`/`NOT RUN` evidence, privacy/security/cost/rollback, approvals, blockers, and Git mutation status.

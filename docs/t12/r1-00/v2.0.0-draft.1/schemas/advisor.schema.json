@@ -1,0 +1,1251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://contracts.example.invalid/t12/2.0.0-draft.1/advisor.schema.json",
+  "$defs": {
+    "Budget": {
+      "type": "object",
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,15})(\\.[0-9]{1,4})?$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "basis": {
+          "type": "string",
+          "enum": [
+            "STAY_TOTAL",
+            "AVERAGE_PER_NIGHT",
+            "EACH_NIGHT"
+          ]
+        },
+        "coverage": {
+          "type": "string",
+          "enum": [
+            "ALL_MANDATORY_CHARGES",
+            "BACKEND_QUOTED_TOTAL"
+          ]
+        },
+        "hard": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "amount",
+        "currency",
+        "basis",
+        "coverage",
+        "hard"
+      ],
+      "additionalProperties": false
+    },
+    "RoomSearchCriteria": {
+      "type": "object",
+      "properties": {
+        "hotelId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "locationKeyword": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "checkInDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "checkOutDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "adults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "children": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "extraBeds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "roomsCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "requiredFeatureCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "uniqueItems": true,
+          "maxItems": 20
+        },
+        "preferredFeatureCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "uniqueItems": true,
+          "maxItems": 20
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget"
+        }
+      },
+      "required": [
+        "checkInDate",
+        "checkOutDate",
+        "adults",
+        "children",
+        "extraBeds",
+        "roomsCount",
+        "requiredFeatureCodes",
+        "preferredFeatureCodes"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "hotelId"
+          ]
+        },
+        {
+          "required": [
+            "locationKeyword"
+          ]
+        }
+      ]
+    },
+    "CriteriaPatch": {
+      "type": "object",
+      "properties": {
+        "hotelId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "locationKeyword": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "checkInDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "checkOutDate": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "adults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "children": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "extraBeds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "roomsCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "requiredFeatureCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "uniqueItems": true,
+          "maxItems": 20
+        },
+        "preferredFeatureCodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "uniqueItems": true,
+          "maxItems": 20
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget"
+        }
+      },
+      "required": [],
+      "additionalProperties": false,
+      "minProperties": 1
+    },
+    "ChatRequest": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedSessionVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "criteriaPatch": {
+          "$ref": "#/$defs/CriteriaPatch"
+        }
+      },
+      "required": [
+        "contractVersion",
+        "message"
+      ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "sessionId": [
+          "expectedSessionVersion"
+        ],
+        "expectedSessionVersion": [
+          "sessionId"
+        ]
+      }
+    },
+    "SearchRequest": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "criteria": {
+          "$ref": "#/$defs/RoomSearchCriteria"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedSessionVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "contractVersion",
+        "criteria"
+      ],
+      "additionalProperties": false,
+      "dependentRequired": {
+        "sessionId": [
+          "expectedSessionVersion"
+        ],
+        "expectedSessionVersion": [
+          "sessionId"
+        ]
+      }
+    },
+    "RefreshRequest": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedSessionVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "contractVersion",
+        "sessionId",
+        "expectedSessionVersion"
+      ],
+      "additionalProperties": false
+    },
+    "Feature": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "required": [
+        "code",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "RoomSummary": {
+      "type": "object",
+      "properties": {
+        "hotelId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "hotelName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "hotelRoomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "roomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "roomTypeCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "roomTypeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "maxAdults": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "maxChildren": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "maxTotalGuests": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        },
+        "extraBedsAllowed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "features": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Feature"
+          },
+          "maxItems": 50
+        }
+      },
+      "required": [
+        "hotelId",
+        "hotelName",
+        "hotelRoomTypeId",
+        "roomTypeId",
+        "roomTypeCode",
+        "roomTypeName",
+        "maxAdults",
+        "maxChildren",
+        "maxTotalGuests",
+        "extraBedsAllowed",
+        "features"
+      ],
+      "additionalProperties": false
+    },
+    "PriceQuote": {
+      "type": "object",
+      "properties": {
+        "hotelRoomTypeId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "source": {
+          "const": "BACKEND_PRICING"
+        },
+        "quoteId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "observedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "totalNights": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 366
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Z]{3}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preTaxAmount": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,15})(\\.[0-9]{1,4})?$"
+        },
+        "vatPercent": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,15})(\\.[0-9]{1,4})?$"
+        },
+        "vatAmount": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,15})(\\.[0-9]{1,4})?$"
+        },
+        "finalTotalAmount": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,15})(\\.[0-9]{1,4})?$"
+        },
+        "serviceFeeStatus": {
+          "type": "string",
+          "enum": [
+            "INCLUDED",
+            "EXCLUDED",
+            "UNKNOWN"
+          ]
+        },
+        "serviceFeeAmount": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]{0,15})(\\.[0-9]{1,4})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "chargeCoverage": {
+          "type": "string",
+          "enum": [
+            "ALL_MANDATORY_CHARGES",
+            "BACKEND_QUOTED_TOTAL",
+            "UNKNOWN"
+          ]
+        },
+        "budgetCheck": {
+          "type": "string",
+          "enum": [
+            "PASS",
+            "UNVERIFIABLE",
+            "NOT_REQUESTED"
+          ]
+        },
+        "displayLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "hotelRoomTypeId",
+        "source",
+        "quoteId",
+        "observedAt",
+        "totalNights",
+        "currency",
+        "preTaxAmount",
+        "vatPercent",
+        "vatAmount",
+        "finalTotalAmount",
+        "serviceFeeStatus",
+        "serviceFeeAmount",
+        "chargeCoverage",
+        "budgetCheck",
+        "displayLabel"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "serviceFeeStatus": {
+                "const": "UNKNOWN"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "serviceFeeAmount": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "chargeCoverage": {
+                "const": "ALL_MANDATORY_CHARGES"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "serviceFeeStatus": {
+                "const": "INCLUDED"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "budgetCheck": {
+                "const": "PASS"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "chargeCoverage": {
+                "enum": [
+                  "ALL_MANDATORY_CHARGES",
+                  "BACKEND_QUOTED_TOTAL"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Reason": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "CAPACITY_MATCH",
+            "REQUIRED_FEATURE_MATCH",
+            "PREFERRED_FEATURE_MATCH",
+            "BUDGET_MATCH",
+            "LOWER_QUOTED_PRICE",
+            "AVAILABLE_ALL_NIGHTS"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "evidenceFields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "minItems": 1,
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "code",
+        "text",
+        "evidenceFields"
+      ],
+      "additionalProperties": false
+    },
+    "RoomRecommendation": {
+      "type": "object",
+      "properties": {
+        "recommendationId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "rank": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "room": {
+          "$ref": "#/$defs/RoomSummary"
+        },
+        "price": {
+          "$ref": "#/$defs/PriceQuote"
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Reason"
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "action": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "VIEW_ROOM_DETAILS"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/portal/hotels/[1-9][0-9]*/room-types/[1-9][0-9]*$"
+            }
+          },
+          "required": [
+            "type",
+            "path"
+          ],
+          "additionalProperties": false
+        },
+        "stay": {
+          "type": "object",
+          "required": [
+            "checkInDate",
+            "checkOutDate",
+            "roomsCount"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "checkInDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "checkOutDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "roomsCount": {
+              "const": 1
+            }
+          }
+        }
+      },
+      "required": [
+        "recommendationId",
+        "rank",
+        "room",
+        "price",
+        "reasons",
+        "action",
+        "stay"
+      ],
+      "additionalProperties": false
+    },
+    "Coverage": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "NOT_RUN",
+            "COMPLETE",
+            "PARTIAL"
+          ]
+        },
+        "catalogComplete": {
+          "type": "boolean"
+        },
+        "discoveredCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "evaluatedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "failedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "remainingCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "verifiedMatchCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "CATALOG_PAGE_FAILED",
+              "EVALUATION_LIMIT",
+              "TIME_BUDGET",
+              "PRICE_FAILED",
+              "AVAILABILITY_FAILED",
+              "CONTRACT_UNVERIFIED"
+            ]
+          },
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "status",
+        "catalogComplete",
+        "discoveredCount",
+        "evaluatedCount",
+        "failedCount",
+        "remainingCount",
+        "verifiedMatchCount",
+        "reasons"
+      ],
+      "additionalProperties": false
+    },
+    "AdvisorResult": {
+      "type": "object",
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "sessionVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "NEED_INFO",
+            "RESULTS",
+            "NO_MATCH",
+            "INCOMPLETE_SEARCH",
+            "TEMP_UNAVAILABLE",
+            "OUT_OF_SCOPE"
+          ]
+        },
+        "reply": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200
+        },
+        "criteria": {
+          "type": "object",
+          "properties": {
+            "hotelId": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32767
+            },
+            "locationKeyword": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "checkInDate": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "checkOutDate": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "adults": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32767
+            },
+            "children": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 32767
+            },
+            "extraBeds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 32767
+            },
+            "roomsCount": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32767
+            },
+            "requiredFeatureCodes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "uniqueItems": true,
+              "maxItems": 20
+            },
+            "preferredFeatureCodes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "uniqueItems": true,
+              "maxItems": 20
+            },
+            "budget": {
+              "$ref": "#/$defs/Budget"
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        },
+        "missingFields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "uniqueItems": true
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RoomRecommendation"
+          },
+          "maxItems": 5
+        },
+        "coverage": {
+          "$ref": "#/$defs/Coverage"
+        },
+        "knowledgeStatus": {
+          "const": "DISABLED"
+        },
+        "sources": {
+          "type": "array",
+          "items": {},
+          "maxItems": 0
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "uniqueItems": true,
+          "maxItems": 20
+        },
+        "criteriaProvenance": {
+          "$ref": "#/$defs/CriteriaProvenance"
+        },
+        "ambiguities": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/Ambiguity"
+          }
+        }
+      },
+      "required": [
+        "contractVersion",
+        "requestId",
+        "sessionId",
+        "sessionVersion",
+        "status",
+        "reply",
+        "criteria",
+        "missingFields",
+        "recommendations",
+        "coverage",
+        "knowledgeStatus",
+        "sources",
+        "warnings",
+        "criteriaProvenance",
+        "ambiguities"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "RESULTS"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "criteria": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/RoomSearchCriteria"
+                  },
+                  {
+                    "properties": {
+                      "roomsCount": {
+                        "const": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              "recommendations": {
+                "minItems": 1
+              },
+              "missingFields": {
+                "maxItems": 0
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "COMPLETE",
+                      "PARTIAL"
+                    ]
+                  }
+                }
+              },
+              "ambiguities": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "NEED_INFO",
+                  "NO_MATCH",
+                  "INCOMPLETE_SEARCH",
+                  "TEMP_UNAVAILABLE",
+                  "OUT_OF_SCOPE"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "recommendations": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "NO_MATCH"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "criteria": {
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/RoomSearchCriteria"
+                  },
+                  {
+                    "properties": {
+                      "roomsCount": {
+                        "const": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "COMPLETE"
+                  },
+                  "catalogComplete": {
+                    "const": true
+                  },
+                  "failedCount": {
+                    "const": 0
+                  },
+                  "remainingCount": {
+                    "const": 0
+                  },
+                  "verifiedMatchCount": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "INCOMPLETE_SEARCH"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "status": {
+                    "const": "PARTIAL"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AdvisorResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "const": 200
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "result": {
+          "$ref": "#/$defs/AdvisorResult"
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "result"
+      ],
+      "additionalProperties": false
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "contractVersion": {
+              "const": "2.0"
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "INVALID_REQUEST",
+                "SESSION_NOT_FOUND",
+                "SESSION_VERSION_CONFLICT",
+                "SCOPE_DENIED",
+                "RATE_LIMITED",
+                "UPSTREAM_UNAVAILABLE",
+                "AUTH_REQUIRED"
+              ]
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "contractVersion",
+            "requestId",
+            "reason",
+            "retryable"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "code",
+        "message",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "CriteriaEvidence": {
+      "type": "object",
+      "required": [
+        "field",
+        "origin",
+        "confirmation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "enum": [
+            "hotelId",
+            "locationKeyword",
+            "checkInDate",
+            "checkOutDate",
+            "adults",
+            "children",
+            "extraBeds",
+            "roomsCount",
+            "requiredFeatureCodes",
+            "preferredFeatureCodes",
+            "budget.amount",
+            "budget.currency",
+            "budget.basis",
+            "budget.coverage",
+            "budget.hard"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "USER_PROVIDED",
+            "INFERRED",
+            "DEFAULT"
+          ]
+        },
+        "confirmation": {
+          "enum": [
+            "CONFIRMED",
+            "UNCONFIRMED",
+            "AMBIGUOUS"
+          ]
+        }
+      }
+    },
+    "CriteriaProvenance": {
+      "type": "array",
+      "maxItems": 15,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/CriteriaEvidence"
+      }
+    },
+    "Ambiguity": {
+      "type": "object",
+      "required": [
+        "field",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "enum": [
+            "hotelId",
+            "locationKeyword",
+            "checkInDate",
+            "checkOutDate",
+            "adults",
+            "children",
+            "extraBeds",
+            "roomsCount",
+            "requiredFeatureCodes",
+            "preferredFeatureCodes",
+            "budget.amount",
+            "budget.currency",
+            "budget.basis",
+            "budget.coverage",
+            "budget.hard"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "MULTIPLE_LOCATIONS",
+            "RELATIVE_DATE_UNRESOLVED",
+            "BUDGET_BASIS_UNKNOWN",
+            "BUDGET_COVERAGE_UNKNOWN",
+            "CURRENCY_UNKNOWN"
+          ]
+        }
+      }
+    },
+    "CriteriaExtractionProposal": {
+      "type": "object",
+      "required": [
+        "criteriaPatch",
+        "provenance",
+        "ambiguities"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "criteriaPatch": {
+          "$ref": "#/$defs/CriteriaPatch"
+        },
+        "provenance": {
+          "$ref": "#/$defs/CriteriaProvenance"
+        },
+        "ambiguities": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/Ambiguity"
+          }
+        }
+      },
+      "description": "Internal, untrusted LLM proposal. Java validates/derives provenance; client cannot assert confirmation or scope."
+    }
+  },
+  "description": "Draft của Member 1. Không xác nhận API hoặc route đã triển khai; chờ Member 2/4 duyệt."
+}

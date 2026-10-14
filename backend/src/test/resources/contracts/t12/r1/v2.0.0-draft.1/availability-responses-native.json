@@ -1,0 +1,626 @@
+[
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1001,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1001,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1002,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1002,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1003,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1003,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1004,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1004,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1005,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1005,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1006,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1006,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1007,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1007,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1008,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1008,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1009,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1009,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1010,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1010,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1011,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1011,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1012,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1012,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1013,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1013,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1014,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1014,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1015,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1015,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1016,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1016,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1017,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1017,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1018,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1018,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1019,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1019,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1020,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1020,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1021,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1021,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1022,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1022,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1023,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1023,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1024,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1024,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1025,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1025,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": [
+      {
+        "hotelRoomTypeId": 1026,
+        "availabilityDate": "2026-11-20",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      },
+      {
+        "hotelRoomTypeId": 1026,
+        "availabilityDate": "2026-11-21",
+        "totalRooms": 5,
+        "bookedRooms": 2,
+        "lockedRooms": 1,
+        "oooRooms": 0,
+        "availableCount": 2
+      }
+    ]
+  }
+]

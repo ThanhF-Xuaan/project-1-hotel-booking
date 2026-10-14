@@ -1,38 +1,52 @@
 ---
 trigger: always_on
-description: "Master Rules Index: Điều hướng toàn bộ quy chuẩn sinh code và kiến trúc cho dự án 'Hệ thống Quản lý Khách sạn'"
+description: "Index and risk-based router for Hotel Booking repository rules and installed specialist skills."
 ---
 
-# 📚 'Hệ thống Quản lý Khách sạn' Rules — Index & Directory Router
+# Hotel Booking Rules — Index and Router
 
-> **Dự án:** 'Hệ thống Quản lý Khách sạn' ('Hệ thống quản lý chuỗi khách sạn nội bộ tập trung, đồng bộ dữ liệu thời gian thực tích hợp AI tư vấn đặt phòng và tự động hóa vận hành đa phân hệ')  
-> **Tech Stack:** 'Java 21, Spring Boot 4.0.7' | 'React 19, TypeScript 6.0, Vite 8.2, Tailwind CSS v4, React Hook Form, Zod' | 'PostgreSQL 16'  
-> **Phiên bản Rules:** 1.0.0
+> **Status:** PROPOSED shared rule; Member 2 approval is required before merge. `AGENTS.md` defines repository-wide authorization. `AGENTS.member1.md` applies additionally to Member 1 work. A rule or skill does not grant permission to edit another owner's module.
 
----
+## Rules map
 
-## 🗺️ Bản Đồ Điều Hướng Quy Chuẩn (Rules Map)
+| Area | File | Load when |
+|---|---|---|
+| Project-wide safeguards | [`01-core-ai-guidelines.template.md`](01-core-ai-guidelines.template.md) | Always |
+| Backend conventions | [`02-backend-standards.template.md`](02-backend-standards.template.md) | Backend/API work |
+| Frontend conventions | [`03-frontend-standards.template.md`](03-frontend-standards.template.md) | Frontend/UI work |
+| QA | [`04-qa-testing-standards.template.md`](04-qa-testing-standards.template.md) | Test design/execution |
+| Design system | [`05-design-system-tokens.template.md`](05-design-system-tokens.template.md) | UI styling/components |
+| Prompt library | [`06-prompts-library.template.md`](06-prompts-library.template.md) | When an existing prompt pattern is relevant |
+| Member 1 boundaries | [`07-member-1-architecture-pipeline.md`](07-member-1-architecture-pipeline.md) | `T04`, `T05`, `T12`, `U13`, `U14`, `U22` |
+| Pricing/concurrency | [`hotel-concurrency-and-pricing.md`](hotel-concurrency-and-pricing.md) | Owner-approved Pricing/Inventory concurrency work |
 
-| Danh Mục | Tệp Quy Chuẩn | Mô Tả Trọng Tâm |
-| :--- | :--- | :--- |
-| **Cốt Lõi AI** | [`01-core-ai-guidelines.md`](file:///./01-core-ai-guidelines.md) | Nguyên tắc không ảo giác, quy trình cascade sinh code, kiểm soát ngữ cảnh. |
-| **Backend** | [`02-backend-standards.md`](file:///./02-backend-standards.md) | Kiến trúc phân tầng, Search DTO, Soft Delete, Batch Delete, Migration, RBAC. |
-| **Frontend** | [`03-frontend-standards.md`](file:///./03-frontend-standards.md) | Component-Service, Reactive State, Memory Leak, Form Validation, Clean UI. |
-| **QA / Tester** | [`04-qa-testing-standards.md`](file:///./04-qa-testing-standards.md) | ISTQB EP/BVA, Decision Table, định dạng xuất testcase Excel / Markdown. |
-| **Design System**| [`05-design-system-tokens.md`](file:///./05-design-system-tokens.md) | Bảng màu Tokens, Spacing, Border Radius, Button, Input, Modal. |
-| **Thư Viện Prompt**| [`06-prompts-library.md`](file:///./06-prompts-library.md) | Prompt mẫu tạo Module, đồng bộ Swagger DTO, Modal xác nhận xóa, CRUD toast. |
-| **Member 1 Pipeline** | [`07-member-1-architecture-pipeline.md`](file:///./07-member-1-architecture-pipeline.md) | Kiến trúc & vòng đời phát triển dành riêng cho Member 1 (AI & Data: T04, T05, T12, U13, U14, U22). |
+## Risk-based routing
 
----
+- **Question/audit/review:** inspect only; load the smallest relevant rules and report evidence.
+- **Plan/design:** load the owner/domain rules, document contracts/approvals/tests, and do not implement.
+- **Implementation:** load rules and only the specialist skills needed for the authorized scope; make small verifiable changes.
+- High-risk work involving shared APIs/schema/security, PII, payments, inventory writes, or model-provider data requires explicit owner decisions. Do not force every task through an entity-first, frontend-first, function-calling, or vector-first cascade.
 
-## ⚠️ Nguyên Tắc Bắt Buộc Cao Nhất (Non-Negotiable Rules)
+## Member 1 skill discovery
 
-1. **Tuân thủ quy trình Cascade:**
-   - **Backend:** `Entity` ➔ `DTO & Search DTO` ➔ `Repository` ➔ `Service` ➔ `Controller` ➔ `Unit Test`.
-   - **Frontend:** `DTO/Model` ➔ `Helper/Mapper` ➔ `API Service` ➔ `UI Component` ➔ `Routes & Menu`.
-2. **Zero-Placeholder Policy:**
-   - Tuyệt đối KHÔNG sinh code dở dang có chứa `TODO`, `TBD`, `// thêm logic tại đây`. Mọi file sinh ra phải biên dịch được ngay.
-3. **Quản lý bộ nhớ & Hủy đăng ký:**
-   - Mọi luồng Async / Stream / Subscription trên Frontend bắt buộc phải được hủy khi component bị destroy.
-4. **Bảo mật & Phân quyền:**
-   - Mọi API endpoint mới bắt buộc phải có annotation phân quyền RBAC và ghi nhận vào bảng cấu hình quyền hạn.
+Discoverable skills live under `.agents/skills/<skill-name>/SKILL.md`. Exactly these eight `m1-*` skills are intended:
+
+1. `m1-spec-designer`
+2. `m1-execution-planner`
+3. `m1-ai-rag-developer`
+4. `m1-data-processing-developer`
+5. `m1-quality-and-git-delivery`
+6. `m1-room-recommendation-engine`
+7. `m1-rag-knowledge-lifecycle`
+8. `m1-ai-evaluation-security`
+
+Activate only skills whose description matches the current task. Missing skills or referenced files must be reported, not invented. Detailed procedures belong in skills, not in this always-on index.
+
+## Universal safeguards
+
+- Verify source and contracts at the target SHA; label proposals and unknowns.
+- Preserve dirty/untracked work and ownership boundaries.
+- Use synthetic data; protect secrets and PII.
+- T12 has zero business write capability: no hold/release, booking mutation, payment/refund, or guest/business mutation.
+- Keep production changes complete and minimal; no fake executable placeholders.
+- Run only relevant existing checks and report `PASS` / `FAIL` / `NOT RUN` truthfully.

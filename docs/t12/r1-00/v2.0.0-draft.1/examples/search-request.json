@@ -1,0 +1,14 @@
+{
+  "contractVersion": "2.0",
+  "criteria": {
+    "locationKeyword": "Synthetic City",
+    "checkInDate": "2026-11-20",
+    "checkOutDate": "2026-11-22",
+    "adults": 2,
+    "children": 0,
+    "extraBeds": 0,
+    "roomsCount": 1,
+    "requiredFeatureCodes": [],
+    "preferredFeatureCodes": []
+  }
+}

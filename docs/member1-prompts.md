@@ -1,69 +1,94 @@
-# Prompt dùng hằng ngày — Member 1
+# Member 1 Task Prompts
 
-Cách dùng: Prompt 2 cho mỗi task mới (làm rõ → plan → thực thi). Prompt 3 khi kết thúc task.
-Prompt cài đặt kit (một lần) nằm ở Phần 0 của file member1-agent-kit.md.
-Thay các chỗ trong `[ngoặc vuông]` trước khi dán.
+> These templates implement the risk-based workflow in `AGENTS.member1.md`. Replace bracketed values. A prompt does not expand authorization or turn a proposed contract into an implemented one.
 
----
+## 1. Audit a task before planning
 
-## Prompt 2 — Bắt đầu một task
+```text
+Audit Member 1 task [T04 | T05 | T12 | U13 | U14 | U22] at [target branch/SHA].
+Read AGENTS.md, AGENTS.member1.md, .agents/rules/07-member-1-architecture-pipeline.md,
+and only the specialist skills relevant to this task.
 
-### 2a. Làm rõ (dán trước)
-
+Read-only first:
+1. Verify repository, remotes, branch/HEAD/base SHA, worktrees and git status.
+2. Identify the owner, current source/tests/OpenAPI and actual dependencies.
+3. Label every consequential fact CONFIRMED, PROPOSED, UNKNOWN or BLOCKED.
+4. List contract gaps and owner approvals; do not invent endpoints, roles, routes, schemas,
+   model IDs, eval commands or legal requirements.
+5. If the request is audit/plan only, do not edit or mutate Git/DB state.
 ```
-/grill-me Bắt đầu task [T04 | T05 | T12 | U13 | U14 | U22] của Member 1.
-Đọc: AGENTS.member1.md và phần tương ứng trong docs/member1-agent-system.md
-(bản đồ task, playbook, và Ready-gate nếu là T12).
-Nội dung task theo phiếu: [dán dòng task từ phiếu phân công].
+## 2. Design or plan T12
 
-Làm theo thứ tự:
-1. Kiểm tra "điều kiện bắt đầu" của task. Nếu chưa đủ: nêu cái còn thiếu, đề xuất việc làm trước
-   (contract-first hoặc pre-T12), rồi dừng.
-2. Kiểm tra 4 mục: đích, tiêu chí xong đo được, ranh giới, lối thoát.
-   Thiếu mục nào thì hỏi tôi, mỗi lần một câu, kèm lựa chọn bạn đề xuất.
-3. Với task AI (T12, U13, U14, U22): nếu chưa có eval set được tôi duyệt, soạn NHÁP eval set vào eval/
-   (dữ liệu tổng hợp, không dùng dữ liệu thật) và chờ tôi duyệt đáp án chuẩn.
-   Không viết mã gọi/chạy mô hình trước khi eval set được duyệt.
-4. Khi đủ thông tin: tóm tắt các quyết định đã chốt thành danh sách, rồi dừng.
-```
+```text
+Design/plan T12 as the AI Room Recommendation Assistant.
 
-### 2b. Lập kế hoạch (sau khi chốt quyết định)
+Binding product rules:
+- Java 21/Spring Boot + Spring AI/Google Gemini.
+- Gemini proposes typed criteria; Java validates, discovers candidates, hard-filters,
+  calls authoritative read-only Availability/Pricing, ranks deterministically and builds cards.
+- Return 3-5 verified distinct room-type recommendations when available, otherwise fewer.
+- MVP is one room per option. Keep roomsCount; clarify/redirect when roomsCount > 1.
+- Release 1 room recommendation works without RAG.
+- Release 2 uses approved PostgreSQL/pgvector static knowledge only.
+- Zero business writes: never hold/release inventory, mutate bookings, start payments/refunds,
+  or mutate guest/business records—even after confirmation. No generic HTTP/SQL/write tools.
+- Cards use only a Member 4-approved view-details action; do not invent a route.
 
-```
-/plan Dựa trên các quyết định đã chốt, lập kế hoạch cho [mã task].
-Mỗi bước nêu: file sẽ đổi, lệnh kiểm chứng, rủi ro.
-Task AI: chia thành các lát, mỗi lát một PR và có chỉ số eval riêng.
-```
+Deliver:
+1. Evidence-based current baseline and contradictions.
+2. ADR plus current-versus-proposed contract table.
+3. Member 2/4 contract requests and explicit approval gates.
+4. Small implementation slices with file allowlists, fixtures, tests, rollback and stop conditions.
+5. Security/no-write and AI evaluation matrix. Draft thresholds remain PROPOSED.
 
-Đọc kỹ plan, comment trực tiếp lên artifact, chỉ duyệt khi mỗi bước có lệnh kiểm chứng đo được.
-
-### 2c. Thực thi (sau khi duyệt plan)
-
-```
-/goal Thực hiện đúng plan đã duyệt cho [mã task] [lát nếu có].
-Xong khi: [lệnh test] pass 100%; lint/compile sạch; Swagger đồng bộ;
-[task AI: eval đạt ngưỡng đã chốt và bộ eval không bị sửa].
-Ranh giới: chỉ sửa file trong plan; tuân thủ AGENTS.member1.md mục 4 đến 7.
-Kẹt: lỗi lặp 3 lần hoặc chỉ số không cải thiện sau 3 thử nghiệm thì dừng và báo cáo.
+Do not implement unless this request explicitly authorizes implementation.
 ```
 
----
+## 3. Implement an approved Member 1 slice
 
-## Prompt 3 — Kết thúc task (rà soát và chuẩn bị PR)
+```text
+Implement only approved slice [slice ID] from [spec/plan path] in [authorized worktree].
 
+Before editing, verify repository, branch/HEAD/base SHA, status, file allowlist, owners and contracts.
+Stop if the base is wrong, unexpected changes exist, or an owner contract is missing.
+Use synthetic fixtures only for pending dependencies and never expose fixture facts as production data.
+
+Make the smallest complete change inside the approved file allowlist. Do not modify shared
+Booking/Pricing/Inventory/Security/DB/Frontend behavior without the named owner's approval.
+Do not commit, push, open a PR, merge, run a migration or call a paid/live model unless this
+request explicitly authorizes that specific action.
+
+For T12, prove the read-only dependency allowlist and zero calls to hold/release/booking/payment/guest writes.
+Run only relevant existing checks and report each as PASS, FAIL or NOT RUN with evidence.
 ```
-Task [mã task] đã thực thi xong. Chuẩn bị đóng task. KHÔNG commit, push hay merge.
 
-1. Gọi subagent plan-reviewer với: đường dẫn plan, mã task, danh sách file đã đổi.
-2. Nếu task có dữ liệu cá nhân (T05, U13, U14, T12): gọi pii-auditor.
-3. Nếu task AI: gọi rag-evaluator với lệnh eval, bộ eval và ngưỡng đã chốt.
-4. Tổng hợp một báo cáo: findings theo mức (chặn / nên sửa / gợi ý), bảng chỉ số,
-   bằng chứng DoD (lint, test, Swagger, không hồi quy).
-5. Soạn mô tả PR theo checklist ở mục 8 của docs/member1-agent-system.md.
-   Ghi rõ mọi thay đổi ngoài plan.
-6. Điền một dòng vào agent-log.md: ước tính, thực tế, số lần can thiệp, lỗi lặp lại, quota.
-7. Đề xuất các mục nên thêm vào AGENTS.member1.md mục 11 (chạy /learn nếu phù hợp).
-   Không tự sửa các mục khác.
+## 4. Draft or run AI evaluation
 
-Báo cáo của bạn bổ sung cho peer review của người, không thay thế.
+```text
+Evaluate [feature/SHA] using [eval path/version].
+
+First state whether the eval is APPROVED or DRAFT. If DRAFT, do not report release pass/fail
+against unapproved thresholds. Never edit the gold cases, answers or thresholds during execution.
+Use synthetic data and record prompt/model/embedding/corpus/config/SHA without secrets.
+
+Cover deterministic behavior, model behavior, tenant/session isolation, prompt/document injection,
+PII/log safety, outage distinctions and trace-level zero business writes. Separate NOT RUN checks
+when a runner, service, contract, approval or paid-model authorization is absent.
+Return a PASS/FAIL/NOT RUN scorecard and sanitized representative failures.
+```
+
+## 5. Final review and handoff
+
+```text
+Review the completed scope [task/slice] without committing, pushing, opening a PR or merging.
+
+1. Compare status/diff to the approved file allowlist and plan.
+2. Check owner boundaries, contracts, backward compatibility, security, PII/secrets and placeholders.
+3. Run relevant existing validation; do not start Docker/migrations/live models without approval.
+4. For AI, preserve approved eval data and report actual scorecard/no-write evidence.
+5. Run git diff --check, inspect diff/stat/status and list every changed file.
+6. Report base SHA, behavior/contracts, PASS/FAIL/NOT RUN table, unverified areas,
+   remaining blockers, M2/M4/human approvals, rollback and Git mutation status.
+
+AI review supplements human peer review and never marks owner approvals as complete.
 ```

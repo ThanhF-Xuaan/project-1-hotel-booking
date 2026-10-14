@@ -1,0 +1,990 @@
+[
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1001,
+      "roomTypeName": "Synthetic Room 1001",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 500000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 500000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 500000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 500000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 500000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 500000
+        }
+      ],
+      "totalBasePrice": 1000000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1000000,
+      "vatPercent": 10,
+      "vatAmount": 100000,
+      "finalTotalAmount": 1100000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1002,
+      "roomTypeName": "Synthetic Room 1002",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 510000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 510000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 510000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 510000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 510000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 510000
+        }
+      ],
+      "totalBasePrice": 1020000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1020000,
+      "vatPercent": 10,
+      "vatAmount": 102000,
+      "finalTotalAmount": 1122000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1003,
+      "roomTypeName": "Synthetic Room 1003",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 520000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 520000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 520000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 520000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 520000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 520000
+        }
+      ],
+      "totalBasePrice": 1040000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1040000,
+      "vatPercent": 10,
+      "vatAmount": 104000,
+      "finalTotalAmount": 1144000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1004,
+      "roomTypeName": "Synthetic Room 1004",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 530000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 530000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 530000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 530000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 530000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 530000
+        }
+      ],
+      "totalBasePrice": 1060000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1060000,
+      "vatPercent": 10,
+      "vatAmount": 106000,
+      "finalTotalAmount": 1166000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1005,
+      "roomTypeName": "Synthetic Room 1005",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 540000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 540000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 540000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 540000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 540000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 540000
+        }
+      ],
+      "totalBasePrice": 1080000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1080000,
+      "vatPercent": 10,
+      "vatAmount": 108000,
+      "finalTotalAmount": 1188000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1006,
+      "roomTypeName": "Synthetic Room 1006",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 550000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 550000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 550000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 550000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 550000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 550000
+        }
+      ],
+      "totalBasePrice": 1100000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1100000,
+      "vatPercent": 10,
+      "vatAmount": 110000,
+      "finalTotalAmount": 1210000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1007,
+      "roomTypeName": "Synthetic Room 1007",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 560000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 560000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 560000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 560000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 560000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 560000
+        }
+      ],
+      "totalBasePrice": 1120000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1120000,
+      "vatPercent": 10,
+      "vatAmount": 112000,
+      "finalTotalAmount": 1232000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1008,
+      "roomTypeName": "Synthetic Room 1008",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 570000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 570000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 570000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 570000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 570000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 570000
+        }
+      ],
+      "totalBasePrice": 1140000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1140000,
+      "vatPercent": 10,
+      "vatAmount": 114000,
+      "finalTotalAmount": 1254000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1009,
+      "roomTypeName": "Synthetic Room 1009",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 580000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 580000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 580000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 580000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 580000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 580000
+        }
+      ],
+      "totalBasePrice": 1160000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1160000,
+      "vatPercent": 10,
+      "vatAmount": 116000,
+      "finalTotalAmount": 1276000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1010,
+      "roomTypeName": "Synthetic Room 1010",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 590000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 590000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 590000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 590000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 590000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 590000
+        }
+      ],
+      "totalBasePrice": 1180000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1180000,
+      "vatPercent": 10,
+      "vatAmount": 118000,
+      "finalTotalAmount": 1298000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1011,
+      "roomTypeName": "Synthetic Room 1011",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 600000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 600000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 600000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 600000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 600000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 600000
+        }
+      ],
+      "totalBasePrice": 1200000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1200000,
+      "vatPercent": 10,
+      "vatAmount": 120000,
+      "finalTotalAmount": 1320000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1012,
+      "roomTypeName": "Synthetic Room 1012",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 610000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 610000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 610000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 610000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 610000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 610000
+        }
+      ],
+      "totalBasePrice": 1220000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1220000,
+      "vatPercent": 10,
+      "vatAmount": 122000,
+      "finalTotalAmount": 1342000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1013,
+      "roomTypeName": "Synthetic Room 1013",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 620000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 620000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 620000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 620000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 620000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 620000
+        }
+      ],
+      "totalBasePrice": 1240000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1240000,
+      "vatPercent": 10,
+      "vatAmount": 124000,
+      "finalTotalAmount": 1364000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1014,
+      "roomTypeName": "Synthetic Room 1014",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 630000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 630000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 630000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 630000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 630000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 630000
+        }
+      ],
+      "totalBasePrice": 1260000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1260000,
+      "vatPercent": 10,
+      "vatAmount": 126000,
+      "finalTotalAmount": 1386000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1015,
+      "roomTypeName": "Synthetic Room 1015",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 640000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 640000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 640000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 640000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 640000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 640000
+        }
+      ],
+      "totalBasePrice": 1280000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1280000,
+      "vatPercent": 10,
+      "vatAmount": 128000,
+      "finalTotalAmount": 1408000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1016,
+      "roomTypeName": "Synthetic Room 1016",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 650000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 650000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 650000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 650000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 650000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 650000
+        }
+      ],
+      "totalBasePrice": 1300000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1300000,
+      "vatPercent": 10,
+      "vatAmount": 130000,
+      "finalTotalAmount": 1430000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1017,
+      "roomTypeName": "Synthetic Room 1017",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 660000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 660000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 660000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 660000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 660000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 660000
+        }
+      ],
+      "totalBasePrice": 1320000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1320000,
+      "vatPercent": 10,
+      "vatAmount": 132000,
+      "finalTotalAmount": 1452000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1018,
+      "roomTypeName": "Synthetic Room 1018",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 670000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 670000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 670000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 670000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 670000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 670000
+        }
+      ],
+      "totalBasePrice": 1340000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1340000,
+      "vatPercent": 10,
+      "vatAmount": 134000,
+      "finalTotalAmount": 1474000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1019,
+      "roomTypeName": "Synthetic Room 1019",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 680000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 680000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 680000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 680000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 680000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 680000
+        }
+      ],
+      "totalBasePrice": 1360000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1360000,
+      "vatPercent": 10,
+      "vatAmount": 136000,
+      "finalTotalAmount": 1496000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1020,
+      "roomTypeName": "Synthetic Room 1020",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 690000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 690000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 690000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 690000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 690000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 690000
+        }
+      ],
+      "totalBasePrice": 1380000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1380000,
+      "vatPercent": 10,
+      "vatAmount": 138000,
+      "finalTotalAmount": 1518000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1021,
+      "roomTypeName": "Synthetic Room 1021",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 700000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 700000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 700000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 700000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 700000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 700000
+        }
+      ],
+      "totalBasePrice": 1400000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1400000,
+      "vatPercent": 10,
+      "vatAmount": 140000,
+      "finalTotalAmount": 1540000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1022,
+      "roomTypeName": "Synthetic Room 1022",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 710000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 710000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 710000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 710000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 710000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 710000
+        }
+      ],
+      "totalBasePrice": 1420000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1420000,
+      "vatPercent": 10,
+      "vatAmount": 142000,
+      "finalTotalAmount": 1562000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1023,
+      "roomTypeName": "Synthetic Room 1023",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 720000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 720000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 720000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 720000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 720000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 720000
+        }
+      ],
+      "totalBasePrice": 1440000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1440000,
+      "vatPercent": 10,
+      "vatAmount": 144000,
+      "finalTotalAmount": 1584000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1024,
+      "roomTypeName": "Synthetic Room 1024",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 730000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 730000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 730000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 730000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 730000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 730000
+        }
+      ],
+      "totalBasePrice": 1460000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1460000,
+      "vatPercent": 10,
+      "vatAmount": 146000,
+      "finalTotalAmount": 1606000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1025,
+      "roomTypeName": "Synthetic Room 1025",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 740000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 740000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 740000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 740000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 740000,
+          "discountAmount": 0,
+          "surchargeAmount": 0,
+          "netAmount": 740000
+        }
+      ],
+      "totalBasePrice": 1480000,
+      "totalDiscountAmount": 0,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 1480000,
+      "vatPercent": 10,
+      "vatAmount": 148000,
+      "finalTotalAmount": 1628000
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "hotelRoomTypeId": 1026,
+      "roomTypeName": "Synthetic Room 1026",
+      "totalNights": 2,
+      "dailyPrices": [
+        {
+          "date": "2026-11-20",
+          "baseRate": 1500000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 1500000,
+          "discountAmount": 1100000,
+          "surchargeAmount": 0,
+          "netAmount": 400000
+        },
+        {
+          "date": "2026-11-21",
+          "baseRate": 1500000,
+          "seasonalAdjustment": 0,
+          "holidayAdjustment": 0,
+          "adjustedRate": 1500000,
+          "discountAmount": 1100000,
+          "surchargeAmount": 0,
+          "netAmount": 400000
+        }
+      ],
+      "totalBasePrice": 3000000,
+      "totalDiscountAmount": 2200000,
+      "totalSurchargeAmount": 0,
+      "preTaxAmount": 800000,
+      "vatPercent": 10,
+      "vatAmount": 80000,
+      "finalTotalAmount": 880000
+    }
+  }
+]

@@ -1,0 +1,89 @@
+{
+  "code": 200,
+  "message": "Success",
+  "result": {
+    "contractVersion": "2.0",
+    "requestId": "00000000-0000-4000-8000-000000000001",
+    "sessionId": "00000000-0000-4000-8000-000000000001",
+    "sessionVersion": 1,
+    "status": "OUT_OF_SCOPE",
+    "reply": "Trợ lý hỗ trợ tìm và xem thông tin phòng. Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường.",
+    "criteria": {
+      "locationKeyword": "Synthetic City",
+      "checkInDate": "2026-11-20",
+      "checkOutDate": "2026-11-22",
+      "adults": 2,
+      "children": 0,
+      "extraBeds": 0,
+      "roomsCount": 1,
+      "requiredFeatureCodes": [],
+      "preferredFeatureCodes": []
+    },
+    "missingFields": [],
+    "recommendations": [],
+    "coverage": {
+      "status": "NOT_RUN",
+      "catalogComplete": false,
+      "discoveredCount": 0,
+      "evaluatedCount": 0,
+      "failedCount": 0,
+      "remainingCount": 0,
+      "verifiedMatchCount": 0,
+      "reasons": []
+    },
+    "knowledgeStatus": "DISABLED",
+    "sources": [],
+    "warnings": [
+      "SERVICE_FEE_UNVERIFIED",
+      "CURRENCY_SYNTHETIC_ASSUMPTION"
+    ],
+    "criteriaProvenance": [
+      {
+        "field": "locationKeyword",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "checkInDate",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "checkOutDate",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "adults",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "children",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "extraBeds",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "roomsCount",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "requiredFeatureCodes",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "preferredFeatureCodes",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      }
+    ],
+    "ambiguities": []
+  }
+}

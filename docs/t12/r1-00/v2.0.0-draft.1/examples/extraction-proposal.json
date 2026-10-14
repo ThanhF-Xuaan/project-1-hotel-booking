@@ -1,0 +1,25 @@
+{
+  "criteriaPatch": {
+    "locationKeyword": "Synthetic City",
+    "adults": 2,
+    "roomsCount": 1
+  },
+  "provenance": [
+    {
+      "field": "locationKeyword",
+      "origin": "USER_PROVIDED",
+      "confirmation": "CONFIRMED"
+    },
+    {
+      "field": "adults",
+      "origin": "USER_PROVIDED",
+      "confirmation": "CONFIRMED"
+    },
+    {
+      "field": "roomsCount",
+      "origin": "DEFAULT",
+      "confirmation": "UNCONFIRMED"
+    }
+  ],
+  "ambiguities": []
+}

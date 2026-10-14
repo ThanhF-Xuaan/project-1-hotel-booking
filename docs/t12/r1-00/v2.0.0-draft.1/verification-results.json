@@ -1,0 +1,33 @@
+{
+  "status": "PASS",
+  "scope": "ARTIFACT_VALIDATION_ONLY",
+  "engineEvaluation": "NOT_RUN",
+  "counters": {
+    "schemas_validated": 3,
+    "refs_resolved": 52,
+    "openapi_documents_validated": 1,
+    "instances_validated": 184,
+    "response_invariants_checked": 6,
+    "core_fixture_triplets_checked": 26,
+    "evaluation_cases_checked": 74,
+    "evaluation_patches_resolved": 69,
+    "governance_refs_resolved": 6,
+    "governance_requirements_mapped": 35,
+    "protected_user_hashes_checked": 23,
+    "source_evidence_hashes_checked": 21,
+    "negative_cases_rejected": 33,
+    "markdown_links_resolved": 29
+  },
+  "caseCategories": {
+    "hard_constraints": 12,
+    "ranking": 9,
+    "pricing": 13,
+    "multi_turn": 11,
+    "security": 7,
+    "no_write": 9,
+    "errors": 13
+  },
+  "evaluationCasesSha256": "e307d4a9ae9ff3b6b31b1704b7a063c2c9b25e70bb7e0b65b2a5cc3305efd8f2",
+  "contractArtifactVersion": "2.0.0-draft.1",
+  "evaluationVersion": "0.1.0-draft"
+}

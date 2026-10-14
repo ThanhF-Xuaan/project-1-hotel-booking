@@ -1,0 +1,10 @@
+{
+  "code": 409,
+  "message": "Phiên tìm phòng đã thay đổi. Cần tải lại trước khi tiếp tục.",
+  "error": {
+    "contractVersion": "2.0",
+    "requestId": "00000000-0000-4000-8000-000000000001",
+    "reason": "SESSION_VERSION_CONFLICT",
+    "retryable": false
+  }
+}

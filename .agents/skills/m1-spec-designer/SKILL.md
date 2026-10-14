@@ -1,108 +1,54 @@
 ---
 name: m1-spec-designer
-description: Technical specification and requirement analysis skill for Member 1 (AI & Data Specialist). Use this skill when starting any new feature (T04, T05, T12, U13, U14, U22) to produce structured Technical Specs for either Data Submodules or AI/LLM Pipelines.
+description: Design evidence-based technical specs, ADRs, contract requests, ownership boundaries, and acceptance criteria for Member 1 tasks T04, T05, T12, U13, U14, and U22. Use before a new feature or material redesign; do not use for minor edits with an already approved contract.
 ---
 
-# 📐 M1 Spec Designer (Technical Specification & Architecture Analysis)
+# M1 Spec Designer
 
-This skill provides standardized guidance for requirement analysis, contract design, and technical specification generation tailored for **Member 1 (AI & Data Specialist)** in the Hotel Booking System project.
+Produce a reviewable specification without treating proposals as implemented facts or expanding Member 1's authority.
 
----
+## Required inputs
 
-## 🎯 When to Activate This Skill
+- User-approved objective and task code.
+- Exact repository, target SHA/status, relevant source/tests/OpenAPI, and current owner map.
+- Existing human decisions, evaluation material, privacy/security constraints, and known dependencies.
 
-Activate whenever initiating a new Feature or User Story owned by Member 1:
-- **T04**: Utility & Master Data BE (`UtilityMeter`, `UtilityReading`, `Region`, `Property`, `RoomType`)
-- **T05**: Lodging Queue & Payroll Import BE (`StayGuest`, BCA Police lodging declaration export, Payroll summary stream import)
-- **T12**: RAG Chatbot AI Core (Spring AI / LangChain, PGVector, room booking consultation, hotel policies)
-- **U13**: AI OCR Passport/CCCD Parser (Identity document extraction for StayGuest)
-- **U14**: AI Guest Personalization Engine (Rate plan suggestions, personalized service recommendations based on stay history)
-- **U22**: AI Predictive Analytics & Anomaly Detection (30-day occupancy forecasting, utility consumption anomalies)
+If these inputs are unavailable, label them `UNKNOWN` or `BLOCKED`; do not invent them.
 
----
+## Process
 
-## 🧭 Problem Classification Matrix
+1. **Audit before design.** Record `CONFIRMED`, `PROPOSED`, `UNKNOWN`, and `BLOCKED` facts with file/symbol/contract evidence. An old branch or plan is reference material only.
+2. **Define ownership.** Separate Member 1 behavior from Member 2 Core/schema/security, Member 3 Payment/POS, and Member 4 UI/navigation. Convert missing cross-owner behavior into a contract request.
+3. **Specify the contract.** Define validated inputs/outputs, identifiers, date/time/money units, response envelope, statuses/errors, authorization/tenant scope, side effects, compatibility, degradation, and rollback.
+4. **Specify data safety.** Identify PII, secrets, retention/consent decisions, trusted scopes, synthetic fixtures, and external-provider boundaries.
+5. **Define observable acceptance.** Include deterministic tests, relevant regressions, security checks, AI evaluation inputs/approval status, performance/cost limits, and `PASS`/`FAIL`/`NOT RUN` reporting.
+6. **Record decisions.** ADRs distinguish accepted product decisions from owner approvals still required. Do not assign an approval date or approver without evidence.
 
-Before writing the specification, strictly classify the task into one of two tracks:
+## T12 specification rules
 
-```text
-                                [INCOMING FEATURE TASK]
-                                           │
-                 ┌─────────────────────────┴─────────────────────────┐
-                 ▼                                                   ▼
-       [TRACK A: DATA SUBMODULE]                           [TRACK B: AI & LLM CORE]
-     (T04 Utility, T05 Payroll/Lodging)                (T12 Chatbot, U13 OCR, U14, U22)
-                 │                                                   │
-      - Focus: DDL & Liquibase, DTO contracts,            - Focus: Prompt Engineering, Vector Store,
-        REST APIs, Batch/Stream I/O,                        Function Calling, JSON Structured Output,
-        BCA Police XML/CSV, Payroll schemas                 Fallback, Latency & Token Economics
-```
+- Product: read-only AI Room Recommendation Assistant.
+- Release 1: Gemini proposes typed criteria; Java validates/merges criteria, discovers candidates, filters, calls authoritative read-only Availability/Pricing, ranks deterministically, and returns 3–5 verified room-type cards when available—or fewer.
+- MVP: one room per option; keep `roomsCount`, but clarify/redirect when greater than one. Never multiply a quote.
+- Release 2: scoped RAG for approved static/public knowledge; recommendation remains usable without RAG.
+- Never propose hold/release, booking mutation, payment/refund, guest mutation, generic HTTP/SQL tools, or write-capable callbacks.
+- Do not invent public room-type endpoints, detail routes, fee/currency semantics, session ownership, pgvector installation, Gemini model IDs, embedding dimensions, or passed metrics. Request them from their owners.
 
----
+## Other Member 1 tracks
 
-## 📝 Required Technical Spec Template
+- `T04`/`T05`: derive schemas and file formats from approved repository/domain contracts; do not invent regulated BCA formats.
+- `U13`: human verification, consent/provider and retention decisions are required before identity persistence.
+- `U14`: suggestions only; do not mutate Pricing or profile on unapproved sensitive attributes.
+- `U22`: time-based backtesting and simple baselines; label synthetic data.
 
-When executing this skill, generate the Technical Specification using the following standard template:
+## Deliverables
 
-### 1. General Overview
-* **Task ID & Name:** (e.g., `T12 - RAG Chatbot AI Core`)
-* **Assignee:** Member 1 (AI & Data Specialist)
-* **Core Objective:** Concise 1-2 sentence description of the business value.
+- Spec or ADR with decision status and evidence.
+- Current-versus-proposed API/DTO and ownership matrix.
+- Contract requests with owner, examples, edge cases, acceptance and compatibility notes.
+- Test/evaluation matrix, risks, rollout/rollback, and explicit stop conditions.
 
----
+## Verification and stop conditions
 
-### 2. Detailed Technical Design by Track
+Check every path/symbol cited, every proposed side effect, and every owner dependency. The spec passes only when it contains no unlabelled invented contract and keeps T12 zero-business-write.
 
-#### 🟢 For TRACK A (Data Submodule - T04, T05):
-1. **Data Model (Entity & Database Schema):**
-   * Target tables and column definitions matching PostgreSQL 16 standards.
-   * Foreign keys (`hotel_id`, `guest_id`, etc.), unique constraints, indexes, check constraints.
-   * Soft delete column (`is_deleted` boolean) and audit fields (`BaseEntity`: `created_at`, `updated_at`, `created_by`).
-2. **REST API Contract:**
-   * `POST /api/v1/<resource>/filter`: Search DTO (pagination `page`, `pageSize`, sort, exact match for enums/IDs, case-insensitive partial match for text).
-   * `POST /api/v1/<resource>/create`: Create Request DTO with Jakarta Bean Validation (`@NotNull`, `@NotBlank`, `@Size`).
-   * `PUT /api/v1/<resource>/update/{id}`: Update Request DTO.
-   * `DELETE /api/v1/<resource>/delete`: Unified Batch Delete receiving `List<Integer> ids` (or `List<Long> ids`).
-3. **Specialized File Schema (if applicable):**
-   * *Payroll Import:* Column specs (Employee Code, Base Salary, Allowance, Workdays), error handling on invalid rows.
-   * *BCA Police Declaration Export:* Specialized Vietnamese police report format for guest lodging registration (`StayGuest` attributes: CCCD/Passport, Full Name, DOB, Nationality, Room No, Check-in/Check-out timestamps).
-
----
-
-#### 🟣 For TRACK B (AI & LLM Core - T12, U13, U14, U22):
-1. **AI Framework & Model Selection:**
-   * Framework: Spring AI (Java 21) or Python FastAPI microservice.
-   * Target Models: Gemini 2.5/Flash, GPT-4o, or localized OCR Vision model.
-2. **Knowledge Ingestion & Vector Store Strategy (RAG):**
-   * Knowledge Base Sources: Room catalog, static pricing policies, cancellation terms, hotel amenities.
-   * Chunking Strategy: 500-800 tokens per chunk with 100-token overlap.
-   * Metadata Indexing: Must index `hotel_id` and `category` to allow pre-filtering before cosine similarity search.
-   * Vector Store: PostgreSQL `pgvector` extension.
-3. **Prompt Specification & Function Calling (Tool Calling):**
-   * *System Prompt Template:* Hotel Virtual Concierge persona, strict boundaries against hallucination.
-   * *Tool / Function Calling Definitions:* Register explicit tool definitions (e.g., `checkRoomAvailability`, `calculateRealtimePrice`) pointing to Core Backend APIs.
-   * *Structured Output:* Enforce JSON Schema outputs for structured extraction.
-4. **Resilience, Guardrails & Security:**
-   * Fallback strategy when LLM times out (> 10s) or hits rate limits: Return friendly front-desk fallback message.
-   * PII Protection: Mask sensitive personal data (CCCD, Passport, Payment cards) before logging or sending to third-party model providers.
-   * Jailbreak / Prompt Injection defense.
-
----
-
-### 3. Role-Based Access Control (RBAC) Matrix
-Explicitly define role mappings for every endpoint:
-| Endpoint | Method | Required Roles | Description |
-| :--- | :--- | :--- | :--- |
-| `/api/v1/utility/meters/filter` | POST | `ROLE_CHAIN_ADMIN`, `ROLE_PROPERTY_MANAGER`, `ROLE_RECEPTIONIST` | Search utility meters |
-| `/api/v1/utility/meters/create` | POST | `ROLE_CHAIN_ADMIN`, `ROLE_PROPERTY_MANAGER` | Create new meter |
-| `/api/v1/utility/meters/delete` | DELETE | `ROLE_CHAIN_ADMIN` | Soft delete meters in batch |
-| `/api/v1/ai/chatbot/query` | POST | `ROLE_CUSTOMER`, `ROLE_RECEPTIONIST`, `ROLE_ANONYMOUS` | Consultation query |
-
----
-
-### 4. Acceptance Criteria (AC)
-Define at least 4-6 verifiable acceptance criteria:
-- **AC1:** Valid payload returns HTTP 200/201 with standardized response wrapper.
-- **AC2:** Duplicate code or constraint violation returns proper `AppException` with domain-specific `ErrorCode` (HTTP 400/409).
-- **AC3:** AI Chatbot queries for unknown topics gracefully decline without fabricating facts or room prices.
-- **AC4:** Delete operations strictly update `is_deleted = true` without physical deletion from PostgreSQL.
+Stop the affected section when authority, tenant/session scope, money/date semantics, regulated format, privacy/provider approval, or shared schema/security ownership cannot be resolved. A spec does not authorize implementation, branch creation, migration, commit, push, or PR.

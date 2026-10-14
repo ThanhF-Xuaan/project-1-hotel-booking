@@ -1,0 +1,23 @@
+{
+  "code": 200,
+  "message": "Success",
+  "result": {
+    "hotelId": 6,
+    "hotelName": "Synthetic Hotel 6",
+    "hotelRoomTypeId": 1026,
+    "roomTypeId": 1,
+    "roomTypeCode": "SYN_1026",
+    "roomTypeName": "Synthetic Room 1026",
+    "maxAdults": 2,
+    "maxChildren": 1,
+    "maxTotalGuests": 3,
+    "extraBedsAllowed": 1,
+    "features": [
+      {
+        "code": "WIFI",
+        "name": "Wi-Fi"
+      }
+    ],
+    "status": "ACTIVE"
+  }
+}

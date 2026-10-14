@@ -1,0 +1,526 @@
+[
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "content": [
+        {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1001,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1001",
+          "roomTypeName": "Synthetic Room 1001",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1002,
+          "roomTypeId": 2,
+          "roomTypeCode": "SYN_1002",
+          "roomTypeName": "Synthetic Room 1002",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1003,
+          "roomTypeId": 3,
+          "roomTypeCode": "SYN_1003",
+          "roomTypeName": "Synthetic Room 1003",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1004,
+          "roomTypeId": 4,
+          "roomTypeCode": "SYN_1004",
+          "roomTypeName": "Synthetic Room 1004",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1005,
+          "roomTypeId": 5,
+          "roomTypeCode": "SYN_1005",
+          "roomTypeName": "Synthetic Room 1005",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 2,
+          "hotelName": "Synthetic Hotel 2",
+          "hotelRoomTypeId": 1006,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1006",
+          "roomTypeName": "Synthetic Room 1006",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 2,
+          "hotelName": "Synthetic Hotel 2",
+          "hotelRoomTypeId": 1007,
+          "roomTypeId": 2,
+          "roomTypeCode": "SYN_1007",
+          "roomTypeName": "Synthetic Room 1007",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 2,
+          "hotelName": "Synthetic Hotel 2",
+          "hotelRoomTypeId": 1008,
+          "roomTypeId": 3,
+          "roomTypeCode": "SYN_1008",
+          "roomTypeName": "Synthetic Room 1008",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 2,
+          "hotelName": "Synthetic Hotel 2",
+          "hotelRoomTypeId": 1009,
+          "roomTypeId": 4,
+          "roomTypeCode": "SYN_1009",
+          "roomTypeName": "Synthetic Room 1009",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 2,
+          "hotelName": "Synthetic Hotel 2",
+          "hotelRoomTypeId": 1010,
+          "roomTypeId": 5,
+          "roomTypeCode": "SYN_1010",
+          "roomTypeName": "Synthetic Room 1010",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 3,
+          "hotelName": "Synthetic Hotel 3",
+          "hotelRoomTypeId": 1011,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1011",
+          "roomTypeName": "Synthetic Room 1011",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 3,
+          "hotelName": "Synthetic Hotel 3",
+          "hotelRoomTypeId": 1012,
+          "roomTypeId": 2,
+          "roomTypeCode": "SYN_1012",
+          "roomTypeName": "Synthetic Room 1012",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 3,
+          "hotelName": "Synthetic Hotel 3",
+          "hotelRoomTypeId": 1013,
+          "roomTypeId": 3,
+          "roomTypeCode": "SYN_1013",
+          "roomTypeName": "Synthetic Room 1013",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 3,
+          "hotelName": "Synthetic Hotel 3",
+          "hotelRoomTypeId": 1014,
+          "roomTypeId": 4,
+          "roomTypeCode": "SYN_1014",
+          "roomTypeName": "Synthetic Room 1014",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 3,
+          "hotelName": "Synthetic Hotel 3",
+          "hotelRoomTypeId": 1015,
+          "roomTypeId": 5,
+          "roomTypeCode": "SYN_1015",
+          "roomTypeName": "Synthetic Room 1015",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 4,
+          "hotelName": "Synthetic Hotel 4",
+          "hotelRoomTypeId": 1016,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1016",
+          "roomTypeName": "Synthetic Room 1016",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 4,
+          "hotelName": "Synthetic Hotel 4",
+          "hotelRoomTypeId": 1017,
+          "roomTypeId": 2,
+          "roomTypeCode": "SYN_1017",
+          "roomTypeName": "Synthetic Room 1017",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 4,
+          "hotelName": "Synthetic Hotel 4",
+          "hotelRoomTypeId": 1018,
+          "roomTypeId": 3,
+          "roomTypeCode": "SYN_1018",
+          "roomTypeName": "Synthetic Room 1018",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 4,
+          "hotelName": "Synthetic Hotel 4",
+          "hotelRoomTypeId": 1019,
+          "roomTypeId": 4,
+          "roomTypeCode": "SYN_1019",
+          "roomTypeName": "Synthetic Room 1019",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 4,
+          "hotelName": "Synthetic Hotel 4",
+          "hotelRoomTypeId": 1020,
+          "roomTypeId": 5,
+          "roomTypeCode": "SYN_1020",
+          "roomTypeName": "Synthetic Room 1020",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        }
+      ],
+      "pageNumber": 0,
+      "pageSize": 20,
+      "totalElements": 26,
+      "totalPages": 2,
+      "first": true,
+      "last": false,
+      "empty": false
+    }
+  },
+  {
+    "code": 200,
+    "message": "Success",
+    "result": {
+      "content": [
+        {
+          "hotelId": 5,
+          "hotelName": "Synthetic Hotel 5",
+          "hotelRoomTypeId": 1021,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1021",
+          "roomTypeName": "Synthetic Room 1021",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 5,
+          "hotelName": "Synthetic Hotel 5",
+          "hotelRoomTypeId": 1022,
+          "roomTypeId": 2,
+          "roomTypeCode": "SYN_1022",
+          "roomTypeName": "Synthetic Room 1022",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 5,
+          "hotelName": "Synthetic Hotel 5",
+          "hotelRoomTypeId": 1023,
+          "roomTypeId": 3,
+          "roomTypeCode": "SYN_1023",
+          "roomTypeName": "Synthetic Room 1023",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 5,
+          "hotelName": "Synthetic Hotel 5",
+          "hotelRoomTypeId": 1024,
+          "roomTypeId": 4,
+          "roomTypeCode": "SYN_1024",
+          "roomTypeName": "Synthetic Room 1024",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 5,
+          "hotelName": "Synthetic Hotel 5",
+          "hotelRoomTypeId": 1025,
+          "roomTypeId": 5,
+          "roomTypeCode": "SYN_1025",
+          "roomTypeName": "Synthetic Room 1025",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        },
+        {
+          "hotelId": 6,
+          "hotelName": "Synthetic Hotel 6",
+          "hotelRoomTypeId": 1026,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1026",
+          "roomTypeName": "Synthetic Room 1026",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ],
+          "status": "ACTIVE"
+        }
+      ],
+      "pageNumber": 1,
+      "pageSize": 20,
+      "totalElements": 26,
+      "totalPages": 2,
+      "first": false,
+      "last": true,
+      "empty": false
+    }
+  }
+]

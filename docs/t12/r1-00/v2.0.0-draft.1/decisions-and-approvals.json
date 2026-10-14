@@ -1,0 +1,377 @@
+{
+  "artifactVersion": "2.0.0-draft.1",
+  "wireContractVersion": "2.0",
+  "evaluationVersion": "0.1.0-draft",
+  "baselineCommit": "afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb",
+  "branch": "feature/T12-ai-room-advisor-v2",
+  "createdAt": "2026-10-08",
+  "owner": "Member 1",
+  "scopeApproval": "R1_00_ONLY",
+  "contractApproval": {
+    "status": "PENDING",
+    "approvedBy": null,
+    "approvedAt": null
+  },
+  "evaluationApproval": {
+    "status": "PENDING",
+    "approvedBy": null,
+    "approvedAt": null
+  },
+  "runtimeVerification": "UNAVAILABLE_SOURCE_AUDIT_ONLY",
+  "nextTaskApproval": "NOT_GRANTED",
+  "decisions": [
+    {
+      "id": "PRODUCT-01",
+      "description": "One room, Top 3–5 distinct HotelRoomType if eligible; retain roomsCount; multi-room asks again.",
+      "owner": "User",
+      "status": "PRODUCT_APPROVED",
+      "humanApproval": {
+        "status": "APPROVED_BY_USER_TASK_SCOPE",
+        "approvedBy": "User",
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": false,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": []
+    },
+    {
+      "id": "PRODUCT-02",
+      "description": "Zero business writes; cards navigate detail only; Java deterministic orchestration/ranking; R1 independent RAG.",
+      "owner": "User",
+      "status": "PRODUCT_APPROVED",
+      "humanApproval": {
+        "status": "APPROVED_BY_USER_TASK_SCOPE",
+        "approvedBy": "User",
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": false,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": []
+    },
+    {
+      "id": "M2-01",
+      "description": "Public room discovery/detail endpoint, safe projection, pagination, hotel scope/publication.",
+      "owner": "Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-01",
+        "CR-04"
+      ]
+    },
+    {
+      "id": "M2-02",
+      "description": "Authoritative currency source. VND in fixtures is synthetic, not Core fact.",
+      "owner": "Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-03"
+      ]
+    },
+    {
+      "id": "M2-03",
+      "description": "VAT, service fee, finalTotal charge coverage, rounding and observation semantics.",
+      "owner": "Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-03"
+      ]
+    },
+    {
+      "id": "M2-04",
+      "description": "Nightly budget basis and authoritative nightly all-in breakdown; unknown means no hard PASS.",
+      "owner": "Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-03"
+      ]
+    },
+    {
+      "id": "M2-05",
+      "description": "Capacity, children/infants and extra-bed semantics.",
+      "owner": "Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-03"
+      ]
+    },
+    {
+      "id": "M2-06",
+      "description": "Session ownership, tenant context, CSRF/cookie, TTL, limits and security contract.",
+      "owner": "Member 2 + Security owner",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-06",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M2-07",
+      "description": "Availability date endpoints, sparse rows and stale reads.",
+      "owner": "Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-02"
+      ]
+    },
+    {
+      "id": "M2-08",
+      "description": "Error envelopes/status, retries, campaignCode support.",
+      "owner": "Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-03",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M4-01",
+      "description": "Detail route /portal/hotels/{hotelId}/room-types/{hotelRoomTypeId}, currently absent.",
+      "owner": "Member 4",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-05",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M4-02",
+      "description": "Card schema and price labels incl unknown currency/fee.",
+      "owner": "Member 4",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-05",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M4-03",
+      "description": "Detail revalidation and stale cards, read-only navigation.",
+      "owner": "Member 4 + Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-05",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M4-04",
+      "description": "Result/partial/need-info/unavailable/out-of-scope UX.",
+      "owner": "Member 4",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-05",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M4-05",
+      "description": "Credential/version/ownership conflict integration.",
+      "owner": "Member 4 + Member 2",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-05",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M4-06",
+      "description": "Multi-room fallback to /portal/search without card write action.",
+      "owner": "Member 4",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-05",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M4-07",
+      "description": "Budget clarification and incomplete coverage UX.",
+      "owner": "Member 4",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": [
+        "CR-05",
+        "CR-10"
+      ]
+    },
+    {
+      "id": "M1-01",
+      "description": "PROPOSED_LEXICOGRAPHIC_V1 ranking oracle; relevance labels and quality thresholds pending.",
+      "owner": "Member 1 + Member 2/4 reviewers",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": []
+    },
+    {
+      "id": "M1-02",
+      "description": "74 draft evaluation assertions with v2 requirement mapping; signed golden digest required before freeze.",
+      "owner": "User + Member 1 reviewer",
+      "status": "PROPOSED_PENDING_REVIEW",
+      "humanApproval": {
+        "status": "PENDING",
+        "approvedBy": null,
+        "approvedAt": null
+      },
+      "blocksLiveIntegration": true,
+      "blocksIndependentFixtureDevelopment": false,
+      "governanceRequestIds": []
+    }
+  ],
+  "prohibitedInR1_00": [
+    "business_source_changes",
+    "Spring_AI_dependencies",
+    "live_Gemini_PoC",
+    "recommendation_engine",
+    "commits",
+    "push",
+    "merge",
+    "reset",
+    "approved_golden_changes"
+  ],
+  "integrationBlockers": [
+    "M2-01",
+    "M2-02",
+    "M2-03",
+    "M2-04",
+    "M2-05",
+    "M2-06",
+    "M2-07",
+    "M2-08",
+    "M4-01",
+    "M4-02",
+    "M4-03",
+    "M4-04",
+    "M4-05",
+    "M4-06",
+    "M4-07",
+    "M1-01",
+    "M1-02"
+  ],
+  "governanceAlignment": {
+    "status": "REVIEWED_USER_UPDATE",
+    "references": [
+      "AGENTS.md",
+      "AGENTS.member1.md",
+      ".agents/rules/07-member-1-architecture-pipeline.md",
+      "docs/T12-room-advisor-ADR.md",
+      "docs/T12-contract-requests.md",
+      "eval/eval-set-t12-room-recommendation-v2-draft.md"
+    ],
+    "deferredRequests": {
+      "CR-07": "Spring AI/Gemini compatibility later authorized task, not R1-00",
+      "CR-08": "Release 2 pgvector, not an R1 development prerequisite",
+      "CR-09": "Release 2 ingestion, outside current scope"
+    },
+    "scopeConflictResolution": "User explicitly approves independent synthetic R1-00; shared owner contracts still block integration, not foundation development."
+  }
+}

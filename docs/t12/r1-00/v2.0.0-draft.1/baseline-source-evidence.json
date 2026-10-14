@@ -1,0 +1,111 @@
+{
+  "gitSha": "afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb",
+  "verification": "SOURCE_ONLY_NOT_RUNTIME",
+  "files": [
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/dto/ApiResponse.java",
+      "sha256": "21117edf54a858336c054c621e3ba7c6a0c5889321c23d1be5cd2158325eb39a",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/dto/PageResponse.java",
+      "sha256": "c1fa2abac4aeb2654c45c71f66b10b5e6924e97ef834ecb1a0a21fc2b714e9ac",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/dto/BaseSearchDto.java",
+      "sha256": "bcc64c77cdb0e28fefc24d8bac2dc28bf8509575cc5aaf43d1f74dd949d4eaab",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/config/SecurityConfig.java",
+      "sha256": "8e62328594bc3ed31317db512a822f451205ac8d93dd4f5e1f255d56580d3609",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/organization/controller/PublicHotelController.java",
+      "sha256": "7df8447b5c0de9d5ee84940537ca158977cf6467fce4ff94224bbde8bb7725b2",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/organization/dto/request/HotelSearchDto.java",
+      "sha256": "a2b6347b7dc1371ed69030cb5c015203d007975d897e6a0a1fa7761ca477cd6a",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/controller/HotelRoomTypeController.java",
+      "sha256": "d2a63f0a7ed26c42b48e8c5f83a8800ee851b49a43f17f3ee373c21ec79d3a9a",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/controller/PublicAvailabilityController.java",
+      "sha256": "287679fd0ead9deaaaa2de1c646388c1ded5f004c2e8be1652199ae7d7c19439",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/response/HotelRoomTypeResponse.java",
+      "sha256": "83dc34238adc1327f164650c6c964d723617a5eec08e4c58916e39bb424a7735",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/request/RoomAvailabilitySearchDto.java",
+      "sha256": "83df1294b7535e26ef26d67ab43c5611287963047a24688520a2f5cacdbeb48a",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/response/RoomAvailabilityResponse.java",
+      "sha256": "b2c7846948fe00cc84a3aae83adfab22aab26ce7847c06bce36cbfda6208876a",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java",
+      "sha256": "35009f7db1f9198a6e608dfd838fd5ea751dbd10aacb963504f2c3d4c7fa8529",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/controller/PublicPricingController.java",
+      "sha256": "eee5ff3b5ecc5cf86de8658186ca70abc2b570019622cf1393fa36f9701a39e5",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/dto/request/PriceCalculationRequest.java",
+      "sha256": "8c8ce88442867da0acfc6e4d8a31f7df363728151fccbf89ea9a0e75d17c334e",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/dto/response/PriceBreakdownDto.java",
+      "sha256": "d7c9d20cca940556b9c1eba3585c2f62844b6e4aa6276d2b52f410c2dd6c97eb",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/dto/response/DailyPriceDto.java",
+      "sha256": "fc3e610888546d6d555d57628e6123466d51afb1f4a7587e1078da2e99badc3e",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/service/impl/PriceEngineImpl.java",
+      "sha256": "6b99278d0b1c3c3e607d29e3b84a43294bed9a32cc3217c832b2790f1139b31b",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/pom.xml",
+      "sha256": "a9cdaf257a014858242c2844453503b59714258e793b94367ae04e217410d3cc",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "docker-compose.yml",
+      "sha256": "d12235b1a63ccf3c6e3951dc2db9b424412ab0b53baef979ea79cb4d7d92ce7c",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "sha256": "74548b3331c764736f311d0d3810ec67fd3381f376f9f506b7748e29aa36f2d3",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
+      "sha256": "83d5b3ece20ed6a0175be4893ec2f240d90dc038a0437b8686e2007de46bd0a0",
+      "baselineUnmodified": true
+    }
+  ]
+}

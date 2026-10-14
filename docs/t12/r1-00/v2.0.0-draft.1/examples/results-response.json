@@ -1,0 +1,375 @@
+{
+  "code": 200,
+  "message": "Success",
+  "result": {
+    "contractVersion": "2.0",
+    "requestId": "00000000-0000-4000-8000-000000000001",
+    "sessionId": "00000000-0000-4000-8000-000000000001",
+    "sessionVersion": 1,
+    "status": "RESULTS",
+    "reply": "Có thể xem chi tiết các phương án phòng. Giá và tồn phòng cần kiểm tra lại.",
+    "criteria": {
+      "locationKeyword": "Synthetic City",
+      "checkInDate": "2026-11-20",
+      "checkOutDate": "2026-11-22",
+      "adults": 2,
+      "children": 0,
+      "extraBeds": 0,
+      "roomsCount": 1,
+      "requiredFeatureCodes": [],
+      "preferredFeatureCodes": []
+    },
+    "missingFields": [],
+    "recommendations": [
+      {
+        "recommendationId": "synthetic-rec-1026",
+        "rank": 1,
+        "room": {
+          "hotelId": 6,
+          "hotelName": "Synthetic Hotel 6",
+          "hotelRoomTypeId": 1026,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1026",
+          "roomTypeName": "Synthetic Room 1026",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ]
+        },
+        "price": {
+          "hotelRoomTypeId": 1026,
+          "source": "BACKEND_PRICING",
+          "quoteId": "synthetic-1026",
+          "observedAt": "2026-10-08T10:00:00+07:00",
+          "totalNights": 2,
+          "currency": "VND",
+          "preTaxAmount": "800000",
+          "vatPercent": "10",
+          "vatAmount": "80000",
+          "finalTotalAmount": "880000",
+          "serviceFeeStatus": "UNKNOWN",
+          "serviceFeeAmount": null,
+          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "budgetCheck": "NOT_REQUESTED",
+          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+        },
+        "reasons": [
+          {
+            "code": "AVAILABLE_ALL_NIGHTS",
+            "text": "Còn phòng trong cả hai đêm theo API.",
+            "evidenceFields": [
+              "availability.availableCount"
+            ]
+          }
+        ],
+        "action": {
+          "type": "VIEW_ROOM_DETAILS",
+          "path": "/portal/hotels/6/room-types/1026"
+        },
+        "stay": {
+          "checkInDate": "2026-11-20",
+          "checkOutDate": "2026-11-22",
+          "roomsCount": 1
+        }
+      },
+      {
+        "recommendationId": "synthetic-rec-1001",
+        "rank": 2,
+        "room": {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1001,
+          "roomTypeId": 1,
+          "roomTypeCode": "SYN_1001",
+          "roomTypeName": "Synthetic Room 1001",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ]
+        },
+        "price": {
+          "hotelRoomTypeId": 1001,
+          "source": "BACKEND_PRICING",
+          "quoteId": "synthetic-1001",
+          "observedAt": "2026-10-08T10:00:00+07:00",
+          "totalNights": 2,
+          "currency": "VND",
+          "preTaxAmount": "1000000",
+          "vatPercent": "10",
+          "vatAmount": "100000",
+          "finalTotalAmount": "1100000",
+          "serviceFeeStatus": "UNKNOWN",
+          "serviceFeeAmount": null,
+          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "budgetCheck": "NOT_REQUESTED",
+          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+        },
+        "reasons": [
+          {
+            "code": "AVAILABLE_ALL_NIGHTS",
+            "text": "Còn phòng trong cả hai đêm theo API.",
+            "evidenceFields": [
+              "availability.availableCount"
+            ]
+          }
+        ],
+        "action": {
+          "type": "VIEW_ROOM_DETAILS",
+          "path": "/portal/hotels/1/room-types/1001"
+        },
+        "stay": {
+          "checkInDate": "2026-11-20",
+          "checkOutDate": "2026-11-22",
+          "roomsCount": 1
+        }
+      },
+      {
+        "recommendationId": "synthetic-rec-1002",
+        "rank": 3,
+        "room": {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1002,
+          "roomTypeId": 2,
+          "roomTypeCode": "SYN_1002",
+          "roomTypeName": "Synthetic Room 1002",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ]
+        },
+        "price": {
+          "hotelRoomTypeId": 1002,
+          "source": "BACKEND_PRICING",
+          "quoteId": "synthetic-1002",
+          "observedAt": "2026-10-08T10:00:00+07:00",
+          "totalNights": 2,
+          "currency": "VND",
+          "preTaxAmount": "1020000",
+          "vatPercent": "10",
+          "vatAmount": "102000",
+          "finalTotalAmount": "1122000",
+          "serviceFeeStatus": "UNKNOWN",
+          "serviceFeeAmount": null,
+          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "budgetCheck": "NOT_REQUESTED",
+          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+        },
+        "reasons": [
+          {
+            "code": "AVAILABLE_ALL_NIGHTS",
+            "text": "Còn phòng trong cả hai đêm theo API.",
+            "evidenceFields": [
+              "availability.availableCount"
+            ]
+          }
+        ],
+        "action": {
+          "type": "VIEW_ROOM_DETAILS",
+          "path": "/portal/hotels/1/room-types/1002"
+        },
+        "stay": {
+          "checkInDate": "2026-11-20",
+          "checkOutDate": "2026-11-22",
+          "roomsCount": 1
+        }
+      },
+      {
+        "recommendationId": "synthetic-rec-1003",
+        "rank": 4,
+        "room": {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1003,
+          "roomTypeId": 3,
+          "roomTypeCode": "SYN_1003",
+          "roomTypeName": "Synthetic Room 1003",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ]
+        },
+        "price": {
+          "hotelRoomTypeId": 1003,
+          "source": "BACKEND_PRICING",
+          "quoteId": "synthetic-1003",
+          "observedAt": "2026-10-08T10:00:00+07:00",
+          "totalNights": 2,
+          "currency": "VND",
+          "preTaxAmount": "1040000",
+          "vatPercent": "10",
+          "vatAmount": "104000",
+          "finalTotalAmount": "1144000",
+          "serviceFeeStatus": "UNKNOWN",
+          "serviceFeeAmount": null,
+          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "budgetCheck": "NOT_REQUESTED",
+          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+        },
+        "reasons": [
+          {
+            "code": "AVAILABLE_ALL_NIGHTS",
+            "text": "Còn phòng trong cả hai đêm theo API.",
+            "evidenceFields": [
+              "availability.availableCount"
+            ]
+          }
+        ],
+        "action": {
+          "type": "VIEW_ROOM_DETAILS",
+          "path": "/portal/hotels/1/room-types/1003"
+        },
+        "stay": {
+          "checkInDate": "2026-11-20",
+          "checkOutDate": "2026-11-22",
+          "roomsCount": 1
+        }
+      },
+      {
+        "recommendationId": "synthetic-rec-1004",
+        "rank": 5,
+        "room": {
+          "hotelId": 1,
+          "hotelName": "Synthetic Hotel 1",
+          "hotelRoomTypeId": 1004,
+          "roomTypeId": 4,
+          "roomTypeCode": "SYN_1004",
+          "roomTypeName": "Synthetic Room 1004",
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "features": [
+            {
+              "code": "WIFI",
+              "name": "Wi-Fi"
+            }
+          ]
+        },
+        "price": {
+          "hotelRoomTypeId": 1004,
+          "source": "BACKEND_PRICING",
+          "quoteId": "synthetic-1004",
+          "observedAt": "2026-10-08T10:00:00+07:00",
+          "totalNights": 2,
+          "currency": "VND",
+          "preTaxAmount": "1060000",
+          "vatPercent": "10",
+          "vatAmount": "106000",
+          "finalTotalAmount": "1166000",
+          "serviceFeeStatus": "UNKNOWN",
+          "serviceFeeAmount": null,
+          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "budgetCheck": "NOT_REQUESTED",
+          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+        },
+        "reasons": [
+          {
+            "code": "AVAILABLE_ALL_NIGHTS",
+            "text": "Còn phòng trong cả hai đêm theo API.",
+            "evidenceFields": [
+              "availability.availableCount"
+            ]
+          }
+        ],
+        "action": {
+          "type": "VIEW_ROOM_DETAILS",
+          "path": "/portal/hotels/1/room-types/1004"
+        },
+        "stay": {
+          "checkInDate": "2026-11-20",
+          "checkOutDate": "2026-11-22",
+          "roomsCount": 1
+        }
+      }
+    ],
+    "coverage": {
+      "status": "COMPLETE",
+      "catalogComplete": true,
+      "discoveredCount": 26,
+      "evaluatedCount": 26,
+      "failedCount": 0,
+      "remainingCount": 0,
+      "verifiedMatchCount": 26,
+      "reasons": []
+    },
+    "knowledgeStatus": "DISABLED",
+    "sources": [],
+    "warnings": [
+      "SERVICE_FEE_UNVERIFIED",
+      "CURRENCY_SYNTHETIC_ASSUMPTION"
+    ],
+    "criteriaProvenance": [
+      {
+        "field": "locationKeyword",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "checkInDate",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "checkOutDate",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "adults",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "children",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "extraBeds",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "roomsCount",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "requiredFeatureCodes",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      },
+      {
+        "field": "preferredFeatureCodes",
+        "origin": "USER_PROVIDED",
+        "confirmation": "CONFIRMED"
+      }
+    ],
+    "ambiguities": []
+  }
+}

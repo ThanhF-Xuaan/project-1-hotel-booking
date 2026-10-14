@@ -1,0 +1,374 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "T12 Room Recommendation Core — Contract Draft",
+    "version": "2.0.0-draft.1",
+    "description": "R1-00 chỉ là contract. Cookie ownership, CSRF, error envelope và routes chưa được Member 2/4 duyệt."
+  },
+  "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
+  "security": [
+    {
+      "advisorSession": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "advisorSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "t12_session",
+        "description": "PROPOSED: cookie opaque, HttpOnly, Secure, SameSite; ký/kiểm tra ở server. Không nhận owner từ payload."
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/ai/room-advisor/chat": {
+      "post": {
+        "operationId": "roomAdvisorChat",
+        "summary": "CHAT — draft, chỉ đọc dữ liệu nghiệp vụ",
+        "tags": [
+          "Room Advisor R1"
+        ],
+        "x-approval-status": "PENDING_M2_M4",
+        "x-business-write": false,
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Cơ chế CSRF dự kiến; Member 2 cần duyệt."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./schemas/advisor.schema.json#/$defs/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kết quả tư vấn; không giữ phòng.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/AdvisorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Payload không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Scope không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session không tồn tại hoặc không thuộc owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session version cũ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Vượt giới hạn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Core API tạm thời không khả dụng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu hoặc không xác thực được owner credential; bootstrap chờ Member 2 duyệt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/room-advisor/search": {
+      "post": {
+        "operationId": "roomAdvisorSearch",
+        "summary": "SEARCH — draft, chỉ đọc dữ liệu nghiệp vụ",
+        "tags": [
+          "Room Advisor R1"
+        ],
+        "x-approval-status": "PENDING_M2_M4",
+        "x-business-write": false,
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Cơ chế CSRF dự kiến; Member 2 cần duyệt."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./schemas/advisor.schema.json#/$defs/SearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kết quả tư vấn; không giữ phòng.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/AdvisorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Payload không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Scope không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session không tồn tại hoặc không thuộc owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session version cũ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Vượt giới hạn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Core API tạm thời không khả dụng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu hoặc không xác thực được owner credential; bootstrap chờ Member 2 duyệt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/room-advisor/refresh": {
+      "post": {
+        "operationId": "roomAdvisorRefresh",
+        "summary": "REFRESH — draft, chỉ đọc dữ liệu nghiệp vụ",
+        "tags": [
+          "Room Advisor R1"
+        ],
+        "x-approval-status": "PENDING_M2_M4",
+        "x-business-write": false,
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "description": "Cơ chế CSRF dự kiến; Member 2 cần duyệt."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./schemas/advisor.schema.json#/$defs/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kết quả tư vấn; không giữ phòng.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/AdvisorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Payload không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Scope không hợp lệ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session không tồn tại hoặc không thuộc owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Session version cũ",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Vượt giới hạn",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Core API tạm thời không khả dụng",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Thiếu hoặc không xác thực được owner credential; bootstrap chờ Member 2 duyệt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./schemas/advisor.schema.json#/$defs/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
