@@ -13,12 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
-import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingCharge;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
+import vn.edu.utc.hotel_booking.modules.booking.entity.*;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceSearchDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
@@ -29,6 +25,9 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
+import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
+import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
+import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -43,14 +42,14 @@ import java.util.List;
 public class InvoiceServiceImpl implements InvoiceService {
 
     InvoiceRepository invoiceRepository;
-    BookingRepository bookingRepository;
+    BookingService bookingService;
+    ServiceOrderService serviceOrderService;
     FinanceMapper financeMapper;
 
     @Override
     @Transactional
     public InvoiceResponse createInvoice(InvoiceCreateRequest request) {
-        Booking booking = bookingRepository.findById(request.getBookingId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + request.getBookingId()));
+        Booking booking = bookingService.getEntityById(request.getBookingId());
 
         String invoiceNumber = generateInvoiceNumber();
 
@@ -67,7 +66,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal subTotal = BigDecimal.ZERO;
         BigDecimal totalVat = BigDecimal.ZERO;
 
-        // Snapshot bất biến từng dòng tiền theo quy chuẩn tài chính (§3 hotel-concurrency-and-pricing.md)
+        // 1. Tiền phòng lưu trú (BookingDailyRate -> ROOM_RATE)
         for (BookingDetail detail : booking.getBookingDetails()) {
             for (BookingRoom br : detail.getBookingRooms()) {
                 for (BookingDailyRate dr : br.getDailyRates()) {
@@ -97,11 +96,16 @@ public class InvoiceServiceImpl implements InvoiceService {
                     totalVat = totalVat.add(lineVat);
                 }
 
+                // 2. Phụ thu phòng & Phí phạt (BookingCharge -> SURCHARGE / PENALTY)
                 for (BookingCharge charge : br.getCharges()) {
+                    InvoiceLineType chargeLineType = (charge.getChargeType() == BookingChargeType.PENALTY)
+                            ? InvoiceLineType.PENALTY
+                            : InvoiceLineType.SURCHARGE;
+
                     InvoiceDetail invDetail = InvoiceDetail.builder()
                             .invoice(invoice)
                             .referenceId(charge.getId())
-                            .lineType(InvoiceLineType.SURCHARGE)
+                            .lineType(chargeLineType)
                             .description(charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name())
                             .quantity(charge.getQuantity())
                             .unitPrice(charge.getUnitPrice())
@@ -116,6 +120,39 @@ public class InvoiceServiceImpl implements InvoiceService {
                     details.add(invDetail);
                     subTotal = subTotal.add(charge.getSubtotal());
                     totalVat = totalVat.add(charge.getVatAmount());
+                }
+            }
+        }
+
+        // 3. Tiêu dùng POS / Dịch vụ khách sạn (ServiceOrder -> PRODUCT / SERVICE)
+        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
+        if (orders != null) {
+            for (ServiceOrderResponse order : orders) {
+                if (order.getDetails() != null) {
+                    for (ServiceOrderDetailResponse item : order.getDetails()) {
+                        InvoiceLineType itemLineType = "PRODUCT".equalsIgnoreCase(item.getItemType())
+                                ? InvoiceLineType.PRODUCT
+                                : InvoiceLineType.SERVICE;
+
+                        InvoiceDetail invDetail = InvoiceDetail.builder()
+                                .invoice(invoice)
+                                .referenceId(item.getId())
+                                .lineType(itemLineType)
+                                .description(item.getItemName() != null ? item.getItemName() : "Dịch vụ/Sản phẩm POS")
+                                .quantity(item.getQuantity())
+                                .unitPrice(item.getUnitPrice())
+                                .subtotal(item.getSubtotal())
+                                .serviceFeeRate(item.getServiceFeeRate())
+                                .serviceFeeAmount(item.getServiceFeeAmount())
+                                .vatRate(item.getVatRate())
+                                .vatAmount(item.getVatAmount())
+                                .totalAmount(item.getTotalAmount())
+                                .build();
+
+                        details.add(invDetail);
+                        subTotal = subTotal.add(item.getSubtotal());
+                        totalVat = totalVat.add(item.getVatAmount());
+                    }
                 }
             }
         }

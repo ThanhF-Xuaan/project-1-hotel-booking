@@ -1,5 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.inventory.service;
 
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchHoldInventoryRequest;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.BatchReleaseInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HoldInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.ReleaseInventoryRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAvailabilitySearchDto;
@@ -15,6 +17,14 @@ public interface RoomAvailabilityService {
     void holdInventory(HoldInventoryRequest request);
 
     void releaseInventory(ReleaseInventoryRequest request);
+
+    String batchHoldInventory(BatchHoldInventoryRequest request);
+
+    void batchReleaseInventory(BatchReleaseInventoryRequest request);
+
+    void commitHoldInventory(String sessionId);
+
+    int releaseExpiredHolds();
 
     void confirmBookingInventory(Integer hotelRoomTypeId, LocalDate startDate, LocalDate endDate, Integer roomsCount);
 }

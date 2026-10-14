@@ -41,6 +41,21 @@ public class PublicMenuController {
         return ApiResponse.success(menuService.filter(searchDto));
     }
 
+    @GetMapping("/hotel/{hotelId}/services")
+    @Operation(summary = "Lấy danh sách các dịch vụ bổ sung (SERVICE only) phục vụ đặt phòng trực tuyến")
+    public ApiResponse<PageResponse<MenuResponse>> getAddonServicesByHotel(
+            @PathVariable Short hotelId,
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "100") Integer size) {
+        MenuSearchDto searchDto = new MenuSearchDto();
+        searchDto.setHotelId(hotelId);
+        searchDto.setMenuType(vn.edu.utc.hotel_booking.modules.operation.entity.MenuType.SERVICE);
+        searchDto.setStatus("AVAILABLE");
+        searchDto.setPage(page);
+        searchDto.setPageSize(size);
+        return ApiResponse.success(menuService.filter(searchDto));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Xem chi tiết món ăn / dịch vụ theo ID")
     public ApiResponse<MenuResponse> getMenuById(@PathVariable Integer id) {

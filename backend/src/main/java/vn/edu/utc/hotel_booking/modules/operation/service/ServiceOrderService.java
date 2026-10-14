@@ -6,11 +6,15 @@ import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderSearch
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
 
+import java.util.List;
+
 public interface ServiceOrderService {
 
     ServiceOrderResponse createOrder(ServiceOrderCreateRequest request);
 
     ServiceOrderResponse getById(Long id);
+
+    List<ServiceOrderResponse> getOrdersByBookingId(Long bookingId);
 
     PageResponse<ServiceOrderResponse> filter(ServiceOrderSearchDto searchDto);
 
