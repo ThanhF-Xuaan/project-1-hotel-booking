@@ -8,7 +8,7 @@ M4-01..07 chi tiết hoá CR-05/10 trong [tracker của người dùng](../../..
 
 [RoomRecommendation Schema](schemas/advisor.schema.json) và [response example](examples/results-response.json) là chuẩn wire draft. Một card gồm recommendationId, rank, stay, RoomSummary, PriceQuote, reasons có evidenceFields và một action VIEW_ROOM_DETAILS.
 
-Proposed path: `/portal/hotels/{hotelId}/room-types/{hotelRoomTypeId}`. Baseline chỉ có `/portal/search`, checkout và my-bookings; route detail này **chưa tồn tại**. Không thay bằng checkout hoặc deep link tạo booking. Không render CTA “giữ phòng”, “đặt ngay”, “thanh toán” trong AI cards. HotelRoomType ID khác RoomType catalog ID và RoomInstance ID.
+Proposed action paths: `/portal/search?hotelId={hotelId}&hotelRoomTypeId={hotelRoomTypeId}` (tương thích trang tìm kiếm hiện có) hoặc `/portal/hotels/{hotelId}/room-types/{hotelRoomTypeId}` (route chi tiết đề xuất). Không thay bằng checkout hoặc deep link tạo booking. Không render CTA “giữ phòng”, “đặt ngay”, “thanh toán” trong AI cards. HotelRoomType ID khác RoomType catalog ID và RoomInstance ID.
 
 | ID | Quyết định cần Member 4 duyệt | Hành vi yêu cầu |
 |---|---|---|

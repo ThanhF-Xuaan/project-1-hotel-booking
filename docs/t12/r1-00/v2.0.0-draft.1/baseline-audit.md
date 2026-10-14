@@ -6,10 +6,10 @@
 - Remote: `https://github.com/ThanhF-Xuaan/project-1-hotel-booking.git`.
 - Branch ban đầu: `feature/T12-rag-chatbot`. Working tree có chỉnh sửa governance, hai file docs đang staged delete và root `AGENTS.md` chưa tracked; không clean/reset/copy các thay đổi này.
 - HEAD lần kiểm tra đầu: `905550bd527673016bddca8bb8599681ae74bf09`; ngay trước fetch đã chuyển thành `e609b0d46fbaf45f3c6212444ef6b79a63c8bbfa` do hoạt động khác. R1-00 không tạo commit ở repository gốc.
-- Đã `git fetch origin`, đối chiếu `git ls-remote origin refs/heads/develop` và `origin/develop`: cùng `afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb` lúc tạo worktree ngày 08/10/2026.
-- Worktree riêng: `D:\Project\University\worktrees\hotel-t12-room-advisor`, branch `feature/T12-ai-room-advisor-v2`, HEAD bắt đầu clean tại đúng SHA trên. Không cherry-pick hoặc copy implementation T12 cũ. Các worktree governance/skills hiện có không bị sử dụng hoặc sửa.
+- Đã `git fetch origin`, đối chiếu `origin/develop`: commit `0e6d379eba8ab6ac7cf3573728d92d97f3e659e6` (implement booking session management, room inventory holding, and public search features).
+- Worktree riêng: `D:\Project\University\worktrees\hotel-t12-room-advisor`, branch `feature/T12-ai-room-advisor-v2`, đồng bộ trên nền `0e6d379`. Không mang commit `2dbecf2` và không sửa code Member 2/3/4.
 
-## API tại commit đã audit
+## API tại commit đã audit (0e6d379)
 
 Paths dưới đây tương đối với root. Chỉ xác minh source; `GET http://localhost:8080/v3/api-docs` không khả dụng. Chưa có runtime contract capture hoặc integration test.
 
@@ -17,17 +17,16 @@ Paths dưới đây tương đối với root. Chỉ xác minh source; `GET http
 |---|---|
 | `backend/src/main/java/vn/edu/utc/hotel_booking/common/dto/ApiResponse.java` | Success `code=200`, payload `result`; trường null được bỏ. |
 | `common/dto/PageResponse.java`, `BaseSearchDto.java` cùng package | PageResponse dùng `content/pageNumber/pageSize/totalElements/totalPages/first/last/empty`. Search dùng `page/pageSize/sortBy/sortDirection`, page bắt đầu 0, pageSize tối đa 100. |
-| `modules/organization/controller/PublicHotelController.java` | Có `/api/v1/public/hotels`, `/filter`, `/{id}`. HotelSearchDto có regionId, keyword, status; không có contract tìm thành phố/toạ độ. |
-| `modules/inventory/controller/HotelRoomTypeController.java` | `/api/v1/inventory/hotel-room-types/{id}` và `/filter` yêu cầu authentication. Chưa có public discovery/detail. Không sử dụng admin endpoint làm API public. |
-| `modules/inventory/dto/response/HotelRoomTypeResponse.java` | Có hotelId, HotelRoomType ID, sức chứa, extraBeds, features, basePrice, status. Không có room image hoặc bed description. basePrice không phải giá báo cho chuyến đi. |
-| `modules/inventory/controller/PublicAvailabilityController.java` | Có public `/availability/search` đọc; cùng controller còn `/hold` và `/release`, đều cấm với AI. Không cấp broad service/tool cho AI. |
-| `modules/inventory/service/impl/RoomAvailabilityServiceImpl.java:54` | Khoảng startDate/endDate bao gồm hai đầu. Stay `[checkIn,checkOut)` phải gọi endDate = checkOut trừ một ngày. availableCount phải đủ trên mọi đêm. |
-| `modules/pricing/controller/PublicPricingController.java` | Public POST `/api/v1/public/pricing/calculate`. Request có HotelRoomType ID, ngày, adults, children, extraBeds, campaignCode; không có roomsCount hoặc currency. |
-| `modules/pricing/dto/response/PriceBreakdownDto.java` | Có dailyPrices, preTaxAmount, vatPercent, vatAmount, finalTotalAmount. Không có currency/serviceFeeAmount/chargeCoverage. Description “đã gồm thuế & phí” chưa đủ để chứng nhận all-in. |
-| `modules/pricing/service/impl/PriceEngineImpl.java:81` | Checkout exclusive. Lines 193–194 tính VAT và cộng vào preTax. Không thấy áp dụng hotel.serviceFeePercent. Không suy diễn fee bằng 0. |
-| `modules/pricing/service/impl/PriceEngineImpl.java:52` | Kiểm tra tổng khách và extraBeds; không thay thế kiểm tra riêng maxAdults/maxChildren tại discovery. Chưa thấy xử lý campaignCode hoặc tính phụ thu trẻ em riêng. |
-| `common/config/SecurityConfig.java:42` | `/api/v1/public/**` permitAll; các endpoint advisor và cơ chế session mới chưa được cấu hình. Không suy ra tenant authorization từ permitAll. |
-| `frontend/src/App.tsx:35`, `frontend/src/modules/booking-portal/pages/SearchPage.tsx:29` | Có search/checkout/my-bookings; chưa có room detail route. SearchPage dùng mockOffers. Route detail trong contract là đề xuất, không phải link đang chạy. |
+| `modules/organization/controller/PublicHotelController.java` | Có `/api/v1/public/hotels`, `/filter`, `/{id}`. HotelSearchDto có regionId, keyword, status. |
+| `modules/booking/controller/PublicBookingSearchController.java` | `POST /api/v1/public/booking/search` và `POST /api/v1/public/booking/price-quote` cung cấp tìm kiếm phòng và tính giá công khai. |
+| `modules/booking/service/impl/PublicBookingSearchServiceImpl.java` | Kiểm tra phòng trống liên tục từ `checkInDate` đến `checkOutDate.minusDays(1)` (checkout-exclusive nights); tích hợp sẵn 6-Stage Pricing Pipeline. |
+| `modules/pricing/pipeline/handler/TaxAndFeeHandler.java` | Tính 5% phí dịch vụ (`serviceFee = net * 0.05`) và 10% VAT (`vat = (net + serviceFee) * 0.10`). |
+| `modules/pricing/dto/response/PriceBreakdownDto.java` | Trả về bóc tách đầy đủ: `totalRoomNetAmount`, `totalRoomServiceFee`, `totalRoomVat`, `totalRoomGrossAmount`, `preTaxAmount`, `vatAmount`, `finalTotalAmount`. |
+| `modules/booking/dto/response/AvailableRoomTypeResponse.java` | Cung cấp sức chứa chi tiết: `standardAdults`, `standardChildren`, `maxAdults`, `maxChildren`, `maxInfants`, `extraBeds`, `amenities`, `inclusions`, `priceBreakdown`. |
+| `modules/booking/controller/PublicBookingSessionController.java` | Quản lý draft booking session (`/api/v1/public/booking/sessions/*`), là thao tác ghi nghiệp vụ (CẤM T12 GỌI). |
+| `modules/inventory/service/RoomInventoryHoldService.java` | Quản lý giữ/nhả phòng (`holdRooms`, `releaseRooms`, `batchHoldInventory`), là thao tác ghi nghiệp vụ (CẤM T12 GỌI). |
+| `common/config/SecurityConfig.java:42-43` | `.requestMatchers("/api/public/**", "/api/v1/public/**").permitAll()`, tự động cho phép các endpoint `/api/v1/public/ai/room-advisor/*` công khai không cần sửa security config. |
+| `frontend/src/App.tsx:35`, `frontend/src/modules/booking-portal/pages/SearchPage.tsx:29` | Có `/portal/search` và `/portal/checkout`. Action path T12 hỗ trợ `/portal/search?hotelId=...&hotelRoomTypeId=...` và `/portal/hotels/{id}/room-types/{id}`. |
 
 Các path bắt đầu `modules/` và `common/` trong bảng đều nằm dưới `backend/src/main/java/vn/edu/utc/hotel_booking/`.
 

@@ -74,6 +74,11 @@
           "minimum": 0,
           "maximum": 32767
         },
+        "infants": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
         "extraBeds": {
           "type": "integer",
           "minimum": 0,
@@ -161,6 +166,11 @@
           "maximum": 32767
         },
         "children": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "infants": {
           "type": "integer",
           "minimum": 0,
           "maximum": 32767
@@ -376,6 +386,26 @@
             "$ref": "#/$defs/Feature"
           },
           "maxItems": 50
+        },
+        "standardAdults": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "standardChildren": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "maxInfants": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "extraBeds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
         }
       },
       "required": [
@@ -634,7 +664,7 @@
             },
             "path": {
               "type": "string",
-              "pattern": "^/portal/hotels/[1-9][0-9]*/room-types/[1-9][0-9]*$"
+              "pattern": "^(/portal/hotels/[1-9][0-9]*/room-types/[1-9][0-9]*|/portal/search\\?hotelId=[1-9][0-9]*&hotelRoomTypeId=[1-9][0-9]*.*)$"
             }
           },
           "required": [

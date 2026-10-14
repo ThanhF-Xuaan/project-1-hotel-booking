@@ -8,13 +8,13 @@
     "currency": "VND",
     "preTaxAmount": "1000000",
     "vatPercent": "10",
-    "vatAmount": "100000",
-    "finalTotalAmount": "1100000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "105000",
+    "finalTotalAmount": "1155000",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "50000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1002,
@@ -25,13 +25,13 @@
     "currency": "VND",
     "preTaxAmount": "1020000",
     "vatPercent": "10",
-    "vatAmount": "102000",
-    "finalTotalAmount": "1122000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "107100",
+    "finalTotalAmount": "1178100",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "51000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1003,
@@ -42,13 +42,13 @@
     "currency": "VND",
     "preTaxAmount": "1040000",
     "vatPercent": "10",
-    "vatAmount": "104000",
-    "finalTotalAmount": "1144000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "109200",
+    "finalTotalAmount": "1201200",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "52000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1004,
@@ -59,13 +59,13 @@
     "currency": "VND",
     "preTaxAmount": "1060000",
     "vatPercent": "10",
-    "vatAmount": "106000",
-    "finalTotalAmount": "1166000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "111300",
+    "finalTotalAmount": "1224300",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "53000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1005,
@@ -76,13 +76,13 @@
     "currency": "VND",
     "preTaxAmount": "1080000",
     "vatPercent": "10",
-    "vatAmount": "108000",
-    "finalTotalAmount": "1188000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "113400",
+    "finalTotalAmount": "1247400",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "54000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1006,
@@ -93,13 +93,13 @@
     "currency": "VND",
     "preTaxAmount": "1100000",
     "vatPercent": "10",
-    "vatAmount": "110000",
-    "finalTotalAmount": "1210000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "115500",
+    "finalTotalAmount": "1270500",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "55000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1007,
@@ -110,13 +110,13 @@
     "currency": "VND",
     "preTaxAmount": "1120000",
     "vatPercent": "10",
-    "vatAmount": "112000",
-    "finalTotalAmount": "1232000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "117600",
+    "finalTotalAmount": "1293600",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "56000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1008,
@@ -127,13 +127,13 @@
     "currency": "VND",
     "preTaxAmount": "1140000",
     "vatPercent": "10",
-    "vatAmount": "114000",
-    "finalTotalAmount": "1254000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "119700",
+    "finalTotalAmount": "1316700",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "57000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1009,
@@ -144,13 +144,13 @@
     "currency": "VND",
     "preTaxAmount": "1160000",
     "vatPercent": "10",
-    "vatAmount": "116000",
-    "finalTotalAmount": "1276000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "121800",
+    "finalTotalAmount": "1339800",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "58000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1010,
@@ -161,13 +161,13 @@
     "currency": "VND",
     "preTaxAmount": "1180000",
     "vatPercent": "10",
-    "vatAmount": "118000",
-    "finalTotalAmount": "1298000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "123900",
+    "finalTotalAmount": "1362900",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "59000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1011,
@@ -178,13 +178,13 @@
     "currency": "VND",
     "preTaxAmount": "1200000",
     "vatPercent": "10",
-    "vatAmount": "120000",
-    "finalTotalAmount": "1320000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "126000",
+    "finalTotalAmount": "1386000",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "60000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1012,
@@ -195,13 +195,13 @@
     "currency": "VND",
     "preTaxAmount": "1220000",
     "vatPercent": "10",
-    "vatAmount": "122000",
-    "finalTotalAmount": "1342000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "128100",
+    "finalTotalAmount": "1409100",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "61000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1013,
@@ -212,13 +212,13 @@
     "currency": "VND",
     "preTaxAmount": "1240000",
     "vatPercent": "10",
-    "vatAmount": "124000",
-    "finalTotalAmount": "1364000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "130200",
+    "finalTotalAmount": "1432200",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "62000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1014,
@@ -229,13 +229,13 @@
     "currency": "VND",
     "preTaxAmount": "1260000",
     "vatPercent": "10",
-    "vatAmount": "126000",
-    "finalTotalAmount": "1386000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "132300",
+    "finalTotalAmount": "1455300",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "63000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1015,
@@ -246,13 +246,13 @@
     "currency": "VND",
     "preTaxAmount": "1280000",
     "vatPercent": "10",
-    "vatAmount": "128000",
-    "finalTotalAmount": "1408000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "134400",
+    "finalTotalAmount": "1478400",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "64000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1016,
@@ -263,13 +263,13 @@
     "currency": "VND",
     "preTaxAmount": "1300000",
     "vatPercent": "10",
-    "vatAmount": "130000",
-    "finalTotalAmount": "1430000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "136500",
+    "finalTotalAmount": "1501500",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "65000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1017,
@@ -280,13 +280,13 @@
     "currency": "VND",
     "preTaxAmount": "1320000",
     "vatPercent": "10",
-    "vatAmount": "132000",
-    "finalTotalAmount": "1452000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "138600",
+    "finalTotalAmount": "1524600",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "66000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1018,
@@ -297,13 +297,13 @@
     "currency": "VND",
     "preTaxAmount": "1340000",
     "vatPercent": "10",
-    "vatAmount": "134000",
-    "finalTotalAmount": "1474000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "140700",
+    "finalTotalAmount": "1547700",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "67000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1019,
@@ -314,13 +314,13 @@
     "currency": "VND",
     "preTaxAmount": "1360000",
     "vatPercent": "10",
-    "vatAmount": "136000",
-    "finalTotalAmount": "1496000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "142800",
+    "finalTotalAmount": "1570800",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "68000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1020,
@@ -331,13 +331,13 @@
     "currency": "VND",
     "preTaxAmount": "1380000",
     "vatPercent": "10",
-    "vatAmount": "138000",
-    "finalTotalAmount": "1518000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "144900",
+    "finalTotalAmount": "1593900",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "69000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1021,
@@ -348,13 +348,13 @@
     "currency": "VND",
     "preTaxAmount": "1400000",
     "vatPercent": "10",
-    "vatAmount": "140000",
-    "finalTotalAmount": "1540000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "147000",
+    "finalTotalAmount": "1617000",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "70000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1022,
@@ -365,13 +365,13 @@
     "currency": "VND",
     "preTaxAmount": "1420000",
     "vatPercent": "10",
-    "vatAmount": "142000",
-    "finalTotalAmount": "1562000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "149100",
+    "finalTotalAmount": "1640100",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "71000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1023,
@@ -382,13 +382,13 @@
     "currency": "VND",
     "preTaxAmount": "1440000",
     "vatPercent": "10",
-    "vatAmount": "144000",
-    "finalTotalAmount": "1584000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "151200",
+    "finalTotalAmount": "1663200",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "72000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1024,
@@ -399,13 +399,13 @@
     "currency": "VND",
     "preTaxAmount": "1460000",
     "vatPercent": "10",
-    "vatAmount": "146000",
-    "finalTotalAmount": "1606000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "153300",
+    "finalTotalAmount": "1686300",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "73000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1025,
@@ -416,13 +416,13 @@
     "currency": "VND",
     "preTaxAmount": "1480000",
     "vatPercent": "10",
-    "vatAmount": "148000",
-    "finalTotalAmount": "1628000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "155400",
+    "finalTotalAmount": "1709400",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "74000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   },
   {
     "hotelRoomTypeId": 1026,
@@ -433,12 +433,12 @@
     "currency": "VND",
     "preTaxAmount": "800000",
     "vatPercent": "10",
-    "vatAmount": "80000",
-    "finalTotalAmount": "880000",
-    "serviceFeeStatus": "UNKNOWN",
-    "serviceFeeAmount": null,
-    "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+    "vatAmount": "84000",
+    "finalTotalAmount": "924000",
+    "serviceFeeStatus": "INCLUDED",
+    "serviceFeeAmount": "40000",
+    "chargeCoverage": "ALL_MANDATORY_CHARGES",
     "budgetCheck": "NOT_REQUESTED",
-    "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+    "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
   }
 ]

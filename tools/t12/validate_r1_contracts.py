@@ -140,8 +140,11 @@ def semantic_response(response):
     for card in cards:
         room, quote = card['room'], card['price']
         require(room['hotelRoomTypeId'] == quote['hotelRoomTypeId'], 'Quote room ID mismatch')
-        expected_path = f"/portal/hotels/{room['hotelId']}/room-types/{room['hotelRoomTypeId']}"
-        require(card['action']['path'] == expected_path, 'Detail path identity mismatch')
+        expected_paths = (
+            f"/portal/hotels/{room['hotelId']}/room-types/{room['hotelRoomTypeId']}",
+            f"/portal/search?hotelId={room['hotelId']}&hotelRoomTypeId={room['hotelRoomTypeId']}",
+        )
+        require(card['action']['path'] in expected_paths, 'Detail path identity mismatch')
         require(card['stay'] == {k: result['criteria'][k] for k in
                                  ('checkInDate','checkOutDate','roomsCount')}, 'Card stay mismatch')
         nights = (date.fromisoformat(result['criteria']['checkOutDate']) -
@@ -270,9 +273,13 @@ def main():
         require([n['date'] for n in nights] == ['2026-11-20','2026-11-21'], 'Native price nights')
         require(price['totalNights'] == len(nights), 'Native price night count')
         require(sum(Decimal(n['netAmount']) for n in nights) == Decimal(price['preTaxAmount']), 'Native pre-tax sum')
-        require(Decimal(price['preTaxAmount']) + Decimal(price['vatAmount']) == Decimal(price['finalTotalAmount']), 'Native final sum')
+        require(Decimal(price['totalRoomNetAmount']) == Decimal(price['preTaxAmount']), 'Native net match')
+        require(Decimal(price['totalRoomVat']) == Decimal(price['vatAmount']), 'Native vat match')
+        require(Decimal(price['preTaxAmount']) + Decimal(price['totalRoomServiceFee']) + Decimal(price['vatAmount']) == Decimal(price['finalTotalAmount']), 'Native final sum')
+        require(Decimal(price['totalRoomGrossAmount']) == Decimal(price['finalTotalAmount']), 'Native gross match')
         require(Decimal(quote['finalTotalAmount']) == Decimal(price['finalTotalAmount']), 'Normalized final mismatch')
-        require(quote['serviceFeeStatus'] == 'UNKNOWN' and quote['serviceFeeAmount'] is None, 'Synthetic fee assumption')
+        require(quote['serviceFeeStatus'] == 'INCLUDED' and quote['serviceFeeAmount'] == str(price['totalRoomServiceFee']), 'Service fee included mismatch')
+        require(quote['chargeCoverage'] == 'ALL_MANDATORY_CHARGES', 'Charge coverage mismatch')
         require([n['availabilityDate'] for n in avail['result']] == ['2026-11-20','2026-11-21'], 'Availability date mapping')
         require(all(n['hotelRoomTypeId'] == price['hotelRoomTypeId'] and n['availableCount'] ==
                     n['totalRooms'] - n['bookedRooms'] - n['lockedRooms'] - n['oooRooms'] for n in avail['result']), 'Availability fixture identity/counts')
@@ -371,9 +378,9 @@ def main():
         ('/result/recommendations/0/action/path','https://evil.example/checkout',False),
         ('/result/recommendations/0/action/path','/portal/checkout',False),
         ('/result/criteria/roomsCount',2,False),
-        ('/result/recommendations/0/price/finalTotalAmount',880000,False),
-        ('/result/recommendations/0/price/serviceFeeAmount','0',False),
-        ('/result/recommendations/0/price/chargeCoverage','ALL_MANDATORY_CHARGES',False),
+        ('/result/recommendations/0/price/finalTotalAmount',924000,False),
+        ('/result/recommendations/0/price/serviceFeeStatus','UNKNOWN',False),
+        ('/result/recommendations/0/price/chargeCoverage','INVALID_CHARGE_COVERAGE',False),
         ('/result/recommendations/0/price/hotelRoomTypeId',1001,True),
         ('/result/recommendations/0/action/path','/portal/hotels/1/room-types/1026',True),
         ('/result/recommendations/1/room/hotelRoomTypeId',1026,True),

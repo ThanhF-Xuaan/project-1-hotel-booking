@@ -136,6 +136,71 @@
           "type": "number",
           "minimum": 0
         },
+        "totalRoomNetAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalRoomServiceFee": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalRoomVat": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalRoomGrossAmount": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalExtraAdultsSurcharge": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalExtraChildrenSurcharge": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalExtraBedsSurcharge": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalRateAdjustmentAmount": {
+          "type": "number"
+        },
+        "totalSeasonalAdjustment": {
+          "type": "number"
+        },
+        "totalHolidayAdjustment": {
+          "type": "number"
+        },
+        "appliedVoucherCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "appliedPromotionName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "totalServiceSubtotal": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalServiceFee": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalServiceVat": {
+          "type": "number",
+          "minimum": 0
+        },
+        "totalServiceGrossAmount": {
+          "type": "number",
+          "minimum": 0
+        },
         "preTaxAmount": {
           "type": "number",
           "minimum": 0
@@ -161,6 +226,10 @@
         "totalBasePrice",
         "totalDiscountAmount",
         "totalSurchargeAmount",
+        "totalRoomNetAmount",
+        "totalRoomServiceFee",
+        "totalRoomVat",
+        "totalRoomGrossAmount",
         "preTaxAmount",
         "vatPercent",
         "vatAmount",
@@ -391,6 +460,80 @@
             "additionalProperties": false
           },
           "maxItems": 50
+        },
+        "standardAdults": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "standardChildren": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "maxInfants": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "maxBeds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "extraBeds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32767
+        },
+        "availableRooms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "amenities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "name"
+            ]
+          }
+        },
+        "inclusions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "surchargePolicies": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "priceBreakdown": {
+          "$ref": "#/$defs/PricingResult"
         },
         "status": {
           "const": "ACTIVE"

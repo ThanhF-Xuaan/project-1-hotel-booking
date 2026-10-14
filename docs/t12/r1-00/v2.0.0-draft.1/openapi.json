@@ -3,7 +3,7 @@
   "info": {
     "title": "T12 Room Recommendation Core — Contract Draft",
     "version": "2.0.0-draft.1",
-    "description": "R1-00 chỉ là contract. Cookie ownership, CSRF, error envelope và routes chưa được Member 2/4 duyệt."
+    "description": "R1-00 contract. SecurityConfig.java tại 0e6d379 đã mở .requestMatchers('/api/public/**', '/api/v1/public/**').permitAll(), do đó các endpoint /api/v1/public/ai/room-advisor/* tự động hợp lệ và công khai không cần sửa SecurityConfig.java."
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "security": [
@@ -22,7 +22,7 @@
     }
   },
   "paths": {
-    "/api/v1/ai/room-advisor/chat": {
+    "/api/v1/public/ai/room-advisor/chat": {
       "post": {
         "operationId": "roomAdvisorChat",
         "summary": "CHAT — draft, chỉ đọc dữ liệu nghiệp vụ",
@@ -138,7 +138,7 @@
         }
       }
     },
-    "/api/v1/ai/room-advisor/search": {
+    "/api/v1/public/ai/room-advisor/search": {
       "post": {
         "operationId": "roomAdvisorSearch",
         "summary": "SEARCH — draft, chỉ đọc dữ liệu nghiệp vụ",
@@ -254,7 +254,7 @@
         }
       }
     },
-    "/api/v1/ai/room-advisor/refresh": {
+    "/api/v1/public/ai/room-advisor/refresh": {
       "post": {
         "operationId": "roomAdvisorRefresh",
         "summary": "REFRESH — draft, chỉ đọc dữ liệu nghiệp vụ",

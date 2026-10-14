@@ -2,7 +2,7 @@
   "artifactVersion": "2.0.0-draft.1",
   "wireContractVersion": "2.0",
   "evaluationVersion": "0.1.0-draft",
-  "baselineCommit": "afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb",
+  "baselineCommit": "0e6d379eba8ab6ac7cf3573728d92d97f3e659e6",
   "branch": "feature/T12-ai-room-advisor-v2",
   "createdAt": "2026-10-08",
   "owner": "Member 1",
@@ -50,7 +50,7 @@
     },
     {
       "id": "M2-01",
-      "description": "Public room discovery/detail endpoint, safe projection, pagination, hotel scope/publication.",
+      "description": "Public room discovery/detail endpoint: confirmed implemented at 0e6d379 via PublicBookingSearchController / PublicBookingSearchServiceImpl (POST /api/v1/public/booking/search & price-quote).",
       "owner": "Member 2",
       "status": "PROPOSED_PENDING_REVIEW",
       "humanApproval": {
@@ -67,7 +67,7 @@
     },
     {
       "id": "M2-02",
-      "description": "Authoritative currency source. VND in fixtures is synthetic, not Core fact.",
+      "description": "Authoritative currency source: VND confirmed in RoomPriceQuoteResponse at 0e6d379.",
       "owner": "Member 2",
       "status": "PROPOSED_PENDING_REVIEW",
       "humanApproval": {
@@ -83,7 +83,7 @@
     },
     {
       "id": "M2-03",
-      "description": "VAT, service fee, finalTotal charge coverage, rounding and observation semantics.",
+      "description": "VAT, service fee, finalTotal charge coverage: TaxAndFeeHandler at 0e6d379 applies 5% service fee on net and 10% VAT on (net + service fee), itemized in PriceBreakdownDto.",
       "owner": "Member 2",
       "status": "PROPOSED_PENDING_REVIEW",
       "humanApproval": {
@@ -99,7 +99,7 @@
     },
     {
       "id": "M2-04",
-      "description": "Nightly budget basis and authoritative nightly all-in breakdown; unknown means no hard PASS.",
+      "description": "Nightly budget basis and authoritative nightly all-in breakdown: PriceBreakdownDto itemizes dailyPrices, surcharge summary, and grand total.",
       "owner": "Member 2",
       "status": "PROPOSED_PENDING_REVIEW",
       "humanApproval": {
@@ -115,7 +115,7 @@
     },
     {
       "id": "M2-05",
-      "description": "Capacity, children/infants and extra-bed semantics.",
+      "description": "Capacity, children/infants and extra-bed semantics: AvailableRoomTypeResponse at 0e6d379 exposes standardAdults, standardChildren, maxAdults, maxChildren, maxInfants, extraBeds.",
       "owner": "Member 2",
       "status": "PROPOSED_PENDING_REVIEW",
       "humanApproval": {
@@ -181,7 +181,7 @@
     },
     {
       "id": "M4-01",
-      "description": "Detail route /portal/hotels/{hotelId}/room-types/{hotelRoomTypeId}, currently absent.",
+      "description": "Navigation action path supports /portal/search?hotelId=...&hotelRoomTypeId=... and future detail route /portal/hotels/{hotelId}/room-types/{hotelRoomTypeId}.",
       "owner": "Member 4",
       "status": "PROPOSED_PENDING_REVIEW",
       "humanApproval": {

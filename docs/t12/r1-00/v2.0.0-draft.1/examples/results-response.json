@@ -51,13 +51,13 @@
           "currency": "VND",
           "preTaxAmount": "800000",
           "vatPercent": "10",
-          "vatAmount": "80000",
-          "finalTotalAmount": "880000",
-          "serviceFeeStatus": "UNKNOWN",
-          "serviceFeeAmount": null,
-          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "vatAmount": "84000",
+          "finalTotalAmount": "924000",
+          "serviceFeeStatus": "INCLUDED",
+          "serviceFeeAmount": "40000",
+          "chargeCoverage": "ALL_MANDATORY_CHARGES",
           "budgetCheck": "NOT_REQUESTED",
-          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+          "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
         },
         "reasons": [
           {
@@ -108,13 +108,13 @@
           "currency": "VND",
           "preTaxAmount": "1000000",
           "vatPercent": "10",
-          "vatAmount": "100000",
-          "finalTotalAmount": "1100000",
-          "serviceFeeStatus": "UNKNOWN",
-          "serviceFeeAmount": null,
-          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "vatAmount": "105000",
+          "finalTotalAmount": "1155000",
+          "serviceFeeStatus": "INCLUDED",
+          "serviceFeeAmount": "50000",
+          "chargeCoverage": "ALL_MANDATORY_CHARGES",
           "budgetCheck": "NOT_REQUESTED",
-          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+          "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
         },
         "reasons": [
           {
@@ -165,13 +165,13 @@
           "currency": "VND",
           "preTaxAmount": "1020000",
           "vatPercent": "10",
-          "vatAmount": "102000",
-          "finalTotalAmount": "1122000",
-          "serviceFeeStatus": "UNKNOWN",
-          "serviceFeeAmount": null,
-          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "vatAmount": "107100",
+          "finalTotalAmount": "1178100",
+          "serviceFeeStatus": "INCLUDED",
+          "serviceFeeAmount": "51000",
+          "chargeCoverage": "ALL_MANDATORY_CHARGES",
           "budgetCheck": "NOT_REQUESTED",
-          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+          "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
         },
         "reasons": [
           {
@@ -222,13 +222,13 @@
           "currency": "VND",
           "preTaxAmount": "1040000",
           "vatPercent": "10",
-          "vatAmount": "104000",
-          "finalTotalAmount": "1144000",
-          "serviceFeeStatus": "UNKNOWN",
-          "serviceFeeAmount": null,
-          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "vatAmount": "109200",
+          "finalTotalAmount": "1201200",
+          "serviceFeeStatus": "INCLUDED",
+          "serviceFeeAmount": "52000",
+          "chargeCoverage": "ALL_MANDATORY_CHARGES",
           "budgetCheck": "NOT_REQUESTED",
-          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+          "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
         },
         "reasons": [
           {
@@ -279,13 +279,13 @@
           "currency": "VND",
           "preTaxAmount": "1060000",
           "vatPercent": "10",
-          "vatAmount": "106000",
-          "finalTotalAmount": "1166000",
-          "serviceFeeStatus": "UNKNOWN",
-          "serviceFeeAmount": null,
-          "chargeCoverage": "BACKEND_QUOTED_TOTAL",
+          "vatAmount": "111300",
+          "finalTotalAmount": "1224300",
+          "serviceFeeStatus": "INCLUDED",
+          "serviceFeeAmount": "53000",
+          "chargeCoverage": "ALL_MANDATORY_CHARGES",
           "budgetCheck": "NOT_REQUESTED",
-          "displayLabel": "Tổng giá API đã gồm VAT; chưa xác nhận service fee."
+          "displayLabel": "Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT."
         },
         "reasons": [
           {

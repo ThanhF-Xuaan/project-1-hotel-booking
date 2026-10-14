@@ -2,7 +2,7 @@
 
 > **Status:** DRAFT FOR REVIEW — product direction confirmed by Member 1; shared API/schema/security and frontend navigation decisions remain pending Member 2/4 approval. This document does not authorize implementation or migration.
 >
-> **Audited baseline:** `origin/develop` at `afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb` on 2026-10-08.
+> **Audited baseline:** `origin/develop` at `0e6d379eba8ab6ac7cf3573728d92d97f3e659e6` on 2026-10-11.
 
 ## Context and verified baseline
 
@@ -11,10 +11,11 @@
 | CONFIRMED | `backend/pom.xml` | Java 21 and Spring Boot 4.0.7; no Spring AI dependency on the audited baseline |
 | CONFIRMED | `backend/src/main/java/.../modules/ai/` | AI module is absent on the audited baseline |
 | CONFIRMED | `PublicHotelController` | Public hotel filter/list/detail operations exist |
-| CONFIRMED | `PublicAvailabilityController` and `RoomAvailabilityServiceImpl` | Public availability search exists; `startDate` through `endDate` is inclusive; the same public controller also exposes prohibited hold/release operations that T12 must never depend on |
-| CONFIRMED | `PublicPricingController`, `PriceCalculationRequest`, `PriceBreakdownDto`, `PriceEngineImpl` | Public price calculation exists and uses checkout-exclusive nights; response includes final total/VAT/surcharge but no explicit currency field |
-| CONFIRMED | `HotelRoomTypeController` | Room-type CRUD/filter is under `/api/v1/inventory/...`; no public-safe room-type discovery contract was found |
-| CONFIRMED | `frontend/src/App.tsx` | Public search and checkout routes exist; no public room-detail route was found |
+| CONFIRMED | `PublicBookingSearchController` and `PublicBookingSearchServiceImpl` | Public search (`POST /api/v1/public/booking/search`) and quote (`POST /api/v1/public/booking/price-quote`) exist; continuous availability checked from checkInDate to checkOutDate.minusDays(1) |
+| CONFIRMED | `TaxAndFeeHandler`, `PriceBreakdownDto`, `PriceEngineImpl` | 6-stage pricing calculates net rate, 5% service fee, 10% VAT, and final total; currency is confirmed VND in `RoomPriceQuoteResponse` |
+| CONFIRMED | `PublicAvailabilityController` and `RoomInventoryHoldService` | Prohibited hold/release and session write operations exist that T12 must never depend on |
+| CONFIRMED | `SecurityConfig.java` | Line 42-43 permits `/api/public/**` and `/api/v1/public/**`, enabling `/api/v1/public/ai/room-advisor/*` public access without touching security configs |
+| CONFIRMED | `frontend/src/App.tsx` | Public search (`/portal/search`) and checkout (`/portal/checkout`) routes exist; no dedicated `/portal/hotels/:id/room-types/:id` route found |
 | CONFIRMED | `docker-compose.yml` | Baseline uses `postgres:16-alpine`, not a pgvector image; pgvector installation/migration is not established |
 | CONFIRMED | `feature/T12-rag-chatbot` | Legacy branch contains reference implementation/eval material, but it is not merged into the audited baseline and is not the rebuild base |
 | UNKNOWN | runtime OpenAPI/integration tests | No approved running environment was started during this documentation task |

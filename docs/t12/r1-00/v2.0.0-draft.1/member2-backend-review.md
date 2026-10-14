@@ -6,13 +6,13 @@
 
 ## Contract thực tế và đề xuất
 
-| Contract | Baseline | Đề nghị Member 2 duyệt |
+| Contract | Baseline 0e6d379 | Đề nghị Member 2 duyệt / Trạng thái |
 |---|---|---|
 | Hotel discovery | Public Hotel filter có regionId/keyword/status và pagination | Xác nhận publication/active/not-deleted và mapping locationKeyword; không dùng phone keyword làm tìm thành phố ngầm. |
-| Public HotelRoomType discovery | Chỉ admin/authenticated `/inventory/hotel-room-types/filter` | Proposed POST `/api/v1/public/hotel-room-types/filter`: hotelId hoặc locationKeyword; page/pageSize, sortBy=id, sortDirection=ASC; safe projection theo `core.schema.json#/$defs/PublicRoom`. Endpoint chưa tồn tại. Nếu dùng endpoint khác, cập nhật draft trước integration. |
-| Public detail | Chưa có | Proposed GET `/api/v1/public/hotel-room-types/{id}`; validate published hotel + room active/not-deleted, ID liên kết hotel trong detail UI, không internal inventory/audit/guest fields. |
-| Availability | POST `/api/v1/public/availability/search`, inclusive date endpoints | Xác nhận `availableCount` sau booked/locked/ooo, fallback ngày chưa có row, scope/active checks, consistency và lỗi. Adapter gọi `[checkIn, checkOut-1]`, từng đêm ≥1. Không được gọi hold/release. |
-| Pricing | POST `/api/v1/public/pricing/calculate`, checkout exclusive | Xác nhận currency authoritative, VAT, service fee và charge coverage; không coi Swagger description là đủ. Không đổi công thức Pricing Engine trong PR Member 1. |
+| Public Room Discovery & Detail | `PublicBookingSearchController` có `POST /api/v1/public/booking/search` trả về `AvailableRoomTypeResponse` | **CONFIRMED AT 0e6d379**. Đã cung cấp sức chứa chi tiết, danh sách tiện ích, quà tặng và bảng giá 6 giai đoạn. |
+| Availability Range | `PublicBookingSearchServiceImpl` kiểm tra liên tục qua `roomAvailabilityService.findAvailability` | **CONFIRMED AT 0e6d379**. Gọi theo khoảng checkout-exclusive `[checkInDate, checkOutDate.minusDays(1)]`, kiểm tra `availableCount >= roomsCount`. |
+| Pricing & Tax/Fee | `TaxAndFeeHandler` và `PublicBookingSearchController.price-quote` | **CONFIRMED AT 0e6d379**. Thuế VAT 10%, phí dịch vụ 5% bóc tách rõ trong `PriceBreakdownDto`; currency là VND trong `RoomPriceQuoteResponse`. |
+| Zero-Write Invariant | `PublicBookingSessionController` và `RoomInventoryHoldService` | **CẤM T12 GỌI**. Giữ phòng, nhả phòng và draft booking session là các endpoint ghi nghiệp vụ, tuyệt đối cách ly khỏi T12. |
 
 Request discovery proposed:
 

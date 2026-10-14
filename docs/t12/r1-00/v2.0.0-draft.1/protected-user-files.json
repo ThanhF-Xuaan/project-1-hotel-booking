@@ -1,6 +1,6 @@
 {
   "capturedFor": "USER_CONFIRMED_GOVERNANCE_CONTINUATION",
-  "head": "afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb",
+  "head": "0e6d379eba8ab6ac7cf3573728d92d97f3e659e6",
   "files": [
     {
       "path": ".agents/agents/pii-auditor.md",
@@ -80,11 +80,11 @@
     },
     {
       "path": "docs/T12-contract-requests.md",
-      "sha256": "FBEB631938F173DC361AD80B93CBDF7A93677B543EDA12478EDF250F4B4A3AE8"
+      "sha256": "DB6D4F1B7FCF79B99E9D99B4CA086097249960ED4260EA8FBA6F4A9592752C11"
     },
     {
       "path": "docs/T12-room-advisor-ADR.md",
-      "sha256": "F313DF2A93F4E6CC67B5641578CE857B5D3B478CCEC6E5ADEDF5D4CE274BE5F7"
+      "sha256": "BD0694CD14B04E6807C43648D21CE7F52CF7C8F3EFA859D2E3ED22A050B38481"
     },
     {
       "path": "eval/eval-set-t12-rag.md",

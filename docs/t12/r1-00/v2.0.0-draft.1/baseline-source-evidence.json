@@ -1,5 +1,5 @@
 {
-  "gitSha": "afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb",
+  "gitSha": "0e6d379eba8ab6ac7cf3573728d92d97f3e659e6",
   "verification": "SOURCE_ONLY_NOT_RUNTIME",
   "files": [
     {
@@ -23,6 +23,11 @@
       "baselineUnmodified": true
     },
     {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
+      "sha256": "407fb57045db44baadd3665d8b25ee81cb8972439a2480af4b1f7a34a8708a9f",
+      "baselineUnmodified": true
+    },
+    {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/organization/controller/PublicHotelController.java",
       "sha256": "7df8447b5c0de9d5ee84940537ca158977cf6467fce4ff94224bbde8bb7725b2",
       "baselineUnmodified": true
@@ -39,7 +44,7 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/controller/PublicAvailabilityController.java",
-      "sha256": "287679fd0ead9deaaaa2de1c646388c1ded5f004c2e8be1652199ae7d7c19439",
+      "sha256": "4f3f4128509bc3ac593dd33e27caf19f5c8d303d65dbbd51020f1ec175e9d4ee",
       "baselineUnmodified": true
     },
     {
@@ -58,8 +63,18 @@
       "baselineUnmodified": true
     },
     {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/request/BatchHoldInventoryRequest.java",
+      "sha256": "9897deb21e4e13ab784eab695f148dd343290b36b388898221ff63d1e1c7cbfe",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/request/BatchReleaseInventoryRequest.java",
+      "sha256": "0f04811c1eb9ffe6909179773c5e9c4137455ffbf76cd7c1019811edd83b5837",
+      "baselineUnmodified": true
+    },
+    {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java",
-      "sha256": "35009f7db1f9198a6e608dfd838fd5ea751dbd10aacb963504f2c3d4c7fa8529",
+      "sha256": "1e54ee1d889eddfc6462aaca5a13e1cec533a7efca74b42bae880996db56cc21",
       "baselineUnmodified": true
     },
     {
@@ -69,22 +84,72 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/dto/request/PriceCalculationRequest.java",
-      "sha256": "8c8ce88442867da0acfc6e4d8a31f7df363728151fccbf89ea9a0e75d17c334e",
+      "sha256": "adc486a6fc8b5211061c769b8a5afeb61a4d7f13e9b2b21ea2eb5fe7a875d494",
       "baselineUnmodified": true
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/dto/response/PriceBreakdownDto.java",
-      "sha256": "d7c9d20cca940556b9c1eba3585c2f62844b6e4aa6276d2b52f410c2dd6c97eb",
+      "sha256": "e72ea844cb0475e833bd60863c7f25e679a2722cb804670ab6e2f41b6ecc8475",
       "baselineUnmodified": true
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/dto/response/DailyPriceDto.java",
-      "sha256": "fc3e610888546d6d555d57628e6123466d51afb1f4a7587e1078da2e99badc3e",
+      "sha256": "3d091fdbbd256b3c59335996f09ad5818e1c5a8c7415387c2a3a9b69fb036842",
       "baselineUnmodified": true
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/service/impl/PriceEngineImpl.java",
-      "sha256": "6b99278d0b1c3c3e607d29e3b84a43294bed9a32cc3217c832b2790f1139b31b",
+      "sha256": "5d3b4e440f0e82e4761b2879f777c9160b44d324227668072326c4ec6d45df81",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/pipeline/handler/TaxAndFeeHandler.java",
+      "sha256": "4a7796b2f3e8e285211b172ded1ceebf7cfa8ab5af3c89c379309d2ada70adc6",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/controller/PublicBookingSearchController.java",
+      "sha256": "f9b5860e8973409ea0d1fc84e3705346f6d55fc96a21124365c24753f34f5e84",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/controller/PublicBookingSessionController.java",
+      "sha256": "7c7c0133d84120e4ce8c551d535bffe2122b4fd0899acc1c69df33d86dae05c9",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/dto/request/BookingSearchRequest.java",
+      "sha256": "6c63dadaa62d2f952fb252df56e4030196a8ca5a2d5b8a4a4f7146b139521767",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/dto/request/RoomPriceQuoteRequest.java",
+      "sha256": "84372ffa27db8bdb375a22dd587b65e4936d22892b6dde923df7ffa0d80016e6",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/dto/response/AvailableHotelResponse.java",
+      "sha256": "fb00803451c6c087dfa6b3333d5a1a6cc7f9644d4420a140908e2811e029d39f",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/dto/response/AvailableRoomTypeResponse.java",
+      "sha256": "bb001b9f4f3ac112d351113c54f7d7ff76d9b2c482c851acb46a25d6ab31d6be",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/dto/response/ItemizedSurchargeDto.java",
+      "sha256": "b149e54ab3013d162b1556b1f8ed46b584035ec4b88bca49f938e438c56f9e62",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/dto/response/RoomPriceQuoteResponse.java",
+      "sha256": "56926e7e8e97f85a6f9fe6b4d3f9a4b7d051717310c749deb0c21bd7c7b4c2c6",
+      "baselineUnmodified": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/service/impl/PublicBookingSearchServiceImpl.java",
+      "sha256": "44c9f48eb60f9ee0ca3d585ef87549b60b4412b0e8bc8753599b9a5f4a295747",
       "baselineUnmodified": true
     },
     {

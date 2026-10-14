@@ -35,7 +35,7 @@
     "thresholdApproval": "PENDING"
   },
   "reproducibility": {
-    "gitSha": "afbac57ae463ee2dc8705a2b3e9a7a8b5fca85bb",
+    "gitSha": "0e6d379eba8ab6ac7cf3573728d92d97f3e659e6",
     "promptVersion": null,
     "chatModel": null,
     "embeddingModel": null,

@@ -6,7 +6,7 @@ JSON Schema là draft chuẩn cho wire; tài liệu này là mapping sang Java 2
 
 | DTO | Field và Java type | Validation/quy tắc |
 |---|---|---|
-| RoomSearchCriteria | hotelId: Short?, locationKeyword: String?, checkInDate/checkOutDate: LocalDate, adults/children/extraBeds/roomsCount: Short; requiredFeatureCodes/preferredFeatureCodes: List<String>; budget: Budget? | Full SEARCH cần hotelId hoặc locationKeyword; không coi keyword là tenant scope. adults ≥1; các counts khác ≥0; roomsCount ≥1 và còn giới hạn one-room ở orchestration. |
+| RoomSearchCriteria | hotelId: Short?, locationKeyword: String?, checkInDate/checkOutDate: LocalDate, adults/children/infants/extraBeds/roomsCount: Short; requiredFeatureCodes/preferredFeatureCodes: List<String>; budget: Budget? | Full SEARCH cần hotelId hoặc locationKeyword; không coi keyword là tenant scope. adults ≥1; các counts khác ≥0; roomsCount ≥1 và còn giới hạn one-room ở orchestration. |
 | Budget | amount: BigDecimal, currency: String, basis: BudgetBasis, coverage: BudgetCoverage, hard: boolean | Amount >0 bằng semantic validation, wire decimal string. Currency ISO code chưa có nguồn authoritative tại baseline. Không mặc định all-in hoặc mỗi đêm. |
 | ChatRequest | contractVersion: String, message: String, sessionId: UUID?, expectedSessionVersion: Long?, criteriaPatch: CriteriaPatch? | Tối đa 2000 ký tự; sessionId/version đi cùng. Patch chỉ có field đã biết, omitted = giữ giá trị; không dùng null để xoá. |
 | CriteriaExtractionProposal | criteriaPatch: CriteriaPatch, provenance: List<CriteriaEvidence>, ambiguities: List<Ambiguity> | Internal output proposal từ model; Java validate và kiểm tra lại origin/confirmation. Không expose như credential hoặc nhận metadata owner từ client. |
@@ -15,7 +15,7 @@ JSON Schema là draft chuẩn cho wire; tài liệu này là mapping sang Java 2
 | RefreshRequest | contractVersion, sessionId: UUID, expectedSessionVersion: Long | Không nhận message/criteria/room IDs từ client; refresh toàn bộ search đã lưu trong session, chạy discovery + quote + availability mới. |
 | AdvisorResponse | ApiResponse<AdvisorResult> | Success code 200. AdvisorResult gồm status, session/version, criteria, cards, coverage, warnings; `knowledgeStatus=DISABLED`, `sources=[]`. |
 | RoomRecommendation | recommendationId: String, rank: int, stay: StayInterval, room: RoomSummary, price: PriceQuote, reasons: List<Reason>, action: ViewRoomDetails | stay mang checkIn/checkOut/roomsCount=1; ID do server tạo, unique trong response. Không phải booking ID/token hold; rank liên tục 1..N; HotelRoomType ID unique. |
-| RoomSummary | hotelId: Short, hotelRoomTypeId: Integer, roomTypeId: Short, names/code, sức chứa, extraBedsAllowed, features | Public projection đề xuất, không đưa totalQuantity/locked/booked/audit/guest fields lên card. Không bịa ảnh/giường. |
+| RoomSummary | hotelId: Short, hotelRoomTypeId: Integer, roomTypeId: Short, names/code, standard/max sức chứa (standardAdults/standardChildren/maxAdults/maxChildren/maxInfants), extraBedsAllowed, extraBeds, features | Public projection đề xuất, không đưa totalQuantity/locked/booked/audit/guest fields lên card. Không bịa ảnh/giường. |
 | PriceQuote | quoteId, observedAt: OffsetDateTime, source, hotelRoomTypeId, totalNights; currency: String?; BigDecimal totals; serviceFeeStatus/chargeCoverage/budgetCheck | quoteId/observedAt là adapter observation, không phải Core guarantee/token. Giá đến từ Backend, JSON string khi xuất qua AI DTO; native Core fixture giữ JSON number. |
 | Coverage | status, catalogComplete, discovered/evaluated/failed/remaining/verifiedMatch counts, reasons | Phân biệt “không có phòng” với “chưa kiểm tra đủ”. Các counters tính trên tập ID unique đã discovery trong scope. |
 
@@ -25,9 +25,9 @@ Enums và trường đầy đủ nằm trong `$defs` của [Advisor Schema](sche
 
 | Operation | Proposed endpoint | Điều kiện |
 |---|---|---|
-| CHAT | POST `/api/v1/ai/room-advisor/chat` | Extract nhu cầu từ message đã redacted; Java validate patch, hỏi lại phần thiếu/mơ hồ, không để LLM chọn IDs/giá/link hoặc gọi business tools. |
-| SEARCH | POST `/api/v1/ai/room-advisor/search` | Full criteria; deterministic candidate discovery, eligibility, quote, rank sau R1-00. |
-| REFRESH | POST `/api/v1/ai/room-advisor/refresh` | Ownership + optimistic version trước khi đọc dữ liệu; revalidate cả catalog eligibility, availability, pricing. |
+| CHAT | POST `/api/v1/public/ai/room-advisor/chat` | Extract nhu cầu từ message đã redacted; Java validate patch, hỏi lại phần thiếu/mơ hồ, không để LLM chọn IDs/giá/link hoặc gọi business tools. |
+| SEARCH | POST `/api/v1/public/ai/room-advisor/search` | Full criteria; deterministic candidate discovery, eligibility, quote, rank sau R1-00. |
+| REFRESH | POST `/api/v1/public/ai/room-advisor/refresh` | Ownership + optimistic version trước khi đọc dữ liệu; revalidate cả catalog eligibility, availability, pricing. |
 
 Cookie `t12_session`, header `X-CSRF-Token`, TTL, error envelope/status là **PROPOSED**; M2 cần duyệt cùng Security owner, chưa triển khai Security. Session identity không được tin từ UUID riêng lẻ; bind opaque server credential với owner. User khác đọc session nhận 404 không lộ metadata. Session version cũ nhận 409, không ghi đè state. Nghiệp vụ chỉ đọc; cập nhật conversation state được giới hạn trong module AI và không phải booking write.
 

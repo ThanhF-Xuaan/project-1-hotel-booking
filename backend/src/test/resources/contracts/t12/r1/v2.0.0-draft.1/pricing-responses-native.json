@@ -33,8 +33,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1000000,
       "vatPercent": 10,
-      "vatAmount": 100000,
-      "finalTotalAmount": 1100000
+      "vatAmount": 105000,
+      "finalTotalAmount": 1155000,
+      "totalRoomNetAmount": 1000000,
+      "totalRoomServiceFee": 50000,
+      "totalRoomVat": 105000,
+      "totalRoomGrossAmount": 1155000
     }
   },
   {
@@ -71,8 +75,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1020000,
       "vatPercent": 10,
-      "vatAmount": 102000,
-      "finalTotalAmount": 1122000
+      "vatAmount": 107100,
+      "finalTotalAmount": 1178100,
+      "totalRoomNetAmount": 1020000,
+      "totalRoomServiceFee": 51000,
+      "totalRoomVat": 107100,
+      "totalRoomGrossAmount": 1178100
     }
   },
   {
@@ -109,8 +117,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1040000,
       "vatPercent": 10,
-      "vatAmount": 104000,
-      "finalTotalAmount": 1144000
+      "vatAmount": 109200,
+      "finalTotalAmount": 1201200,
+      "totalRoomNetAmount": 1040000,
+      "totalRoomServiceFee": 52000,
+      "totalRoomVat": 109200,
+      "totalRoomGrossAmount": 1201200
     }
   },
   {
@@ -147,8 +159,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1060000,
       "vatPercent": 10,
-      "vatAmount": 106000,
-      "finalTotalAmount": 1166000
+      "vatAmount": 111300,
+      "finalTotalAmount": 1224300,
+      "totalRoomNetAmount": 1060000,
+      "totalRoomServiceFee": 53000,
+      "totalRoomVat": 111300,
+      "totalRoomGrossAmount": 1224300
     }
   },
   {
@@ -185,8 +201,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1080000,
       "vatPercent": 10,
-      "vatAmount": 108000,
-      "finalTotalAmount": 1188000
+      "vatAmount": 113400,
+      "finalTotalAmount": 1247400,
+      "totalRoomNetAmount": 1080000,
+      "totalRoomServiceFee": 54000,
+      "totalRoomVat": 113400,
+      "totalRoomGrossAmount": 1247400
     }
   },
   {
@@ -223,8 +243,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1100000,
       "vatPercent": 10,
-      "vatAmount": 110000,
-      "finalTotalAmount": 1210000
+      "vatAmount": 115500,
+      "finalTotalAmount": 1270500,
+      "totalRoomNetAmount": 1100000,
+      "totalRoomServiceFee": 55000,
+      "totalRoomVat": 115500,
+      "totalRoomGrossAmount": 1270500
     }
   },
   {
@@ -261,8 +285,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1120000,
       "vatPercent": 10,
-      "vatAmount": 112000,
-      "finalTotalAmount": 1232000
+      "vatAmount": 117600,
+      "finalTotalAmount": 1293600,
+      "totalRoomNetAmount": 1120000,
+      "totalRoomServiceFee": 56000,
+      "totalRoomVat": 117600,
+      "totalRoomGrossAmount": 1293600
     }
   },
   {
@@ -299,8 +327,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1140000,
       "vatPercent": 10,
-      "vatAmount": 114000,
-      "finalTotalAmount": 1254000
+      "vatAmount": 119700,
+      "finalTotalAmount": 1316700,
+      "totalRoomNetAmount": 1140000,
+      "totalRoomServiceFee": 57000,
+      "totalRoomVat": 119700,
+      "totalRoomGrossAmount": 1316700
     }
   },
   {
@@ -337,8 +369,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1160000,
       "vatPercent": 10,
-      "vatAmount": 116000,
-      "finalTotalAmount": 1276000
+      "vatAmount": 121800,
+      "finalTotalAmount": 1339800,
+      "totalRoomNetAmount": 1160000,
+      "totalRoomServiceFee": 58000,
+      "totalRoomVat": 121800,
+      "totalRoomGrossAmount": 1339800
     }
   },
   {
@@ -375,8 +411,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1180000,
       "vatPercent": 10,
-      "vatAmount": 118000,
-      "finalTotalAmount": 1298000
+      "vatAmount": 123900,
+      "finalTotalAmount": 1362900,
+      "totalRoomNetAmount": 1180000,
+      "totalRoomServiceFee": 59000,
+      "totalRoomVat": 123900,
+      "totalRoomGrossAmount": 1362900
     }
   },
   {
@@ -413,8 +453,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1200000,
       "vatPercent": 10,
-      "vatAmount": 120000,
-      "finalTotalAmount": 1320000
+      "vatAmount": 126000,
+      "finalTotalAmount": 1386000,
+      "totalRoomNetAmount": 1200000,
+      "totalRoomServiceFee": 60000,
+      "totalRoomVat": 126000,
+      "totalRoomGrossAmount": 1386000
     }
   },
   {
@@ -451,8 +495,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1220000,
       "vatPercent": 10,
-      "vatAmount": 122000,
-      "finalTotalAmount": 1342000
+      "vatAmount": 128100,
+      "finalTotalAmount": 1409100,
+      "totalRoomNetAmount": 1220000,
+      "totalRoomServiceFee": 61000,
+      "totalRoomVat": 128100,
+      "totalRoomGrossAmount": 1409100
     }
   },
   {
@@ -489,8 +537,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1240000,
       "vatPercent": 10,
-      "vatAmount": 124000,
-      "finalTotalAmount": 1364000
+      "vatAmount": 130200,
+      "finalTotalAmount": 1432200,
+      "totalRoomNetAmount": 1240000,
+      "totalRoomServiceFee": 62000,
+      "totalRoomVat": 130200,
+      "totalRoomGrossAmount": 1432200
     }
   },
   {
@@ -527,8 +579,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1260000,
       "vatPercent": 10,
-      "vatAmount": 126000,
-      "finalTotalAmount": 1386000
+      "vatAmount": 132300,
+      "finalTotalAmount": 1455300,
+      "totalRoomNetAmount": 1260000,
+      "totalRoomServiceFee": 63000,
+      "totalRoomVat": 132300,
+      "totalRoomGrossAmount": 1455300
     }
   },
   {
@@ -565,8 +621,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1280000,
       "vatPercent": 10,
-      "vatAmount": 128000,
-      "finalTotalAmount": 1408000
+      "vatAmount": 134400,
+      "finalTotalAmount": 1478400,
+      "totalRoomNetAmount": 1280000,
+      "totalRoomServiceFee": 64000,
+      "totalRoomVat": 134400,
+      "totalRoomGrossAmount": 1478400
     }
   },
   {
@@ -603,8 +663,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1300000,
       "vatPercent": 10,
-      "vatAmount": 130000,
-      "finalTotalAmount": 1430000
+      "vatAmount": 136500,
+      "finalTotalAmount": 1501500,
+      "totalRoomNetAmount": 1300000,
+      "totalRoomServiceFee": 65000,
+      "totalRoomVat": 136500,
+      "totalRoomGrossAmount": 1501500
     }
   },
   {
@@ -641,8 +705,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1320000,
       "vatPercent": 10,
-      "vatAmount": 132000,
-      "finalTotalAmount": 1452000
+      "vatAmount": 138600,
+      "finalTotalAmount": 1524600,
+      "totalRoomNetAmount": 1320000,
+      "totalRoomServiceFee": 66000,
+      "totalRoomVat": 138600,
+      "totalRoomGrossAmount": 1524600
     }
   },
   {
@@ -679,8 +747,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1340000,
       "vatPercent": 10,
-      "vatAmount": 134000,
-      "finalTotalAmount": 1474000
+      "vatAmount": 140700,
+      "finalTotalAmount": 1547700,
+      "totalRoomNetAmount": 1340000,
+      "totalRoomServiceFee": 67000,
+      "totalRoomVat": 140700,
+      "totalRoomGrossAmount": 1547700
     }
   },
   {
@@ -717,8 +789,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1360000,
       "vatPercent": 10,
-      "vatAmount": 136000,
-      "finalTotalAmount": 1496000
+      "vatAmount": 142800,
+      "finalTotalAmount": 1570800,
+      "totalRoomNetAmount": 1360000,
+      "totalRoomServiceFee": 68000,
+      "totalRoomVat": 142800,
+      "totalRoomGrossAmount": 1570800
     }
   },
   {
@@ -755,8 +831,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1380000,
       "vatPercent": 10,
-      "vatAmount": 138000,
-      "finalTotalAmount": 1518000
+      "vatAmount": 144900,
+      "finalTotalAmount": 1593900,
+      "totalRoomNetAmount": 1380000,
+      "totalRoomServiceFee": 69000,
+      "totalRoomVat": 144900,
+      "totalRoomGrossAmount": 1593900
     }
   },
   {
@@ -793,8 +873,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1400000,
       "vatPercent": 10,
-      "vatAmount": 140000,
-      "finalTotalAmount": 1540000
+      "vatAmount": 147000,
+      "finalTotalAmount": 1617000,
+      "totalRoomNetAmount": 1400000,
+      "totalRoomServiceFee": 70000,
+      "totalRoomVat": 147000,
+      "totalRoomGrossAmount": 1617000
     }
   },
   {
@@ -831,8 +915,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1420000,
       "vatPercent": 10,
-      "vatAmount": 142000,
-      "finalTotalAmount": 1562000
+      "vatAmount": 149100,
+      "finalTotalAmount": 1640100,
+      "totalRoomNetAmount": 1420000,
+      "totalRoomServiceFee": 71000,
+      "totalRoomVat": 149100,
+      "totalRoomGrossAmount": 1640100
     }
   },
   {
@@ -869,8 +957,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1440000,
       "vatPercent": 10,
-      "vatAmount": 144000,
-      "finalTotalAmount": 1584000
+      "vatAmount": 151200,
+      "finalTotalAmount": 1663200,
+      "totalRoomNetAmount": 1440000,
+      "totalRoomServiceFee": 72000,
+      "totalRoomVat": 151200,
+      "totalRoomGrossAmount": 1663200
     }
   },
   {
@@ -907,8 +999,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1460000,
       "vatPercent": 10,
-      "vatAmount": 146000,
-      "finalTotalAmount": 1606000
+      "vatAmount": 153300,
+      "finalTotalAmount": 1686300,
+      "totalRoomNetAmount": 1460000,
+      "totalRoomServiceFee": 73000,
+      "totalRoomVat": 153300,
+      "totalRoomGrossAmount": 1686300
     }
   },
   {
@@ -945,8 +1041,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 1480000,
       "vatPercent": 10,
-      "vatAmount": 148000,
-      "finalTotalAmount": 1628000
+      "vatAmount": 155400,
+      "finalTotalAmount": 1709400,
+      "totalRoomNetAmount": 1480000,
+      "totalRoomServiceFee": 74000,
+      "totalRoomVat": 155400,
+      "totalRoomGrossAmount": 1709400
     }
   },
   {
@@ -983,8 +1083,12 @@
       "totalSurchargeAmount": 0,
       "preTaxAmount": 800000,
       "vatPercent": 10,
-      "vatAmount": 80000,
-      "finalTotalAmount": 880000
+      "vatAmount": 84000,
+      "finalTotalAmount": 924000,
+      "totalRoomNetAmount": 800000,
+      "totalRoomServiceFee": 40000,
+      "totalRoomVat": 84000,
+      "totalRoomGrossAmount": 924000
     }
   }
 ]
