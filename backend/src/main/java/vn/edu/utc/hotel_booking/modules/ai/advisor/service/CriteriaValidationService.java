@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 public class CriteriaValidationService {
 
     private static final Pattern OUT_OF_SCOPE_PATTERN = Pattern.compile(
-            "(?i)(đặt\\s*phòng|dat\\s*phong|giữ\\s*phòng|giu\\s*phong|thanh\\s*toán|thanh\\s*toan|hủy\\s*phòng|huy\\s*phong|hoàn\\s*tiền|hoan\\s*tien|quản\\s*trị|quan\\s*tri|\\b(book|booking|hold|reserve|pay|payment|cancel|refund|admin)\\b)"
+            "(?i)(đặt\\s*phòng|dat\\s*phong|giữ\\s*phòng|giu\\s*phong|thanh\\s*toán|thanh\\s*toan|hủy\\s*phòng|huy\\s*phong|hoàn\\s*tiền|hoan\\s*tien|quản\\s*trị|quan\\s*tri|giải\\s*phóng|cập\\s*nhật\\s*hồ\\s*sơ|lưu\\s*giấy\\s*tờ|\\b(book|booking|hold|reserve|pay|payment|cancel|refund|admin|release|guest|identity|delete\\s+from|insert\\s+into|update\\s+\\w+\\s+set|drop\\s+table|https?://)\\b)"
     );
 
     private static final Pattern CURRENCY_PATTERN = Pattern.compile("^[A-Z]{3}$");
@@ -131,7 +131,7 @@ public class CriteriaValidationService {
                     .valid(false)
                     .status(AdvisorStatus.NEED_INFO)
                     .reply("Vui lòng cung cấp thông tin tìm kiếm phòng.")
-                    .missingFields(List.of("locationKeyword", "checkInDate", "checkOutDate", "adults"))
+                    .missingFields(List.of("location", "locationKeyword", "checkInDate", "checkOutDate", "adults"))
                     .ambiguities(new ArrayList<>())
                     .provenance(provenance != null ? provenance : new ArrayList<>())
                     .build();
@@ -157,6 +157,7 @@ public class CriteriaValidationService {
         boolean hasHotel = criteria.getHotelId() != null && criteria.getHotelId() > 0;
         boolean hasLocation = criteria.getLocationKeyword() != null && !criteria.getLocationKeyword().isBlank();
         if (!hasHotel && !hasLocation) {
+            missingFields.add("location");
             missingFields.add("locationKeyword");
         }
 

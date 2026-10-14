@@ -29,6 +29,28 @@ public class DeterministicRoomRecommendationEngine {
             Set<Integer> failedRoomTypeIds,
             List<CoverageReason> coverageReasons
     ) {
+        return evaluateAndRank(
+                requestId, sessionId, sessionVersion, criteria, provenance, candidates,
+                availabilityByRoomTypeId, quoteByRoomTypeId, catalogComplete,
+                failedRoomTypeIds, coverageReasons, null, null
+        );
+    }
+
+    public AdvisorResultDto evaluateAndRank(
+            UUID requestId,
+            UUID sessionId,
+            long sessionVersion,
+            RoomSearchCriteriaDto criteria,
+            List<CriteriaEvidenceDto> provenance,
+            List<RoomCandidate> candidates,
+            Map<Integer, List<CandidateAvailability>> availabilityByRoomTypeId,
+            Map<Integer, PriceQuoteDto> quoteByRoomTypeId,
+            boolean catalogComplete,
+            Set<Integer> failedRoomTypeIds,
+            List<CoverageReason> coverageReasons,
+            Integer totalDiscoveredCount,
+            Integer explicitRemainingCount
+    ) {
         if (requestId == null) {
             requestId = UUID.randomUUID();
         }
@@ -52,7 +74,7 @@ public class DeterministicRoomRecommendationEngine {
                     .reasons(coverageReasons != null ? new ArrayList<>(coverageReasons) : new ArrayList<>())
                     .build();
 
-            List<String> warnings = buildDefaultWarnings(coverage.getStatus());
+            List<String> warnings = buildDefaultWarnings(coverage.getStatus(), criteria, false);
 
             return AdvisorResultDto.builder()
                     .contractVersion("2.0")
@@ -75,15 +97,16 @@ public class DeterministicRoomRecommendationEngine {
                     .build();
         }
 
-        int discoveredCount = candidates.size();
+        int evaluatedCount = candidates.size();
+        int discoveredCount = (totalDiscoveredCount != null) ? totalDiscoveredCount : evaluatedCount;
         int failedCount = failedRoomTypeIds != null ? failedRoomTypeIds.size() : 0;
-        int evaluatedCount = discoveredCount;
-        int remainingCount = discoveredCount - evaluatedCount;
+        int remainingCount = (explicitRemainingCount != null) ? explicitRemainingCount : Math.max(0, discoveredCount - evaluatedCount);
 
         long totalNights = ChronoUnit.DAYS.between(criteria.getCheckInDate(), criteria.getCheckOutDate());
 
         // 1. Hard filters
         List<CandidateEvaluation> qualifying = new ArrayList<>();
+        Set<Integer> seenRoomTypeIds = new HashSet<>();
 
         for (RoomCandidate candidate : candidates) {
             if (candidate == null || candidate.getHotelRoomTypeId() == null) {
@@ -91,6 +114,10 @@ public class DeterministicRoomRecommendationEngine {
             }
 
             Integer hrtId = candidate.getHotelRoomTypeId();
+
+            if (!seenRoomTypeIds.add(hrtId)) {
+                continue;
+            }
 
             if (failedRoomTypeIds != null && failedRoomTypeIds.contains(hrtId)) {
                 continue;
@@ -182,7 +209,7 @@ public class DeterministicRoomRecommendationEngine {
 
         // 4. Determine search coverage & status
         CoverageStatus coverageStatus;
-        if (catalogComplete && failedCount == 0) {
+        if (catalogComplete && failedCount == 0 && remainingCount == 0) {
             coverageStatus = CoverageStatus.COMPLETE;
         } else {
             coverageStatus = CoverageStatus.PARTIAL;
@@ -211,7 +238,15 @@ public class DeterministicRoomRecommendationEngine {
                 .reasons(reasonsList)
                 .build();
 
-        List<String> warnings = buildDefaultWarnings(coverageStatus);
+        boolean hasUnverifiableBudget = false;
+        for (CandidateEvaluation item : qualifying) {
+            if (item.budgetResult.check == BudgetCheck.UNVERIFIABLE) {
+                hasUnverifiableBudget = true;
+                break;
+            }
+        }
+
+        List<String> warnings = buildDefaultWarnings(coverageStatus, criteria, hasUnverifiableBudget);
 
         AdvisorStatus outcomeStatus;
         String reply;
@@ -378,7 +413,18 @@ public class DeterministicRoomRecommendationEngine {
             }
         }
 
-        BigDecimal quoteAmount = new BigDecimal(quote.getFinalTotalAmount());
+        BigDecimal quoteAmount;
+        if (budget.getCoverage() == BudgetCoverage.BACKEND_QUOTED_TOTAL) {
+            if (quote.getPreTaxAmount() != null) {
+                BigDecimal preTax = new BigDecimal(quote.getPreTaxAmount());
+                BigDecimal vatPct = (quote.getVatPercent() != null) ? new BigDecimal(quote.getVatPercent()) : BigDecimal.ZERO;
+                quoteAmount = preTax.add(preTax.multiply(vatPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+            } else {
+                quoteAmount = new BigDecimal(quote.getFinalTotalAmount());
+            }
+        } else {
+            quoteAmount = new BigDecimal(quote.getFinalTotalAmount());
+        }
         BigDecimal budgetAmount = new BigDecimal(budget.getAmount());
 
         BigDecimal applicableAmount;
@@ -491,12 +537,17 @@ public class DeterministicRoomRecommendationEngine {
                 .build();
     }
 
-    private List<String> buildDefaultWarnings(CoverageStatus coverageStatus) {
+    private List<String> buildDefaultWarnings(CoverageStatus coverageStatus, RoomSearchCriteriaDto criteria, boolean hasUnverifiableBudget) {
         List<String> warnings = new ArrayList<>();
         warnings.add(WarningCode.SERVICE_FEE_UNVERIFIED);
         warnings.add(WarningCode.CURRENCY_SYNTHETIC_ASSUMPTION);
         if (coverageStatus == CoverageStatus.PARTIAL) {
             warnings.add(WarningCode.INCOMPLETE_COVERAGE);
+        }
+        if (criteria != null && criteria.getBudget() != null) {
+            if (!criteria.getBudget().isHard() && hasUnverifiableBudget) {
+                warnings.add(WarningCode.BUDGET_UNVERIFIABLE);
+            }
         }
         return warnings;
     }

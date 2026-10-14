@@ -33,6 +33,9 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
     private static final Pattern ISO_DATE_PATTERN = Pattern.compile("\\b(\\d{4}-\\d{2}-\\d{2})\\b");
     private static final Pattern VN_DATE_PATTERN = Pattern.compile("\\b(\\d{1,2})[/.-](\\d{1,2})[/.-](\\d{4})\\b");
+    private static final Pattern DATE_RANGE_VN_PATTERN = Pattern.compile(
+            "\\b(\\d{1,2})\\s*[-–—]\\s*(\\d{1,2})[/.-](\\d{1,2})[/.-](\\d{4})\\b"
+    );
 
     private static final Pattern ADULTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:người\\s*lớn|nguoi\\s*lon|adults?)");
     private static final Pattern CHILDREN_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:trẻ\\s*em|tre\\s*em|children|child)");
@@ -51,7 +54,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
     private static final List<String> COMMON_DESTINATIONS = List.of(
             "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hồ Chí Minh",
-            "Sài Gòn", "Synthetic City", "Hội An", "Đà Lạt", "Vũng Tàu", "Huế", "Hạ Long"
+            "Sài Gòn", "Synthetic City", "Central", "Hội An", "Đà Lạt", "Vũng Tàu", "Huế", "Hạ Long"
     );
 
     @Override
@@ -209,6 +212,20 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     private List<LocalDate> extractDates(String message) {
         List<LocalDate> result = new ArrayList<>();
 
+        // Date range pattern: dd-dd/MM/yyyy or dd–dd/MM/yyyy
+        Matcher rangeMatcher = DATE_RANGE_VN_PATTERN.matcher(message);
+        if (rangeMatcher.find()) {
+            try {
+                int d1 = Integer.parseInt(rangeMatcher.group(1));
+                int d2 = Integer.parseInt(rangeMatcher.group(2));
+                int m = Integer.parseInt(rangeMatcher.group(3));
+                int y = Integer.parseInt(rangeMatcher.group(4));
+                result.add(LocalDate.of(y, m, d1));
+                result.add(LocalDate.of(y, m, d2));
+                return result;
+            } catch (Exception ignored) {}
+        }
+
         // ISO pattern
         Matcher isoMatcher = ISO_DATE_PATTERN.matcher(message);
         while (isoMatcher.find()) {
@@ -270,17 +287,33 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             amount = amount.setScale(0, RoundingMode.UNNECESSARY);
         }
 
-        BudgetBasis basis = Pattern.compile("(?i)(mỗi\\s*đêm|1\\s*đêm|per\\s*night)").matcher(message).find()
-                ? BudgetBasis.AVERAGE_PER_NIGHT
-                : BudgetBasis.STAY_TOTAL;
+        String lower = message.toLowerCase(Locale.ROOT);
 
-        boolean hard = Pattern.compile("(?i)(tối\\s*đa|không\\s*quá|dưới)").matcher(message).find();
+        // Coverage extraction
+        BudgetCoverage coverage = BudgetCoverage.ALL_MANDATORY_CHARGES;
+        if (lower.contains("theo tổng api") || lower.contains("không yêu cầu all-in") || lower.contains("khong yeu cau all-in")) {
+            coverage = BudgetCoverage.BACKEND_QUOTED_TOTAL;
+        }
+
+        // Basis extraction
+        BudgetBasis basis = null;
+        if (lower.contains("trung bình mỗi đêm") || lower.contains("average per night") || lower.contains("trung binh moi dem")) {
+            basis = BudgetBasis.AVERAGE_PER_NIGHT;
+        } else if (lower.contains("mỗi đêm") || lower.contains("moi dem") || lower.contains("per night")) {
+            // Ambiguous without "trung bình" (e.g. "dưới 900k mỗi đêm") - leave basis & coverage null to trigger NEED_INFO
+            basis = null;
+            coverage = null;
+        } else {
+            basis = BudgetBasis.STAY_TOTAL;
+        }
+
+        boolean hard = Pattern.compile("(?i)(tối\\s*đa|không\\s*quá|dưới|<|<=)").matcher(message).find();
 
         return BudgetDto.builder()
                 .amount(amount.toPlainString())
                 .currency("VND")
                 .basis(basis)
-                .coverage(BudgetCoverage.ALL_MANDATORY_CHARGES)
+                .coverage(coverage)
                 .hard(hard)
                 .build();
     }

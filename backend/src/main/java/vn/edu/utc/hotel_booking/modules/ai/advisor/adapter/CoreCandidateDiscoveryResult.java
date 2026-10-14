@@ -35,4 +35,10 @@ public class CoreCandidateDiscoveryResult {
 
     @Builder.Default
     boolean allFailed = false;
+
+    @Builder.Default
+    Integer totalDiscoveredCount = null;
+
+    @Builder.Default
+    Integer remainingCount = null;
 }

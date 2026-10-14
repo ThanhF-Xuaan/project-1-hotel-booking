@@ -150,7 +150,9 @@ public class RoomAdvisorOrchestrationService {
                 discovery.getQuoteByRoomTypeId(),
                 discovery.isCatalogComplete(),
                 discovery.getFailedRoomTypeIds(),
-                discovery.getCoverageReasons()
+                discovery.getCoverageReasons(),
+                discovery.getTotalDiscoveredCount(),
+                discovery.getRemainingCount()
         );
 
         // 9. Generate polite, grounded natural language reply
@@ -270,7 +272,9 @@ public class RoomAdvisorOrchestrationService {
                 discovery.getQuoteByRoomTypeId(),
                 discovery.isCatalogComplete(),
                 discovery.getFailedRoomTypeIds(),
-                discovery.getCoverageReasons()
+                discovery.getCoverageReasons(),
+                discovery.getTotalDiscoveredCount(),
+                discovery.getRemainingCount()
         );
 
         RoomAdvisorSession updatedSession = sessionStore.updateSession(
@@ -341,7 +345,9 @@ public class RoomAdvisorOrchestrationService {
                 discovery.getQuoteByRoomTypeId(),
                 discovery.isCatalogComplete(),
                 discovery.getFailedRoomTypeIds(),
-                discovery.getCoverageReasons()
+                discovery.getCoverageReasons(),
+                discovery.getTotalDiscoveredCount(),
+                discovery.getRemainingCount()
         );
 
         RoomAdvisorSession updatedSession = sessionStore.updateSession(
