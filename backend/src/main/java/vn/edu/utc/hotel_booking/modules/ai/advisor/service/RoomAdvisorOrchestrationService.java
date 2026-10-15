@@ -19,7 +19,6 @@ import java.util.*;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class RoomAdvisorOrchestrationService {
 
     private final CriteriaValidationService criteriaValidationService;
@@ -27,6 +26,52 @@ public class RoomAdvisorOrchestrationService {
     private final RoomAdvisorCorePort corePort;
     private final RoomAdvisorSessionStore sessionStore;
     private final RoomAdvisorLlmPort llmPort;
+    private final vn.edu.utc.hotel_booking.modules.ai.rag.service.RagGroundedAnswerService ragGroundedAnswerService;
+
+    public RoomAdvisorOrchestrationService(
+            CriteriaValidationService criteriaValidationService,
+            DeterministicRoomRecommendationEngine recommendationEngine,
+            RoomAdvisorCorePort corePort,
+            RoomAdvisorSessionStore sessionStore,
+            RoomAdvisorLlmPort llmPort
+    ) {
+        this(criteriaValidationService, recommendationEngine, corePort, sessionStore, llmPort, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public RoomAdvisorOrchestrationService(
+            CriteriaValidationService criteriaValidationService,
+            DeterministicRoomRecommendationEngine recommendationEngine,
+            RoomAdvisorCorePort corePort,
+            RoomAdvisorSessionStore sessionStore,
+            RoomAdvisorLlmPort llmPort,
+            @org.springframework.beans.factory.annotation.Autowired(required = false) vn.edu.utc.hotel_booking.modules.ai.rag.service.RagGroundedAnswerService ragGroundedAnswerService
+    ) {
+        this.criteriaValidationService = criteriaValidationService;
+        this.recommendationEngine = recommendationEngine;
+        this.corePort = corePort;
+        this.sessionStore = sessionStore;
+        this.llmPort = llmPort;
+        this.ragGroundedAnswerService = ragGroundedAnswerService;
+    }
+
+    /**
+     * T12-V2-030 & R2.5: Safe knowledge inquiry helper with fail-safe degradation.
+     * If RAG is unavailable or throws an exception, this never crashes and returns Optional.empty().
+     */
+    public Optional<vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto> queryKnowledgeSafely(
+            vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto ragRequest
+    ) {
+        if (ragGroundedAnswerService == null || ragRequest == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.ofNullable(ragGroundedAnswerService.answerQuestion(ragRequest));
+        } catch (Exception e) {
+            log.warn("T12-V2-030: RAG knowledge service degraded/unavailable safely: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
 
     public AdvisorResultDto chat(AdvisorChatRequestDto request, String ownerKey) {
         UUID requestId = UUID.randomUUID();

@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 import org.springframework.stereotype.Service;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.*;
 import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort;
+import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagScopeType;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagVersionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.governance.RagCorpusGovernanceValidator;
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.CorpusValidationResult;
@@ -147,6 +148,14 @@ public class RagKnowledgeLifecycleService {
                 request.getSourceId(),
                 request.getVersion()
         );
+    }
+
+    public Optional<KnowledgeDocumentVersion> getActiveDocument(RagScopeType scopeType, Integer hotelId, String sourceId) {
+        return vectorStore.getActiveDocument(scopeType, hotelId, sourceId);
+    }
+
+    public Optional<KnowledgeDocumentVersion> getDocument(RagScopeType scopeType, Integer hotelId, String sourceId, int version) {
+        return vectorStore.getDocument(scopeType, hotelId, sourceId, version);
     }
 
     private String computeSha256(String text) {
