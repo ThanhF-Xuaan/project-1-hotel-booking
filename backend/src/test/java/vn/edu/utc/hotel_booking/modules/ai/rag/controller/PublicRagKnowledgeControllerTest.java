@@ -122,4 +122,20 @@ class PublicRagKnowledgeControllerTest {
                 .andExpect(jsonPath("$.result.status").value("INSUFFICIENT_EVIDENCE"))
                 .andExpect(jsonPath("$.result.disclaimers[0]").value("RAG_TEMP_UNAVAILABLE: Dịch vụ RAG tạm thời không khả dụng, nghiệp vụ tìm kiếm và đặt phòng vẫn hoạt động bình thường."));
     }
+
+    @Test
+    @DisplayName("POST /ask should return 400 when question is blank (Fix H1)")
+    void shouldReturnBadRequestWhenQuestionIsBlank() throws Exception {
+        RagQueryRequestDto request = RagQueryRequestDto.builder()
+                .hotelId(1)
+                .question("")
+                .build();
+
+        mockMvc.perform(post("/api/v1/public/ai/room-advisor/knowledge/ask")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("question")));
+    }
 }

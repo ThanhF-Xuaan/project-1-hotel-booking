@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 @Component
@@ -62,7 +63,7 @@ public class InMemoryScopedVectorStore implements RagVectorStorePort {
         }
 
         String key = buildKey(doc.getScopeType(), doc.getHotelId(), doc.getSourceId());
-        List<KnowledgeDocumentVersion> docList = documentStore.computeIfAbsent(key, k -> new ArrayList<>());
+        List<KnowledgeDocumentVersion> docList = documentStore.computeIfAbsent(key, k -> new CopyOnWriteArrayList<>());
 
         // Check if version already exists
         boolean versionExists = docList.stream().anyMatch(d -> d.getVersion() == doc.getVersion());
@@ -80,12 +81,13 @@ public class InMemoryScopedVectorStore implements RagVectorStorePort {
         docList.add(doc);
 
         if (chunks != null && !chunks.isEmpty()) {
-            List<KnowledgeChunk> currentChunks = chunkStore.computeIfAbsent(key, k -> new ArrayList<>());
+            List<KnowledgeChunk> currentChunks = chunkStore.computeIfAbsent(key, k -> new CopyOnWriteArrayList<>());
             for (KnowledgeChunk c : chunks) {
                 c.setStatus(RagVersionStatus.STAGED);
                 currentChunks.add(c);
             }
         }
+
 
         return RagIngestResultDto.builder()
                 .documentId(doc.getDocumentId())
@@ -226,7 +228,7 @@ public class InMemoryScopedVectorStore implements RagVectorStorePort {
     }
 
     @Override
-    public List<KnowledgeChunk> findCandidateChunks(RagScopeType scopeType, Integer hotelId, LocalDate asOfDate) {
+    public synchronized List<KnowledgeChunk> findCandidateChunks(RagScopeType scopeType, Integer hotelId, LocalDate asOfDate) {
         LocalDate queryDate = asOfDate != null ? asOfDate : LocalDate.now();
         List<KnowledgeChunk> candidates = new ArrayList<>();
 
@@ -240,7 +242,7 @@ public class InMemoryScopedVectorStore implements RagVectorStorePort {
                 // If hotelId is provided, accept chunks matching hotelId OR chain public chunks.
                 // If hotelId is null, ONLY accept chain public chunks.
                 if (chunk.getScopeType() == RagScopeType.HOTEL_SCOPED) {
-                    if (hotelId == null || !chunk.getHotelId().equals(hotelId)) {
+                    if (hotelId == null || !Objects.equals(chunk.getHotelId(), hotelId)) {
                         continue;
                     }
                 }
@@ -261,7 +263,7 @@ public class InMemoryScopedVectorStore implements RagVectorStorePort {
     }
 
     @Override
-    public Optional<KnowledgeDocumentVersion> getDocument(RagScopeType scopeType, Integer hotelId, String sourceId, int version) {
+    public synchronized Optional<KnowledgeDocumentVersion> getDocument(RagScopeType scopeType, Integer hotelId, String sourceId, int version) {
         String key = buildKey(scopeType, hotelId, sourceId);
         List<KnowledgeDocumentVersion> docList = documentStore.get(key);
         if (docList == null) {
@@ -271,7 +273,7 @@ public class InMemoryScopedVectorStore implements RagVectorStorePort {
     }
 
     @Override
-    public Optional<KnowledgeDocumentVersion> getActiveDocument(RagScopeType scopeType, Integer hotelId, String sourceId) {
+    public synchronized Optional<KnowledgeDocumentVersion> getActiveDocument(RagScopeType scopeType, Integer hotelId, String sourceId) {
         String key = buildKey(scopeType, hotelId, sourceId);
         List<KnowledgeDocumentVersion> docList = documentStore.get(key);
         if (docList == null) {
@@ -281,10 +283,11 @@ public class InMemoryScopedVectorStore implements RagVectorStorePort {
     }
 
     @Override
-    public void clearAll() {
+    public synchronized void clearAll() {
         documentStore.clear();
         chunkStore.clear();
     }
+
 
     private String buildKey(RagScopeType scopeType, Integer hotelId, String sourceId) {
         String scopePart = scopeType != null ? scopeType.name() : "UNKNOWN";

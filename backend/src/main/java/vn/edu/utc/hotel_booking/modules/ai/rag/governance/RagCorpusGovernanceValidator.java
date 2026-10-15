@@ -15,14 +15,18 @@ import java.util.regex.Pattern;
 public class RagCorpusGovernanceValidator {
 
     // PII patterns
-    private static final Pattern CCCD_PATTERN = Pattern.compile("(?i)(?:cccd|cmnd|căn\\s*cước|định\\s*danh)?\\s*[:#-]?\\s*\\b(\\d{9}|\\d{12})\\b");
+    private static final Pattern CCCD_PATTERN = Pattern.compile(
+            "(?i)(?:(?:cccd|cmnd|căn\\s*cước|định\\s*danh|số\\s*giấy\\s*tờ)\\s*[:#-]?\\s*\\b\\d{9,12}\\b|\\b0\\d{11}\\b)"
+    );
     private static final Pattern PASSPORT_PATTERN = Pattern.compile("(?i)(?:hộ\\s*chiếu|passport)\\s*[:#-]?\\s*\\b([A-Z]\\d{7,8})\\b");
     private static final Pattern PHONE_PATTERN = Pattern.compile("(?i)(?:sđt|điện\\s*thoại|phone|tel|mobile)?\\s*[:#-]?\\s*\\b(0|\\+84)(?:3|5|7|8|9)\\d{8}\\b");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b");
     private static final Pattern PAYROLL_PATTERN = Pattern.compile("(?i)\\b(payroll|bảng\\s*lương|net_salary|gross_salary|tiền\\s*lương|hệ\\s*số\\s*lương|thu\\s*nhập\\s*tháng)\\b");
 
     // Confidential patterns
-    private static final Pattern CONFIDENTIAL_PATTERN = Pattern.compile("(?i)\\b(INTERNAL_ONLY|CONFIDENTIAL|NỘI\\s*BỘ|BẢO\\s*MẬT|TỐI\\s*MẬT|api_key|secret_key|bearer\\s+[A-Za-z0-9._-]{20,}|password\\s*[:=]|mật\\s*khẩu\\s*[:=])\\b");
+    private static final Pattern CONFIDENTIAL_PATTERN = Pattern.compile(
+            "(?i)\\b(INTERNAL_ONLY|CONFIDENTIAL|LƯU\\s*HÀNH\\s*NỘI\\s*BỘ|NỘI\\s*BỘ|TÀI\\s*LIỆU\\s*MẬT|TỐI\\s*MẬT|TUYỆT\\s*MẬT|api_key|secret_key|private_key|bearer\\s+[A-Za-z0-9._-]{20,}|password\\s*[:=]|mật\\s*khẩu\\s*[:=])\\b"
+    );
 
     // Guest / live booking data patterns
     private static final Pattern GUEST_BOOKING_PATTERN = Pattern.compile("(?i)\\b(booking_id|guest_id|khách\\s*đang\\s*ở\\s*phòng\\s*\\d+|danh\\s*sách\\s*khách\\s*lưu\\s*trú)\\b");

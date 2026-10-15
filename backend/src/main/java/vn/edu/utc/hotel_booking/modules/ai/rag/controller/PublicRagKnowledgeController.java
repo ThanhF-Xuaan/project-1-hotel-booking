@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.llm.PiiRedactionUtil;
@@ -53,6 +54,20 @@ public class PublicRagKnowledgeController {
                             .result(fallback)
                             .build());
         }
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation failed");
+        log.warn("Public RAG validation error: {}", message);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.<Void>builder()
+                        .code(400)
+                        .message(message)
+                        .build());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

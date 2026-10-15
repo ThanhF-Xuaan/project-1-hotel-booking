@@ -1,5 +1,8 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.dto;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -13,10 +16,15 @@ import java.time.LocalDate;
 public class RagQueryRequestDto {
     Integer hotelId;
     String hotelCode;
+
+    @NotBlank(message = "question cannot be blank")
+    @Size(max = 2000, message = "question cannot exceed 2000 characters")
     String question;
+
     String language;
     LocalDate asOfDate;
 
+    @Min(value = 1, message = "topK must be at least 1")
     @Builder.Default
     Integer topK = 5;
 }

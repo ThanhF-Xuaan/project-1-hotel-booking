@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagCitationDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort;
+import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagScopeType;
+import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagVersionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeChunk;
 import vn.edu.utc.hotel_booking.modules.ai.rag.store.RagVectorStorePort;
 
@@ -42,28 +44,39 @@ public class ScopedRagRetrievalService {
             return Collections.emptyList();
         }
 
-        // 2. Multi-version resolution: For the same sourceId, keep only the version with latest effectiveFrom (T12-005, T12-V2-039)
-        Map<String, KnowledgeChunk> latestBySource = new HashMap<>();
+        // 2. Multi-version and Scope Precedence Resolution (T12-005, T12-V2-039, H3, M3)
+        // Group candidate chunks by sourceId to identify the winning version per sourceId
+        Map<String, KnowledgeChunk> winningRepresentativeBySource = new HashMap<>();
         for (KnowledgeChunk c : candidates) {
             String sId = c.getSourceId();
-            if (!latestBySource.containsKey(sId)) {
-                latestBySource.put(sId, c);
+            if (!winningRepresentativeBySource.containsKey(sId)) {
+                winningRepresentativeBySource.put(sId, c);
             } else {
-                KnowledgeChunk existing = latestBySource.get(sId);
-                LocalDate d1 = c.getEffectiveFrom() != null ? c.getEffectiveFrom() : LocalDate.MIN;
-                LocalDate d2 = existing.getEffectiveFrom() != null ? existing.getEffectiveFrom() : LocalDate.MIN;
-                if (d1.isAfter(d2) || (d1.isEqual(d2) && c.getVersion() > existing.getVersion())) {
-                    latestBySource.put(sId, c);
+                KnowledgeChunk currentBest = winningRepresentativeBySource.get(sId);
+                if (isBetterVersion(c, currentBest)) {
+                    winningRepresentativeBySource.put(sId, c);
                 }
+            }
+        }
+
+        // Keep ALL chunks belonging to the winning version of each sourceId (Fix H3)
+        List<KnowledgeChunk> activeChunks = new ArrayList<>();
+        for (KnowledgeChunk c : candidates) {
+            KnowledgeChunk winning = winningRepresentativeBySource.get(c.getSourceId());
+            if (winning != null
+                    && c.getScopeType() == winning.getScopeType()
+                    && Objects.equals(c.getHotelId(), winning.getHotelId())
+                    && c.getVersion() == winning.getVersion()) {
+                activeChunks.add(c);
             }
         }
 
         // 3. Generate query vector
         float[] queryVector = embeddingPort.embedText(request.getQuestion());
 
-        // 4. Compute cosine similarity & filter threshold
+        // 4. Compute cosine similarity & filter threshold across all active chunks
         List<ScoredChunk> scoredList = new ArrayList<>();
-        for (KnowledgeChunk chunk : latestBySource.values()) {
+        for (KnowledgeChunk chunk : activeChunks) {
             float[] chunkVector = chunk.getEmbedding();
             if (chunkVector == null || chunkVector.length != queryVector.length) {
                 continue;
@@ -74,6 +87,7 @@ public class ScopedRagRetrievalService {
                 scoredList.add(new ScoredChunk(chunk, similarity));
             }
         }
+
 
         // 5. Rank descending by similarity
         scoredList.sort((a, b) -> Double.compare(b.similarity, a.similarity));
@@ -91,6 +105,42 @@ public class ScopedRagRetrievalService {
         }
         return dot;
     }
+
+    private boolean isBetterVersion(KnowledgeChunk candidate, KnowledgeChunk currentBest) {
+        if (currentBest == null) {
+            return true;
+        }
+
+        // 1. Scope Priority (M3): HOTEL_SCOPED overrides CHAIN_PUBLIC
+        if (candidate.getScopeType() == RagScopeType.HOTEL_SCOPED && currentBest.getScopeType() == RagScopeType.CHAIN_PUBLIC) {
+            return true;
+        }
+        if (candidate.getScopeType() == RagScopeType.CHAIN_PUBLIC && currentBest.getScopeType() == RagScopeType.HOTEL_SCOPED) {
+            return false;
+        }
+
+        // 2. Status Priority: ACTIVE beats SUPERSEDED
+        if (candidate.getStatus() == RagVersionStatus.ACTIVE && currentBest.getStatus() != RagVersionStatus.ACTIVE) {
+            return true;
+        }
+        if (candidate.getStatus() != RagVersionStatus.ACTIVE && currentBest.getStatus() == RagVersionStatus.ACTIVE) {
+            return false;
+        }
+
+        // 3. Effective date priority: later effectiveFrom wins
+        LocalDate d1 = candidate.getEffectiveFrom() != null ? candidate.getEffectiveFrom() : LocalDate.MIN;
+        LocalDate d2 = currentBest.getEffectiveFrom() != null ? currentBest.getEffectiveFrom() : LocalDate.MIN;
+        if (d1.isAfter(d2)) {
+            return true;
+        }
+        if (d1.isBefore(d2)) {
+            return false;
+        }
+
+        // 4. Version number priority: higher version number wins
+        return candidate.getVersion() > currentBest.getVersion();
+    }
+
 
     public static class ScoredChunk {
         private final KnowledgeChunk chunk;

@@ -218,4 +218,23 @@ class AdminRagLifecycleControllerTest {
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value("Cannot delete active corpus version directly."));
     }
+
+    @Test
+    @DisplayName("POST /stage should return 400 when sourceId is blank (Fix H1)")
+    void shouldReturnBadRequestWhenSourceIdIsBlank() throws Exception {
+        RagIngestRequestDto request = RagIngestRequestDto.builder()
+                .sourceId("")
+                .scopeType(RagScopeType.HOTEL_SCOPED)
+                .category(RagDocumentCategory.POLICY)
+                .title("Title")
+                .content("Content")
+                .build();
+
+        mockMvc.perform(post("/api/v1/ai/admin/knowledge/stage?version=1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("sourceId")));
+    }
 }
