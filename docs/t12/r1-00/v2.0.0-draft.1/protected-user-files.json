@@ -16,7 +16,7 @@
     },
     {
       "path": ".agents/rules/00-INDEX.template.md",
-      "sha256": "E50AC44A0C9240209243A819CC9D1356A1F1DF86516F51AF36FBC0483262F38D"
+      "sha256": "D2CBD2B874C89CFACE460080494198FF2377BBEC9E9D3537F9762D1BE24A528F"
     },
     {
       "path": ".agents/rules/01-core-ai-guidelines.template.md",

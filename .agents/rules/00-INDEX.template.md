@@ -18,6 +18,7 @@ description: "Index and risk-based router for Hotel Booking repository rules and
 | Design system | [`05-design-system-tokens.template.md`](05-design-system-tokens.template.md) | UI styling/components |
 | Prompt library | [`06-prompts-library.template.md`](06-prompts-library.template.md) | When an existing prompt pattern is relevant |
 | Member 1 boundaries | [`07-member-1-architecture-pipeline.md`](07-member-1-architecture-pipeline.md) | `T04`, `T05`, `T12`, `U13`, `U14`, `U22` |
+| Evidence grounding / anti-fabrication | [`08-evidence-grounding-and-no-fabrication.md`](08-evidence-grounding-and-no-fabrication.md) | Always; especially code-reading, planning, implementation, debugging, and review |
 | Pricing/concurrency | [`hotel-concurrency-and-pricing.md`](hotel-concurrency-and-pricing.md) | Owner-approved Pricing/Inventory concurrency work |
 
 ## Risk-based routing
@@ -29,7 +30,7 @@ description: "Index and risk-based router for Hotel Booking repository rules and
 
 ## Member 1 skill discovery
 
-Discoverable skills live under `.agents/skills/<skill-name>/SKILL.md`. Exactly these eight `m1-*` skills are intended:
+Discoverable skills live under `.agents/skills/<skill-name>/SKILL.md`. Exactly these nine `m1-*` skills are intended:
 
 1. `m1-spec-designer`
 2. `m1-execution-planner`
@@ -39,6 +40,7 @@ Discoverable skills live under `.agents/skills/<skill-name>/SKILL.md`. Exactly t
 6. `m1-room-recommendation-engine`
 7. `m1-rag-knowledge-lifecycle`
 8. `m1-ai-evaluation-security`
+9. `m1-grounded-code-task-executor`
 
 Activate only skills whose description matches the current task. Missing skills or referenced files must be reported, not invented. Detailed procedures belong in skills, not in this always-on index.
 
