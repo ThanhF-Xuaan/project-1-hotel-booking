@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,25 +25,87 @@ import vn.edu.utc.hotel_booking.modules.operation.repository.UtilityMeterReposit
 import vn.edu.utc.hotel_booking.modules.operation.repository.UtilityReadingRepository;
 import vn.edu.utc.hotel_booking.modules.operation.service.UtilityReadingService;
 
+import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
+import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
+
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UtilityReadingServiceImpl implements UtilityReadingService {
 
+    private static final Set<String> ALLOWED_READING_SORTS = Set.of("readingDate", "readingValue", "id", "createdAt");
+
     private final UtilityReadingRepository repository;
     private final UtilityMeterRepository meterRepository;
     private final StaffRepository staffRepository;
+    private final HotelRepository hotelRepository;
     private final UtilityReadingMapper mapper;
 
     @Override
     public PageResponse<UtilityReadingResponse> search(UtilityReadingSearchDto request) {
-        Pageable pageable = PageRequest.of(request.getPage(), request.getPageSize(), Sort.by("readingDate").descending());
-        Page<UtilityReading> page = repository.search(request.getMeterId(), request.getFromDate(), request.getToDate(), pageable);
+        Short effectiveHotelId = request.getHotelId();
+        Short effectiveRegionId = request.getRegionId();
+
+        if (SecurityUtils.hasRole("CHAIN_ADMIN")) {
+            // Full chain-wide access
+        } else if (SecurityUtils.hasRole("PROPERTY_MANAGER") || SecurityUtils.hasRole("ENGINEERING")) {
+            Staff staff = resolveCurrentStaff();
+            if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
+            }
+            Short userHotelId = staff.getScopeEntityId().shortValue();
+            if (request.getHotelId() != null && !request.getHotelId().equals(userHotelId)) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Không có quyền truy cập dữ liệu của khách sạn khác");
+            }
+            effectiveHotelId = userHotelId;
+            effectiveRegionId = null;
+
+            if (request.getMeterId() != null) {
+                UtilityMeter meter = meterRepository.findById(request.getMeterId())
+                        .filter(m -> !Boolean.TRUE.equals(m.getIsDeleted()))
+                        .orElseThrow(() -> new AppException(ErrorCode.UTILITY_METER_NOT_FOUND, "Meter not found"));
+                if (!meter.getHotel().getId().equals(userHotelId)) {
+                    throw new AppException(ErrorCode.UNAUTHORIZED, "Đồng hồ không thuộc khách sạn của bạn");
+                }
+            }
+        } else if (SecurityUtils.hasRole("REGION_MANAGER")) {
+            Staff staff = resolveCurrentStaff();
+            if (!"REGION".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
+            }
+            Short userRegionId = staff.getScopeEntityId().shortValue();
+            if (request.getRegionId() != null && !request.getRegionId().equals(userRegionId)) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Không có quyền truy cập dữ liệu của vùng khác");
+            }
+            if (request.getHotelId() != null) {
+                Hotel hotel = hotelRepository.findById(request.getHotelId())
+                        .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND, "Hotel not found"));
+                if (!hotel.getRegion().getId().equals(userRegionId)) {
+                    throw new AppException(ErrorCode.UNAUTHORIZED, "Khách sạn không thuộc vùng quản lý");
+                }
+            }
+            if (request.getMeterId() != null) {
+                UtilityMeter meter = meterRepository.findById(request.getMeterId())
+                        .filter(m -> !Boolean.TRUE.equals(m.getIsDeleted()))
+                        .orElseThrow(() -> new AppException(ErrorCode.UTILITY_METER_NOT_FOUND, "Meter not found"));
+                if (!meter.getHotel().getRegion().getId().equals(userRegionId)) {
+                    throw new AppException(ErrorCode.UNAUTHORIZED, "Đồng hồ không thuộc vùng quản lý");
+                }
+            }
+            effectiveRegionId = userRegionId;
+            effectiveHotelId = request.getHotelId();
+        } else {
+            throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền thực hiện hành động này");
+        }
+
+        Pageable pageable = buildPageable(request);
+        Page<UtilityReading> page = repository.search(request.getMeterId(), effectiveHotelId, effectiveRegionId, request.getFromDate(), request.getToDate(), pageable);
         
         List<Long> readingIds = page.getContent().stream().map(UtilityReading::getId).toList();
         Map<Long, BigDecimal> previousValues = new HashMap<>();
@@ -60,14 +123,16 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
 
     @Override
     public UtilityReadingResponse getById(Long id) {
-        return mapToResponseWithUsage(getReadingOrThrow(id));
+        UtilityReading reading = getReadingOrThrow(id);
+        validateReadScope(reading.getMeter().getHotel());
+        return mapToResponseWithUsage(reading);
     }
 
     @Override
     @Transactional
     public UtilityReadingResponse create(UtilityReadingCreateRequest request) {
-        if (repository.existsByMeterIdAndReadingDateAndIsDeletedFalse(request.getMeterId(), request.getReadingDate())) {
-            throw new AppException(ErrorCode.UTILITY_READING_ALREADY_EXISTS, "Reading already exists for this date");
+        if (!SecurityUtils.hasRole("CHAIN_ADMIN") && !SecurityUtils.hasRole("PROPERTY_MANAGER") && !SecurityUtils.hasRole("ENGINEERING")) {
+            throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền thực hiện hành động này");
         }
 
         UtilityMeter meter = meterRepository.findById(request.getMeterId())
@@ -75,6 +140,12 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
                 
         if (Boolean.TRUE.equals(meter.getIsDeleted())) {
             throw new AppException(ErrorCode.UTILITY_METER_NOT_FOUND, "Cannot add reading to a deleted meter");
+        }
+
+        validateWriteScope(meter.getHotel().getId());
+
+        if (repository.existsByMeterIdAndReadingDateAndIsDeletedFalse(request.getMeterId(), request.getReadingDate())) {
+            throw new AppException(ErrorCode.UTILITY_READING_ALREADY_EXISTS, "Reading already exists for this date");
         }
 
         repository.findPreviousReading(meter.getId(), request.getReadingDate())
@@ -99,13 +170,25 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
         reading.setMeter(meter);
         reading.setRecordedBy(resolveCurrentStaffId()); 
         
-        return mapToResponseWithUsage(repository.save(reading));
+        UtilityReading savedReading;
+        try {
+            savedReading = repository.saveAndFlush(reading);
+        } catch (DataIntegrityViolationException ex) {
+            if (isUniqueReadingViolation(ex)) {
+                throw new AppException(ErrorCode.UTILITY_READING_ALREADY_EXISTS,
+                        "Đã có chỉ số ghi nhận cho đồng hồ này trong ngày (xung đột dữ liệu đồng thời)");
+            }
+            throw ex;
+        }
+
+        return mapToResponseWithUsage(savedReading);
     }
 
     @Override
     @Transactional
     public UtilityReadingResponse update(Long id, UtilityReadingUpdateRequest request) {
         UtilityReading reading = getReadingOrThrow(id);
+        validateWriteScope(reading.getMeter().getHotel().getId());
         
         repository.findPreviousReading(reading.getMeter().getId(), reading.getReadingDate())
                 .ifPresent(prev -> {
@@ -135,18 +218,25 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
     @Override
     @Transactional
     public void delete(List<Long> ids) {
-        List<UtilityReading> readings = repository.findAllById(ids);
-        readings.forEach(r -> r.setIsDeleted(true));
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+        if (!SecurityUtils.hasRole("CHAIN_ADMIN") && !SecurityUtils.hasRole("PROPERTY_MANAGER") && !SecurityUtils.hasRole("ENGINEERING")) {
+            throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền thực hiện hành động này");
+        }
+        List<UtilityReading> readings = repository.findAllByIdInWithMeterAndHotel(ids);
+        for (UtilityReading reading : readings) {
+            validateWriteScope(reading.getMeter().getHotel().getId());
+        }
+        for (UtilityReading reading : readings) {
+            reading.setIsDeleted(true);
+        }
         repository.saveAll(readings);
     }
 
     private UtilityReading getReadingOrThrow(Long id) {
-        UtilityReading reading = repository.findById(id)
+        return repository.findByIdWithMeterAndHotelAndRegion(id)
                 .orElseThrow(() -> new AppException(ErrorCode.UTILITY_READING_NOT_FOUND, "Reading not found"));
-        if (Boolean.TRUE.equals(reading.getIsDeleted())) {
-            throw new AppException(ErrorCode.UTILITY_READING_NOT_FOUND, "Reading not found");
-        }
-        return reading;
     }
     
     private UtilityReadingResponse mapToResponseWithUsage(UtilityReading reading) {
@@ -159,7 +249,6 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
                 .ifPresentOrElse(
                     prev -> {
                         BigDecimal usage = reading.getReadingValue().subtract(prev.getReadingValue());
-                        // If negative (meter went backwards without reset flag), just use 0 or current value
                         response.setUsage(usage.compareTo(BigDecimal.ZERO) >= 0 ? usage : BigDecimal.ZERO);
                     },
                     () -> response.setUsage(reading.getReadingValue())
@@ -180,13 +269,88 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
         return response;
     }
 
-    private Integer resolveCurrentStaffId() {
+    private void validateReadScope(Hotel hotel) {
+        if (SecurityUtils.hasRole("CHAIN_ADMIN")) {
+            return;
+        }
+        if (SecurityUtils.hasRole("PROPERTY_MANAGER") || SecurityUtils.hasRole("ENGINEERING")) {
+            Staff staff = resolveCurrentStaff();
+            if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
+            }
+            if (!hotel.getId().equals(staff.getScopeEntityId().shortValue())) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Không có quyền truy cập chỉ số thuộc khách sạn khác");
+            }
+            return;
+        }
+        if (SecurityUtils.hasRole("REGION_MANAGER")) {
+            Staff staff = resolveCurrentStaff();
+            if (!"REGION".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
+            }
+            if (!hotel.getRegion().getId().equals(staff.getScopeEntityId().shortValue())) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Chỉ số không thuộc vùng quản lý");
+            }
+            return;
+        }
+        throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền thực hiện hành động này");
+    }
+
+    private void validateWriteScope(Short hotelId) {
+        if (SecurityUtils.hasRole("CHAIN_ADMIN")) {
+            return;
+        }
+        if (SecurityUtils.hasRole("PROPERTY_MANAGER") || SecurityUtils.hasRole("ENGINEERING")) {
+            Staff staff = resolveCurrentStaff();
+            if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
+            }
+            if (!staff.getScopeEntityId().equals(hotelId.intValue())) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Không có quyền thao tác trên khách sạn khác");
+            }
+            return;
+        }
+        if (SecurityUtils.hasRole("REGION_MANAGER")) {
+            throw new AppException(ErrorCode.UNAUTHORIZED, "Quản lý vùng không có quyền thêm/sửa/xóa chỉ số");
+        }
+        throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền thực hiện hành động này");
+    }
+
+    private Staff resolveCurrentStaff() {
         return SecurityUtils.getCurrentUserKeycloakId()
                 .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)
-                .map(Staff::getId)
                 .or(() -> SecurityUtils.getCurrentUsername()
-                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse)
-                        .map(Staff::getId))
+                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse))
                 .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND, "Không tìm thấy thông tin nhân viên từ phiên đăng nhập"));
+    }
+
+    private Integer resolveCurrentStaffId() {
+        return resolveCurrentStaff().getId();
+    }
+
+    private Pageable buildPageable(UtilityReadingSearchDto request) {
+        int page = request.getPage() != null && request.getPage() >= 0 ? request.getPage() : 0;
+        int pageSize = request.getPageSize() != null && request.getPageSize() > 0 ? request.getPageSize() : 10;
+
+        String requestedSort = request.getSortBy();
+        String sortProperty = (requestedSort != null && ALLOWED_READING_SORTS.contains(requestedSort)) ? requestedSort : "readingDate";
+
+        Sort.Direction direction = "ASC".equalsIgnoreCase(request.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC;
+
+        Sort sort = Sort.by(direction, sortProperty);
+        if (!"id".equals(sortProperty)) {
+            sort = sort.and(Sort.by(Sort.Direction.DESC, "id"));
+        }
+
+        return PageRequest.of(page, pageSize, sort);
+    }
+
+    private boolean isUniqueReadingViolation(DataIntegrityViolationException ex) {
+        String msg = ex.getMessage();
+        Throwable root = ex.getRootCause();
+        String rootMsg = root != null ? root.getMessage() : "";
+        String full = ((msg != null ? msg : "") + " " + (rootMsg != null ? rootMsg : "")).toLowerCase();
+        return full.contains("uq_utility_reading")
+                || (full.contains("23505") && full.contains("utility_reading"));
     }
 }

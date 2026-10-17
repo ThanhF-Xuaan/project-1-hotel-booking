@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261017-200000-fix-utility-reading-soft-delete-unique" author="member1"
+               logicalFilePath="db/changelogs/incremental/2026/20261017-200000-fix-utility-reading-soft-delete-unique.xml">
+        <comment>T04: Chuyen unique constraint utility_readings sang partial index cho phep soft-delete khong chiem ngay</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261017-200000-fix-utility-reading-soft-delete-unique.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+        <rollback>
+            <sql splitStatements="false" stripComments="false">
+                <![CDATA[
+                DO $$
+                DECLARE
+                    v_duplicate_count INT;
+                BEGIN
+                    SELECT count(*) INTO v_duplicate_count
+                    FROM (
+                        SELECT meter_id, reading_date
+                        FROM utility_readings
+                        GROUP BY meter_id, reading_date
+                        HAVING count(*) > 1
+                    ) dupes;
+
+                    IF v_duplicate_count > 0 THEN
+                        RAISE EXCEPTION 'KHONG THE ROLLBACK: Ton tai % cap (meter_id, reading_date) trung lap giua ban ghi hoat dong va ban ghi xoa mem. Can DBA xu ly thu cong de dam bao toan ven du lieu.', v_duplicate_count;
+                    END IF;
+                END $$;
+                ]]>
+            </sql>
+            <sql splitStatements="false" stripComments="false">
+                ALTER TABLE utility_readings ADD CONSTRAINT uq_utility_reading_per_day UNIQUE (meter_id, reading_date);
+            </sql>
+            <sql splitStatements="false" stripComments="false">
+                DROP INDEX IF EXISTS uq_utility_reading_active_per_day;
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

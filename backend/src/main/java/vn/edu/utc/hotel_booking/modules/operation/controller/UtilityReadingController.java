@@ -27,7 +27,7 @@ public class UtilityReadingController {
     @PostMapping("/filter")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER')")
     @Operation(summary = "Lọc danh sách chỉ số đọc")
-    public ApiResponse<PageResponse<UtilityReadingResponse>> search(@RequestBody UtilityReadingSearchDto request) {
+    public ApiResponse<PageResponse<UtilityReadingResponse>> search(@Valid @RequestBody UtilityReadingSearchDto request) {
         return ApiResponse.<PageResponse<UtilityReadingResponse>>builder()
                 .result(service.search(request))
                 .build();
