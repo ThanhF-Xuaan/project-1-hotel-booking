@@ -15,14 +15,34 @@ import java.util.Optional;
 @Repository
 public interface UtilityReadingRepository extends JpaRepository<UtilityReading, Long> {
 
-    @Query("SELECT r FROM UtilityReading r WHERE r.isDeleted = false " +
-           "AND (:meterId IS NULL OR r.meter.id = :meterId) " +
-           "AND (cast(:fromDate as date) IS NULL OR r.readingDate >= :fromDate) " +
-           "AND (cast(:toDate as date) IS NULL OR r.readingDate <= :toDate)")
+    @Query(value = "SELECT r FROM UtilityReading r " +
+                   "JOIN FETCH r.meter m " +
+                   "JOIN FETCH m.hotel h " +
+                   "WHERE r.isDeleted = false " +
+                   "AND (:meterId IS NULL OR m.id = :meterId) " +
+                   "AND (:hotelId IS NULL OR h.id = :hotelId) " +
+                   "AND (:regionId IS NULL OR h.region.id = :regionId) " +
+                   "AND (cast(:fromDate as date) IS NULL OR r.readingDate >= :fromDate) " +
+                   "AND (cast(:toDate as date) IS NULL OR r.readingDate <= :toDate)",
+           countQuery = "SELECT count(r) FROM UtilityReading r " +
+                        "WHERE r.isDeleted = false " +
+                        "AND (:meterId IS NULL OR r.meter.id = :meterId) " +
+                        "AND (:hotelId IS NULL OR r.meter.hotel.id = :hotelId) " +
+                        "AND (:regionId IS NULL OR r.meter.hotel.region.id = :regionId) " +
+                        "AND (cast(:fromDate as date) IS NULL OR r.readingDate >= :fromDate) " +
+                        "AND (cast(:toDate as date) IS NULL OR r.readingDate <= :toDate)")
     Page<UtilityReading> search(@Param("meterId") Integer meterId, 
+                                @Param("hotelId") Short hotelId,
+                                @Param("regionId") Short regionId,
                                 @Param("fromDate") LocalDate fromDate, 
                                 @Param("toDate") LocalDate toDate, 
                                 Pageable pageable);
+
+    @Query("SELECT r FROM UtilityReading r JOIN FETCH r.meter m JOIN FETCH m.hotel h JOIN FETCH h.region WHERE r.id = :id AND r.isDeleted = false")
+    Optional<UtilityReading> findByIdWithMeterAndHotelAndRegion(@Param("id") Long id);
+
+    @Query("SELECT r FROM UtilityReading r JOIN FETCH r.meter m JOIN FETCH m.hotel h WHERE r.id IN :ids")
+    List<UtilityReading> findAllByIdInWithMeterAndHotel(@Param("ids") List<Long> ids);
                                 
     boolean existsByMeterIdAndReadingDateAndIsDeletedFalse(Integer meterId, LocalDate readingDate);
     

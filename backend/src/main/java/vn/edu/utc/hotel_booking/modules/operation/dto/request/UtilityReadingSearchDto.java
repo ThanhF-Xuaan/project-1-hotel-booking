@@ -19,6 +19,12 @@ public class UtilityReadingSearchDto extends BaseSearchDto {
     @Schema(description = "ID đồng hồ", example = "1")
     Integer meterId;
     
+    @Schema(description = "ID khách sạn", example = "1")
+    Short hotelId;
+
+    @Schema(description = "ID khu vực", example = "1")
+    Short regionId;
+
     @Schema(description = "Từ ngày", example = "2023-01-01")
     LocalDate fromDate;
     

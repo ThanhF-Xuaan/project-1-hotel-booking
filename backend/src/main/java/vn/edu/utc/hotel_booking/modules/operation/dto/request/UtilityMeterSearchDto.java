@@ -17,6 +17,9 @@ public class UtilityMeterSearchDto extends BaseSearchDto {
     
     @Schema(description = "ID khách sạn", example = "1")
     Short hotelId;
+
+    @Schema(description = "ID khu vực", example = "1")
+    Short regionId;
     
     @Schema(description = "Loại đồng hồ", example = "ELECTRICITY")
     MeterType meterType;

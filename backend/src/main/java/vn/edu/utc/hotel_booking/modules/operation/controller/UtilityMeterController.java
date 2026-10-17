@@ -27,7 +27,7 @@ public class UtilityMeterController {
     @PostMapping("/filter")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER')")
     @Operation(summary = "Lọc danh sách đồng hồ")
-    public ApiResponse<PageResponse<UtilityMeterResponse>> search(@RequestBody UtilityMeterSearchDto request) {
+    public ApiResponse<PageResponse<UtilityMeterResponse>> search(@Valid @RequestBody UtilityMeterSearchDto request) {
         return ApiResponse.<PageResponse<UtilityMeterResponse>>builder()
                 .result(service.search(request))
                 .build();
