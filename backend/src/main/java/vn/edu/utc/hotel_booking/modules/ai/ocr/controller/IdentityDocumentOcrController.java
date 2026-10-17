@@ -62,7 +62,7 @@ public class IdentityDocumentOcrController {
     @PostMapping("/extract")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extract(
             @Valid @RequestBody OcrDocumentExtractRequestDto request) {
-        log.debug("U13 OCR /extract: fileName={}", request.getFileName());
+        log.debug("U13 OCR /extract request received");
         OcrStayGuestDraftDto draft = ocrVisionPort.extract(request);
         return ResponseEntity.ok(ApiResponse.success(draft));
     }
@@ -112,7 +112,7 @@ public class IdentityDocumentOcrController {
             log.warn("U13 OCR: không đọc được header bytes");
         }
 
-        log.debug("U13 OCR /extract-file: fileName={}, size={}", request.getFileName(), file.getSize());
+        log.debug("U13 OCR /extract-file: sizeBytes={}", file.getSize());
         OcrStayGuestDraftDto draft = ocrVisionPort.extract(request);
         return ResponseEntity.ok(ApiResponse.success(draft));
     }

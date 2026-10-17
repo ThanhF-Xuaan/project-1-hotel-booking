@@ -17,8 +17,15 @@ import vn.edu.utc.hotel_booking.modules.ai.ocr.enums.OcrExtractionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.port.OcrVisionPort;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.validator.OcrUploadValidator;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.slf4j.LoggerFactory;
+
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -191,6 +198,99 @@ class IdentityDocumentOcrControllerTest {
         org.junit.jupiter.api.Assertions.assertTrue(
                 preAuth.value().contains("RECEPTIONIST"),
                 "@PreAuthorize phải bao gồm RECEPTIONIST");
+    }
+
+    // =====================================================================
+    // TC-26: /extract – Không ghi log tên file chứa PII (khắc phục LOW-01)
+    // =====================================================================
+
+    @Test
+    @DisplayName("TC-26: POST /extract – không ghi log tên file chứa thông tin PII giả lập")
+    void tc26_extract_doesNotLogRawFileNameWithPii() throws Exception {
+        Logger controllerLogger = (Logger) LoggerFactory.getLogger(IdentityDocumentOcrController.class);
+        ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
+        listAppender.start();
+        controllerLogger.addAppender(listAppender);
+        Level originalLevel = controllerLogger.getLevel();
+        controllerLogger.setLevel(Level.DEBUG);
+
+        try {
+            when(ocrVisionPort.extract(any())).thenReturn(buildSuccessDraft());
+
+            String sensitiveFileName = "CCCD_079201012345_NGUYEN_VAN_TEST.jpg";
+            OcrDocumentExtractRequestDto req = buildValidRequest();
+            req.setFileName(sensitiveFileName);
+
+            mockMvc.perform(post("/api/v1/ai/ocr/extract")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(req)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200));
+
+            boolean leakedSensitiveFileName = listAppender.list.stream()
+                    .anyMatch(event -> event.getFormattedMessage().contains("079201012345")
+                            || event.getFormattedMessage().contains("NGUYEN_VAN_TEST"));
+            assertThat(leakedSensitiveFileName)
+                    .as("Log không được chứa số CCCD hoặc tên trong fileName")
+                    .isFalse();
+
+            boolean hasSafeMessage = listAppender.list.stream()
+                    .anyMatch(event -> event.getFormattedMessage().contains("U13 OCR /extract request received"));
+            assertThat(hasSafeMessage)
+                    .as("Log phải chứa thông báo tĩnh an toàn")
+                    .isTrue();
+        } finally {
+            controllerLogger.setLevel(originalLevel);
+            controllerLogger.detachAppender(listAppender);
+            listAppender.stop();
+        }
+    }
+
+    // =====================================================================
+    // TC-27: /extract-file – Không ghi log tên file chứa PII (khắc phục LOW-01)
+    // =====================================================================
+
+    @Test
+    @DisplayName("TC-27: POST /extract-file – không ghi log tên file chứa thông tin PII giả lập")
+    void tc27_extractFile_doesNotLogRawFileNameWithPii() throws Exception {
+        Logger controllerLogger = (Logger) LoggerFactory.getLogger(IdentityDocumentOcrController.class);
+        ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
+        listAppender.start();
+        controllerLogger.addAppender(listAppender);
+        Level originalLevel = controllerLogger.getLevel();
+        controllerLogger.setLevel(Level.DEBUG);
+
+        try {
+            when(uploadValidator.validate(any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
+            when(ocrVisionPort.extract(any())).thenReturn(buildSuccessDraft());
+
+            String sensitiveFileName = "PASSPORT_B9876543_JOHN_TEST.jpg";
+            byte[] jpegHeader = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0,
+                    0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01};
+            MockMultipartFile file = new MockMultipartFile("file", sensitiveFileName, "image/jpeg", jpegHeader);
+
+            mockMvc.perform(multipart("/api/v1/ai/ocr/extract-file")
+                            .file(file))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.code").value(200));
+
+            boolean leakedSensitiveFileName = listAppender.list.stream()
+                    .anyMatch(event -> event.getFormattedMessage().contains("B9876543")
+                            || event.getFormattedMessage().contains("JOHN_TEST"));
+            assertThat(leakedSensitiveFileName)
+                    .as("Log không được chứa số Passport hoặc tên trong fileName")
+                    .isFalse();
+
+            boolean hasSafeMessage = listAppender.list.stream()
+                    .anyMatch(event -> event.getFormattedMessage().contains("U13 OCR /extract-file: sizeBytes="));
+            assertThat(hasSafeMessage)
+                    .as("Log phải chứa thông báo sizeBytes an toàn")
+                    .isTrue();
+        } finally {
+            controllerLogger.setLevel(originalLevel);
+            controllerLogger.detachAppender(listAppender);
+            listAppender.stop();
+        }
     }
 
     // =====================================================================
