@@ -7,19 +7,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomOccupancyDto;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
-import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomSlot;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomSlotRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.RoomStatusUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.RoomHousekeepingStatusResponse;
 import vn.edu.utc.hotel_booking.modules.operation.service.HousekeepingService;
 
-import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -28,53 +26,51 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class HousekeepingServiceImpl implements HousekeepingService {
 
-    RoomInstanceRepository roomInstanceRepository;
-    RoomSlotRepository roomSlotRepository;
-    BookingRoomRepository bookingRoomRepository;
+    RoomInstanceService roomInstanceService;
+    RoomSlotService roomSlotService;
+    BookingLookupService bookingLookupService;
 
     private static final Set<String> VALID_STATUSES = Set.of("READY", "OCCUPIED", "CLEANING", "DIRTY", "MAINTENANCE");
 
     @Override
     public List<RoomHousekeepingStatusResponse> getRoomsByHotel(Short hotelId, String status) {
-        List<RoomInstance> rooms;
-        if (status != null && !status.isBlank()) {
-            rooms = roomInstanceRepository.findAll().stream()
-                    .filter(r -> !r.getIsDeleted() && r.getHotel().getId().equals(hotelId) && r.getCurrentStatus().equalsIgnoreCase(status.trim()))
-                    .toList();
-        } else {
-            rooms = roomInstanceRepository.findAll().stream()
-                    .filter(r -> !r.getIsDeleted() && r.getHotel().getId().equals(hotelId))
-                    .toList();
-        }
+        List<RoomInstance> rooms = roomInstanceService.getRoomsByHotelAndStatus(hotelId, status);
 
-        return rooms.stream().map(this::mapToHousekeepingResponse).toList();
+        // Lấy danh sách ID phòng OCCUPIED để batch lookup thông tin lưu trú chống N+1
+        List<Integer> occupiedRoomIds = rooms.stream()
+                .filter(r -> "OCCUPIED".equalsIgnoreCase(r.getCurrentStatus()))
+                .map(RoomInstance::getId)
+                .toList();
+
+        Map<Integer, RoomOccupancyDto> occupancyMap = bookingLookupService.getActiveOccupanciesByRoomInstanceIds(occupiedRoomIds);
+
+        return rooms.stream()
+                .map(room -> mapToHousekeepingResponse(room, occupancyMap.get(room.getId())))
+                .toList();
     }
 
     @Override
     @Transactional
     public RoomHousekeepingStatusResponse updateRoomStatus(Integer roomInstanceId, RoomStatusUpdateRequest request) {
-        RoomInstance room = roomInstanceRepository.findByIdWithDetails(roomInstanceId)
-                .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng: " + roomInstanceId));
-
         String newStatus = request.getStatus().trim().toUpperCase();
         if (!VALID_STATUSES.contains(newStatus)) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Trạng thái không hợp lệ. Các trạng thái hợp lệ: " + VALID_STATUSES);
         }
 
-        room.setCurrentStatus(newStatus);
-        roomInstanceRepository.save(room);
+        RoomInstance room = roomInstanceService.updateRoomStatusEntity(roomInstanceId, newStatus);
 
-        // Đồng bộ trạng thái vào RoomSlot hôm nay nếu tồn tại
-        LocalDate today = LocalDate.now();
-        roomSlotRepository.findByRoomInstanceIdAndSlotDate(roomInstanceId, today).ifPresent(slot -> {
-            slot.setStatus(newStatus);
-            roomSlotRepository.save(slot);
-        });
+        // Đồng bộ trạng thái vào RoomSlot hôm nay qua RoomSlotService
+        roomSlotService.updateTodaySlotStatus(roomInstanceId, newStatus);
 
-        return mapToHousekeepingResponse(room);
+        RoomOccupancyDto occupancy = null;
+        if ("OCCUPIED".equalsIgnoreCase(newStatus)) {
+            occupancy = bookingLookupService.getActiveOccupancyByRoomInstanceId(roomInstanceId);
+        }
+
+        return mapToHousekeepingResponse(room, occupancy);
     }
 
-    private RoomHousekeepingStatusResponse mapToHousekeepingResponse(RoomInstance room) {
+    private RoomHousekeepingStatusResponse mapToHousekeepingResponse(RoomInstance room, RoomOccupancyDto occupancy) {
         RoomHousekeepingStatusResponse.RoomHousekeepingStatusResponseBuilder builder = RoomHousekeepingStatusResponse.builder()
                 .roomInstanceId(room.getId())
                 .roomNumber(room.getRoomNumber())
@@ -89,24 +85,10 @@ public class HousekeepingServiceImpl implements HousekeepingService {
             }
         }
 
-        // Tìm thông tin khách đang ở nếu trạng thái là OCCUPIED
-        List<BookingRoom> activeRooms = bookingRoomRepository.findByRoomInstanceIdAndStatusIn(
-                room.getId(),
-                List.of(BookingRoomStatus.CHECKED_IN)
-        );
-
-        if (!activeRooms.isEmpty()) {
-            BookingRoom activeBr = activeRooms.get(0);
-            if (activeBr.getBookingDetail() != null && activeBr.getBookingDetail().getBooking() != null) {
-                var booking = activeBr.getBookingDetail().getBooking();
-                builder.bookingNumber(booking.getBookingNumber());
-                builder.checkOutDate(activeBr.getBookingDetail().getCheckOutDate());
-                if (activeBr.getBookingGuests() != null && !activeBr.getBookingGuests().isEmpty()) {
-                    builder.guestName(activeBr.getBookingGuests().get(0).getFullName());
-                } else if (booking.getGuest() != null) {
-                    builder.guestName(booking.getGuest().getPhone());
-                }
-            }
+        if (occupancy != null) {
+            builder.bookingNumber(occupancy.getBookingNumber());
+            builder.checkOutDate(occupancy.getCheckOutDate());
+            builder.guestName(occupancy.getGuestName());
         }
 
         return builder.build();

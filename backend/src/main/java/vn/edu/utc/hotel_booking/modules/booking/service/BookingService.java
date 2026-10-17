@@ -18,6 +18,8 @@ public interface BookingService {
 
     vn.edu.utc.hotel_booking.modules.booking.entity.Booking getEntityById(Long id);
 
+    vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom getBookingRoomEntityById(Long id);
+
     BookingResponse getByBookingNumber(String bookingNumber);
 
     BookingResponse updateStatus(Long id, BookingStatus status);
@@ -29,4 +31,8 @@ public interface BookingService {
     BookingResponse checkIn(Long bookingRoomId);
 
     BookingResponse checkOut(Long bookingRoomId);
+
+    BookingResponse confirmOnlineBooking(String sessionId, Long paymentId);
+
+    int processNoShowBookings(Short hotelId, java.time.LocalDate auditDate);
 }

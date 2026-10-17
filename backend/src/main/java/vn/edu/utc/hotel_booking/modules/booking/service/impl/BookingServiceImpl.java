@@ -20,25 +20,32 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeRespon
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
 import vn.edu.utc.hotel_booking.modules.booking.mapper.BookingMapper;
-import vn.edu.utc.hotel_booking.modules.booking.repository.*;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingChargeService;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingRoomService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Company;
 import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
-import vn.edu.utc.hotel_booking.modules.identity.repository.CompanyRepository;
-import vn.edu.utc.hotel_booking.modules.identity.repository.GuestRepository;
+import vn.edu.utc.hotel_booking.modules.identity.service.CompanyService;
+import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomSlot;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomSlotRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
+import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderCreateRequest;
+import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
-import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
+import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PriceCalculationRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.DailyPriceDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PriceBreakdownDto;
 import vn.edu.utc.hotel_booking.modules.pricing.service.PriceEngine;
+import vn.edu.utc.hotel_booking.modules.pricing.service.TaxCategoryService;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VoucherService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -47,8 +54,23 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.LeadGuestRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.CartPriceQuoteResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.ItemizedSurchargeDto;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomPriceQuoteResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.session.BookingDraftSession;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType;
+import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
+
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -56,38 +78,34 @@ import java.util.Optional;
 public class BookingServiceImpl implements BookingService {
 
     BookingRepository bookingRepository;
-    BookingDetailRepository bookingDetailRepository;
-    BookingRoomRepository bookingRoomRepository;
-    StayGuestRepository stayGuestRepository;
-    BookingDailyRateRepository bookingDailyRateRepository;
-    BookingChargeRepository bookingChargeRepository;
 
-    HotelRepository hotelRepository;
-    GuestRepository guestRepository;
-    CompanyRepository companyRepository;
-    HotelRoomTypeRepository hotelRoomTypeRepository;
-    RoomInstanceRepository roomInstanceRepository;
-    RoomSlotRepository roomSlotRepository;
-
+    BookingRoomService bookingRoomService;
+    BookingChargeService bookingChargeService;
+    HotelService hotelService;
+    GuestService guestService;
+    CompanyService companyService;
+    HotelRoomTypeService hotelRoomTypeService;
+    RoomInstanceService roomInstanceService;
+    RoomSlotService roomSlotService;
     RoomAvailabilityService roomAvailabilityService;
     PriceEngine priceEngine;
+    TaxCategoryService taxCategoryService;
+    VatRuleService vatRuleService;
+    VoucherService voucherService;
+    ServiceOrderService serviceOrderService;
     BookingMapper bookingMapper;
-    vn.edu.utc.hotel_booking.modules.pricing.repository.TaxCategoryRepository taxCategoryRepository;
-    vn.edu.utc.hotel_booking.modules.pricing.repository.VatRuleRepository vatRuleRepository;
+    StringRedisTemplate redisTemplate;
+    ObjectMapper objectMapper;
 
     @Override
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest request) {
-        Hotel hotel = hotelRepository.findByIdAndIsDeletedFalse(request.getHotelId())
-                .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn ID: " + request.getHotelId()));
-
-        BookingGuest guest = guestRepository.findByIdAndIsDeletedFalse(request.getGuestId())
-                .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND, "Không tìm thấy thông tin khách hàng ID: " + request.getGuestId()));
+        Hotel hotel = hotelService.getEntityById(request.getHotelId());
+        BookingGuest guest = guestService.getEntityById(request.getGuestId());
 
         Company company = null;
         if (request.getCompanyId() != null) {
-            company = companyRepository.findByIdAndIsDeletedFalse(request.getCompanyId())
-                .orElseThrow(() -> new AppException(ErrorCode.COMPANY_NOT_FOUND, "Không tìm thấy doanh nghiệp đối tác ID: " + request.getCompanyId()));
+            company = companyService.getEntityById(request.getCompanyId());
         }
 
         String bookingNumber = generateBookingNumber();
@@ -121,9 +139,7 @@ public class BookingServiceImpl implements BookingService {
                         "Ngày nhận phòng (" + roomReq.getCheckInDate() + ") phải trước ngày trả phòng (" + roomReq.getCheckOutDate() + ")");
             }
 
-            HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdAndIsDeletedFalse(roomReq.getHotelRoomTypeId())
-                    .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND,
-                            "Không tìm thấy cấu hình loại phòng: " + roomReq.getHotelRoomTypeId()));
+            HotelRoomType hotelRoomType = hotelRoomTypeService.getEntityById(roomReq.getHotelRoomTypeId());
 
             // Kiểm tra ràng buộc sức chứa (Capacity Constraints)
             short reqAdults = roomReq.getAdultCount() != null ? roomReq.getAdultCount() : (short) 1;
@@ -185,12 +201,10 @@ public class BookingServiceImpl implements BookingService {
                 RoomInstance assignedRoom = null;
                 // Nếu là walk-in hoặc có chỉ định phòng vật lý
                 if (i == 0 && roomReq.getRoomInstanceId() != null) {
-                    assignedRoom = roomInstanceRepository.findByIdAndIsDeletedFalse(roomReq.getRoomInstanceId())
-                            .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND,
-                                    "Không tìm thấy phòng vật lý: " + roomReq.getRoomInstanceId()));
+                    assignedRoom = roomInstanceService.getEntityById(roomReq.getRoomInstanceId());
 
                     // Sequential Lock ordering: Kiểm tra xem phòng có bị trùng lịch không
-                    List<BookingRoom> overlapping = bookingRoomRepository.findOverlappingAssignedRooms(
+                    List<BookingRoom> overlapping = bookingRoomService.findOverlappingAssignedRooms(
                             assignedRoom.getId(), roomReq.getCheckInDate(), roomReq.getCheckOutDate());
                     if (!overlapping.isEmpty()) {
                         throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
@@ -214,11 +228,11 @@ public class BookingServiceImpl implements BookingService {
                         .assignedAt(assignedRoom != null ? OffsetDateTime.now() : null)
                         .build();
 
-                // Tạo danh sách khách lưu trú
-                List<StayGuest> bookingGuests = new ArrayList<>();
+                // Tạo danh sách khách lưu trú (StayGuest trong bảng stay_guests)
+                List<StayGuest> stayGuests = new ArrayList<>();
                 if (roomReq.getGuests() != null && !roomReq.getGuests().isEmpty()) {
                     for (BookingCreateRequest.GuestItemRequest gReq : roomReq.getGuests()) {
-                        StayGuest bg = StayGuest.builder()
+                        StayGuest sg = StayGuest.builder()
                                 .bookingRoom(bookingRoom)
                                 .firstName(gReq.getFirstName() != null ? gReq.getFirstName() : "")
                                 .lastName(gReq.getLastName() != null ? gReq.getLastName() : "")
@@ -228,28 +242,25 @@ public class BookingServiceImpl implements BookingService {
                                 .documentNumber(gReq.getIdentityNumber())
                                 .build();
                         if (gReq.getIdentityType() != null) {
-                            bg.setIdentityType(gReq.getIdentityType());
+                            sg.setIdentityType(gReq.getIdentityType());
                         }
-                        bookingGuests.add(bg);
+                        stayGuests.add(sg);
                     }
                 }
-                bookingRoom.setStayGuests(bookingGuests);
+                bookingRoom.setStayGuests(stayGuests);
 
                 // Tạo Snapshot giá chi tiết từng đêm (BookingDailyRate)
                 List<BookingDailyRate> dailyRates = new ArrayList<>();
                 BigDecimal roomSubtotal = BigDecimal.ZERO;
                 BigDecimal roomVat = BigDecimal.ZERO;
 
-                vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory taxCategory = null;
+                TaxCategory taxCategory = null;
                 BigDecimal vatPercent = BigDecimal.valueOf(10); // 10% default
                 if (hotelRoomType.getTaxCategoryId() != null) {
-                    taxCategory = taxCategoryRepository.findById(hotelRoomType.getTaxCategoryId()).orElse(null);
-                    if (taxCategory != null) {
-                        Optional<vn.edu.utc.hotel_booking.modules.pricing.entity.VatRule> optVat =
-                                vatRuleRepository.findActiveVatRule(taxCategory.getId(), roomReq.getCheckInDate());
-                        if (optVat.isPresent()) {
-                            vatPercent = optVat.get().getVatPercent();
-                        }
+                    taxCategory = taxCategoryService.getEntityById(hotelRoomType.getTaxCategoryId());
+                    BigDecimal activeVat = vatRuleService.getActiveVatPercent(hotelRoomType.getTaxCategoryId(), roomReq.getCheckInDate());
+                    if (activeVat != null && activeVat.compareTo(BigDecimal.ZERO) > 0) {
+                        vatPercent = activeVat;
                     }
                 }
 
@@ -310,29 +321,12 @@ public class BookingServiceImpl implements BookingService {
         for (BookingDetail d : saved.getBookingDetails()) {
             for (BookingRoom br : d.getBookingRooms()) {
                 if (br.getRoomInstance() != null) {
-                    createRoomSlotsForAssignedRoom(br.getRoomInstance(), d.getCheckInDate(), d.getCheckOutDate(), br.getId());
+                    roomSlotService.createOrReserveSlots(br.getRoomInstance(), d.getCheckInDate(), d.getCheckOutDate(), br.getId());
                 }
             }
         }
 
         return bookingMapper.toResponse(saved);
-    }
-
-        private void createRoomSlotsForAssignedRoom(RoomInstance roomInstance, LocalDate checkIn, LocalDate checkOut, Long bookingRoomId) {
-        LocalDate cur = checkIn;
-        while (cur.isBefore(checkOut)) {
-            LocalDate slotDate = cur; // biến effectively final để dùng trong lambda
-            Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(roomInstance.getId(), slotDate);
-            RoomSlot slot = optSlot.orElseGet(() -> RoomSlot.builder()
-                    .roomInstance(roomInstance)
-                    .slotDate(slotDate)
-                    .build());
-            slot.setStatus("RESERVED");
-            slot.setBookingRoomId(bookingRoomId);
-            slot.setReservedAt(OffsetDateTime.now());
-            roomSlotRepository.save(slot);
-            cur = cur.plusDays(1);
-        }
     }
 
     @Override
@@ -380,6 +374,14 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    public BookingRoom getBookingRoomEntityById(Long id) {
+        if (id == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID phòng đặt (BookingRoom) không được để trống");
+        }
+        return bookingRoomService.getEntityById(id);
+    }
+
+    @Override
     public BookingResponse getByBookingNumber(String bookingNumber) {
         Booking booking = bookingRepository.findByBookingNumber(bookingNumber)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + bookingNumber));
@@ -399,7 +401,7 @@ public class BookingServiceImpl implements BookingService {
                 for (BookingRoom br : detail.getBookingRooms()) {
                     br.setStatus(BookingRoomStatus.CANCELLED);
                     if (br.getRoomInstance() != null) {
-                        releaseRoomSlots(br.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
+                        roomSlotService.releaseSlots(br.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
                     }
                 }
             }
@@ -409,36 +411,16 @@ public class BookingServiceImpl implements BookingService {
         return bookingMapper.toResponse(saved);
     }
 
-    private void releaseRoomSlots(Integer roomInstanceId, LocalDate checkIn, LocalDate checkOut) {
-        LocalDate cur = checkIn;
-        while (cur.isBefore(checkOut)) {
-            Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(roomInstanceId, cur);
-            if (optSlot.isPresent()) {
-                RoomSlot slot = optSlot.get();
-                slot.setStatus("READY");
-                slot.setBookingRoomId(null);
-                slot.setReservedAt(null);
-                roomSlotRepository.save(slot);
-            }
-            cur = cur.plusDays(1);
-        }
-    }
-
     @Override
     @Transactional
     public BookingResponse assignRoom(Long bookingRoomId, Integer roomInstanceId) {
-        BookingRoom bookingRoom = bookingRoomRepository.findById(bookingRoomId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND,
-                        "Không tìm thấy phòng đặt ID: " + bookingRoomId));
-
-        RoomInstance roomInstance = roomInstanceRepository.findByIdAndIsDeletedFalse(roomInstanceId)
-                .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND,
-                        "Không tìm thấy phòng vật lý ID: " + roomInstanceId));
+        BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
+        RoomInstance roomInstance = roomInstanceService.getEntityById(roomInstanceId);
 
         BookingDetail detail = bookingRoom.getBookingDetail();
 
         // Kiểm tra xung đột lịch
-        List<BookingRoom> overlapping = bookingRoomRepository.findOverlappingAssignedRooms(
+        List<BookingRoom> overlapping = bookingRoomService.findOverlappingAssignedRooms(
                 roomInstance.getId(), detail.getCheckInDate(), detail.getCheckOutDate());
         for (BookingRoom o : overlapping) {
             if (!o.getId().equals(bookingRoom.getId())) {
@@ -449,14 +431,14 @@ public class BookingServiceImpl implements BookingService {
 
         // Hủy liên kết phòng cũ nếu có
         if (bookingRoom.getRoomInstance() != null) {
-            releaseRoomSlots(bookingRoom.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
+            roomSlotService.releaseSlots(bookingRoom.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
         }
 
         bookingRoom.setRoomInstance(roomInstance);
         bookingRoom.setAssignedAt(OffsetDateTime.now());
-        bookingRoomRepository.save(bookingRoom);
+        bookingRoomService.save(bookingRoom);
 
-        createRoomSlotsForAssignedRoom(roomInstance, detail.getCheckInDate(), detail.getCheckOutDate(), bookingRoom.getId());
+        roomSlotService.createOrReserveSlots(roomInstance, detail.getCheckInDate(), detail.getCheckOutDate(), bookingRoom.getId());
 
         Booking booking = detail.getBooking();
         return bookingMapper.toResponse(booking);
@@ -465,40 +447,15 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingChargeResponse addCharge(Long bookingRoomId, BookingChargeCreateRequest request) {
-        BookingRoom bookingRoom = bookingRoomRepository.findById(bookingRoomId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND,
-                        "Không tìm thấy phòng đặt ID: " + bookingRoomId));
-
-        BigDecimal subtotal = request.getUnitPrice().multiply(BigDecimal.valueOf(request.getQuantity()));
-        BigDecimal serviceFee = subtotal.multiply(request.getServiceFeeRate()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal taxable = subtotal.add(serviceFee);
-        BigDecimal vatAmount = taxable.multiply(request.getVatRate()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-        BigDecimal totalAmount = taxable.add(vatAmount);
-
-        BookingCharge charge = BookingCharge.builder()
-                .bookingRoom(bookingRoom)
-                .chargeType(request.getChargeType())
-                .itemName(request.getItemName())
-                .description(request.getDescription())
-                .quantity(request.getQuantity())
-                .unitPrice(request.getUnitPrice())
-                .subtotal(subtotal)
-                .serviceFeeRate(request.getServiceFeeRate())
-                .serviceFeeAmount(serviceFee)
-                .vatRate(request.getVatRate())
-                .vatAmount(vatAmount)
-                .totalAmount(totalAmount)
-                .issuedAt(OffsetDateTime.now())
-                .build();
-
-        BookingCharge savedCharge = bookingChargeRepository.save(charge);
+        BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
+        BookingCharge savedCharge = bookingChargeService.createCharge(bookingRoom, request);
 
         // Cập nhật tổng tiền đơn đặt phòng
         Booking booking = bookingRoom.getBookingDetail().getBooking();
-        booking.setSubtotalAmount(booking.getSubtotalAmount().add(subtotal));
-        booking.setServiceFeeAmount(booking.getServiceFeeAmount().add(serviceFee));
-        booking.setTotalVatAmount(booking.getTotalVatAmount().add(vatAmount));
-        booking.setTotalAmount(booking.getTotalAmount().add(totalAmount));
+        booking.setSubtotalAmount(booking.getSubtotalAmount().add(savedCharge.getSubtotal()));
+        booking.setServiceFeeAmount(booking.getServiceFeeAmount().add(savedCharge.getServiceFeeAmount()));
+        booking.setTotalVatAmount(booking.getTotalVatAmount().add(savedCharge.getVatAmount()));
+        booking.setTotalAmount(booking.getTotalAmount().add(savedCharge.getTotalAmount()));
         bookingRepository.save(booking);
 
         return bookingMapper.toChargeResponse(savedCharge);
@@ -507,27 +464,15 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse checkIn(Long bookingRoomId) {
-        BookingRoom bookingRoom = bookingRoomRepository.findById(bookingRoomId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND,
-                        "Không tìm thấy phòng đặt ID: " + bookingRoomId));
+        BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
 
         bookingRoom.setStatus(BookingRoomStatus.CHECKED_IN);
         bookingRoom.setActualCheckInAt(OffsetDateTime.now());
-        bookingRoomRepository.save(bookingRoom);
+        bookingRoomService.save(bookingRoom);
 
         if (bookingRoom.getRoomInstance() != null) {
             BookingDetail detail = bookingRoom.getBookingDetail();
-            LocalDate cur = detail.getCheckInDate();
-            while (cur.isBefore(detail.getCheckOutDate())) {
-                Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(
-                        bookingRoom.getRoomInstance().getId(), cur);
-                if (optSlot.isPresent()) {
-                    RoomSlot slot = optSlot.get();
-                    slot.setStatus("OCCUPIED");
-                    roomSlotRepository.save(slot);
-                }
-                cur = cur.plusDays(1);
-            }
+            roomSlotService.occupySlots(bookingRoom.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
         }
 
         return bookingMapper.toResponse(bookingRoom.getBookingDetail().getBooking());
@@ -536,33 +481,325 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional
     public BookingResponse checkOut(Long bookingRoomId) {
-        BookingRoom bookingRoom = bookingRoomRepository.findById(bookingRoomId)
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND,
-                        "Không tìm thấy phòng đặt ID: " + bookingRoomId));
+        BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
 
         bookingRoom.setStatus(BookingRoomStatus.CHECKED_OUT);
         bookingRoom.setActualCheckOutAt(OffsetDateTime.now());
-        bookingRoomRepository.save(bookingRoom);
+        bookingRoomService.save(bookingRoom);
 
         if (bookingRoom.getRoomInstance() != null) {
             BookingDetail detail = bookingRoom.getBookingDetail();
-            LocalDate cur = detail.getCheckInDate();
-            while (cur.isBefore(detail.getCheckOutDate())) {
-                Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(
-                        bookingRoom.getRoomInstance().getId(), cur);
-                if (optSlot.isPresent()) {
-                    RoomSlot slot = optSlot.get();
-                    slot.setStatus("DIRTY"); // Cần dọn phòng sau check-out
-                    roomSlotRepository.save(slot);
-                }
-                cur = cur.plusDays(1);
-            }
+            roomSlotService.markSlotsDirty(bookingRoom.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
         }
 
         return bookingMapper.toResponse(bookingRoom.getBookingDetail().getBooking());
     }
 
+    @Override
+    @Transactional
+    public BookingResponse confirmOnlineBooking(String sessionId, Long paymentId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Mã sessionId không được để trống");
+        }
+
+        String redisKey = "booking:draft:" + sessionId.trim();
+        String json = redisTemplate.opsForValue().get(redisKey);
+        if (json == null || json.isBlank()) {
+            throw new AppException(ErrorCode.BOOKING_SESSION_EXPIRED, "Phiên đặt phòng đã hết hạn hoặc không tồn tại");
+        }
+
+        BookingDraftSession draftSession;
+        try {
+            draftSession = objectMapper.readValue(json, BookingDraftSession.class);
+        } catch (Exception e) {
+            log.error("Failed to parse draft session JSON for session: {}", sessionId, e);
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không thể đọc thông tin phiên đặt phòng");
+        }
+
+        CartPriceQuoteResponse quote = draftSession.getQuoteResponse();
+        if (quote == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phiên đặt phòng không có thông tin báo giá hợp lệ");
+        }
+
+        // 1. Snapshot Lead Guest (booking_guests)
+        LeadGuestRequest leadReq = draftSession.getLeadGuest();
+        if (leadReq == null || leadReq.getPhone() == null || leadReq.getPhone().isBlank()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Thông tin người đại diện đặt phòng không được để trống");
+        }
+
+        String phone = leadReq.getPhone().trim();
+        BookingGuest leadGuest = guestService.getOrCreateGuest(phone, leadReq.getFullName(), leadReq.getEmail(), leadReq.getNationality());
+
+        // 2. Snapshot Hotel
+        Hotel hotel = hotelService.getEntityById(draftSession.getHotelId());
+
+        // 3. Snapshot Booking (bookings)
+        String bookingNumber = generateBookingNumber();
+        BigDecimal serviceFeeRate = new BigDecimal("5.00");
+
+        Booking booking = Booking.builder()
+                .hotel(hotel)
+                .guest(leadGuest)
+                .bookingType(BookingType.FIT)
+                .bookingNumber(bookingNumber)
+                .status(BookingStatus.CONFIRMED)
+                .serviceFeeRate(serviceFeeRate)
+                .issuedAt(OffsetDateTime.now())
+                .notes(leadReq.getNotes())
+                .subtotalAmount(quote.getTotalRoomNetAmount() != null ? quote.getTotalRoomNetAmount() : BigDecimal.ZERO)
+                .serviceFeeAmount(quote.getTotalRoomServiceFee() != null ? quote.getTotalRoomServiceFee() : BigDecimal.ZERO)
+                .totalVatAmount(quote.getTotalRoomVat() != null ? quote.getTotalRoomVat() : BigDecimal.ZERO)
+                .totalAmount(quote.getGrandTotal() != null ? quote.getGrandTotal() : BigDecimal.ZERO)
+                .build();
+
+        List<BookingDetail> details = new ArrayList<>();
+        List<BookingCharge> chargesToSave = new ArrayList<>();
+
+        Map<Integer, RoomPriceQuoteResponse> quoteMap = new HashMap<>();
+        if (quote.getItemizedQuotes() != null) {
+            for (RoomPriceQuoteResponse rq : quote.getItemizedQuotes()) {
+                quoteMap.put(rq.getHotelRoomTypeId(), rq);
+            }
+        }
+
+        // 4. Snapshot Booking Details, Rooms, StayGuests, DailyRates, Charges
+        for (CartPriceQuoteRequest.CartItemQuoteRequest item : draftSession.getItems()) {
+            HotelRoomType hotelRoomType = hotelRoomTypeService.getEntityById(item.getHotelRoomTypeId());
+
+            BookingDetail detail = BookingDetail.builder()
+                    .booking(booking)
+                    .hotelRoomType(hotelRoomType)
+                    .roomTypeName(hotelRoomType.getRoomType().getName())
+                    .quantity(item.getQuantity())
+                    .checkInDate(draftSession.getCheckInDate())
+                    .checkOutDate(draftSession.getCheckOutDate())
+                    .build();
+
+            RoomPriceQuoteResponse roomQuote = quoteMap.get(item.getHotelRoomTypeId());
+            PriceBreakdownDto breakdown = roomQuote != null ? roomQuote.getPriceBreakdown() : null;
+
+            int qty = item.getQuantity() != null ? item.getQuantity().intValue() : 1;
+            List<BookingRoom> bookingRooms = new ArrayList<>();
+
+            for (int i = 0; i < qty; i++) {
+                short adults = item.getAdults() != null ? item.getAdults() : (short) 1;
+                short children = item.getChildren() != null ? item.getChildren() : (short) 0;
+                short infants = item.getInfants() != null ? item.getInfants() : (short) 0;
+                short totalGuests = (short) (adults + children + infants);
+
+                BookingRoom bookingRoom = BookingRoom.builder()
+                        .bookingDetail(detail)
+                        .roomInstance(null)
+                        .adultCount(adults)
+                        .childCount(children)
+                        .infantCount(infants)
+                        .guestCount(totalGuests)
+                        .status(BookingRoomStatus.EXPECTED)
+                        .build();
+
+                List<StayGuest> stayGuests = new ArrayList<>();
+                if (i == 0) {
+                    StayGuest leadStay = StayGuest.builder()
+                            .bookingRoom(bookingRoom)
+                            .hotel(hotel)
+                            .fullName(leadGuest.getFullName())
+                            .guestType(BookingGuestType.ADULT)
+                            .build();
+                    stayGuests.add(leadStay);
+                }
+                bookingRoom.setStayGuests(stayGuests);
+
+                List<BookingDailyRate> dailyRates = new ArrayList<>();
+                TaxCategory taxCategory = null;
+                BigDecimal vatPercent = BigDecimal.valueOf(10);
+                if (hotelRoomType.getTaxCategoryId() != null) {
+                    taxCategory = taxCategoryService.getEntityById(hotelRoomType.getTaxCategoryId());
+                    BigDecimal activeVat = vatRuleService.getActiveVatPercent(hotelRoomType.getTaxCategoryId(), draftSession.getCheckInDate());
+                    if (activeVat != null && activeVat.compareTo(BigDecimal.ZERO) > 0) {
+                        vatPercent = activeVat;
+                    }
+                }
+
+                if (breakdown != null && breakdown.getDailyPrices() != null) {
+                    for (DailyPriceDto daily : breakdown.getDailyPrices()) {
+                        BigDecimal basePrice = daily.getBaseRate();
+                        BigDecimal discount = daily.getDiscountAmount() != null ? daily.getDiscountAmount() : BigDecimal.ZERO;
+                        BigDecimal surcharge = daily.getSurchargeAmount() != null ? daily.getSurchargeAmount() : BigDecimal.ZERO;
+                        BigDecimal netPrice = daily.getNetAmount();
+
+                        BigDecimal roomServiceFee = netPrice.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        BigDecimal taxable = netPrice.add(roomServiceFee);
+                        BigDecimal vatAmount = taxable.multiply(vatPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+                        BookingDailyRate dailyRate = BookingDailyRate.builder()
+                                .bookingRoom(bookingRoom)
+                                .stayDate(daily.getDate())
+                                .basePrice(basePrice)
+                                .discountAmount(discount)
+                                .surchargeAmount(surcharge)
+                                .serviceFeeRate(serviceFeeRate)
+                                .serviceFeeAmount(roomServiceFee)
+                                .taxCategory(taxCategory)
+                                .vatPercent(vatPercent)
+                                .vatAmount(vatAmount)
+                                .netPrice(netPrice)
+                                .status("CONFIRMED")
+                                .build();
+                        dailyRates.add(dailyRate);
+                    }
+                }
+                bookingRoom.setDailyRates(dailyRates);
+
+                if (roomQuote != null && roomQuote.getSurchargeSummary() != null) {
+                    ItemizedSurchargeDto surSummary = roomQuote.getSurchargeSummary();
+                    if (surSummary.getExtraBedsSurchargeTotal() != null && surSummary.getExtraBedsSurchargeTotal().compareTo(BigDecimal.ZERO) > 0) {
+                        BookingCharge charge = BookingCharge.builder()
+                                .bookingRoom(bookingRoom)
+                                .chargeType(BookingChargeType.EXTRA_BED)
+                                .itemName("Phụ thu giường phụ (Extra Bed)")
+                                .quantity(item.getExtraBeds() != null && item.getExtraBeds() > 0 ? (int) item.getExtraBeds() : 1)
+                                .unitPrice(surSummary.getExtraBedsSurchargeTotal())
+                                .subtotal(surSummary.getExtraBedsSurchargeTotal())
+                                .serviceFeeRate(serviceFeeRate)
+                                .serviceFeeAmount(surSummary.getExtraBedsSurchargeTotal().multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP))
+                                .vatRate(vatPercent)
+                                .vatAmount(surSummary.getExtraBedsSurchargeTotal().multiply(vatPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP))
+                                .totalAmount(surSummary.getExtraBedsSurchargeTotal())
+                                .issuedAt(OffsetDateTime.now())
+                                .build();
+                        chargesToSave.add(charge);
+                    }
+                    BigDecimal extraPersonTotal = BigDecimal.ZERO;
+                    if (surSummary.getExtraAdultsSurchargeTotal() != null) {
+                        extraPersonTotal = extraPersonTotal.add(surSummary.getExtraAdultsSurchargeTotal());
+                    }
+                    if (surSummary.getExtraChildrenSurchargeTotal() != null) {
+                        extraPersonTotal = extraPersonTotal.add(surSummary.getExtraChildrenSurchargeTotal());
+                    }
+                    if (extraPersonTotal.compareTo(BigDecimal.ZERO) > 0) {
+                        BookingCharge charge = BookingCharge.builder()
+                                .bookingRoom(bookingRoom)
+                                .chargeType(BookingChargeType.EXTRA_PERSON)
+                                .itemName("Phụ thu thêm người (Extra Guest)")
+                                .quantity(1)
+                                .unitPrice(extraPersonTotal)
+                                .subtotal(extraPersonTotal)
+                                .serviceFeeRate(serviceFeeRate)
+                                .serviceFeeAmount(extraPersonTotal.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP))
+                                .vatRate(vatPercent)
+                                .vatAmount(extraPersonTotal.multiply(vatPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP))
+                                .totalAmount(extraPersonTotal)
+                                .issuedAt(OffsetDateTime.now())
+                                .build();
+                        chargesToSave.add(charge);
+                    }
+                }
+
+                bookingRooms.add(bookingRoom);
+            }
+
+            detail.setBookingRooms(bookingRooms);
+            details.add(detail);
+        }
+
+        booking.setBookingDetails(details);
+        Booking savedBooking = bookingRepository.save(booking);
+
+        if (!chargesToSave.isEmpty()) {
+            bookingChargeService.saveAll(chargesToSave);
+        }
+
+        // 5. Snapshot Add-on Service Orders
+        if (draftSession.getSelectedServices() != null && !draftSession.getSelectedServices().isEmpty()) {
+            List<ServiceOrderCreateRequest.OrderItemRequest> orderItems = draftSession.getSelectedServices().stream()
+                    .map(s -> ServiceOrderCreateRequest.OrderItemRequest.builder()
+                            .menuId(s.getMenuId())
+                            .quantity(s.getQuantity() != null && s.getQuantity() > 0 ? s.getQuantity() : 1)
+                            .build())
+                    .toList();
+
+            ServiceOrderCreateRequest orderReq = ServiceOrderCreateRequest.builder()
+                    .hotelId(hotel.getId())
+                    .referenceType(ServiceOrderReferenceType.BOOKING)
+                    .referenceId(savedBooking.getId())
+                    .items(orderItems)
+                    .build();
+
+            serviceOrderService.createOrder(orderReq);
+        }
+
+        // 6. Snapshot Voucher Usage & Increment Voucher Count
+        if (draftSession.getVoucherCode() != null && !draftSession.getVoucherCode().isBlank()) {
+            voucherService.recordVoucherUsage(
+                    draftSession.getVoucherCode(),
+                    leadGuest,
+                    quote.getTotalDiscountAmount() != null ? quote.getTotalDiscountAmount() : BigDecimal.ZERO
+            );
+        }
+
+        // 7. Commit Room Inventory Holds & Availabilities (Status -> COMMITTED)
+        roomAvailabilityService.commitHoldInventory(sessionId);
+
+        // 8. Delete Draft Session from Redis
+        redisTemplate.delete(redisKey);
+
+        log.info("Successfully confirmed online booking {} for session {} (Payment ID: {})",
+                savedBooking.getBookingNumber(), sessionId, paymentId);
+
+        return bookingMapper.toResponse(savedBooking);
+    }
+
     private String generateBookingNumber() {
         return "BK" + System.currentTimeMillis() + (int) (Math.random() * 900 + 100);
+    }
+
+    @Override
+    @Transactional
+    public int processNoShowBookings(Short hotelId, java.time.LocalDate auditDate) {
+        if (hotelId == null || auditDate == null) {
+            return 0;
+        }
+
+        List<Booking> pendingBookings = bookingRepository.findByHotelIdAndStatusWithDetails(hotelId, BookingStatus.CONFIRMED);
+        int noShowCount = 0;
+
+        for (Booking booking : pendingBookings) {
+            boolean isNoShow = false;
+            for (BookingDetail detail : booking.getBookingDetails()) {
+                if (!detail.getCheckInDate().isAfter(auditDate)) {
+                    boolean anyCheckedIn = detail.getBookingRooms().stream()
+                            .anyMatch(br -> br.getStatus() == BookingRoomStatus.CHECKED_IN || br.getActualCheckInAt() != null);
+                    if (!anyCheckedIn) {
+                        isNoShow = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isNoShow) {
+                booking.setStatus(BookingStatus.NO_SHOW);
+
+                for (BookingDetail detail : booking.getBookingDetails()) {
+                    for (BookingRoom br : detail.getBookingRooms()) {
+                        br.setStatus(BookingRoomStatus.NO_SHOW);
+                        bookingRoomService.save(br);
+
+                        if (br.getRoomInstance() != null) {
+                            roomSlotService.releaseSlots(
+                                    br.getRoomInstance().getId(),
+                                    detail.getCheckInDate(),
+                                    detail.getCheckOutDate()
+                            );
+                        }
+                    }
+                }
+
+                bookingRepository.save(booking);
+                noShowCount++;
+            }
+        }
+
+        log.info("Processed {} No-Show bookings for hotel ID {} on audit date {}", noShowCount, hotelId, auditDate);
+        return noShowCount;
     }
 }

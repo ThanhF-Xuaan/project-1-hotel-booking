@@ -15,8 +15,7 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -48,8 +47,7 @@ public class StayGuestServiceImpl implements StayGuestService {
     private final StayGuestRepository stayGuestRepository;
     private final LodgingQueueRepository lodgingQueueRepository;
     private final HotelRepository hotelRepository;
-    private final BookingRepository bookingRepository;
-    private final BookingRoomRepository bookingRoomRepository;
+    private final BookingLookupService bookingLookupService;
     private final RoomInstanceRepository roomInstanceRepository;
     private final StaffRepository staffRepository;
     private final StayGuestMapper stayGuestMapper;
@@ -64,8 +62,7 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         Booking booking = null;
         if (request.getBookingId() != null) {
-            booking = bookingRepository.findById(request.getBookingId())
-                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_DETAIL_NOT_FOUND, "Không tìm thấy đơn đặt phòng với ID " + request.getBookingId()));
+            booking = bookingLookupService.getBookingEntityById(request.getBookingId());
             if (booking.getHotel() != null && !booking.getHotel().getId().equals(hotel.getId())) {
                 throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Đơn đặt phòng không thuộc khách sạn này");
             }
@@ -82,8 +79,7 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         BookingRoom bookingRoom = null;
         if (request.getBookingRoomId() != null) {
-            bookingRoom = bookingRoomRepository.findById(request.getBookingRoomId())
-                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND, "Không tìm thấy chi tiết phòng đặt với ID " + request.getBookingRoomId()));
+            bookingRoom = bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
             if (booking != null && bookingRoom.getBookingDetail() != null
                     && bookingRoom.getBookingDetail().getBooking() != null
                     && !bookingRoom.getBookingDetail().getBooking().getId().equals(booking.getId())) {
@@ -161,8 +157,7 @@ public class StayGuestServiceImpl implements StayGuestService {
         }
 
         if (request.getBookingRoomId() != null) {
-            BookingRoom bookingRoom = bookingRoomRepository.findById(request.getBookingRoomId())
-                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND, "Không tìm thấy chi tiết phòng đặt với ID " + request.getBookingRoomId()));
+            BookingRoom bookingRoom = bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
             if (guest.getBooking() != null && bookingRoom.getBookingDetail() != null
                     && bookingRoom.getBookingDetail().getBooking() != null
                     && !bookingRoom.getBookingDetail().getBooking().getId().equals(guest.getBooking().getId())) {
@@ -207,6 +202,16 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         validateStaffScope(guest.getHotel().getId());
         return stayGuestMapper.toResponse(guest);
+    }
+
+    @Override
+    public StayGuest getEntityById(Long id) {
+        if (id == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID khách lưu trú không được để trống");
+        }
+        return stayGuestRepository.findById(id)
+                .filter(g -> !Boolean.TRUE.equals(g.getIsDeleted()))
+                .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND, "Không tìm thấy khách lưu trú ID: " + id));
     }
 
     @Override

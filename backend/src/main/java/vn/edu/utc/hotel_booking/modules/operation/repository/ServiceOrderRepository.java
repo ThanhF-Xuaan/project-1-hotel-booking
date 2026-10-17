@@ -2,9 +2,13 @@ package vn.edu.utc.hotel_booking.modules.operation.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,18 +19,27 @@ public interface ServiceOrderRepository extends JpaRepository<ServiceOrder, Long
 
     Optional<ServiceOrder> findByOrderNumberAndIsDeletedFalse(String orderNumber);
 
-    List<ServiceOrder> findByBookingIdAndIsDeletedFalse(Long bookingId);
+    List<ServiceOrder> findByReferenceTypeAndReferenceIdAndIsDeletedFalse(ServiceOrderReferenceType referenceType, Long referenceId);
 
-    List<ServiceOrder> findByRoomInstanceIdAndIsDeletedFalse(Integer roomInstanceId);
+    @Query("SELECT so FROM ServiceOrder so WHERE so.referenceType = vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType.BOOKING AND so.referenceId = :bookingId AND so.isDeleted = false")
+    List<ServiceOrder> findByBookingIdAndIsDeletedFalse(@Param("bookingId") Long bookingId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT so FROM ServiceOrder so " +
-            "WHERE (so.booking.hotel.id = :hotelId OR (so.roomInstance IS NOT NULL AND so.roomInstance.hotel.id = :hotelId)) " +
+    @Query("SELECT so FROM ServiceOrder so WHERE so.isDeleted = false AND (" +
+            "(so.referenceType = vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType.BOOKING AND so.referenceId = :bookingId) OR " +
+            "(so.referenceType = vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType.BOOKING_ROOM AND so.referenceId IN :bookingRoomIds))")
+    List<ServiceOrder> findAllOrdersForBookingAndRooms(
+            @Param("bookingId") Long bookingId,
+            @Param("bookingRoomIds") List<Long> bookingRoomIds
+    );
+
+    @Query("SELECT so FROM ServiceOrder so " +
+            "WHERE so.hotel.id = :hotelId " +
             "AND so.isDeleted = false " +
             "AND so.status NOT IN ('CANCELLED') " +
             "AND so.issuedAt >= :startOfDay AND so.issuedAt <= :endOfDay")
     List<ServiceOrder> findActiveOrdersForHotelAndDate(
-            @org.springframework.data.repository.query.Param("hotelId") Short hotelId,
-            @org.springframework.data.repository.query.Param("startOfDay") java.time.OffsetDateTime startOfDay,
-            @org.springframework.data.repository.query.Param("endOfDay") java.time.OffsetDateTime endOfDay
+            @Param("hotelId") Short hotelId,
+            @Param("startOfDay") OffsetDateTime startOfDay,
+            @Param("endOfDay") OffsetDateTime endOfDay
     );
 }

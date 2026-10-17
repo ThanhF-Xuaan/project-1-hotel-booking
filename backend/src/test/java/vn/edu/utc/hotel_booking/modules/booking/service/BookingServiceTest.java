@@ -11,31 +11,37 @@ import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingChargeCreateRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCreateRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.LeadGuestRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.CartPriceQuoteResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.session.BookingDraftSession;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
 import vn.edu.utc.hotel_booking.modules.booking.mapper.BookingMapper;
-import vn.edu.utc.hotel_booking.modules.booking.repository.*;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.impl.BookingServiceImpl;
 import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
-import vn.edu.utc.hotel_booking.modules.identity.repository.CompanyRepository;
-import vn.edu.utc.hotel_booking.modules.identity.repository.GuestRepository;
+import vn.edu.utc.hotel_booking.modules.identity.entity.Company;
+import vn.edu.utc.hotel_booking.modules.identity.service.CompanyService;
+import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomSlotRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
+import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
-import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
+import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PriceCalculationRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.DailyPriceDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PriceBreakdownDto;
-import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
-import vn.edu.utc.hotel_booking.modules.pricing.repository.TaxCategoryRepository;
-import vn.edu.utc.hotel_booking.modules.pricing.repository.VatRuleRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.service.PriceEngine;
+import vn.edu.utc.hotel_booking.modules.pricing.service.TaxCategoryService;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VoucherService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -47,30 +53,34 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class BookingServiceTest {
 
     @Mock BookingRepository bookingRepository;
-    @Mock BookingDetailRepository bookingDetailRepository;
-    @Mock BookingRoomRepository bookingRoomRepository;
-    @Mock StayGuestRepository stayGuestRepository;
-    @Mock BookingDailyRateRepository bookingDailyRateRepository;
-    @Mock BookingChargeRepository bookingChargeRepository;
+    @Mock BookingRoomService bookingRoomService;
+    @Mock BookingChargeService bookingChargeService;
 
-    @Mock HotelRepository hotelRepository;
-    @Mock GuestRepository guestRepository;
-    @Mock CompanyRepository companyRepository;
-    @Mock HotelRoomTypeRepository hotelRoomTypeRepository;
-    @Mock RoomInstanceRepository roomInstanceRepository;
-    @Mock RoomSlotRepository roomSlotRepository;
+    @Mock HotelService hotelService;
+    @Mock GuestService guestService;
+    @Mock CompanyService companyService;
+    @Mock HotelRoomTypeService hotelRoomTypeService;
+    @Mock RoomInstanceService roomInstanceService;
+    @Mock RoomSlotService roomSlotService;
 
     @Mock RoomAvailabilityService roomAvailabilityService;
     @Mock PriceEngine priceEngine;
     @Mock BookingMapper bookingMapper;
-    @Mock TaxCategoryRepository taxCategoryRepository;
-    @Mock VatRuleRepository vatRuleRepository;
+    @Mock TaxCategoryService taxCategoryService;
+    @Mock VatRuleService vatRuleService;
+    @Mock VoucherService voucherService;
+    @Mock ServiceOrderService serviceOrderService;
+
+    @Mock org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
+    @Mock org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
+    @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @InjectMocks
     BookingServiceImpl bookingService;
@@ -96,6 +106,12 @@ class BookingServiceTest {
                 .roomType(roomType)
                 .taxCategoryId(1)
                 .basePrice(BigDecimal.valueOf(1000000))
+                .standardAdults((short) 2)
+                .maxAdults((short) 2)
+                .maxChildren((short) 1)
+                .maxInfants((short) 1)
+                .maxTotalGuests((short) 3)
+                .extraBeds((short) 0)
                 .build();
         testHotelRoomType.setId(5);
 
@@ -135,9 +151,9 @@ class BookingServiceTest {
                 .rooms(List.of(roomItem))
                 .build();
 
-        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
-        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(testHotelRoomType));
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(guestService.getEntityById(10L)).thenReturn(testGuest);
+        when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
 
         DailyPriceDto daily1 = DailyPriceDto.builder()
                 .date(checkIn)
@@ -173,6 +189,46 @@ class BookingServiceTest {
     }
 
     @Test
+    @DisplayName("Tạo đơn đặt phòng thành công cho khách hàng công ty")
+    void createBooking_Company_Success() {
+        LocalDate checkIn = LocalDate.now().plusDays(1);
+        LocalDate checkOut = LocalDate.now().plusDays(3);
+
+        Company testCompany = Company.builder().name("Tập đoàn ABC").taxCode("0101234567").build();
+        testCompany.setId(88L);
+
+        BookingCreateRequest.RoomItemRequest roomItem = BookingCreateRequest.RoomItemRequest.builder()
+                .hotelRoomTypeId(5)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 1)
+                .adultCount((short) 2)
+                .build();
+
+        BookingCreateRequest request = BookingCreateRequest.builder()
+                .hotelId((short) 1)
+                .companyId(88L)
+                .rooms(List.of(roomItem))
+                .build();
+
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(companyService.getEntityById(88L)).thenReturn(testCompany);
+        when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
+
+        DailyPriceDto daily = DailyPriceDto.builder().date(checkIn).baseRate(BigDecimal.valueOf(1000000)).netAmount(BigDecimal.valueOf(1000000)).build();
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder().dailyPrices(List.of(daily)).totalBasePrice(BigDecimal.valueOf(1000000)).preTaxAmount(BigDecimal.valueOf(1000000)).build();
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class))).thenReturn(breakdown);
+        when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
+        when(bookingMapper.toResponse(any(Booking.class))).thenReturn(BookingResponse.builder().id(100L).build());
+
+        BookingResponse response = bookingService.createBooking(request);
+
+        assertThat(response).isNotNull();
+        verify(companyService).getEntityById(88L);
+        verify(bookingRepository).save(any(Booking.class));
+    }
+
+    @Test
     @DisplayName("Ném lỗi khi ngày nhận phòng không trước ngày trả phòng")
     void createBooking_InvalidDates_ThrowsException() {
         LocalDate checkIn = LocalDate.now().plusDays(5);
@@ -191,8 +247,8 @@ class BookingServiceTest {
                 .rooms(List.of(roomItem))
                 .build();
 
-        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
-        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(guestService.getEntityById(10L)).thenReturn(testGuest);
 
         assertThatThrownBy(() -> bookingService.createBooking(request))
                 .isInstanceOf(AppException.class)
@@ -220,14 +276,49 @@ class BookingServiceTest {
                 .id(21L)
                 .build();
 
-        when(bookingRoomRepository.findById(20L)).thenReturn(Optional.of(bookingRoom));
-        when(roomInstanceRepository.findByIdAndIsDeletedFalse(50)).thenReturn(Optional.of(roomInstance));
-        when(bookingRoomRepository.findOverlappingAssignedRooms(eq(50), any(LocalDate.class), any(LocalDate.class)))
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+        when(roomInstanceService.getEntityById(50)).thenReturn(roomInstance);
+        when(bookingRoomService.findOverlappingAssignedRooms(eq(50), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of(conflictingRoom));
 
         assertThatThrownBy(() -> bookingService.assignRoom(20L, 50))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.ROOM_ALREADY_ASSIGNED));
+    }
+
+    @Test
+    @DisplayName("Xếp phòng thành công: kiểm tra không trùng lịch, lưu booking room và tạo room slots")
+    void assignRoom_Success() {
+        BookingDetail detail = BookingDetail.builder()
+                .booking(testBooking)
+                .checkInDate(LocalDate.now().plusDays(1))
+                .checkOutDate(LocalDate.now().plusDays(3))
+                .build();
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(20L)
+                .bookingDetail(detail)
+                .build();
+
+        RoomInstance roomInstance = RoomInstance.builder()
+                .roomNumber("P.201")
+                .build();
+        roomInstance.setId(50);
+
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+        when(roomInstanceService.getEntityById(50)).thenReturn(roomInstance);
+        when(bookingRoomService.findOverlappingAssignedRooms(eq(50), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+        when(bookingRoomService.save(any(BookingRoom.class))).thenReturn(bookingRoom);
+        when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder()
+                .id(100L)
+                .bookingNumber("BK12345678")
+                .build());
+
+        BookingResponse response = bookingService.assignRoom(20L, 50);
+
+        assertThat(response).isNotNull();
+        verify(bookingRoomService).save(bookingRoom);
+        verify(roomSlotService).createOrReserveSlots(eq(roomInstance), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()), eq(20L));
     }
 
     @Test
@@ -248,11 +339,14 @@ class BookingServiceTest {
         BookingCharge savedCharge = BookingCharge.builder()
                 .id(1L)
                 .bookingRoom(bookingRoom)
+                .subtotal(BigDecimal.valueOf(200000))
+                .serviceFeeAmount(BigDecimal.valueOf(10000))
+                .vatAmount(BigDecimal.valueOf(16800))
                 .totalAmount(BigDecimal.valueOf(226800))
                 .build();
 
-        when(bookingRoomRepository.findById(20L)).thenReturn(Optional.of(bookingRoom));
-        when(bookingChargeRepository.save(any(BookingCharge.class))).thenReturn(savedCharge);
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+        when(bookingChargeService.createCharge(eq(bookingRoom), any(BookingChargeCreateRequest.class))).thenReturn(savedCharge);
         when(bookingMapper.toChargeResponse(any(BookingCharge.class))).thenReturn(BookingChargeResponse.builder()
                 .id(1L)
                 .totalAmount(BigDecimal.valueOf(226800))
@@ -315,10 +409,10 @@ class BookingServiceTest {
                 .rooms(List.of(roomItem1, roomItem2))
                 .build();
 
-        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
-        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(testHotelRoomType));
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(8)).thenReturn(Optional.of(hotelRoomType2));
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(guestService.getEntityById(10L)).thenReturn(testGuest);
+        when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
+        when(hotelRoomTypeService.getEntityById(8)).thenReturn(hotelRoomType2);
 
         DailyPriceDto daily1 = DailyPriceDto.builder()
                 .date(checkIn)
@@ -368,9 +462,9 @@ class BookingServiceTest {
                 .rooms(List.of(roomItem))
                 .build();
 
-        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
-        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(testHotelRoomType));
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(guestService.getEntityById(10L)).thenReturn(testGuest);
+        when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
 
         assertThatThrownBy(() -> bookingService.createBooking(request))
                 .isInstanceOf(AppException.class)
@@ -398,12 +492,274 @@ class BookingServiceTest {
                 .rooms(List.of(roomItem))
                 .build();
 
-        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
-        when(guestRepository.findByIdAndIsDeletedFalse(10L)).thenReturn(Optional.of(testGuest));
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(testHotelRoomType));
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(guestService.getEntityById(10L)).thenReturn(testGuest);
+        when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
 
         assertThatThrownBy(() -> bookingService.createBooking(request))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.EXCEEDS_MAX_CAPACITY));
+    }
+
+    @Test
+    @DisplayName("confirmOnlineBooking thành công: snapshot đầy đủ các bảng dữ liệu, commit inventory holds và xóa Redis key")
+    void confirmOnlineBooking_Success() throws Exception {
+        String sessionId = "sess-abc-123";
+        String redisKey = "booking:draft:" + sessionId;
+        String mockJson = "{\"sessionId\":\"sess-abc-123\"}";
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(mockJson);
+
+        BookingDraftSession draftSession = BookingDraftSession.builder()
+                .sessionId(sessionId)
+                .hotelId((short) 1)
+                .checkInDate(LocalDate.of(2026, 12, 1))
+                .checkOutDate(LocalDate.of(2026, 12, 3))
+                .leadGuest(LeadGuestRequest.builder()
+                        .fullName("Trần Thị B")
+                        .phone("0912345678")
+                        .email("guest@example.com")
+                        .nationality("VN")
+                        .build())
+                .items(List.of(CartPriceQuoteRequest.CartItemQuoteRequest.builder()
+                        .hotelRoomTypeId(5)
+                        .quantity((short) 1)
+                        .adults((short) 2)
+                        .build()))
+                .quoteResponse(CartPriceQuoteResponse.builder()
+                        .hotelId((short) 1)
+                        .checkInDate(LocalDate.of(2026, 12, 1))
+                        .checkOutDate(LocalDate.of(2026, 12, 3))
+                        .totalNights(2)
+                        .totalRooms(1)
+                        .totalRoomNetAmount(new BigDecimal("2000000.00"))
+                        .totalRoomServiceFee(new BigDecimal("100000.00"))
+                        .totalRoomVat(new BigDecimal("210000.00"))
+                        .grandTotal(new BigDecimal("2310000.00"))
+                        .build())
+                .build();
+
+        when(objectMapper.readValue(mockJson, BookingDraftSession.class)).thenReturn(draftSession);
+        when(guestService.getOrCreateGuest(eq("0912345678"), eq("Trần Thị B"), eq("guest@example.com"), eq("VN"))).thenReturn(testGuest);
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
+
+        Booking savedBooking = Booking.builder()
+                .id(999L)
+                .hotel(testHotel)
+                .guest(testGuest)
+                .bookingNumber("BK99999999")
+                .status(BookingStatus.CONFIRMED)
+                .totalAmount(new BigDecimal("2310000.00"))
+                .build();
+
+        when(bookingRepository.save(any(Booking.class))).thenReturn(savedBooking);
+        when(bookingMapper.toResponse(savedBooking)).thenReturn(BookingResponse.builder()
+                .id(999L)
+                .bookingNumber("BK99999999")
+                .status(BookingStatus.CONFIRMED)
+                .totalAmount(new BigDecimal("2310000.00"))
+                .build());
+
+        BookingResponse response = bookingService.confirmOnlineBooking(sessionId, 555L);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getId()).isEqualTo(999L);
+        assertThat(response.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+
+        // Verify committed holds
+        verify(roomAvailabilityService, times(1)).commitHoldInventory(sessionId);
+        // Verify Redis draft key deleted
+        verify(redisTemplate, times(1)).delete(redisKey);
+    }
+
+    @Test
+    @DisplayName("confirmOnlineBooking ném BOOKING_SESSION_EXPIRED khi phiên trong Redis không tồn tại")
+    void confirmOnlineBooking_ExpiredSession_ThrowsException() {
+        String sessionId = "non-existent-session";
+        String redisKey = "booking:draft:" + sessionId;
+
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(redisKey)).thenReturn(null);
+
+        assertThatThrownBy(() -> bookingService.confirmOnlineBooking(sessionId, 123L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.BOOKING_SESSION_EXPIRED));
+    }
+
+    @Test
+    @DisplayName("checkIn thành công: cập nhật trạng thái CHECKED_IN và chiếm room slots")
+    void checkIn_Success() {
+        BookingDetail detail = BookingDetail.builder().booking(testBooking).checkInDate(LocalDate.now()).checkOutDate(LocalDate.now().plusDays(1)).build();
+        RoomInstance roomInstance = RoomInstance.builder().roomNumber("P.101").build();
+        roomInstance.setId(101);
+        BookingRoom bookingRoom = BookingRoom.builder().id(20L).bookingDetail(detail).roomInstance(roomInstance).build();
+
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+        when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder().id(100L).build());
+
+        BookingResponse response = bookingService.checkIn(20L);
+
+        assertThat(response).isNotNull();
+        assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.CHECKED_IN);
+        verify(bookingRoomService).save(bookingRoom);
+        verify(roomSlotService).occupySlots(eq(101), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
+    }
+
+    @Test
+    @DisplayName("checkOut thành công: cập nhật trạng thái CHECKED_OUT và đánh dấu room slots DIRTY")
+    void checkOut_Success() {
+        BookingDetail detail = BookingDetail.builder().booking(testBooking).checkInDate(LocalDate.now()).checkOutDate(LocalDate.now().plusDays(1)).build();
+        RoomInstance roomInstance = RoomInstance.builder().roomNumber("P.101").build();
+        roomInstance.setId(101);
+        BookingRoom bookingRoom = BookingRoom.builder().id(20L).bookingDetail(detail).roomInstance(roomInstance).build();
+
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+        when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder().id(100L).build());
+
+        BookingResponse response = bookingService.checkOut(20L);
+
+        assertThat(response).isNotNull();
+        assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.CHECKED_OUT);
+        verify(bookingRoomService).save(bookingRoom);
+        verify(roomSlotService).markSlotsDirty(eq(101), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
+    }
+
+    @Test
+    @DisplayName("updateStatus huỷ phòng: giải phóng room slots và huỷ các booking rooms")
+    void updateStatus_Cancelled_ReleasesSlots() {
+        BookingDetail detail = BookingDetail.builder().checkInDate(LocalDate.now()).checkOutDate(LocalDate.now().plusDays(2)).build();
+        RoomInstance roomInstance = RoomInstance.builder().roomNumber("P.101").build();
+        roomInstance.setId(101);
+        BookingRoom bookingRoom = BookingRoom.builder().id(20L).roomInstance(roomInstance).build();
+        detail.setBookingRooms(List.of(bookingRoom));
+        testBooking.setBookingDetails(List.of(detail));
+
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(testBooking));
+        when(bookingRepository.save(any(Booking.class))).thenReturn(testBooking);
+        when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder().id(100L).status(BookingStatus.CANCELLED).build());
+
+        BookingResponse response = bookingService.updateStatus(100L, BookingStatus.CANCELLED);
+
+        assertThat(response).isNotNull();
+        assertThat(testBooking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+        assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.CANCELLED);
+        verify(roomSlotService).releaseSlots(eq(101), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
+        verify(bookingRepository).save(testBooking);
+    }
+
+    @Test
+    @DisplayName("getBookingRoomEntityById - Thành công khi ID hợp lệ")
+    void getBookingRoomEntityById_Success() {
+        BookingRoom bookingRoom = BookingRoom.builder().id(20L).build();
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+
+        BookingRoom result = bookingService.getBookingRoomEntityById(20L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(20L);
+        verify(bookingRoomService).getEntityById(20L);
+    }
+
+    @Test
+    @DisplayName("getBookingRoomEntityById - Ném ngoại lệ khi ID là null")
+    void getBookingRoomEntityById_NullId() {
+        assertThatThrownBy(() -> bookingService.getBookingRoomEntityById(null))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA);
+    }
+
+    @Test
+    @DisplayName("getBookingRoomEntityById - Ném ngoại lệ khi không tìm thấy")
+    void getBookingRoomEntityById_NotFound() {
+        when(bookingRoomService.getEntityById(999L))
+                .thenThrow(new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND, "Không tìm thấy phòng"));
+
+        assertThatThrownBy(() -> bookingService.getBookingRoomEntityById(999L))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOKING_ROOM_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("processNoShowBookings - Trả về 0 khi hotelId hoặc auditDate là null")
+    void processNoShowBookings_NullParams_ReturnsZero() {
+        assertThat(bookingService.processNoShowBookings(null, LocalDate.now())).isEqualTo(0);
+        assertThat(bookingService.processNoShowBookings((short) 1, null)).isEqualTo(0);
+        verifyNoInteractions(bookingRepository);
+    }
+
+    @Test
+    @DisplayName("processNoShowBookings - Xử lý NO_SHOW thành công, cập nhật trạng thái và giải phóng slots")
+    void processNoShowBookings_Success() {
+        LocalDate auditDate = LocalDate.of(2026, 10, 17);
+        LocalDate checkIn = LocalDate.of(2026, 10, 17);
+        LocalDate checkOut = LocalDate.of(2026, 10, 19);
+
+        RoomInstance roomInstance = RoomInstance.builder().roomNumber("P.301").build();
+        roomInstance.setId(301);
+
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(50L)
+                .status(BookingRoomStatus.EXPECTED)
+                .roomInstance(roomInstance)
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .bookingRooms(List.of(bookingRoom))
+                .build();
+
+        Booking confirmedBooking = Booking.builder()
+                .id(200L)
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(List.of(detail))
+                .build();
+
+        when(bookingRepository.findByHotelIdAndStatusWithDetails((short) 1, BookingStatus.CONFIRMED))
+                .thenReturn(List.of(confirmedBooking));
+
+        int result = bookingService.processNoShowBookings((short) 1, auditDate);
+
+        assertThat(result).isEqualTo(1);
+        assertThat(confirmedBooking.getStatus()).isEqualTo(BookingStatus.NO_SHOW);
+        assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.NO_SHOW);
+        verify(roomSlotService).releaseSlots(301, checkIn, checkOut);
+        verify(bookingRoomService).save(bookingRoom);
+        verify(bookingRepository).save(confirmedBooking);
+    }
+
+    @Test
+    @DisplayName("processNoShowBookings - Bỏ qua đơn nếu có ít nhất 1 phòng đã CHECKED_IN")
+    void processNoShowBookings_AnyCheckedIn_DoesNotMarkNoShow() {
+        LocalDate auditDate = LocalDate.of(2026, 10, 17);
+        LocalDate checkIn = LocalDate.of(2026, 10, 17);
+        LocalDate checkOut = LocalDate.of(2026, 10, 19);
+
+        BookingRoom room1 = BookingRoom.builder().id(51L).status(BookingRoomStatus.CHECKED_IN).build();
+        BookingRoom room2 = BookingRoom.builder().id(52L).status(BookingRoomStatus.EXPECTED).build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .bookingRooms(List.of(room1, room2))
+                .build();
+
+        Booking partiallyCheckedInBooking = Booking.builder()
+                .id(201L)
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(List.of(detail))
+                .build();
+
+        when(bookingRepository.findByHotelIdAndStatusWithDetails((short) 1, BookingStatus.CONFIRMED))
+                .thenReturn(List.of(partiallyCheckedInBooking));
+
+        int result = bookingService.processNoShowBookings((short) 1, auditDate);
+
+        assertThat(result).isEqualTo(0);
+        assertThat(partiallyCheckedInBooking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+        verify(bookingRepository, never()).save(any(Booking.class));
+        verifyNoInteractions(roomSlotService);
     }
 }

@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import vn.edu.utc.hotel_booking.modules.operation.entity.HotelServiceItem;
+import vn.edu.utc.hotel_booking.modules.operation.entity.MasterItem;
 import vn.edu.utc.hotel_booking.modules.operation.entity.Menu;
 import vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PriceCalculationRequest;
@@ -41,12 +41,19 @@ class StandalonePosAndSurchargeTest {
     void shouldCalculateStandalonePosOrder() {
         // Arrange: Standalone F&B Order: 2 Buffet Breakfasts (300.000 each = 600.000)
         TaxCategory catService = TaxCategory.builder().id(2).categoryCode("SERVICE").categoryName("F&B").build();
+        MasterItem masterBuffet = MasterItem.builder()
+                .id(102)
+                .code("SRV_BUFFET")
+                .name("Buffet Breakfast")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_PERSON)
+                .defaultBasePrice(new BigDecimal("300000.00"))
+                .build();
         Menu buffet = Menu.builder()
                 .id(102)
                 .name("Buffet Breakfast")
                 .basePrice(new BigDecimal("300000.00"))
                 .taxCategory(catService)
-                .hotelServiceItem(HotelServiceItem.builder().pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_PERSON).build())
+                .masterItem(masterBuffet)
                 .build();
 
         when(menuRepository.findByIdAndIsDeletedFalse(102)).thenReturn(Optional.of(buffet));

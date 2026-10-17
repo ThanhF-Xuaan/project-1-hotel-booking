@@ -16,22 +16,20 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
-import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
+import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
 import vn.edu.utc.hotel_booking.modules.operation.entity.*;
 import vn.edu.utc.hotel_booking.modules.operation.mapper.OperationMapper;
-import vn.edu.utc.hotel_booking.modules.operation.repository.CatalogItemRepository;
-import vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository;
-import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderDetailRepository;
 import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderRepository;
+import vn.edu.utc.hotel_booking.modules.operation.service.MenuService;
 import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
-import vn.edu.utc.hotel_booking.modules.pricing.entity.VatRule;
-import vn.edu.utc.hotel_booking.modules.pricing.repository.VatRuleRepository;
+import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
+import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
+import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -47,38 +45,92 @@ import java.util.List;
 public class ServiceOrderServiceImpl implements ServiceOrderService {
 
     ServiceOrderRepository serviceOrderRepository;
-    ServiceOrderDetailRepository serviceOrderDetailRepository;
-    BookingRepository bookingRepository;
-    RoomInstanceRepository roomInstanceRepository;
-    BookingRoomRepository bookingRoomRepository;
-    MenuRepository menuRepository;
-    CatalogItemRepository catalogItemRepository;
-    VatRuleRepository vatRuleRepository;
+    BookingLookupService bookingLookupService;
+    StayGuestService stayGuestService;
+    HotelService hotelService;
+    MenuService menuService;
+    VatRuleService vatRuleService;
     OperationMapper operationMapper;
 
     @Override
     @Transactional
     public ServiceOrderResponse createOrder(ServiceOrderCreateRequest request) {
-        Booking booking = bookingRepository.findById(request.getBookingId())
-                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + request.getBookingId()));
+        ServiceOrderReferenceType refType = request.getReferenceType();
+        if (refType == null) {
+            if (request.getBookingId() != null) {
+                refType = ServiceOrderReferenceType.BOOKING;
+            } else {
+                refType = ServiceOrderReferenceType.WALK_IN;
+            }
+        }
 
-        RoomInstance roomInstance = roomInstanceRepository.findByIdAndIsDeletedFalse(request.getRoomInstanceId())
-                .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng: " + request.getRoomInstanceId()));
+        Long refId = request.getReferenceId();
+        if (refId == null && refType == ServiceOrderReferenceType.BOOKING && request.getBookingId() != null) {
+            refId = request.getBookingId();
+        }
 
-        BookingRoom bookingRoom = bookingRoomRepository.findByBookingIdAndRoomInstanceId(booking.getId(), roomInstance.getId())
-                .orElseThrow(() -> new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng này chưa được gán cho đơn đặt phòng: " + booking.getBookingNumber()));
+        Hotel hotel = null;
 
-        if (bookingRoom.getStatus() == BookingRoomStatus.CANCELLED || bookingRoom.getStatus() == BookingRoomStatus.CHECKED_OUT) {
-            throw new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng này không ở trạng thái lưu trú khả dụng");
+        switch (refType) {
+            case BOOKING:
+                if (refId == null) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID đơn đặt phòng không được để trống khi hạch toán BOOKING");
+                }
+                final Long bookingId = refId;
+                Booking booking = bookingLookupService.getBookingEntityById(bookingId);
+                hotel = booking.getHotel();
+                break;
+
+            case BOOKING_ROOM:
+                if (refId == null) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID phòng đặt (BookingRoom) không được để trống khi hạch toán BOOKING_ROOM");
+                }
+                final Long bookingRoomId = refId;
+                BookingRoom bookingRoom = bookingLookupService.getBookingRoomEntityById(bookingRoomId);
+                if (bookingRoom.getStatus() == BookingRoomStatus.CANCELLED || bookingRoom.getStatus() == BookingRoomStatus.CHECKED_OUT) {
+                    throw new AppException(ErrorCode.ROOM_NOT_OCCUPIED, "Phòng này không ở trạng thái lưu trú khả dụng");
+                }
+                hotel = bookingRoom.getBookingDetail().getBooking().getHotel();
+                break;
+
+            case STAY_GUEST:
+                if (refId == null) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID khách lưu trú (StayGuest) không được để trống khi hạch toán STAY_GUEST");
+                }
+                final Long stayGuestId = refId;
+                StayGuest stayGuest = stayGuestService.getEntityById(stayGuestId);
+                if (stayGuest.getBookingRoom() != null && stayGuest.getBookingRoom().getBookingDetail() != null) {
+                    hotel = stayGuest.getBookingRoom().getBookingDetail().getBooking().getHotel();
+                } else {
+                    hotel = stayGuest.getHotel();
+                }
+                break;
+
+            case WALK_IN:
+                // Đối với khách vãng lai, reference_id BẮT BUỘC là NULL theo quy chuẩn nghiệp vụ
+                refId = null;
+                if (request.getHotelId() == null) {
+                    throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Khách vãng lai bắt buộc phải cung cấp hotelId để hạch toán doanh thu");
+                }
+                hotel = hotelService.getEntityById(request.getHotelId());
+                break;
+        }
+
+        if (hotel == null && request.getHotelId() != null) {
+            hotel = hotelService.getEntityById(request.getHotelId());
+        }
+
+        if (hotel == null) {
+            throw new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không xác định được khách sạn hạch toán cho đơn dịch vụ");
         }
 
         String orderNumber = "SO-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 900 + 100);
-
         BigDecimal standardServiceFeeRate = new BigDecimal("5.00"); // 5% Hotel Service Charge
 
         ServiceOrder order = ServiceOrder.builder()
-                .booking(booking)
-                .roomInstance(roomInstance)
+                .hotel(hotel)
+                .referenceType(refType)
+                .referenceId(refId)
                 .orderNumber(orderNumber)
                 .serviceFeeRate(standardServiceFeeRate)
                 .status(ServiceOrderStatus.PENDING)
@@ -92,36 +144,34 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
         BigDecimal orderGrandTotal = BigDecimal.ZERO;
 
         for (ServiceOrderCreateRequest.OrderItemRequest itemReq : request.getItems()) {
-            Menu menu = menuRepository.findByIdAndIsDeletedFalse(itemReq.getMenuId())
-                    .orElseThrow(() -> new AppException(ErrorCode.MENU_ITEM_NOT_FOUND, "Không tìm thấy món/dịch vụ ID: " + itemReq.getMenuId()));
+            Menu menu = menuService.getEntityById(itemReq.getMenuId());
 
             if (!"ACTIVE".equalsIgnoreCase(menu.getStatus())) {
                 throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Món/dịch vụ tạm ngưng phục vụ: " + menu.getName());
             }
 
-            // Trừ tồn kho nếu là sản phẩm vật lý (CatalogItem / Product)
-            if (menu.getMenuType() == MenuType.PRODUCT) {
-                CatalogItem catalogItem = catalogItemRepository.findById(menu.getId())
-                        .orElseThrow(() -> new AppException(ErrorCode.OUT_OF_STOCK, "Không tìm thấy kho cho sản phẩm: " + menu.getName()));
+            // Trừ tồn kho nếu là sản phẩm vật lý (Product) qua MenuService
+            menuService.deductStock(menu.getId(), itemReq.getQuantity());
 
-                if (catalogItem.getStockQuantity() < itemReq.getQuantity()) {
-                    throw new AppException(ErrorCode.OUT_OF_STOCK, "Sản phẩm " + menu.getName() + " không đủ tồn kho (còn " + catalogItem.getStockQuantity() + ")");
-                }
-
-                catalogItem.setStockQuantity(catalogItem.getStockQuantity() - itemReq.getQuantity());
-                catalogItemRepository.save(catalogItem);
+            // Ưu tiên giá override tại cơ sở, fallback về giá chuẩn của MasterItem nếu có
+            BigDecimal unitPrice = menu.getBasePrice();
+            if (unitPrice == null && menu.getMasterItem() != null) {
+                unitPrice = menu.getMasterItem().getDefaultBasePrice();
+            }
+            if (unitPrice == null) {
+                unitPrice = BigDecimal.ZERO;
             }
 
-            BigDecimal unitPrice = menu.getBasePrice();
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             BigDecimal lineServiceFee = subtotal.multiply(standardServiceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal taxableAmount = subtotal.add(lineServiceFee);
 
             BigDecimal vatRate = BigDecimal.ZERO;
             if (menu.getTaxCategory() != null) {
-                vatRate = vatRuleRepository.findActiveVatRule(menu.getTaxCategory().getId(), LocalDate.now())
-                        .map(VatRule::getVatPercent)
-                        .orElse(BigDecimal.ZERO);
+                BigDecimal fetchedVat = vatRuleService.getActiveVatPercent(menu.getTaxCategory().getId(), LocalDate.now());
+                if (fetchedVat != null) {
+                    vatRate = fetchedVat;
+                }
             }
             BigDecimal lineVat = taxableAmount.multiply(vatRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal lineTotal = taxableAmount.add(lineVat);
@@ -168,7 +218,20 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
 
     @Override
     public List<ServiceOrderResponse> getOrdersByBookingId(Long bookingId) {
-        return serviceOrderRepository.findByBookingIdAndIsDeletedFalse(bookingId).stream()
+        if (bookingId == null) {
+            return List.of();
+        }
+        List<BookingRoom> rooms = bookingLookupService.getBookingRoomsByBookingId(bookingId);
+        List<Long> roomIds = rooms != null ? rooms.stream().map(BookingRoom::getId).toList() : List.of();
+
+        List<ServiceOrder> orders;
+        if (roomIds.isEmpty()) {
+            orders = serviceOrderRepository.findByBookingIdAndIsDeletedFalse(bookingId);
+        } else {
+            orders = serviceOrderRepository.findAllOrdersForBookingAndRooms(bookingId, roomIds);
+        }
+
+        return orders.stream()
                 .filter(so -> so.getStatus() != ServiceOrderStatus.CANCELLED)
                 .map(operationMapper::toResponse)
                 .toList();
@@ -182,11 +245,18 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
         Specification<ServiceOrder> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            if (searchDto.getBookingId() != null) {
-                predicates.add(cb.equal(root.get("booking").get("id"), searchDto.getBookingId()));
+            if (searchDto.getHotelId() != null) {
+                predicates.add(cb.equal(root.get("hotel").get("id"), searchDto.getHotelId()));
             }
-            if (searchDto.getRoomInstanceId() != null) {
-                predicates.add(cb.equal(root.get("roomInstance").get("id"), searchDto.getRoomInstanceId()));
+            if (searchDto.getReferenceType() != null) {
+                predicates.add(cb.equal(root.get("referenceType"), searchDto.getReferenceType()));
+            }
+            if (searchDto.getReferenceId() != null) {
+                predicates.add(cb.equal(root.get("referenceId"), searchDto.getReferenceId()));
+            }
+            if (searchDto.getBookingId() != null) {
+                predicates.add(cb.equal(root.get("referenceType"), ServiceOrderReferenceType.BOOKING));
+                predicates.add(cb.equal(root.get("referenceId"), searchDto.getBookingId()));
             }
             if (searchDto.getOrderNumber() != null && !searchDto.getOrderNumber().isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("orderNumber")), "%" + searchDto.getOrderNumber().trim().toLowerCase() + "%"));
@@ -212,20 +282,29 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             throw new AppException(ErrorCode.INVALID_SERVICE_ORDER_STATUS, "Đơn dịch vụ đã bị hủy trước đó");
         }
 
-        // Hoàn trả tồn kho nếu hủy đơn hàng
+        // Hoàn trả tồn kho qua MenuService nếu hủy đơn hàng
         if (status == ServiceOrderStatus.CANCELLED) {
             for (ServiceOrderDetail detail : order.getDetails()) {
-                if (detail.getMenu().getMenuType() == MenuType.PRODUCT) {
-                    catalogItemRepository.findById(detail.getMenu().getId()).ifPresent(item -> {
-                        item.setStockQuantity(item.getStockQuantity() + detail.getQuantity());
-                        catalogItemRepository.save(item);
-                    });
-                }
+                menuService.restoreStock(detail.getMenu().getId(), detail.getQuantity());
             }
         }
 
         order.setStatus(status);
         ServiceOrder saved = serviceOrderRepository.save(order);
         return operationMapper.toResponse(saved);
+    }
+
+    @Override
+    public BigDecimal getDailyServiceRevenue(Short hotelId, LocalDate date) {
+        if (hotelId == null || date == null) {
+            return BigDecimal.ZERO;
+        }
+        OffsetDateTime startOfDay = date.atStartOfDay().atOffset(java.time.ZoneOffset.UTC);
+        OffsetDateTime endOfDay = date.atTime(23, 59, 59).atOffset(java.time.ZoneOffset.UTC);
+
+        List<ServiceOrder> dailyOrders = serviceOrderRepository.findActiveOrdersForHotelAndDate(hotelId, startOfDay, endOfDay);
+        return dailyOrders.stream()
+                .map(ServiceOrder::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

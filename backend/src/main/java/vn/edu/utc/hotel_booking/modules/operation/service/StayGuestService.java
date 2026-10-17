@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.operation.service;
 
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
+import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestUpdateRequest;
@@ -17,6 +18,8 @@ public interface StayGuestService {
     PageResponse<StayGuestResponse> search(StayGuestSearchDto request);
 
     StayGuestResponse getById(Long id);
+
+    StayGuest getEntityById(Long id);
 
     void delete(List<Long> ids);
 }

@@ -17,9 +17,8 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -59,10 +58,7 @@ public class StayGuestServiceTest {
     private HotelRepository hotelRepository;
 
     @Mock
-    private BookingRepository bookingRepository;
-
-    @Mock
-    private BookingRoomRepository bookingRoomRepository;
+    private BookingLookupService bookingLookupService;
 
     @Mock
     private RoomInstanceRepository roomInstanceRepository;
@@ -219,7 +215,7 @@ public class StayGuestServiceTest {
 
         Booking booking = Booking.builder().id(100L).hotel(sampleHotel).build();
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
-        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingLookupService.getBookingEntityById(100L)).thenReturn(booking);
 
         StayGuest existingActiveStay = StayGuest.builder()
                 .id(10L)
@@ -263,7 +259,7 @@ public class StayGuestServiceTest {
 
         Booking booking = Booking.builder().id(100L).hotel(sampleHotel).build();
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
-        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
+        when(bookingLookupService.getBookingEntityById(100L)).thenReturn(booking);
 
         // Booking 100 has completed stay (actualCheckOutTime != null), so active stay query returns empty
         when(stayGuestRepository.findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
@@ -304,7 +300,7 @@ public class StayGuestServiceTest {
                 .build();
 
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
-        when(bookingRepository.findById(200L)).thenReturn(Optional.of(booking));
+        when(bookingLookupService.getBookingEntityById(200L)).thenReturn(booking);
 
         AppException ex = assertThrows(AppException.class, () -> stayGuestService.createOrCheckIn(request));
         assertEquals(ErrorCode.INVALID_REQUEST_DATA, ex.getErrorCode());
@@ -380,8 +376,8 @@ public class StayGuestServiceTest {
                 .build();
 
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
-        when(bookingRepository.findById(100L)).thenReturn(Optional.of(booking));
-        when(bookingRoomRepository.findById(500L)).thenReturn(Optional.of(bookingRoom));
+        when(bookingLookupService.getBookingEntityById(100L)).thenReturn(booking);
+        when(bookingLookupService.getBookingRoomEntityById(500L)).thenReturn(bookingRoom);
         when(stayGuestRepository.findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
                 (short) 1, 100L, "001200001234")).thenReturn(Optional.empty());
 
@@ -484,5 +480,25 @@ public class StayGuestServiceTest {
         assertTrue(queue.getIsDeleted());
         verify(stayGuestRepository, times(1)).saveAll(any());
         verify(lodgingQueueRepository, times(1)).save(queue);
+    }
+
+    @Test
+    void getEntityById_success() {
+        StayGuest guest = StayGuest.builder().id(12L).hotel(sampleHotel).build();
+        when(stayGuestRepository.findById(12L)).thenReturn(Optional.of(guest));
+
+        StayGuest result = stayGuestService.getEntityById(12L);
+
+        assertNotNull(result);
+        assertEquals(12L, result.getId());
+        verify(stayGuestRepository).findById(12L);
+    }
+
+    @Test
+    void getEntityById_notFound_throwsException() {
+        when(stayGuestRepository.findById(999L)).thenReturn(Optional.empty());
+
+        AppException ex = assertThrows(AppException.class, () -> stayGuestService.getEntityById(999L));
+        assertEquals(ErrorCode.GUEST_NOT_FOUND, ex.getErrorCode());
     }
 }

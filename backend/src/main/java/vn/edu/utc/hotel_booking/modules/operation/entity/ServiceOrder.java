@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import vn.edu.utc.hotel_booking.common.entity.BaseEntity;
-import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
-import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
+import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -30,12 +29,16 @@ public class ServiceOrder extends BaseEntity {
     String orderNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_id", nullable = false)
-    Booking booking;
+    @JoinColumn(name = "hotel_id", nullable = false)
+    Hotel hotel;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "room_instance_id")
-    RoomInstance roomInstance;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reference_type", nullable = false, length = 50)
+    @Builder.Default
+    ServiceOrderReferenceType referenceType = ServiceOrderReferenceType.BOOKING;
+
+    @Column(name = "reference_id")
+    Long referenceId;
 
     @Column(name = "sub_total", nullable = false, precision = 15, scale = 2)
     @Builder.Default
@@ -69,4 +72,8 @@ public class ServiceOrder extends BaseEntity {
     @OneToMany(mappedBy = "serviceOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     List<ServiceOrderDetail> details = new ArrayList<>();
+
+    public Long getBookingId() {
+        return referenceType == ServiceOrderReferenceType.BOOKING ? referenceId : null;
+    }
 }

@@ -19,4 +19,13 @@ public interface ServiceOrderService {
     PageResponse<ServiceOrderResponse> filter(ServiceOrderSearchDto searchDto);
 
     ServiceOrderResponse updateStatus(Long id, ServiceOrderStatus status);
+
+    /**
+     * Tính tổng doanh thu dịch vụ phát sinh trong ngày của khách sạn
+     *
+     * @param hotelId ID khách sạn
+     * @param date Ngày kiểm toán
+     * @return Tổng doanh thu dịch vụ
+     */
+    java.math.BigDecimal getDailyServiceRevenue(Short hotelId, java.time.LocalDate date);
 }

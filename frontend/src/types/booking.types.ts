@@ -99,7 +99,6 @@ export interface BookingDailyRateResponse {
 export interface BookingChargeResponse {
   id: number;
   bookingRoomId: number;
-  bookingGuestId?: number;
   chargeType: BookingChargeType;
   itemName: string;
   description?: string;

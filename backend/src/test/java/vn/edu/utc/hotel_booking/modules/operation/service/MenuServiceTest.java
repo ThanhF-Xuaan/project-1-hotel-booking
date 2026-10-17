@@ -16,20 +16,18 @@ import vn.edu.utc.hotel_booking.modules.operation.dto.request.MenuCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.MenuSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.MenuUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.MenuResponse;
-import vn.edu.utc.hotel_booking.modules.operation.entity.CatalogItem;
-import vn.edu.utc.hotel_booking.modules.operation.entity.HotelServiceItem;
+import vn.edu.utc.hotel_booking.modules.operation.entity.MasterItem;
 import vn.edu.utc.hotel_booking.modules.operation.entity.Menu;
 import vn.edu.utc.hotel_booking.modules.operation.entity.MenuType;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType;
 import vn.edu.utc.hotel_booking.modules.operation.mapper.OperationMapper;
-import vn.edu.utc.hotel_booking.modules.operation.repository.CatalogItemRepository;
-import vn.edu.utc.hotel_booking.modules.operation.repository.HotelServiceItemRepository;
 import vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository;
+import vn.edu.utc.hotel_booking.modules.operation.service.MasterItemService;
 import vn.edu.utc.hotel_booking.modules.operation.service.impl.MenuServiceImpl;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
-import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
+import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
-import vn.edu.utc.hotel_booking.modules.pricing.repository.TaxCategoryRepository;
+import vn.edu.utc.hotel_booking.modules.pricing.service.TaxCategoryService;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -43,10 +41,9 @@ import static org.mockito.Mockito.*;
 class MenuServiceTest {
 
     @Mock MenuRepository menuRepository;
-    @Mock CatalogItemRepository catalogItemRepository;
-    @Mock HotelServiceItemRepository hotelServiceItemRepository;
-    @Mock HotelRepository hotelRepository;
-    @Mock TaxCategoryRepository taxCategoryRepository;
+    @Mock MasterItemService masterItemService;
+    @Mock HotelService hotelService;
+    @Mock TaxCategoryService taxCategoryService;
     @Mock OperationMapper operationMapper;
 
     @InjectMocks
@@ -73,12 +70,13 @@ class MenuServiceTest {
                 .menuType(MenuType.PRODUCT)
                 .name("Bia Heineken lon")
                 .basePrice(BigDecimal.valueOf(35000))
+                .stockQuantity(100)
                 .status("ACTIVE")
                 .build();
     }
 
     @Test
-    @DisplayName("Tạo món ăn/sản phẩm vật lý thành công và lưu số lượng tồn kho")
+    @DisplayName("Tạo món ăn/sản phẩm vật lý thành công và lưu số lượng tồn kho trực tiếp trên menu")
     void createProduct_Success() {
         MenuCreateRequest request = MenuCreateRequest.builder()
                 .hotelId((short) 1)
@@ -89,8 +87,8 @@ class MenuServiceTest {
                 .stockQuantity(100)
                 .build();
 
-        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
-        when(taxCategoryRepository.findById(1)).thenReturn(Optional.of(testTaxCategory));
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(taxCategoryService.getEntityById(1)).thenReturn(testTaxCategory);
         when(menuRepository.save(any(Menu.class))).thenReturn(testProductMenu);
         when(operationMapper.toResponse(any(Menu.class))).thenReturn(MenuResponse.builder()
                 .id(10)
@@ -104,14 +102,23 @@ class MenuServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(10);
         assertThat(response.getStockQuantity()).isEqualTo(100);
-        verify(catalogItemRepository, times(1)).save(any(CatalogItem.class));
+        verify(menuRepository, times(1)).save(any(Menu.class));
     }
 
     @Test
-    @DisplayName("Tạo dịch vụ khách sạn thành công và lưu hình thức tính giá")
+    @DisplayName("Tạo dịch vụ khách sạn thành công liên kết MasterItem")
     void createService_Success() {
+        MasterItem masterLaundry = MasterItem.builder()
+                .id(5)
+                .code("SRV_LAUNDRY")
+                .name("Giặt ủi áo sơ mi")
+                .pricingType(ServicePricingType.PER_UNIT)
+                .defaultBasePrice(BigDecimal.valueOf(50000))
+                .build();
+
         MenuCreateRequest request = MenuCreateRequest.builder()
                 .hotelId((short) 1)
+                .masterItemId(5)
                 .taxCategoryId(1)
                 .menuType(MenuType.SERVICE)
                 .name("Giặt ủi áo sơ mi")
@@ -122,6 +129,7 @@ class MenuServiceTest {
         Menu serviceMenu = Menu.builder()
                 .id(11)
                 .hotel(testHotel)
+                .masterItem(masterLaundry)
                 .taxCategory(testTaxCategory)
                 .menuType(MenuType.SERVICE)
                 .name("Giặt ủi áo sơ mi")
@@ -129,11 +137,13 @@ class MenuServiceTest {
                 .status("ACTIVE")
                 .build();
 
-        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(testHotel));
-        when(taxCategoryRepository.findById(1)).thenReturn(Optional.of(testTaxCategory));
+        when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
+        when(taxCategoryService.getEntityById(1)).thenReturn(testTaxCategory);
+        when(masterItemService.getEntityById(5)).thenReturn(masterLaundry);
         when(menuRepository.save(any(Menu.class))).thenReturn(serviceMenu);
         when(operationMapper.toResponse(any(Menu.class))).thenReturn(MenuResponse.builder()
                 .id(11)
+                .masterItemId(5)
                 .name("Giặt ủi áo sơ mi")
                 .menuType(MenuType.SERVICE)
                 .pricingType(ServicePricingType.PER_UNIT)
@@ -144,7 +154,7 @@ class MenuServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getId()).isEqualTo(11);
         assertThat(response.getPricingType()).isEqualTo(ServicePricingType.PER_UNIT);
-        verify(hotelServiceItemRepository, times(1)).save(any(HotelServiceItem.class));
+        verify(menuRepository, times(1)).save(any(Menu.class));
     }
 
     @Test
@@ -157,7 +167,6 @@ class MenuServiceTest {
                 .build();
 
         when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testProductMenu));
-        when(catalogItemRepository.findById(10)).thenReturn(Optional.of(CatalogItem.builder().menu(testProductMenu).stockQuantity(100).build()));
         when(menuRepository.save(any(Menu.class))).thenReturn(testProductMenu);
         when(operationMapper.toResponse(any(Menu.class))).thenReturn(MenuResponse.builder()
                 .id(10)
@@ -170,7 +179,8 @@ class MenuServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getName()).isEqualTo("Bia Heineken lon 330ml");
-        verify(catalogItemRepository, times(1)).save(any(CatalogItem.class));
+        assertThat(testProductMenu.getStockQuantity()).isEqualTo(150);
+        verify(menuRepository, times(1)).save(testProductMenu);
     }
 
     @Test
@@ -195,5 +205,50 @@ class MenuServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getTotalElements()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("getEntityById - Thành công khi ID hợp lệ")
+    void getEntityById_Success() {
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testProductMenu));
+
+        Menu result = menuService.getEntityById(10);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(10);
+        assertThat(result.getName()).isEqualTo("Bia Heineken lon");
+        verify(menuRepository).findByIdAndIsDeletedFalse(10);
+    }
+
+    @Test
+    @DisplayName("deductStock - Trừ tồn kho thành công cho sản phẩm Product")
+    void deductStock_Success() {
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testProductMenu));
+
+        menuService.deductStock(10, 5);
+
+        assertThat(testProductMenu.getStockQuantity()).isEqualTo(95);
+        verify(menuRepository).save(testProductMenu);
+    }
+
+    @Test
+    @DisplayName("deductStock - Báo lỗi OUT_OF_STOCK khi tồn kho không đủ")
+    void deductStock_OutOfStock_ThrowsException() {
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testProductMenu));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> menuService.deductStock(10, 999))
+                .isInstanceOf(vn.edu.utc.hotel_booking.common.exception.AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", vn.edu.utc.hotel_booking.common.exception.ErrorCode.OUT_OF_STOCK);
+    }
+
+    @Test
+    @DisplayName("restoreStock - Hoàn trả tồn kho thành công cho sản phẩm Product")
+    void restoreStock_Success() {
+        when(menuRepository.findByIdAndIsDeletedFalse(10)).thenReturn(Optional.of(testProductMenu));
+
+        menuService.restoreStock(10, 10);
+
+        assertThat(testProductMenu.getStockQuantity()).isEqualTo(110);
+        verify(menuRepository).save(testProductMenu);
     }
 }
