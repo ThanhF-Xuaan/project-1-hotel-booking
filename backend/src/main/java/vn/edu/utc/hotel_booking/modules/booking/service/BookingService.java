@@ -32,6 +32,8 @@ public interface BookingService {
 
     BookingResponse checkOut(Long bookingRoomId);
 
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.CheckoutSettlementResponse getCheckoutSettlement(Long bookingRoomId);
+
     BookingResponse confirmOnlineBooking(String sessionId, Long paymentId);
 
     vn.edu.utc.hotel_booking.modules.booking.dto.response.SurchargeProposalResponse previewSurcharge(

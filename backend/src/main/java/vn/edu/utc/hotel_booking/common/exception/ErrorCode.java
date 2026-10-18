@@ -73,6 +73,8 @@ public enum ErrorCode {
     ROOM_NOT_YET_ASSIGNED(7023, "Phòng đặt chưa được gán phòng vật lý. Vui lòng xếp phòng trước khi thực hiện thao tác này.", HttpStatus.BAD_REQUEST),
     ROOM_NOT_READY_FOR_CHECKIN(7024, "Phòng vật lý chưa sẵn sàng để check-in (đang dọn dẹp hoặc bảo trì).", HttpStatus.BAD_REQUEST),
     BOOKING_CHARGE_NOT_FOUND(7025, "Không tìm thấy khoản phụ phí yêu cầu", HttpStatus.NOT_FOUND),
+    CHECKOUT_BALANCE_UNPAID(7026, "Không thể check-out: Booking còn khoản nợ chưa thanh toán. Vui lòng thanh toán toàn bộ chi phí trước khi trả phòng.", HttpStatus.BAD_REQUEST),
+    BOOKING_ROOM_NOT_CHECKED_IN(7027, "Phòng này không ở trạng thái đang lưu trú (CHECKED_IN) để thực hiện check-out.", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_ROOM_AVAILABILITY(7031, "Không đủ phòng trống để thực hiện đặt phòng", HttpStatus.CONFLICT),
     EXCEEDS_MAX_CAPACITY(7041, "Số lượng khách hoặc giường phụ vượt quá sức chứa tối đa của hạng phòng", HttpStatus.BAD_REQUEST),
     BOOKING_SESSION_EXPIRED(7051, "Phiên đặt phòng hoặc thanh toán đã hết hạn, vui lòng thao tác lại", HttpStatus.GONE),

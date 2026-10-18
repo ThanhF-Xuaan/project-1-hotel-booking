@@ -317,4 +317,31 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
                 .map(ServiceOrder::getTotalAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
+
+    @Override
+    @Transactional
+    public void markOrdersPaidForBooking(Long bookingId) {
+        if (bookingId == null) {
+            return;
+        }
+        List<BookingRoom> rooms = bookingLookupService.getBookingRoomsByBookingId(bookingId);
+        List<Long> roomIds = rooms != null ? rooms.stream().map(BookingRoom::getId).toList() : List.of();
+
+        List<ServiceOrder> orders;
+        if (roomIds.isEmpty()) {
+            orders = serviceOrderRepository.findByBookingIdAndIsDeletedFalse(bookingId);
+        } else {
+            orders = serviceOrderRepository.findAllOrdersForBookingAndRooms(bookingId, roomIds);
+        }
+
+        for (ServiceOrder order : orders) {
+            if (order.getStatus() != ServiceOrderStatus.CANCELLED
+                    && order.getPaymentMethod() == ServiceOrderPaymentMethod.POST_TO_ROOM
+                    && order.getPaymentStatus() == ServiceOrderPaymentStatus.UNPAID) {
+                order.setPaymentStatus(ServiceOrderPaymentStatus.PAID);
+                serviceOrderRepository.save(order);
+            }
+        }
+    }
 }
+

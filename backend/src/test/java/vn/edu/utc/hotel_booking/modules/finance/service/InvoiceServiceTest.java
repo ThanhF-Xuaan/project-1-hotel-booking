@@ -9,7 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
-import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.Invoice;
@@ -37,7 +37,7 @@ class InvoiceServiceTest {
     private InvoiceRepository invoiceRepository;
 
     @Mock
-    private BookingService bookingService;
+    private BookingLookupService bookingLookupService;
 
     @Mock
     private ServiceOrderService serviceOrderService;
@@ -116,7 +116,7 @@ class InvoiceServiceTest {
                 .serviceFeeRate(new BigDecimal("5.00"))
                 .build();
 
-        when(bookingService.getEntityById(500L)).thenReturn(testBooking);
+        when(bookingLookupService.getBookingEntityById(500L)).thenReturn(testBooking);
 
         // POS & Dịch vụ qua ServiceOrderService
         ServiceOrderDetailResponse productItem = ServiceOrderDetailResponse.builder()
@@ -181,9 +181,9 @@ class InvoiceServiceTest {
         );
 
         // Verify service-to-service communication was used exclusively
-        verify(bookingService, times(1)).getEntityById(500L);
+        verify(bookingLookupService, times(1)).getBookingEntityById(500L);
         verify(serviceOrderService, times(1)).getOrdersByBookingId(500L);
-        verifyNoMoreInteractions(bookingService, serviceOrderService);
+        verifyNoMoreInteractions(bookingLookupService, serviceOrderService);
     }
 
     @Test
@@ -195,7 +195,7 @@ class InvoiceServiceTest {
                 .serviceFeeRate(new BigDecimal("5.00"))
                 .build();
 
-        when(bookingService.getEntityById(500L)).thenReturn(testBooking);
+        when(bookingLookupService.getBookingEntityById(500L)).thenReturn(testBooking);
 
         ServiceOrderDetailResponse paidItem = ServiceOrderDetailResponse.builder()
                 .id(103L)

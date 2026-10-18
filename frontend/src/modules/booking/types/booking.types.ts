@@ -167,16 +167,55 @@ export interface BookingResponse {
 }
 
 export interface SurchargePreviewRequest {
-  checkInTime?: string;
-  checkOutTime?: string;
-  actionType: 'CHECK_IN' | 'CHECK_OUT';
+  chargeType: BookingChargeType;
+  actualTime?: string;
 }
 
 export interface SurchargeProposalResponse {
   applicable: boolean;
-  ruleCode?: string;
-  description?: string;
-  percentage?: number;
-  baseAmount?: number;
-  suggestedAmount?: number;
+  chargeType: BookingChargeType;
+  standardTime: string;
+  actualTime: string;
+  timeDifferenceMinutes: number;
+  policyRule: string;
+  baseRoomRate: number;
+  suggestedPercentage: number;
+  suggestedAmount: number;
+  suggestedItemName: string;
+  defaultServiceFeeRate?: number;
+  defaultVatRate?: number;
 }
+
+export interface SettlementLineItemDto {
+  lineType: 'ROOM_RATE' | 'SURCHARGE' | 'PENALTY' | 'SERVICE' | 'PRODUCT';
+  referenceId?: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  serviceFeeRate?: number;
+  serviceFeeAmount?: number;
+  vatRate?: number;
+  vatAmount?: number;
+  totalAmount: number;
+}
+
+export interface CheckoutSettlementResponse {
+  bookingId: number;
+  bookingRoomId: number;
+  bookingNumber: string;
+  roomNumber: string;
+  roomTypeName: string;
+  guestName: string;
+  guestPhone: string;
+  totalRoomCharges: number;
+  totalSurcharges: number;
+  totalServiceCharges: number;
+  grandTotal: number;
+  totalPaid: number;
+  balanceDue: number;
+  canCheckOut: boolean;
+  lineItems: SettlementLineItemDto[];
+  paymentHistory: any[];
+}
+

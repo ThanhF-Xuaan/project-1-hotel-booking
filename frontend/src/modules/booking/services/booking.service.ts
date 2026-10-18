@@ -9,6 +9,7 @@ import type {
   BookingChargeResponse,
   SurchargePreviewRequest,
   SurchargeProposalResponse,
+  CheckoutSettlementResponse,
 } from '../types/booking.types';
 
 const BASE_URL = '/api/v1/bookings';
@@ -43,6 +44,9 @@ export const bookingService = {
 
   checkIn: (bookingRoomId: number) =>
     apiClient.post<BookingResponse>(`${BASE_URL}/rooms/${bookingRoomId}/check-in`, {}),
+
+  getCheckoutSettlement: (bookingRoomId: number) =>
+    apiClient.get<CheckoutSettlementResponse>(`${BASE_URL}/rooms/${bookingRoomId}/checkout-settlement`),
 
   checkOut: (bookingRoomId: number) =>
     apiClient.post<BookingResponse>(`${BASE_URL}/rooms/${bookingRoomId}/check-out`, {}),

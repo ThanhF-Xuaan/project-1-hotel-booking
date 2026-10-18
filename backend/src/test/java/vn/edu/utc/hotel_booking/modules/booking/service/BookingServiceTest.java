@@ -78,6 +78,10 @@ class BookingServiceTest {
     @Mock VoucherService voucherService;
     @Mock ServiceOrderService serviceOrderService;
     @Mock vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService stayGuestService;
+    @Mock vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService invoiceService;
+    @Mock vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository paymentRepository;
+    @Mock vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper financeMapper;
+    @Mock vn.edu.utc.hotel_booking.modules.pricing.repository.SurchargeRuleRepository surchargeRuleRepository;
 
     @Mock org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     @Mock org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
@@ -591,12 +595,19 @@ class BookingServiceTest {
 
 
     @Test
-    @DisplayName("checkOut thành công: cập nhật trạng thái CHECKED_OUT và đánh dấu room slots DIRTY")
+    @DisplayName("checkOut thành công: cập nhật trạng thái CHECKED_OUT, phòng sang DIRTY, đóng hóa đơn & dịch vụ sang PAID")
     void checkOut_Success() {
         BookingDetail detail = BookingDetail.builder().booking(testBooking).checkInDate(LocalDate.now()).checkOutDate(LocalDate.now().plusDays(1)).build();
         RoomInstance roomInstance = RoomInstance.builder().roomNumber("P.101").build();
         roomInstance.setId(101);
-        BookingRoom bookingRoom = BookingRoom.builder().id(20L).bookingDetail(detail).roomInstance(roomInstance).build();
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(20L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .bookingDetail(detail)
+                .roomInstance(roomInstance)
+                .build();
+        detail.setBookingRooms(List.of(bookingRoom));
+        testBooking.setBookingDetails(List.of(detail));
 
         when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
         when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder().id(100L).build());
@@ -606,8 +617,50 @@ class BookingServiceTest {
         assertThat(response).isNotNull();
         assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.CHECKED_OUT);
         verify(bookingRoomService).save(bookingRoom);
+        verify(roomInstanceService).updateRoomStatusEntity(eq(101), eq("DIRTY"));
         verify(roomSlotService).markSlotsDirty(eq(101), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
+        verify(serviceOrderService).markOrdersPaidForBooking(eq(testBooking.getId()));
+        verify(invoiceService).settleAndCloseInvoice(eq(testBooking.getId()));
     }
+
+    @Test
+    @DisplayName("checkOut thất bại: Ném BOOKING_ROOM_NOT_CHECKED_IN khi phòng chưa check-in")
+    void checkOut_NotCheckedIn_ThrowsException() {
+        BookingDetail detail = BookingDetail.builder().booking(testBooking).build();
+        BookingRoom bookingRoom = BookingRoom.builder().id(20L).status(BookingRoomStatus.EXPECTED).bookingDetail(detail).build();
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+
+        assertThatThrownBy(() -> bookingService.checkOut(20L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.BOOKING_ROOM_NOT_CHECKED_IN));
+    }
+
+    @Test
+    @DisplayName("checkOut thất bại: Zero-Balance Gatekeeper chặn khi còn nợ tiền chưa thanh toán")
+    void checkOut_UnpaidBalance_ThrowsException() {
+        BookingDetail detail = BookingDetail.builder().booking(testBooking).checkInDate(LocalDate.now()).checkOutDate(LocalDate.now().plusDays(1)).build();
+        BookingDailyRate dailyRate = BookingDailyRate.builder()
+                .id(1L)
+                .netPrice(new BigDecimal("500000.00"))
+                .vatPercent(new BigDecimal("10.00"))
+                .build();
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(20L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .bookingDetail(detail)
+                .dailyRates(List.of(dailyRate))
+                .build();
+        detail.setBookingRooms(List.of(bookingRoom));
+        testBooking.setBookingDetails(List.of(detail));
+
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+        // paymentRepository returns empty list -> balanceDue > 0
+
+        assertThatThrownBy(() -> bookingService.checkOut(20L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.CHECKOUT_BALANCE_UNPAID));
+    }
+
 
     @Test
     @DisplayName("updateStatus huỷ phòng: giải phóng room slots và huỷ các booking rooms")
@@ -975,4 +1028,133 @@ class BookingServiceTest {
         verify(bookingRepository).save(booking);
         verify(bookingChargeService).deleteById(55L);
     }
+
+    @Test
+    @DisplayName("Check-out thất bại khi phòng không ở trạng thái CHECKED_IN")
+    void checkOut_WhenRoomNotCheckedIn_ShouldThrowException() {
+        BookingRoom room = BookingRoom.builder()
+                .id(101L)
+                .status(BookingRoomStatus.EXPECTED)
+                .build();
+
+        when(bookingRoomService.getEntityById(101L)).thenReturn(room);
+
+        assertThatThrownBy(() -> bookingService.checkOut(101L))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOKING_ROOM_NOT_CHECKED_IN);
+    }
+
+    @Test
+    @DisplayName("Zero-Balance Gatekeeper: Chặn Check-out khi còn nợ tiền (balanceDue > 0)")
+    void checkOut_WhenBalanceDuePositive_ShouldThrowCheckoutBalanceUnpaid() {
+        BookingDailyRate dailyRate = BookingDailyRate.builder()
+                .id(1L)
+                .stayDate(LocalDate.now())
+                .netPrice(new BigDecimal("1000000.00"))
+                .vatPercent(new BigDecimal("10.00"))
+                .build();
+
+        BookingRoom room = BookingRoom.builder()
+                .id(101L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .dailyRates(List.of(dailyRate))
+                .charges(List.of())
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(201L)
+                .roomTypeName("Deluxe")
+                .bookingRooms(List.of(room))
+                .build();
+
+        Booking booking = Booking.builder()
+                .id(301L)
+                .bookingNumber("BK-TEST-001")
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .bookingDetails(List.of(detail))
+                .build();
+
+        room.setBookingDetail(detail);
+        detail.setBooking(booking);
+
+        when(bookingRoomService.getEntityById(101L)).thenReturn(room);
+        when(serviceOrderService.getOrdersByBookingId(301L)).thenReturn(List.of());
+        when(paymentRepository.findByBookingId(301L)).thenReturn(List.of()); // Chưa thanh toán đồng nào
+
+        assertThatThrownBy(() -> bookingService.checkOut(101L))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CHECKOUT_BALANCE_UNPAID);
+    }
+
+    @Test
+    @DisplayName("Check-out thành công khi đã trả hết nợ: chuyển phòng sang DIRTY, đóng sổ hóa đơn và service orders")
+    void checkOut_WhenBalanceDueZero_ShouldSucceedAndMarkRoomDirtyAndCloseLedger() {
+        BookingDailyRate dailyRate = BookingDailyRate.builder()
+                .id(1L)
+                .stayDate(LocalDate.now())
+                .netPrice(new BigDecimal("1000000.00"))
+                .vatPercent(new BigDecimal("10.00"))
+                .build();
+
+        RoomInstance roomInstance = RoomInstance.builder()
+                .id(10)
+                .roomNumber("101")
+                .currentStatus("OCCUPIED")
+                .build();
+
+        BookingRoom room = BookingRoom.builder()
+                .id(101L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .roomInstance(roomInstance)
+                .dailyRates(List.of(dailyRate))
+                .charges(List.of())
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(201L)
+                .roomTypeName("Deluxe")
+                .checkInDate(LocalDate.now().minusDays(1))
+                .checkOutDate(LocalDate.now())
+                .bookingRooms(List.of(room))
+                .build();
+
+        Booking booking = Booking.builder()
+                .id(301L)
+                .bookingNumber("BK-TEST-001")
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .bookingDetails(List.of(detail))
+                .build();
+
+        room.setBookingDetail(detail);
+        detail.setBooking(booking);
+
+        // Giả lập tiền phòng = 1000k + 5% phí (50k) = 1050k + 10% VAT (105k) = 1155000.00 đ
+        BigDecimal grandTotal = new BigDecimal("1155000.00");
+        vn.edu.utc.hotel_booking.modules.finance.entity.Payment paid = vn.edu.utc.hotel_booking.modules.finance.entity.Payment.builder()
+                .id(999L)
+                .totalAmount(grandTotal)
+                .status(vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus.SUCCESS)
+                .build();
+
+        when(bookingRoomService.getEntityById(101L)).thenReturn(room);
+        when(serviceOrderService.getOrdersByBookingId(301L)).thenReturn(List.of());
+        when(paymentRepository.findByBookingId(301L)).thenReturn(List.of(paid));
+        when(bookingMapper.toResponse(any())).thenReturn(BookingResponse.builder().id(301L).build());
+
+        BookingResponse response = bookingService.checkOut(101L);
+
+        assertThat(response).isNotNull();
+        assertThat(room.getStatus()).isEqualTo(BookingRoomStatus.CHECKED_OUT);
+        assertThat(room.getActualCheckOutAt()).isNotNull();
+
+        // Kiểm tra chuyển phòng sang DIRTY trước
+        verify(roomInstanceService).updateRoomStatusEntity(10, "DIRTY");
+        verify(roomSlotService).markSlotsDirty(eq(10), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
+
+        // Kiểm tra đóng sổ liên hoàn
+        verify(serviceOrderService).markOrdersPaidForBooking(301L);
+        verify(invoiceService).settleAndCloseInvoice(301L);
+        verify(stayGuestService).syncLodgingQueueForBookingRoom(101L);
+    }
 }
+

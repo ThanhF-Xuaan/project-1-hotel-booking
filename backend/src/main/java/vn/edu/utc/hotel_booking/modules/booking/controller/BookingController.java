@@ -111,10 +111,20 @@ public class BookingController {
         return ApiResponse.success("Check-in nhận phòng thành công", bookingService.checkIn(bookingRoomId));
     }
 
+    @GetMapping("/rooms/{bookingRoomId}/checkout-settlement")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
+    @Operation(summary = "Lấy bảng kê chi phí, lịch sử thanh toán và số dư nợ để chuẩn bị Check-out")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.CheckoutSettlementResponse> getCheckoutSettlement(
+            @PathVariable Long bookingRoomId
+    ) {
+        return ApiResponse.success(bookingService.getCheckoutSettlement(bookingRoomId));
+    }
+
     @PostMapping("/rooms/{bookingRoomId}/check-out")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
-    @Operation(summary = "Thực hiện Check-out trả phòng")
+    @Operation(summary = "Thực hiện Check-out trả phòng (Kiểm tra hết nợ và đóng sổ)")
     public ApiResponse<BookingResponse> checkOut(@PathVariable Long bookingRoomId) {
-        return ApiResponse.success("Check-out trả phòng thành công", bookingService.checkOut(bookingRoomId));
+        return ApiResponse.success("Check-out trả phòng và đóng sổ thành công", bookingService.checkOut(bookingRoomId));
     }
 }
+

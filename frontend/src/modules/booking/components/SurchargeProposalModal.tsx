@@ -61,35 +61,41 @@ export const SurchargeProposalModal: React.FC<SurchargeProposalModalProps> = ({
         {/* Breakdown Card */}
         <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-4 space-y-2.5 text-sm">
           <div className="flex justify-between items-center py-1 border-b border-neutral-200">
-            <span className="text-neutral-500 text-xs">Chính sách áp dụng:</span>
-            <span className="font-medium text-neutral-800 text-xs px-2 py-0.5 bg-neutral-200 rounded">
-              {proposal.ruleCode || 'SURCHARGE_RULE'}
+            <span className="text-neutral-500 text-xs">Giờ tiêu chuẩn quy định:</span>
+            <span className="font-semibold text-neutral-800 text-xs px-2 py-0.5 bg-neutral-200 rounded">
+              {proposal.standardTime || (actionType === 'CHECK_IN' ? '14:00' : '12:00')}
+              {proposal.timeDifferenceMinutes ? ` (Lệch ${Math.round(proposal.timeDifferenceMinutes / 60 * 10) / 10}h)` : ''}
             </span>
           </div>
 
           <div className="flex justify-between items-start py-1 border-b border-neutral-200">
-            <span className="text-neutral-500 text-xs">Mô tả quy định:</span>
-            <span className="font-medium text-neutral-900 text-right text-xs max-w-[260px]">
-              {proposal.description || 'Theo biểu phí phụ thu của khách sạn'}
+            <span className="text-neutral-500 text-xs">Căn cứ biểu phí:</span>
+            <span className="font-medium text-neutral-900 text-right text-xs max-w-[280px]">
+              {proposal.policyRule || 'Theo cấu hình phụ thu động của khách sạn và hạng phòng'}
             </span>
           </div>
 
           <div className="flex justify-between items-center py-1 border-b border-neutral-200">
             <span className="text-neutral-500 text-xs">Tỷ lệ phụ thu:</span>
             <span className="font-semibold text-neutral-900 text-xs">
-              {proposal.percentage}% giá phòng 1 đêm
+              {proposal.suggestedPercentage ?? 0}% giá phòng 1 đêm
             </span>
           </div>
 
           <div className="flex justify-between items-center py-1 border-b border-neutral-200">
             <span className="text-neutral-500 text-xs">Giá phòng 1 đêm căn cứ:</span>
             <span className="font-medium text-neutral-800 text-xs">
-              {formatVND(proposal.baseAmount)}
+              {formatVND(proposal.baseRoomRate)}
             </span>
           </div>
 
           <div className="flex justify-between items-center pt-2">
-            <span className="text-sm font-bold text-neutral-900">Phụ thu đề xuất:</span>
+            <div>
+              <span className="text-sm font-bold text-neutral-900 block">Phụ thu đề xuất:</span>
+              <span className="text-[11px] text-neutral-500 font-normal">
+                {proposal.suggestedItemName || (actionType === 'CHECK_IN' ? 'Phụ thu nhận phòng sớm' : 'Phụ thu trả phòng muộn')}
+              </span>
+            </div>
             <span className="text-lg font-extrabold text-red-600">
               {formatVND(proposal.suggestedAmount)}
             </span>

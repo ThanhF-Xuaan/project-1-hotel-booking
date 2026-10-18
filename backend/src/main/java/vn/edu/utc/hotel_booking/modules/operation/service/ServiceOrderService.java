@@ -28,4 +28,12 @@ public interface ServiceOrderService {
      * @return Tổng doanh thu dịch vụ
      */
     java.math.BigDecimal getDailyServiceRevenue(Short hotelId, java.time.LocalDate date);
+
+    /**
+     * Đánh dấu toàn bộ các đơn dịch vụ POST_TO_ROOM của booking là đã thanh toán (PAID) khi đóng sổ check-out
+     *
+     * @param bookingId ID đơn đặt phòng
+     */
+    void markOrdersPaidForBooking(Long bookingId);
 }
+

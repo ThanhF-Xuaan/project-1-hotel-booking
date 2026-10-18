@@ -24,4 +24,17 @@ public interface SurchargeRuleRepository extends JpaRepository<SurchargeRule, In
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    @Query("SELECT sr FROM SurchargeRule sr " +
+            "WHERE sr.hotelRoomType.id = :hotelRoomTypeId " +
+            "AND sr.ruleType = :ruleType " +
+            "AND sr.status = 'ACTIVE' " +
+            "AND sr.isDeleted = false " +
+            "AND sr.startDate <= :date " +
+            "AND sr.endDate >= :date")
+    java.util.Optional<SurchargeRule> findActiveRuleForRoomTypeAndDate(
+            @Param("hotelRoomTypeId") Integer hotelRoomTypeId,
+            @Param("ruleType") String ruleType,
+            @Param("date") LocalDate date
+    );
 }

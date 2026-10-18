@@ -13,6 +13,7 @@ import {
   Users,
   Utensils,
   Trash2,
+  Receipt,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -23,6 +24,7 @@ import roomInstanceService from '../../inventory/services/roomInstance.service';
 import StayGuestsModal from '../components/StayGuestsModal';
 import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
+import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
 import type {
   BookingResponse,
   BookingStatus,
@@ -105,6 +107,10 @@ export const BookingListPage: React.FC = () => {
 
   // Action status message
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // Checkout Settlement Modal
+  const [isCheckoutSettlementModalOpen, setIsCheckoutSettlementModalOpen] = useState(false);
+  const [checkoutSettlementRoomId, setCheckoutSettlementRoomId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -253,26 +259,14 @@ export const BookingListPage: React.FC = () => {
     }
   };
 
-  const handleCheckOut = async (bookingRoomId: number) => {
-    try {
-      await bookingService.checkOut(bookingRoomId);
-      setActionSuccessMessage('Check-out thành công! Phòng đã chuyển sang trạng thái chờ dọn dẹp (DIRTY).');
-      loadData();
-      if (selectedBooking) {
-        const updated = await bookingService.getById(selectedBooking.id);
-        if (updated.result) {
-          setSelectedBooking(updated.result);
-        }
-      }
-    } catch (err) {
-      console.error('Lỗi check-out:', err);
-      alert('Check-out thất bại.');
-    }
+  const handleOpenCheckoutSettlement = (bookingRoomId: number) => {
+    setCheckoutSettlementRoomId(bookingRoomId);
+    setIsCheckoutSettlementModalOpen(true);
   };
 
   const handleInitiateCheckIn = async (room: BookingRoomResponse) => {
     try {
-      const preview = await bookingService.previewSurcharge(room.id, { actionType: 'CHECK_IN' });
+      const preview = await bookingService.previewSurcharge(room.id, { chargeType: 'EARLY_CHECKIN' });
       if (preview.result && preview.result.applicable) {
         setSurchargeProposal(preview.result);
         setSurchargeActionType('CHECK_IN');
@@ -288,7 +282,7 @@ export const BookingListPage: React.FC = () => {
 
   const handleInitiateCheckOut = async (room: BookingRoomResponse) => {
     try {
-      const preview = await bookingService.previewSurcharge(room.id, { actionType: 'CHECK_OUT' });
+      const preview = await bookingService.previewSurcharge(room.id, { chargeType: 'LATE_CHECKOUT' });
       if (preview.result && preview.result.applicable) {
         setSurchargeProposal(preview.result);
         setSurchargeActionType('CHECK_OUT');
@@ -297,9 +291,9 @@ export const BookingListPage: React.FC = () => {
         return;
       }
     } catch (err) {
-      console.warn('Lỗi kiểm tra phụ thu trả phòng muộn, tiếp tục check-out thường:', err);
+      console.warn('Lỗi kiểm tra phụ thu trả phòng muộn, tiếp tục mở bảng quyết toán check-out:', err);
     }
-    await handleCheckOut(room.id);
+    handleOpenCheckoutSettlement(room.id);
   };
 
   const handleApplySurchargeProposal = async () => {
@@ -309,12 +303,13 @@ export const BookingListPage: React.FC = () => {
       await bookingService.addCharge(surchargeTargetRoom.id, {
         chargeType: surchargeActionType === 'CHECK_IN' ? 'EARLY_CHECKIN' : 'LATE_CHECKOUT',
         itemName:
-          surchargeProposal.description ||
+          surchargeProposal.suggestedItemName ||
+          surchargeProposal.policyRule ||
           (surchargeActionType === 'CHECK_IN' ? 'Phụ thu nhận phòng sớm' : 'Phụ thu trả phòng muộn'),
         quantity: 1,
         unitPrice: surchargeProposal.suggestedAmount || 0,
-        serviceFeeRate: 0,
-        vatRate: 0,
+        serviceFeeRate: surchargeProposal.defaultServiceFeeRate || 5,
+        vatRate: surchargeProposal.defaultVatRate || 8,
       });
 
       setIsSurchargeProposalModalOpen(false);
@@ -322,7 +317,8 @@ export const BookingListPage: React.FC = () => {
       if (surchargeActionType === 'CHECK_IN') {
         await handleCheckIn(surchargeTargetRoom.id);
       } else {
-        await handleCheckOut(surchargeTargetRoom.id);
+        setActionSuccessMessage('Đã ghi nhận phụ thu trả phòng muộn vào công nợ phòng. Vui lòng thanh toán số dư còn nợ trước khi đóng sổ.');
+        handleOpenCheckoutSettlement(surchargeTargetRoom.id);
       }
     } catch (err) {
       console.error('Lỗi khi áp dụng phụ thu:', err);
@@ -339,12 +335,15 @@ export const BookingListPage: React.FC = () => {
       setIsSurchargeProposalModalOpen(false);
       if (surchargeActionType === 'CHECK_IN') {
         await handleCheckIn(surchargeTargetRoom.id);
+        setActionSuccessMessage(
+          `Đã miễn phụ thu (${reason}) và hoàn tất Check-in!`
+        );
       } else {
-        await handleCheckOut(surchargeTargetRoom.id);
+        setActionSuccessMessage(
+          `Đã miễn phụ thu (${reason}). Tiếp tục kiểm tra công nợ để đóng sổ Check-out!`
+        );
+        handleOpenCheckoutSettlement(surchargeTargetRoom.id);
       }
-      setActionSuccessMessage(
-        `Đã miễn phụ thu (${reason}) và hoàn tất ${surchargeActionType === 'CHECK_IN' ? 'Check-in' : 'Check-out'}!`
-      );
     } catch (err) {
       console.error('Lỗi khi miễn phụ thu:', err);
     } finally {
@@ -358,13 +357,14 @@ export const BookingListPage: React.FC = () => {
     setTargetBookingRoomId(surchargeTargetRoom.id);
     setChargeType(surchargeActionType === 'CHECK_IN' ? 'EARLY_CHECKIN' : 'LATE_CHECKOUT');
     setChargeItemName(
-      surchargeProposal.description ||
-        (surchargeActionType === 'CHECK_IN' ? 'Phụ thu nhận phòng sớm' : 'Phụ thu trả phòng muộn')
+      surchargeProposal.suggestedItemName ||
+      surchargeProposal.policyRule ||
+      (surchargeActionType === 'CHECK_IN' ? 'Phụ thu nhận phòng sớm' : 'Phụ thu trả phòng muộn')
     );
     setChargeQuantity(1);
     setChargeUnitPrice(surchargeProposal.suggestedAmount || 100000);
-    setChargeServiceFeeRate(0);
-    setChargeVatRate(0);
+    setChargeServiceFeeRate(surchargeProposal.defaultServiceFeeRate || 5);
+    setChargeVatRate(surchargeProposal.defaultVatRate || 8);
     setIsChargeModalOpen(true);
   };
 
@@ -806,16 +806,30 @@ export const BookingListPage: React.FC = () => {
                               </Button>
                             )}
 
-                            {/* Nút Check-out */}
+                            {/* Nút Quyết toán & Check-out */}
                             {room.status === 'CHECKED_IN' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleInitiateCheckOut(room)}
-                              >
-                                <LogOut className="w-3.5 h-3.5 mr-1" />
-                                Check-out
-                              </Button>
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenCheckoutSettlement(room.id)}
+                                  className="text-blue-700 border-blue-200 hover:bg-blue-50"
+                                  title="Xem bảng kê công nợ và thu tiền tạm ứng / thanh toán"
+                                >
+                                  <Receipt className="w-3.5 h-3.5 mr-1 text-blue-600" />
+                                  Quyết toán
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => handleInitiateCheckOut(room)}
+                                  className="bg-red-600 hover:bg-red-700 text-white font-semibold"
+                                  title="Kiểm tra phụ thu trả muộn và thực hiện thủ tục Check-out"
+                                >
+                                  <LogOut className="w-3.5 h-3.5 mr-1" />
+                                  Check-out
+                                </Button>
+                              </>
                             )}
 
                             {/* Nút Gọi món / POS Dịch vụ phòng */}
@@ -1100,6 +1114,28 @@ export const BookingListPage: React.FC = () => {
         confirmText={isDeletingCharge ? 'Đang xóa...' : 'Xóa phụ phí'}
         cancelText="Hủy"
         variant="danger"
+      />
+
+      {/* CHECKOUT SETTLEMENT & ZERO-BALANCE CLOSURE MODAL */}
+      <CheckoutSettlementModal
+        isOpen={isCheckoutSettlementModalOpen}
+        onClose={() => {
+          setIsCheckoutSettlementModalOpen(false);
+          setCheckoutSettlementRoomId(null);
+        }}
+        bookingRoomId={checkoutSettlementRoomId}
+        onCheckOutSuccess={async (bookingNumber) => {
+          setActionSuccessMessage(
+            `Check-out thành công cho đơn ${bookingNumber}! Phòng đã chuyển sang trạng thái DIRTY (Chờ dọn dẹp), hóa đơn và các đơn dịch vụ đã được đóng PAID.`
+          );
+          loadData();
+          if (selectedBooking) {
+            const updated = await bookingService.getById(selectedBooking.id);
+            if (updated.result) {
+              setSelectedBooking(updated.result);
+            }
+          }
+        }}
       />
     </div>
   );
