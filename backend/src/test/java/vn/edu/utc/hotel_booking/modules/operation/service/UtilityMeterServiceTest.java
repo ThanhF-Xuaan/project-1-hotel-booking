@@ -158,7 +158,7 @@ class UtilityMeterServiceTest {
                 .build();
 
         Page<UtilityMeter> emptyPage = new PageImpl<>(Collections.emptyList());
-        when(repository.search(isNull(), isNull(), isNull(), any(Pageable.class))).thenReturn(emptyPage);
+        when(repository.search(isNull(), isNull(), eq(""), any(Pageable.class))).thenReturn(emptyPage);
 
         PageResponse<UtilityMeterResponse> result = service.search(request);
 

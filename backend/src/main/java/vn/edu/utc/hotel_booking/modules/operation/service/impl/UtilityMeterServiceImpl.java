@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
@@ -35,7 +36,8 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
     @Override
     public PageResponse<UtilityMeterResponse> search(UtilityMeterSearchDto request) {
         Pageable pageable = PageRequest.of(request.getPage(), request.getPageSize(), Sort.by("id").descending());
-        Page<UtilityMeter> page = repository.search(request.getHotelId(), request.getMeterType(), request.getKeyword(), pageable);
+        String keyword = StringUtils.hasText(request.getKeyword()) ? request.getKeyword().trim() : "";
+        Page<UtilityMeter> page = repository.search(request.getHotelId(), request.getMeterType(), keyword, pageable);
         return PageResponse.from(page.map(mapper::toResponse));
     }
 

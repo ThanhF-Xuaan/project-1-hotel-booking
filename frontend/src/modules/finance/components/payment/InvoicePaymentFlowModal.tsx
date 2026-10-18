@@ -32,6 +32,7 @@ import type {
 } from '../../types/finance.types';
 import type { BookingResponse } from '../../../booking/types/booking.types';
 import { VNPAY_ATM_TEST_CARD } from '../../utils/vnpay.utils';
+import HotelFolioReceipt from './HotelFolioReceipt';
 
 export interface InvoicePaymentFlowModalProps {
   isOpen: boolean;
@@ -39,6 +40,8 @@ export interface InvoicePaymentFlowModalProps {
   booking: BookingResponse | null;
   invoice: InvoiceResponse | null;
   onPaymentSuccess: (payment: PaymentResponse) => void;
+  initialPaidAmount?: number;
+  initialBalanceDue?: number;
 }
 
 type PaymentFlowStep = 1 | 2 | 3 | 4;
@@ -72,10 +75,13 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   booking,
   invoice,
   onPaymentSuccess,
+  initialPaidAmount = 0,
+  initialBalanceDue,
 }) => {
   // ── Step State ─────────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState<PaymentFlowStep>(1);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('CASH');
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   // ── Voucher State ──────────────────────────────────────────────────────────
   const [voucherInput, setVoucherInput] = useState('');
@@ -267,12 +273,26 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     return Math.max(0, totalBeforeVoucher - voucherDiscount);
   }, [totalBeforeVoucher, voucherDiscount]);
 
+  // Dư nợ còn lại thực tế sau khi đối trừ các khoản thanh toán trước đó
+  const remainingDue = useMemo(() => {
+    if (initialBalanceDue !== undefined) {
+      return Math.max(0, initialBalanceDue - voucherDiscount);
+    }
+    return Math.max(0, grandTotal - initialPaidAmount);
+  }, [initialBalanceDue, voucherDiscount, grandTotal, initialPaidAmount]);
+
+  // Số tiền thanh toán kỳ này (mặc định lấy toàn bộ dư nợ còn lại)
+  const effectivePayAmount = useMemo(() => {
+    if (remainingDue > 0) return remainingDue;
+    return grandTotal;
+  }, [remainingDue, grandTotal]);
+
   // Cập nhật số tiền khách đưa mặc định khi chuyển sang Form 2
   useEffect(() => {
     if (currentStep === 2 && selectedMethod === 'CASH') {
-      setCashGiven(grandTotal);
+      setCashGiven(effectivePayAmount);
     }
-  }, [currentStep, selectedMethod, grandTotal]);
+  }, [currentStep, selectedMethod, effectivePayAmount]);
 
   // ── Xử lý áp dụng Voucher ──────────────────────────────────────────────────
   const handleApplyVoucher = (e?: React.FormEvent) => {
@@ -337,7 +357,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         bookingId: booking.id,
         method: 'VNPAY',
         bankCode: 'NCB',
-        amount: grandTotal,
+        amount: effectivePayAmount,
       });
       if (res.result) {
         setVnPaySession(res.result);
@@ -505,7 +525,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     try {
       const res = await financeService.createPayment({
         bookingId: booking.id,
-        totalAmount: grandTotal,
+        totalAmount: effectivePayAmount,
         paymentMethod: method,
         paymentPurpose: 'FULL_PAYMENT' as PaymentPurpose,
         transactionReference: refCode,
@@ -631,7 +651,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
                     <div>
                       <span className="text-neutral-400 block">Khách hàng nhận phòng</span>
                       <strong className="text-neutral-900 text-sm block truncate">
@@ -642,6 +662,16 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       <span className="text-neutral-400 block">Số điện thoại liên hệ</span>
                       <strong className="text-neutral-900 text-sm block">
                         {booking.guestPhone || 'Chưa cung cấp'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400 block">CCCD / Hộ chiếu (Passport)</span>
+                      <strong className="text-neutral-900 block truncate" title="Giấy tờ tùy thân đối soát tại quầy">
+                        {(() => {
+                          const allGuests = booking.bookingDetails?.flatMap((d) => d.bookingRooms || []).flatMap((r) => r.bookingGuests || []) || [];
+                          const gId = allGuests.find((g) => g.identityNumber);
+                          return gId ? `${gId.identityType || 'CCCD'}: ${gId.identityNumber}` : 'Đã đối soát tại quầy';
+                        })()}
                       </strong>
                     </div>
                     <div>
@@ -660,6 +690,12 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                           <span className="text-neutral-500">Chưa xếp phòng</span>
                         )}
                       </div>
+                    </div>
+                    <div>
+                      <span className="text-neutral-400 block">Thời gian lưu trú</span>
+                      <strong className="text-neutral-800 block truncate">
+                        {booking.bookingDetails?.[0]?.checkInDate || 'N/A'} ➔ {booking.bookingDetails?.[0]?.checkOutDate || 'N/A'}
+                      </strong>
                     </div>
                     <div>
                       <span className="text-neutral-400 block">Khách sạn cơ sở</span>
@@ -863,11 +899,27 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
 
                 {/* Tổng thanh toán cuối cùng & Nút xác nhận */}
                 <div className="pt-3 border-t border-neutral-200 space-y-3">
-                  <div className="flex justify-between items-baseline">
-                    <span className="text-sm font-bold text-neutral-800">Tổng cộng thanh toán:</span>
-                    <span className="text-2xl font-black text-red-600">
-                      {formatCurrency(grandTotal)}
-                    </span>
+                  <div className="space-y-1">
+                    {initialPaidAmount > 0 && (
+                      <div className="flex justify-between text-xs text-neutral-600">
+                        <span>Đã thanh toán trước đó:</span>
+                        <span className="font-semibold text-emerald-600">{formatCurrency(initialPaidAmount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-baseline">
+                      <span className="text-sm font-bold text-neutral-800">
+                        {initialPaidAmount > 0 ? 'Số tiền thanh toán đợt này:' : 'Tổng cộng thanh toán:'}
+                      </span>
+                      <span className="text-2xl font-black text-red-600">
+                        {formatCurrency(effectivePayAmount)}
+                      </span>
+                    </div>
+                    {initialPaidAmount > 0 && (
+                      <div className="flex justify-between text-xs text-neutral-500">
+                        <span>Tổng phát sinh: {formatCurrency(grandTotal)}</span>
+                        <span>Dư nợ còn lại sau thu: {formatCurrency(Math.max(0, remainingDue - effectivePayAmount))}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-3 justify-end">
@@ -905,7 +957,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                 <div className="text-right">
                   <span className="text-xs text-neutral-500 block">Số tiền cần thanh toán</span>
                   <strong className="text-lg font-black text-red-600">
-                    {formatCurrency(grandTotal)}
+                    {formatCurrency(effectivePayAmount)}
                   </strong>
                 </div>
               </div>
@@ -1435,16 +1487,24 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     </div>
                   </div>
 
-                  <div className="flex gap-3 pt-2">
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      variant="primary"
+                      onClick={() => setIsReceiptModalOpen(true)}
+                      leftIcon={<Printer className="w-4 h-4" />}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
+                    >
+                      Xem &amp; In Biên lai Chi tiết
+                    </Button>
                     <Button
                       variant="outline"
                       onClick={() => window.print()}
                       leftIcon={<Printer className="w-4 h-4" />}
-                      className="flex-1"
+                      className="text-xs"
                     >
-                      In biên lai
+                      In Nhanh
                     </Button>
-                    <Button variant="primary" onClick={onClose} className="flex-1 font-bold">
+                    <Button variant="outline" onClick={onClose} className="text-xs">
                       Hoàn tất &amp; Đóng
                     </Button>
                   </div>
@@ -1482,6 +1542,19 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
           )}
         </div>
       </div>
+
+      {/* MODAL BIÊN LAI IN ẤN FOLIO CHUYÊN NGHIỆP */}
+      {isReceiptModalOpen && (
+        <HotelFolioReceipt
+          isOpen={isReceiptModalOpen}
+          onClose={() => setIsReceiptModalOpen(false)}
+          booking={booking}
+          invoice={invoice}
+          payment={completedPayment}
+          appliedVoucher={appliedVoucher}
+          customAmountPaid={effectivePayAmount}
+        />
+      )}
     </div>
   );
 };

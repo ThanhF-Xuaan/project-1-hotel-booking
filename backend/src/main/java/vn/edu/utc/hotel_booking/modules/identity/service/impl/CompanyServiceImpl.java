@@ -40,7 +40,7 @@ public class CompanyServiceImpl implements CompanyService {
         Sort.Direction direction = "ASC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
-        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : null;
+        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : "";
         String status = StringUtils.hasText(searchDto.getStatus()) ? searchDto.getStatus().trim() : null;
 
         Page<Company> resultPage = companyRepository.searchCompanies(keyword, status, pageable);

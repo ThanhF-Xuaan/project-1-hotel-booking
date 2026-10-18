@@ -41,7 +41,7 @@ public class DepartmentServiceImpl implements DepartmentService {
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
 
-        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : null;
+        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : "";
         String status = StringUtils.hasText(searchDto.getStatus()) ? searchDto.getStatus().trim() : null;
 
         Page<Department> resultPage = departmentRepository.searchDepartments(keyword, status, pageable);
