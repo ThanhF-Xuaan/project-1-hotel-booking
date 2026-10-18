@@ -18,10 +18,13 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.model.RoomCandidate;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.InMemoryRoomAdvisorSessionStore;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSessionStore;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionNotFoundException;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionVersionConflictException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -229,5 +232,163 @@ class RoomAdvisorOrchestrationServiceTest {
         assertThatThrownBy(() -> orchestrationService.refresh(rReq, "user-123"))
                 .isInstanceOf(SessionNotFoundException.class)
                 .hasMessageContaining("Session not found or expired");
+    }
+
+    @Test
+    @DisplayName("Concurrent search on same session: exactly one commits and one throws SessionVersionConflictException")
+    void concurrentSearchOnSameSessionShouldConflict() throws Exception {
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .hotelId(1)
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .build();
+
+        AdvisorSearchRequestDto sReq = AdvisorSearchRequestDto.builder()
+                .contractVersion("2.0")
+                .criteria(criteria)
+                .build();
+
+        when(corePort.resolveDestination(any(), any(), any()))
+                .thenReturn(DestinationResolutionResult.builder().hotelId(1).build());
+
+        when(corePort.discoverAndQuoteCandidates(any(), any(), anyInt()))
+                .thenReturn(CoreCandidateDiscoveryResult.builder().catalogComplete(true).build());
+
+        AdvisorResultDto initial = orchestrationService.search(sReq, "user-123");
+        UUID sid = initial.getSessionId();
+        long v1 = initial.getSessionVersion(); // 2L
+
+        int threadCount = 2;
+        CyclicBarrier startBarrier = new CyclicBarrier(threadCount);
+        CyclicBarrier readBarrier = new CyclicBarrier(threadCount);
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+        when(corePort.resolveDestination(any(), any(), any()))
+                .thenAnswer(inv -> {
+                    readBarrier.await(5, TimeUnit.SECONDS);
+                    return DestinationResolutionResult.builder().hotelId(1).build();
+                });
+
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger conflictCount = new AtomicInteger(0);
+        List<Throwable> unexpectedExceptions = new CopyOnWriteArrayList<>();
+
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < threadCount; i++) {
+            final int idx = i;
+            futures.add(executor.submit(() -> {
+                try {
+                    startBarrier.await(5, TimeUnit.SECONDS);
+                    AdvisorSearchRequestDto req = AdvisorSearchRequestDto.builder()
+                            .contractVersion("2.0")
+                            .sessionId(sid)
+                            .expectedSessionVersion(v1)
+                            .criteria(RoomSearchCriteriaDto.builder()
+                                    .hotelId(1)
+                                    .locationKeyword("City " + idx)
+                                    .checkInDate(LocalDate.of(2026, 11, 20))
+                                    .checkOutDate(LocalDate.of(2026, 11, 22))
+                                    .adults(2)
+                                    .roomsCount(1)
+                                    .build())
+                            .build();
+                    orchestrationService.search(req, "user-123");
+                    successCount.incrementAndGet();
+                } catch (SessionVersionConflictException e) {
+                    conflictCount.incrementAndGet();
+                } catch (Throwable t) {
+                    unexpectedExceptions.add(t);
+                }
+            }));
+        }
+
+        for (Future<?> f : futures) {
+            f.get(5, TimeUnit.SECONDS);
+        }
+        executor.shutdown();
+
+        assertThat(unexpectedExceptions).isEmpty();
+        assertThat(successCount.get()).isEqualTo(1);
+        assertThat(conflictCount.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("Concurrent chat on same session: exactly one commits and one throws SessionVersionConflictException")
+    void concurrentChatOnSameSessionShouldConflict() throws Exception {
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .hotelId(1)
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .build();
+
+        AdvisorSearchRequestDto sReq = AdvisorSearchRequestDto.builder()
+                .contractVersion("2.0")
+                .criteria(criteria)
+                .build();
+
+        when(corePort.resolveDestination(any(), any(), any()))
+                .thenReturn(DestinationResolutionResult.builder().hotelId(1).build());
+
+        when(corePort.discoverAndQuoteCandidates(any(), any(), anyInt()))
+                .thenReturn(CoreCandidateDiscoveryResult.builder().catalogComplete(true).build());
+
+        when(llmPort.extractCriteriaPatch(any(), any()))
+                .thenReturn(null);
+
+        when(llmPort.generateReply(any(), any()))
+                .thenReturn("Tư vấn phòng hoàn tất");
+
+        AdvisorResultDto initial = orchestrationService.search(sReq, "user-123");
+        UUID sid = initial.getSessionId();
+        long v1 = initial.getSessionVersion();
+
+        int threadCount = 2;
+        CyclicBarrier startBarrier = new CyclicBarrier(threadCount);
+        CyclicBarrier readBarrier = new CyclicBarrier(threadCount);
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+
+        when(corePort.resolveDestination(any(), any(), any()))
+                .thenAnswer(inv -> {
+                    readBarrier.await(5, TimeUnit.SECONDS);
+                    return DestinationResolutionResult.builder().hotelId(1).build();
+                });
+
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger conflictCount = new AtomicInteger(0);
+        List<Throwable> unexpectedExceptions = new CopyOnWriteArrayList<>();
+
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
+                try {
+                    startBarrier.await(5, TimeUnit.SECONDS);
+                    AdvisorChatRequestDto req = AdvisorChatRequestDto.builder()
+                            .contractVersion("2.0")
+                            .sessionId(sid)
+                            .expectedSessionVersion(v1)
+                            .message("Tìm phòng tại Đà Nẵng")
+                            .build();
+                    orchestrationService.chat(req, "user-123");
+                    successCount.incrementAndGet();
+                } catch (SessionVersionConflictException e) {
+                    conflictCount.incrementAndGet();
+                } catch (Throwable t) {
+                    unexpectedExceptions.add(t);
+                }
+            }));
+        }
+
+        for (Future<?> f : futures) {
+            f.get(5, TimeUnit.SECONDS);
+        }
+        executor.shutdown();
+
+        assertThat(unexpectedExceptions).isEmpty();
+        assertThat(successCount.get()).isEqualTo(1);
+        assertThat(conflictCount.get()).isEqualTo(1);
     }
 }

@@ -66,18 +66,19 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
             return Optional.empty();
         }
 
-        RoomAdvisorSession existing = store.get(sessionId);
-        if (existing == null) {
+        RoomAdvisorSession session = store.computeIfPresent(sessionId, (key, existing) -> {
+            if (isExpired(existing)) {
+                return null;
+            }
+            return existing;
+        });
+
+        if (session == null) {
             return Optional.empty();
         }
 
-        if (isExpired(existing)) {
-            store.remove(sessionId);
-            return Optional.empty();
-        }
-
-        validateOwner(existing, ownerKey);
-        return Optional.of(existing);
+        validateOwner(session, ownerKey);
+        return Optional.of(session);
     }
 
     @Override

@@ -145,13 +145,14 @@ class RoomAdvisorSessionStoreTest {
 
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger conflictCount = new AtomicInteger(0);
+        List<Throwable> unexpectedExceptions = new CopyOnWriteArrayList<>();
 
         List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < threadCount; i++) {
             final int idx = i;
             futures.add(executor.submit(() -> {
                 try {
-                    barrier.await();
+                    barrier.await(5, TimeUnit.SECONDS);
                     store.updateSession(
                             sid,
                             "user-123",
@@ -163,8 +164,8 @@ class RoomAdvisorSessionStoreTest {
                     successCount.incrementAndGet();
                 } catch (SessionVersionConflictException e) {
                     conflictCount.incrementAndGet();
-                } catch (Exception e) {
-                    // unexpected
+                } catch (Throwable t) {
+                    unexpectedExceptions.add(t);
                 }
             }));
         }
@@ -174,11 +175,68 @@ class RoomAdvisorSessionStoreTest {
         }
         executor.shutdown();
 
+        assertThat(unexpectedExceptions).isEmpty();
         assertThat(successCount.get()).isEqualTo(1);
         assertThat(conflictCount.get()).isEqualTo(1);
 
         Optional<RoomAdvisorSession> finalSession = store.getSession(sid, "user-123");
         assertThat(finalSession).isPresent();
         assertThat(finalSession.get().getSessionVersion()).isEqualTo(initialVersion + 1);
+    }
+
+    @Test
+    @DisplayName("Atomic computeIfPresent in getSession should not remove newly recreated session")
+    void expiredSessionRemovalRaceShouldNotDeleteNewSession() {
+        RoomAdvisorSession session = store.getOrCreateSession(null, "user-123");
+        UUID sid = session.getSessionId();
+
+        // Expire the session in-place
+        session.setLastAccessedAt(java.time.Instant.now().minus(java.time.Duration.ofHours(1)));
+
+        // Simulate concurrent thread recreating a fresh active session for sid
+        RoomAdvisorSession newSession = store.getOrCreateSession(sid, "user-123");
+        assertThat(newSession.getSessionVersion()).isEqualTo(1L);
+
+        // getSession on sid finds the new active session, leaving it intact
+        Optional<RoomAdvisorSession> retrieved = store.getSession(sid, "user-123");
+        assertThat(retrieved).isPresent();
+        assertThat(retrieved.get().getSessionId()).isEqualTo(sid);
+        assertThat(retrieved.get()).isSameAs(newSession);
+    }
+
+    @Test
+    @DisplayName("Concurrent expiry, refresh, and replacement preserves consistency without swallowing exceptions")
+    void concurrentExpiryRefreshAndReplacement() throws Exception {
+        int threadCount = 4;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CyclicBarrier barrier = new CyclicBarrier(threadCount);
+        List<Throwable> unexpectedExceptions = new CopyOnWriteArrayList<>();
+
+        UUID sid = store.getOrCreateSession(null, "user-123").getSessionId();
+
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < threadCount; i++) {
+            final int idx = i;
+            futures.add(executor.submit(() -> {
+                try {
+                    barrier.await(5, TimeUnit.SECONDS);
+                    if (idx % 2 == 0) {
+                        store.getOrCreateSession(sid, "user-123");
+                    } else {
+                        store.getSession(sid, "user-123");
+                    }
+                } catch (Throwable t) {
+                    unexpectedExceptions.add(t);
+                }
+            }));
+        }
+
+        for (Future<?> f : futures) {
+            f.get(5, TimeUnit.SECONDS);
+        }
+        executor.shutdown();
+
+        assertThat(unexpectedExceptions).isEmpty();
+        assertThat(store.getSession(sid, "user-123")).isPresent();
     }
 }
