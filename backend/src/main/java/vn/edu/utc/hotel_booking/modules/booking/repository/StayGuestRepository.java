@@ -19,6 +19,12 @@ public interface StayGuestRepository extends JpaRepository<StayGuest, Long> {
 
     Optional<StayGuest> findByHotelIdAndDocumentNumberAndIsDeletedFalse(Short hotelId, String documentNumber);
 
+    Optional<StayGuest> findFirstByHotelIdAndBookingIdAndDocumentNumberAndIsDeletedFalse(Short hotelId, Long bookingId, String documentNumber);
+
+    Optional<StayGuest> findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(Short hotelId, Long bookingId, String documentNumber);
+
+    Optional<StayGuest> findFirstByHotelIdAndRoomNumberAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(Short hotelId, String roomNumber, String documentNumber);
+
     @Query("SELECT s FROM StayGuest s WHERE s.isDeleted = false " +
            "AND (:hotelId IS NULL OR s.hotel.id = :hotelId) " +
            "AND (:bookingId IS NULL OR s.booking.id = :bookingId) " +

@@ -23,7 +23,7 @@ public class PayrollSummaryController {
 
     @Operation(summary = "Import Payroll Summary từ file CSV", description = "Chấp nhận file CSV. Trả về 200 OK kèm mảng lỗi (nếu có dòng lỗi).")
     @PostMapping(value = "/import", consumes = "multipart/form-data")
-    @PreAuthorize("hasAnyRole('ROLE_CHAIN_ADMIN', 'ROLE_PROPERTY_MANAGER')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     public ResponseEntity<ApiResponse<List<ErrorRowDto>>> importCsv(
             @RequestParam("file") MultipartFile file) {
         

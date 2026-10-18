@@ -14,7 +14,9 @@ import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -47,6 +49,7 @@ public class StayGuestServiceImpl implements StayGuestService {
     private final LodgingQueueRepository lodgingQueueRepository;
     private final HotelRepository hotelRepository;
     private final BookingRepository bookingRepository;
+    private final BookingRoomRepository bookingRoomRepository;
     private final RoomInstanceRepository roomInstanceRepository;
     private final StaffRepository staffRepository;
     private final StayGuestMapper stayGuestMapper;
@@ -61,21 +64,51 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         Booking booking = null;
         if (request.getBookingId() != null) {
-            booking = bookingRepository.findById(request.getBookingId()).orElse(null);
+            booking = bookingRepository.findById(request.getBookingId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_DETAIL_NOT_FOUND, "Không tìm thấy đơn đặt phòng với ID " + request.getBookingId()));
+            if (booking.getHotel() != null && !booking.getHotel().getId().equals(hotel.getId())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Đơn đặt phòng không thuộc khách sạn này");
+            }
         }
 
         RoomInstance room = null;
         if (request.getRoomId() != null) {
-            room = roomInstanceRepository.findById(request.getRoomId()).orElse(null);
+            room = roomInstanceRepository.findById(request.getRoomId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý với ID " + request.getRoomId()));
+            if (room.getHotel() != null && !room.getHotel().getId().equals(hotel.getId())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc khách sạn này");
+            }
         }
 
-        // Kiểm tra xem khách có CCCD/Passport này đã từng lưu trú tại khách sạn chưa
-        Optional<StayGuest> existingOpt = stayGuestRepository
-                .findByHotelIdAndDocumentNumberAndIsDeletedFalse(hotel.getId(), request.getDocumentNumber().trim());
+        BookingRoom bookingRoom = null;
+        if (request.getBookingRoomId() != null) {
+            bookingRoom = bookingRoomRepository.findById(request.getBookingRoomId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND, "Không tìm thấy chi tiết phòng đặt với ID " + request.getBookingRoomId()));
+            if (booking != null && bookingRoom.getBookingDetail() != null
+                    && bookingRoom.getBookingDetail().getBooking() != null
+                    && !bookingRoom.getBookingDetail().getBooking().getId().equals(booking.getId())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng đặt không thuộc đơn đặt phòng được chỉ định");
+            }
+        }
+
+        // Kiểm tra xem đây có phải là retry của cùng một lượt lưu trú đang diễn ra (chưa checkout) hay không:
+        // 1. Nếu có bookingId: kiểm tra cùng hotelId, bookingId, documentNumber và actualCheckOutTime == null
+        // 2. Nếu không có bookingId (khách vãng lai): kiểm tra cùng hotelId, roomNumber, documentNumber và actualCheckOutTime == null
+        Optional<StayGuest> existingActiveStay = Optional.empty();
+        if (booking != null) {
+            existingActiveStay = stayGuestRepository
+                    .findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
+                            hotel.getId(), booking.getId(), request.getDocumentNumber().trim());
+        } else if (StringUtils.hasText(request.getRoomNumber())) {
+            existingActiveStay = stayGuestRepository
+                    .findFirstByHotelIdAndRoomNumberAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
+                            hotel.getId(), request.getRoomNumber().trim(), request.getDocumentNumber().trim());
+        }
 
         StayGuest guest;
-        if (existingOpt.isPresent()) {
-            guest = existingOpt.get();
+        if (existingActiveStay.isPresent()) {
+            // Cùng một lượt check-in đang hoạt động -> cập nhật thông tin (idempotent retry)
+            guest = existingActiveStay.get();
             guest.setFullName(request.getFullName().trim());
             guest.setDateOfBirth(request.getDateOfBirth());
             guest.setGender(request.getGender());
@@ -91,11 +124,14 @@ public class StayGuestServiceImpl implements StayGuestService {
             guest.setDocumentImageUrl(request.getDocumentImageUrl());
             if (booking != null) guest.setBooking(booking);
             if (room != null) guest.setRoom(room);
+            if (bookingRoom != null) guest.setBookingRoom(bookingRoom);
         } else {
+            // Lượt lưu trú mới -> luôn tạo mới bản ghi StayGuest, bảo toàn lịch sử lưu trú trước đó
             guest = stayGuestMapper.toEntity(request);
             guest.setHotel(hotel);
             guest.setBooking(booking);
             guest.setRoom(room);
+            guest.setBookingRoom(bookingRoom);
         }
 
         StayGuest savedGuest = stayGuestRepository.save(guest);
@@ -114,6 +150,26 @@ public class StayGuestServiceImpl implements StayGuestService {
                 .orElseThrow(() -> new AppException(ErrorCode.STAY_GUEST_NOT_FOUND));
 
         validateStaffScope(guest.getHotel().getId());
+
+        if (request.getRoomId() != null) {
+            RoomInstance room = roomInstanceRepository.findById(request.getRoomId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý với ID " + request.getRoomId()));
+            if (room.getHotel() != null && !room.getHotel().getId().equals(guest.getHotel().getId())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc khách sạn này");
+            }
+            guest.setRoom(room);
+        }
+
+        if (request.getBookingRoomId() != null) {
+            BookingRoom bookingRoom = bookingRoomRepository.findById(request.getBookingRoomId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND, "Không tìm thấy chi tiết phòng đặt với ID " + request.getBookingRoomId()));
+            if (guest.getBooking() != null && bookingRoom.getBookingDetail() != null
+                    && bookingRoom.getBookingDetail().getBooking() != null
+                    && !bookingRoom.getBookingDetail().getBooking().getId().equals(guest.getBooking().getId())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng đặt không thuộc đơn đặt phòng được chỉ định");
+            }
+            guest.setBookingRoom(bookingRoom);
+        }
 
         stayGuestMapper.updateEntityFromDto(request, guest);
         StayGuest savedGuest = stayGuestRepository.save(guest);
@@ -220,33 +276,48 @@ public class StayGuestServiceImpl implements StayGuestService {
     }
 
     private void validateStaffScope(Short hotelId) {
-        if (SecurityUtils.hasRole("ROLE_CHAIN_ADMIN") || SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER")) {
+        if (hotelId == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "hotelId không được để trống");
+        }
+
+        if (SecurityUtils.hasRole("ROLE_CHAIN_ADMIN")) {
             return;
         }
 
-        if (SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
+        if (SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") || SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
             Staff currentStaff = resolveCurrentStaff();
             if ("PROPERTY".equalsIgnoreCase(currentStaff.getScopeType())
                     && currentStaff.getScopeEntityId() != null
                     && !currentStaff.getScopeEntityId().equals(hotelId.intValue())) {
-                throw new AppException(ErrorCode.UNAUTHORIZED, "Lễ tân không có quyền thao tác trên khách sạn khác");
+                String roleTitle = SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") ? "Quản lý khách sạn" : "Lễ tân";
+                throw new AppException(ErrorCode.UNAUTHORIZED, roleTitle + " không có quyền thao tác trên khách sạn khác");
             }
+            return;
         }
+
+        throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền thao tác trên khách sạn này");
     }
 
     private Short resolveEffectiveHotelId(Short requestedHotelId) {
-        if (SecurityUtils.hasRole("ROLE_CHAIN_ADMIN") || SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER")) {
+        if (SecurityUtils.hasRole("ROLE_CHAIN_ADMIN")) {
             return requestedHotelId;
         }
 
-        if (SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
+        if (SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") || SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
             Staff currentStaff = resolveCurrentStaff();
             if ("PROPERTY".equalsIgnoreCase(currentStaff.getScopeType()) && currentStaff.getScopeEntityId() != null) {
-                return currentStaff.getScopeEntityId().shortValue();
+                Short staffHotelId = currentStaff.getScopeEntityId().shortValue();
+                if (requestedHotelId != null && !requestedHotelId.equals(staffHotelId)) {
+                    throw new AppException(ErrorCode.UNAUTHORIZED, "Không được phép truy vấn dữ liệu của khách sạn khác");
+                }
+                return staffHotelId;
             }
         }
 
-        return requestedHotelId;
+        if (requestedHotelId != null) {
+            return requestedHotelId;
+        }
+        throw new AppException(ErrorCode.UNAUTHORIZED, "Không xác định được phạm vi khách sạn được phép truy cập");
     }
 
     private Staff resolveCurrentStaff() {

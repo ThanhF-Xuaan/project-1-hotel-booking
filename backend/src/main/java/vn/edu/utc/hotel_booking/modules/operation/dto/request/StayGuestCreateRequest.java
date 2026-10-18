@@ -25,6 +25,9 @@ public class StayGuestCreateRequest {
     @Schema(description = "ID đặt phòng nếu có", example = "100")
     Long bookingId;
 
+    @Schema(description = "ID chi tiết phòng đặt (BookingRoom) nếu có", example = "50")
+    Long bookingRoomId;
+
     @Schema(description = "ID phòng vật lý", example = "5")
     Integer roomId;
 

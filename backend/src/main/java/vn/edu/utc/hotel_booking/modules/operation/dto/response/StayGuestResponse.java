@@ -19,6 +19,7 @@ public class StayGuestResponse {
     Short hotelId;
     String hotelName;
     Long bookingId;
+    Long bookingRoomId;
     Integer roomId;
     String roomNumber;
     String fullName;
