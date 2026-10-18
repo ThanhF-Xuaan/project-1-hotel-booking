@@ -52,16 +52,26 @@ public class InvoiceServiceImpl implements InvoiceService {
         Booking booking = bookingRepository.findById(request.getBookingId())
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + request.getBookingId()));
 
-        String invoiceNumber = generateInvoiceNumber();
-
         BigDecimal serviceFeeRate = request.getServiceFeeRate() != null ? request.getServiceFeeRate() : booking.getServiceFeeRate();
 
-        Invoice invoice = Invoice.builder()
-                .booking(booking)
-                .invoiceNumber(invoiceNumber)
-                .serviceFeeRate(serviceFeeRate)
-                .status(InvoiceStatus.DRAFT)
-                .build();
+        List<Invoice> existingInvoices = invoiceRepository.findByBookingId(booking.getId());
+        Invoice invoice;
+        if (existingInvoices != null && !existingInvoices.isEmpty()) {
+            invoice = existingInvoices.get(0);
+            if (invoice.getStatus() == InvoiceStatus.ISSUED || invoice.getStatus() == InvoiceStatus.PAID) {
+                return financeMapper.toResponse(invoice);
+            }
+            invoice.getDetails().clear();
+            invoice.setServiceFeeRate(serviceFeeRate);
+        } else {
+            String invoiceNumber = generateInvoiceNumber();
+            invoice = Invoice.builder()
+                    .booking(booking)
+                    .invoiceNumber(invoiceNumber)
+                    .serviceFeeRate(serviceFeeRate)
+                    .status(InvoiceStatus.DRAFT)
+                    .build();
+        }
 
         List<InvoiceDetail> details = new ArrayList<>();
         BigDecimal subTotal = BigDecimal.ZERO;
