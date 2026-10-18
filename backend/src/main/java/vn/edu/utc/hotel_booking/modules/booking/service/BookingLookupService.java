@@ -3,6 +3,8 @@ package vn.edu.utc.hotel_booking.modules.booking.service;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 
+import java.util.Optional;
+
 public interface BookingLookupService {
 
     /**
@@ -36,6 +38,15 @@ public interface BookingLookupService {
      * @return Thực thể Booking
      */
     Booking getBookingByRoomId(Long bookingRoomId);
+
+    /**
+     * Tra cứu phòng đặt theo ID đơn đặt phòng và ID phòng vật lý
+     *
+     * @param bookingId ID đơn đặt phòng
+     * @param roomInstanceId ID phòng vật lý
+     * @return Optional chứa BookingRoom nếu tìm thấy
+     */
+    java.util.Optional<BookingRoom> findBookingRoomByBookingIdAndRoomInstanceId(Long bookingId, Integer roomInstanceId);
 
     /**
      * Lấy thông tin phòng đang có khách ở (OCCUPIED) theo roomInstanceId

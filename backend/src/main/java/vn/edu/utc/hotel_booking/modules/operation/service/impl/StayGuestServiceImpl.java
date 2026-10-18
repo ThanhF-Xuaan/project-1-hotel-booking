@@ -34,6 +34,7 @@ import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -80,10 +81,26 @@ public class StayGuestServiceImpl implements StayGuestService {
         BookingRoom bookingRoom = null;
         if (request.getBookingRoomId() != null) {
             bookingRoom = bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
+            if (bookingRoom.getRoomInstance() == null) {
+                throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
+                        "Phòng đặt ID " + bookingRoom.getId() + " chưa được gán phòng vật lý. Bắt buộc phải xếp phòng trước khi khai báo khách lưu trú.");
+            }
             if (booking != null && bookingRoom.getBookingDetail() != null
                     && bookingRoom.getBookingDetail().getBooking() != null
                     && !bookingRoom.getBookingDetail().getBooking().getId().equals(booking.getId())) {
                 throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng đặt không thuộc đơn đặt phòng được chỉ định");
+            }
+            if (booking == null && bookingRoom.getBookingDetail() != null) {
+                booking = bookingRoom.getBookingDetail().getBooking();
+            }
+            if (room == null) {
+                room = bookingRoom.getRoomInstance();
+            }
+        } else if (request.getBookingId() != null && request.getRoomId() != null) {
+            bookingRoom = bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(request.getBookingId(), request.getRoomId()).orElse(null);
+            if (bookingRoom != null && bookingRoom.getRoomInstance() == null) {
+                throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
+                        "Phòng đặt ID " + bookingRoom.getId() + " chưa được gán phòng vật lý. Bắt buộc phải xếp phòng trước khi khai báo khách lưu trú.");
             }
         }
 
@@ -205,6 +222,18 @@ public class StayGuestServiceImpl implements StayGuestService {
     }
 
     @Override
+    public List<StayGuestResponse> getByBookingRoomId(Long bookingRoomId) {
+        if (bookingRoomId == null) {
+            return List.of();
+        }
+        List<StayGuest> list = stayGuestRepository.findByBookingRoomId(bookingRoomId);
+        return list.stream()
+                .filter(g -> !Boolean.TRUE.equals(g.getIsDeleted()))
+                .map(stayGuestMapper::toResponse)
+                .toList();
+    }
+
+    @Override
     public StayGuest getEntityById(Long id) {
         if (id == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID khách lưu trú không được để trống");
@@ -235,6 +264,25 @@ public class StayGuestServiceImpl implements StayGuestService {
                     });
         }
         stayGuestRepository.saveAll(guests);
+    }
+
+    @Override
+    @Transactional
+    public void syncLodgingQueueForBookingRoom(Long bookingRoomId) {
+        if (bookingRoomId == null) {
+            return;
+        }
+        List<StayGuest> guests = stayGuestRepository.findByBookingRoomId(bookingRoomId);
+        OffsetDateTime now = OffsetDateTime.now();
+        for (StayGuest guest : guests) {
+            if (!Boolean.TRUE.equals(guest.getIsDeleted())) {
+                if (guest.getCheckInTime() == null) {
+                    guest.setCheckInTime(now);
+                }
+                StayGuest saved = stayGuestRepository.save(guest);
+                syncLodgingQueue(saved);
+            }
+        }
     }
 
     private void syncLodgingQueue(StayGuest guest) {

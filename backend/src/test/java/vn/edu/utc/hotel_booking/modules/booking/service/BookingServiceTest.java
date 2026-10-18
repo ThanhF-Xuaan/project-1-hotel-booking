@@ -77,6 +77,7 @@ class BookingServiceTest {
     @Mock VatRuleService vatRuleService;
     @Mock VoucherService voucherService;
     @Mock ServiceOrderService serviceOrderService;
+    @Mock vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService stayGuestService;
 
     @Mock org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     @Mock org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
@@ -588,24 +589,6 @@ class BookingServiceTest {
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.BOOKING_SESSION_EXPIRED));
     }
 
-    @Test
-    @DisplayName("checkIn thành công: cập nhật trạng thái CHECKED_IN và chiếm room slots")
-    void checkIn_Success() {
-        BookingDetail detail = BookingDetail.builder().booking(testBooking).checkInDate(LocalDate.now()).checkOutDate(LocalDate.now().plusDays(1)).build();
-        RoomInstance roomInstance = RoomInstance.builder().roomNumber("P.101").build();
-        roomInstance.setId(101);
-        BookingRoom bookingRoom = BookingRoom.builder().id(20L).bookingDetail(detail).roomInstance(roomInstance).build();
-
-        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
-        when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder().id(100L).build());
-
-        BookingResponse response = bookingService.checkIn(20L);
-
-        assertThat(response).isNotNull();
-        assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.CHECKED_IN);
-        verify(bookingRoomService).save(bookingRoom);
-        verify(roomSlotService).occupySlots(eq(101), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
-    }
 
     @Test
     @DisplayName("checkOut thành công: cập nhật trạng thái CHECKED_OUT và đánh dấu room slots DIRTY")
@@ -761,5 +744,126 @@ class BookingServiceTest {
         assertThat(partiallyCheckedInBooking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
         verify(bookingRepository, never()).save(any(Booking.class));
         verifyNoInteractions(roomSlotService);
+    }
+
+    @Test
+    @DisplayName("checkIn ném ngoại lệ ROOM_NOT_YET_ASSIGNED khi phòng chưa được gán phòng vật lý")
+    void checkIn_WithoutRoomInstance_ThrowsException() {
+        BookingRoom unassignedRoom = BookingRoom.builder()
+                .id(99L)
+                .roomInstance(null)
+                .status(BookingRoomStatus.EXPECTED)
+                .build();
+
+        when(bookingRoomService.getEntityById(99L)).thenReturn(unassignedRoom);
+
+        assertThatThrownBy(() -> bookingService.checkIn(99L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.ROOM_NOT_YET_ASSIGNED));
+    }
+
+    @Test
+    @DisplayName("checkIn ném ngoại lệ ROOM_NOT_READY_FOR_CHECKIN khi phòng vật lý đang ở trạng thái DIRTY")
+    void checkIn_WithDirtyRoom_ThrowsException() {
+        RoomInstance dirtyRoom = RoomInstance.builder()
+                .id(10)
+                .roomNumber("P.101")
+                .currentStatus("DIRTY")
+                .build();
+
+        BookingRoom assignedRoom = BookingRoom.builder()
+                .id(99L)
+                .roomInstance(dirtyRoom)
+                .status(BookingRoomStatus.EXPECTED)
+                .build();
+
+        when(bookingRoomService.getEntityById(99L)).thenReturn(assignedRoom);
+
+        assertThatThrownBy(() -> bookingService.checkIn(99L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.ROOM_NOT_READY_FOR_CHECKIN));
+    }
+
+    @Test
+    @DisplayName("checkIn thành công: đổi trạng thái CHECKED_IN, chiếm giữ room slots và kích hoạt sync hàng chờ BCA")
+    void checkIn_Success() {
+        RoomInstance readyRoom = RoomInstance.builder()
+                .id(10)
+                .roomNumber("P.101")
+                .currentStatus("READY")
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .booking(testBooking)
+                .checkInDate(LocalDate.now())
+                .checkOutDate(LocalDate.now().plusDays(2))
+                .build();
+
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(99L)
+                .bookingDetail(detail)
+                .roomInstance(readyRoom)
+                .status(BookingRoomStatus.EXPECTED)
+                .build();
+
+        when(bookingRoomService.getEntityById(99L)).thenReturn(bookingRoom);
+        when(bookingRoomService.save(any(BookingRoom.class))).thenReturn(bookingRoom);
+        when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder()
+                .id(100L)
+                .bookingNumber("BK12345678")
+                .build());
+
+        BookingResponse response = bookingService.checkIn(99L);
+
+        assertThat(response).isNotNull();
+        assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.CHECKED_IN);
+        assertThat(bookingRoom.getActualCheckInAt()).isNotNull();
+
+        verify(bookingRoomService).save(bookingRoom);
+        verify(roomSlotService).occupySlots(eq(10), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
+        verify(stayGuestService).syncLodgingQueueForBookingRoom(99L);
+    }
+
+    @Test
+    @DisplayName("assignRoom tự động cascade roomInstance và roomNumber sang các StayGuest của phòng")
+    void assignRoom_CascadesRoomInstanceToExistingStayGuests() {
+        StayGuest stayGuest = StayGuest.builder()
+                .id(1L)
+                .fullName("Khách Đi Kèm")
+                .room(null)
+                .roomNumber(null)
+                .build();
+
+        List<StayGuest> guests = new ArrayList<>(List.of(stayGuest));
+
+        BookingDetail detail = BookingDetail.builder()
+                .booking(testBooking)
+                .checkInDate(LocalDate.now().plusDays(1))
+                .checkOutDate(LocalDate.now().plusDays(3))
+                .build();
+
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(20L)
+                .bookingDetail(detail)
+                .stayGuests(guests)
+                .build();
+
+        RoomInstance roomInstance = RoomInstance.builder()
+                .roomNumber("P.201")
+                .build();
+        roomInstance.setId(50);
+
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+        when(roomInstanceService.getEntityById(50)).thenReturn(roomInstance);
+        when(bookingRoomService.findOverlappingAssignedRooms(eq(50), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+        when(bookingRoomService.save(any(BookingRoom.class))).thenReturn(bookingRoom);
+        when(bookingMapper.toResponse(testBooking)).thenReturn(BookingResponse.builder().id(100L).build());
+
+        bookingService.assignRoom(20L, 50);
+
+        assertThat(stayGuest.getRoom()).isEqualTo(roomInstance);
+        assertThat(stayGuest.getRoomNumber()).isEqualTo("P.201");
+        verify(bookingRoomService).save(bookingRoom);
     }
 }

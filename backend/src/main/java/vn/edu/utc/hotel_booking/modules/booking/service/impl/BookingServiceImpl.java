@@ -37,6 +37,7 @@ import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
+import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PriceCalculationRequest;
@@ -93,6 +94,7 @@ public class BookingServiceImpl implements BookingService {
     VatRuleService vatRuleService;
     VoucherService voucherService;
     ServiceOrderService serviceOrderService;
+    StayGuestService stayGuestService;
     BookingMapper bookingMapper;
     StringRedisTemplate redisTemplate;
     ObjectMapper objectMapper;
@@ -354,6 +356,26 @@ public class BookingServiceImpl implements BookingService {
                 predicates.add(cb.equal(root.get("status"), searchDto.getStatus()));
             }
 
+            jakarta.persistence.criteria.Join<Booking, BookingDetail> detailJoin = null;
+            if (searchDto.getCheckInDate() != null || searchDto.getCheckOutDate() != null || searchDto.getIsAssigned() != null) {
+                detailJoin = root.join("bookingDetails");
+                query.distinct(true);
+            }
+            if (searchDto.getCheckInDate() != null && detailJoin != null) {
+                predicates.add(cb.equal(detailJoin.get("checkInDate"), searchDto.getCheckInDate()));
+            }
+            if (searchDto.getCheckOutDate() != null && detailJoin != null) {
+                predicates.add(cb.equal(detailJoin.get("checkOutDate"), searchDto.getCheckOutDate()));
+            }
+            if (searchDto.getIsAssigned() != null && detailJoin != null) {
+                jakarta.persistence.criteria.Join<BookingDetail, BookingRoom> roomJoin = detailJoin.join("bookingRooms");
+                if (Boolean.TRUE.equals(searchDto.getIsAssigned())) {
+                    predicates.add(cb.isNotNull(roomJoin.get("roomInstance")));
+                } else {
+                    predicates.add(cb.isNull(roomJoin.get("roomInstance")));
+                }
+            }
+
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
@@ -436,6 +458,12 @@ public class BookingServiceImpl implements BookingService {
 
         bookingRoom.setRoomInstance(roomInstance);
         bookingRoom.setAssignedAt(OffsetDateTime.now());
+        if (bookingRoom.getStayGuests() != null) {
+            for (StayGuest g : bookingRoom.getStayGuests()) {
+                g.setRoom(roomInstance);
+                g.setRoomNumber(roomInstance.getRoomNumber());
+            }
+        }
         bookingRoomService.save(bookingRoom);
 
         roomSlotService.createOrReserveSlots(roomInstance, detail.getCheckInDate(), detail.getCheckOutDate(), bookingRoom.getId());
@@ -466,14 +494,27 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponse checkIn(Long bookingRoomId) {
         BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
 
+        if (bookingRoom.getRoomInstance() == null) {
+            throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
+                    "Phòng đặt ID " + bookingRoomId + " chưa được gán phòng vật lý. Vui lòng xếp phòng trước khi Check-in.");
+        }
+
+        RoomInstance roomInstance = bookingRoom.getRoomInstance();
+        if ("DIRTY".equalsIgnoreCase(roomInstance.getCurrentStatus())
+                || "CLEANING".equalsIgnoreCase(roomInstance.getCurrentStatus())
+                || "MAINTENANCE".equalsIgnoreCase(roomInstance.getCurrentStatus())) {
+            throw new AppException(ErrorCode.ROOM_NOT_READY_FOR_CHECKIN,
+                    "Phòng " + roomInstance.getRoomNumber() + " đang ở trạng thái '" + roomInstance.getCurrentStatus() + "'. Vui lòng dọn buồng phòng trước khi Check-in.");
+        }
+
         bookingRoom.setStatus(BookingRoomStatus.CHECKED_IN);
         bookingRoom.setActualCheckInAt(OffsetDateTime.now());
         bookingRoomService.save(bookingRoom);
 
-        if (bookingRoom.getRoomInstance() != null) {
-            BookingDetail detail = bookingRoom.getBookingDetail();
-            roomSlotService.occupySlots(bookingRoom.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
-        }
+        BookingDetail detail = bookingRoom.getBookingDetail();
+        roomSlotService.occupySlots(roomInstance.getId(), detail.getCheckInDate(), detail.getCheckOutDate());
+
+        stayGuestService.syncLodgingQueueForBookingRoom(bookingRoomId);
 
         return bookingMapper.toResponse(bookingRoom.getBookingDetail().getBooking());
     }

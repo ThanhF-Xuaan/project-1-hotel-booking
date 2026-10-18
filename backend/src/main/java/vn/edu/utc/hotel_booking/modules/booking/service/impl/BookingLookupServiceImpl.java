@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -69,6 +70,14 @@ public class BookingLookupServiceImpl implements BookingLookupService {
             throw new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy thông tin đơn đặt phòng tương ứng với phòng đặt ID: " + bookingRoomId);
         }
         return room.getBookingDetail().getBooking();
+    }
+
+    @Override
+    public Optional<BookingRoom> findBookingRoomByBookingIdAndRoomInstanceId(Long bookingId, Integer roomInstanceId) {
+        if (bookingId == null || roomInstanceId == null) {
+            return Optional.empty();
+        }
+        return bookingRoomService.findByBookingIdAndRoomInstanceId(bookingId, roomInstanceId);
     }
 
     @Override

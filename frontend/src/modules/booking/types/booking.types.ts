@@ -47,6 +47,7 @@ export interface BookingSearchDto {
   status?: BookingStatus;
   checkInDate?: string;
   checkOutDate?: string;
+  isAssigned?: boolean;
   page?: number;
   size?: number;
 }

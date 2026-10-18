@@ -9,6 +9,8 @@ import {
   DollarSign,
   BedDouble,
   UserCheck,
+  AlertTriangle,
+  Users,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -16,10 +18,12 @@ import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import bookingService from '../services/booking.service';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
+import StayGuestsModal from '../components/StayGuestsModal';
 import type {
   BookingResponse,
   BookingStatus,
   BookingChargeType,
+  BookingRoomResponse,
 } from '../types/booking.types';
 import type { RoomInstanceDto } from '../../inventory/types/inventory.types';
 
@@ -34,10 +38,21 @@ export const BookingListPage: React.FC = () => {
   // Filters
   const [searchBookingNumber, setSearchBookingNumber] = useState('');
   const [searchStatus, setSearchStatus] = useState<BookingStatus | ''>('');
+  const [assignedTab, setAssignedTab] = useState<'ALL' | 'UNASSIGNED' | 'ASSIGNED'>('ALL');
 
   // Modals & Selected Booking
   const [selectedBooking, setSelectedBooking] = useState<BookingResponse | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Stay Guests Modal
+  const [isStayGuestsModalOpen, setIsStayGuestsModalOpen] = useState(false);
+  const [stayGuestsTarget, setStayGuestsTarget] = useState<{
+    bookingRoomId: number;
+    hotelId: number;
+    bookingId?: number;
+    roomId?: number;
+    roomNumber?: string;
+  } | null>(null);
 
   // Assign Room Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -67,9 +82,13 @@ export const BookingListPage: React.FC = () => {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
+      const isAssignedParam =
+        assignedTab === 'ALL' ? undefined : assignedTab === 'ASSIGNED';
+
       const res = await bookingService.filter({
         bookingNumber: searchBookingNumber ? searchBookingNumber.trim() : undefined,
         status: searchStatus || undefined,
+        isAssigned: isAssignedParam,
         page: page + 1,
         size: pageSize,
       });
@@ -84,7 +103,7 @@ export const BookingListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, searchBookingNumber, searchStatus]);
+  }, [page, pageSize, searchBookingNumber, searchStatus, assignedTab]);
 
   useEffect(() => {
     loadData();
@@ -118,12 +137,36 @@ export const BookingListPage: React.FC = () => {
       setIsAssignModalOpen(false);
       setActionSuccessMessage('Xếp phòng vật lý thành công!');
       loadData();
+      if (selectedBooking) {
+        const updated = await bookingService.getById(selectedBooking.id);
+        if (updated.result) {
+          setSelectedBooking(updated.result);
+        }
+      }
     } catch (err: unknown) {
       console.error('Lỗi xếp phòng:', err);
-      alert('Không thể xếp phòng. Vui lòng kiểm tra lại phòng có đang bị trùng lịch hay không.');
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Không thể xếp phòng. Vui lòng kiểm tra lại phòng có đang bị trùng lịch hay không.';
+      alert(`Lỗi xếp phòng: ${errorMsg}`);
     } finally {
       setIsAssigning(false);
     }
+  };
+
+  const handleOpenStayGuestsModal = (booking: BookingResponse, room: BookingRoomResponse) => {
+    if (!room.roomInstanceId || !room.roomNumber) {
+      alert('Phòng chưa được xếp phòng vật lý. Vui lòng xếp phòng trước khi khai báo khách lưu trú!');
+      return;
+    }
+    setStayGuestsTarget({
+      bookingRoomId: room.id,
+      hotelId: booking.hotelId,
+      bookingId: booking.id,
+      roomId: room.roomInstanceId,
+      roomNumber: room.roomNumber,
+    });
+    setIsStayGuestsModalOpen(true);
   };
 
   const handleOpenChargeModal = (bookingRoomId: number) => {
@@ -149,6 +192,12 @@ export const BookingListPage: React.FC = () => {
       setIsChargeModalOpen(false);
       setActionSuccessMessage('Thêm phụ phí thành công!');
       loadData();
+      if (selectedBooking) {
+        const updated = await bookingService.getById(selectedBooking.id);
+        if (updated.result) {
+          setSelectedBooking(updated.result);
+        }
+      }
     } catch (err) {
       console.error('Lỗi thêm phụ phí:', err);
       alert('Không thể thêm phụ phí. Vui lòng kiểm tra lại.');
@@ -160,19 +209,34 @@ export const BookingListPage: React.FC = () => {
   const handleCheckIn = async (bookingRoomId: number) => {
     try {
       await bookingService.checkIn(bookingRoomId);
-      setActionSuccessMessage('Check-in thành công!');
+      setActionSuccessMessage('Check-in thành công! Phòng đã chuyển sang trạng thái đang ở và đồng bộ hàng chờ lưu trú.');
       loadData();
-    } catch (err) {
+      if (selectedBooking) {
+        const updated = await bookingService.getById(selectedBooking.id);
+        if (updated.result) {
+          setSelectedBooking(updated.result);
+        }
+      }
+    } catch (err: unknown) {
       console.error('Lỗi check-in:', err);
-      alert('Check-in thất bại.');
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Check-in thất bại. Vui lòng kiểm tra phòng đã được gán và ở trạng thái sẵn sàng (READY).';
+      alert(`Check-in thất bại: ${errorMsg}`);
     }
   };
 
   const handleCheckOut = async (bookingRoomId: number) => {
     try {
       await bookingService.checkOut(bookingRoomId);
-      setActionSuccessMessage('Check-out thành công!');
+      setActionSuccessMessage('Check-out thành công! Phòng đã chuyển sang trạng thái chờ dọn dẹp (DIRTY).');
       loadData();
+      if (selectedBooking) {
+        const updated = await bookingService.getById(selectedBooking.id);
+        if (updated.result) {
+          setSelectedBooking(updated.result);
+        }
+      }
     } catch (err) {
       console.error('Lỗi check-out:', err);
       alert('Check-out thất bại.');
@@ -215,7 +279,7 @@ export const BookingListPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Quản lý Đặt phòng (Bookings)</h1>
           <p className="text-sm text-neutral-500 mt-1">
-            Quản lý vòng đời lưu trú, xếp phòng vật lý, phụ phí dịch vụ và thủ tục Check-in/Check-out
+            Quản lý vòng đời lưu trú, xếp phòng vật lý, khai báo khách lưu trú BCA, phụ phí và Check-in/Check-out
           </p>
         </div>
       </div>
@@ -228,6 +292,50 @@ export const BookingListPage: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* QUICK FILTER TABS: TẤT CẢ / CHƯA XẾP PHÒNG / ĐÃ XẾP PHÒNG */}
+      <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+        <button
+          onClick={() => {
+            setAssignedTab('ALL');
+            setPage(0);
+          }}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
+            assignedTab === 'ALL'
+              ? 'bg-neutral-900 text-white shadow-xs'
+              : 'text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          Tất cả đơn đặt
+        </button>
+        <button
+          onClick={() => {
+            setAssignedTab('UNASSIGNED');
+            setPage(0);
+          }}
+          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
+            assignedTab === 'UNASSIGNED'
+              ? 'bg-amber-500 text-white shadow-xs'
+              : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" />
+          Chưa xếp phòng vật lý
+        </button>
+        <button
+          onClick={() => {
+            setAssignedTab('ASSIGNED');
+            setPage(0);
+          }}
+          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
+            assignedTab === 'ASSIGNED'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-neutral-600 hover:bg-neutral-100'
+          }`}
+        >
+          Đã xếp phòng đầy đủ
+        </button>
+      </div>
 
       {/* HÀNG 1: SEARCH & FILTER BAR */}
       <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap gap-4 items-center">
@@ -262,6 +370,7 @@ export const BookingListPage: React.FC = () => {
           onClick={() => {
             setSearchBookingNumber('');
             setSearchStatus('');
+            setAssignedTab('ALL');
             setPage(0);
           }}
         >
@@ -313,67 +422,80 @@ export const BookingListPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                bookings.map((booking) => (
-                  <tr key={booking.id} className="hover:bg-neutral-50 transition-colors">
-                    <td className="p-4 font-semibold text-neutral-900">
-                      {booking.bookingNumber}
-                      <div className="text-xs text-neutral-400 font-normal mt-0.5">
-                        {booking.bookingType}
-                      </div>
-                    </td>
-                    <td className="p-4 text-neutral-800">{booking.hotelName}</td>
-                    <td className="p-4">
-                      <div className="font-medium text-neutral-900">{booking.guestPhone}</div>
-                      {booking.companyName && (
-                        <div className="text-xs text-neutral-500">{booking.companyName}</div>
-                      )}
-                    </td>
-                    <td className="p-4 text-neutral-700">
-                      {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
-                    </td>
-                    <td className="p-4 text-neutral-600 text-xs">
-                      {booking.bookingDetails?.[0] ? (
-                        <>
-                          <div>Từ: {booking.bookingDetails[0].checkInDate}</div>
-                          <div>Đến: {booking.bookingDetails[0].checkOutDate}</div>
-                        </>
-                      ) : (
-                        'N/A'
-                      )}
-                    </td>
-                    <td className="p-4 text-right font-bold text-neutral-900">
-                      {new Intl.NumberFormat('vi-VN').format(booking.totalAmount)} đ
-                    </td>
-                    <td className="p-4 text-center">{getStatusBadge(booking.status)}</td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            setSelectedBooking(booking);
-                            setIsDetailModalOpen(true);
-                          }}
-                          className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg"
-                          title="Xem chi tiết đơn"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                bookings.map((booking) => {
+                  const hasUnassignedRoom = booking.bookingDetails?.some((d) =>
+                    d.bookingRooms?.some((r) => !r.roomInstanceId)
+                  );
 
-                        {booking.status === 'CONFIRMED' && (
+                  return (
+                    <tr key={booking.id} className="hover:bg-neutral-50 transition-colors">
+                      <td className="p-4 font-semibold text-neutral-900">
+                        {booking.bookingNumber}
+                        <div className="text-xs text-neutral-400 font-normal mt-0.5">
+                          {booking.bookingType}
+                        </div>
+                      </td>
+                      <td className="p-4 text-neutral-800">{booking.hotelName}</td>
+                      <td className="p-4">
+                        <div className="font-medium text-neutral-900">{booking.guestPhone}</div>
+                        {booking.companyName && (
+                          <div className="text-xs text-neutral-500">{booking.companyName}</div>
+                        )}
+                      </td>
+                      <td className="p-4 text-neutral-700">
+                        {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
+                      </td>
+                      <td className="p-4 text-neutral-600 text-xs">
+                        {booking.bookingDetails?.[0] ? (
+                          <>
+                            <div>Từ: {booking.bookingDetails[0].checkInDate}</div>
+                            <div>Đến: {booking.bookingDetails[0].checkOutDate}</div>
+                          </>
+                        ) : (
+                          'N/A'
+                        )}
+                      </td>
+                      <td className="p-4 text-right font-bold text-neutral-900">
+                        {new Intl.NumberFormat('vi-VN').format(booking.totalAmount)} đ
+                      </td>
+                      <td className="p-4 text-center space-y-1">
+                        <div>{getStatusBadge(booking.status)}</div>
+                        {hasUnassignedRoom && booking.status === 'CONFIRMED' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                            <AlertTriangle className="w-3 h-3" /> Chưa xếp phòng
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => {
-                              setCancellingBookingId(booking.id);
-                              setIsCancelModalOpen(true);
+                              setSelectedBooking(booking);
+                              setIsDetailModalOpen(true);
                             }}
-                            className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                            title="Hủy đơn đặt phòng"
+                            className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg"
+                            title="Xem chi tiết đơn"
                           >
-                            <Ban className="w-4 h-4" />
+                            <Eye className="w-4 h-4" />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+
+                          {booking.status === 'CONFIRMED' && (
+                            <button
+                              onClick={() => {
+                                setCancellingBookingId(booking.id);
+                                setIsCancelModalOpen(true);
+                              }}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                              title="Hủy đơn đặt phòng"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -397,6 +519,7 @@ export const BookingListPage: React.FC = () => {
           isOpen={isDetailModalOpen}
           onClose={() => setIsDetailModalOpen(false)}
           title={`Chi tiết đơn đặt phòng: ${selectedBooking.bookingNumber}`}
+          maxWidth="2xl"
         >
           <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
             {/* Header info */}
@@ -439,85 +562,143 @@ export const BookingListPage: React.FC = () => {
                     </span>
                   </div>
 
-                  {detail.bookingRooms?.map((room, idx) => (
-                    <div key={room.id} className="bg-neutral-50 rounded-lg p-3 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <div className="text-sm font-semibold text-neutral-800">
-                          Phòng #{idx + 1}:{' '}
-                          {room.roomNumber ? (
-                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono">
-                              {room.roomNumber}
-                            </span>
-                          ) : (
-                            <span className="text-amber-600 italic">Chưa xếp phòng vật lý</span>
-                          )}
-                        </div>
+                  {detail.bookingRooms?.map((room, idx) => {
+                    const isRoomAssigned = Boolean(room.roomInstanceId && room.roomNumber);
 
-                        <div className="flex gap-2">
-                          {!room.roomNumber && selectedBooking.status === 'CONFIRMED' && (
+                    return (
+                      <div key={room.id} className="bg-neutral-50 rounded-lg p-3 space-y-3">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                          <div className="text-sm font-semibold text-neutral-800 flex items-center gap-2">
+                            <span>Phòng #{idx + 1}:</span>
+                            {isRoomAssigned ? (
+                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono font-semibold border border-emerald-200">
+                                {room.roomNumber}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md text-xs font-semibold border border-amber-200">
+                                <AlertTriangle className="w-3.5 h-3.5" /> Chưa xếp phòng
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {/* Nút Xếp phòng / Đổi phòng */}
+                            {selectedBooking.status === 'CONFIRMED' && (
+                              <Button
+                                variant={!isRoomAssigned ? 'primary' : 'outline'}
+                                size="sm"
+                                onClick={() => handleOpenAssignModal(room.id)}
+                              >
+                                <UserCheck className="w-3.5 h-3.5 mr-1" />
+                                {isRoomAssigned ? 'Đổi phòng' : 'Xếp phòng'}
+                              </Button>
+                            )}
+
+                            {/* Nút Khách lưu trú (Bắt buộc phải gán phòng trước) */}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleOpenAssignModal(room.id)}
+                              disabled={!isRoomAssigned}
+                              title={
+                                !isRoomAssigned
+                                  ? 'Cần xếp phòng vật lý trước khi khai báo khách lưu trú'
+                                  : 'Quản lý thông tin khách lưu trú (CCCD/Hộ chiếu)'
+                              }
+                              onClick={() => handleOpenStayGuestsModal(selectedBooking, room)}
+                              className={
+                                !isRoomAssigned
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'text-blue-700 hover:text-blue-800 border-blue-200 hover:bg-blue-50'
+                              }
                             >
-                              <UserCheck className="w-3.5 h-3.5 mr-1" />
-                              Xếp phòng
+                              <Users className="w-3.5 h-3.5 mr-1" />
+                              Khách lưu trú
                             </Button>
-                          )}
 
-                          {room.status === 'EXPECTED' && (
-                            <Button
-                              variant="primary"
-                              size="sm"
-                              onClick={() => handleCheckIn(room.id)}
-                            >
-                              <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                              Check-in
-                            </Button>
-                          )}
+                            {/* Nút Check-in (Bắt buộc phải gán phòng trước) */}
+                            {room.status === 'EXPECTED' && (
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                disabled={!isRoomAssigned}
+                                title={
+                                  !isRoomAssigned
+                                    ? 'Cần xếp phòng vật lý trước khi Check-in'
+                                    : 'Thực hiện thủ tục Check-in'
+                                }
+                                onClick={() => handleCheckIn(room.id)}
+                                className={
+                                  !isRoomAssigned
+                                    ? 'opacity-50 cursor-not-allowed bg-neutral-400 hover:bg-neutral-400'
+                                    : ''
+                                }
+                              >
+                                <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                                Check-in
+                              </Button>
+                            )}
 
-                          {room.status === 'CHECKED_IN' && (
+                            {/* Nút Check-out */}
+                            {room.status === 'CHECKED_IN' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCheckOut(room.id)}
+                              >
+                                <LogOut className="w-3.5 h-3.5 mr-1" />
+                                Check-out
+                              </Button>
+                            )}
+
+                            {/* Nút Phụ phí */}
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleCheckOut(room.id)}
+                              onClick={() => handleOpenChargeModal(room.id)}
                             >
-                              <LogOut className="w-3.5 h-3.5 mr-1" />
-                              Check-out
+                              <DollarSign className="w-3.5 h-3.5 mr-1" />
+                              Phụ phí
                             </Button>
-                          )}
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenChargeModal(room.id)}
-                          >
-                            <DollarSign className="w-3.5 h-3.5 mr-1" />
-                            Phụ phí
-                          </Button>
+                          </div>
                         </div>
+
+                        {/* Phụ phí của phòng nếu có */}
+                        {room.charges && room.charges.length > 0 && (
+                          <div className="border-t border-neutral-200 pt-2 text-xs">
+                            <span className="font-semibold text-neutral-700">Phụ phí phát sinh:</span>
+                            <ul className="list-disc pl-4 mt-1 text-neutral-600 space-y-0.5">
+                              {room.charges.map((c) => (
+                                <li key={c.id}>
+                                  {c.itemName} x{c.quantity}: {new Intl.NumberFormat('vi-VN').format(c.totalAmount)} đ ({c.chargeType})
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-
-                      {/* Phụ phí của phòng nếu có */}
-                      {room.charges && room.charges.length > 0 && (
-                        <div className="border-t border-neutral-200 pt-2 text-xs">
-                          <span className="font-semibold text-neutral-700">Phụ phí phát sinh:</span>
-                          <ul className="list-disc pl-4 mt-1 text-neutral-600 space-y-0.5">
-                            {room.charges.map((c) => (
-                              <li key={c.id}>
-                                {c.itemName} x{c.quantity}: {new Intl.NumberFormat('vi-VN').format(c.totalAmount)} đ ({c.chargeType})
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ))}
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* MODAL KHAI BÁO KHÁCH LƯU TRÚ (STAY GUESTS) */}
+      {stayGuestsTarget && (
+        <StayGuestsModal
+          isOpen={isStayGuestsModalOpen}
+          onClose={() => {
+            setIsStayGuestsModalOpen(false);
+            setStayGuestsTarget(null);
+          }}
+          bookingRoomId={stayGuestsTarget.bookingRoomId}
+          hotelId={stayGuestsTarget.hotelId}
+          bookingId={stayGuestsTarget.bookingId}
+          roomId={stayGuestsTarget.roomId}
+          roomNumber={stayGuestsTarget.roomNumber}
+        />
       )}
 
       {/* MODAL XẾP PHÒNG VẬT LÝ */}

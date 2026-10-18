@@ -19,7 +19,11 @@ public interface StayGuestService {
 
     StayGuestResponse getById(Long id);
 
+    List<StayGuestResponse> getByBookingRoomId(Long bookingRoomId);
+
     StayGuest getEntityById(Long id);
 
     void delete(List<Long> ids);
+
+    void syncLodgingQueueForBookingRoom(Long bookingRoomId);
 }

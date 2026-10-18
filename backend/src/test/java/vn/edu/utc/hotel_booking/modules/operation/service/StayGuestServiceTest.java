@@ -357,7 +357,8 @@ public class StayGuestServiceTest {
 
         Booking booking = Booking.builder().id(100L).hotel(sampleHotel).build();
         BookingDetail bookingDetail = BookingDetail.builder().id(1L).booking(booking).build();
-        BookingRoom bookingRoom = BookingRoom.builder().id(500L).bookingDetail(bookingDetail).build();
+        RoomInstance roomInstance = RoomInstance.builder().id(10).roomNumber("101").hotel(sampleHotel).build();
+        BookingRoom bookingRoom = BookingRoom.builder().id(500L).bookingDetail(bookingDetail).roomInstance(roomInstance).build();
 
         StayGuestCreateRequest request = StayGuestCreateRequest.builder()
                 .hotelId((short) 1)
@@ -500,5 +501,62 @@ public class StayGuestServiceTest {
 
         AppException ex = assertThrows(AppException.class, () -> stayGuestService.getEntityById(999L));
         assertEquals(ErrorCode.GUEST_NOT_FOUND, ex.getErrorCode());
+    }
+
+    @Test
+    void createOrCheckIn_bookingRoomWithoutRoomInstance_throwsException() {
+        mockChainAdminAuth();
+
+        StayGuestCreateRequest request = StayGuestCreateRequest.builder()
+                .hotelId((short) 1)
+                .bookingRoomId(88L)
+                .roomNumber("101")
+                .fullName("NGUYỄN VĂN B")
+                .documentNumber("001200009999")
+                .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom unassignedRoom = 
+                vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom.builder()
+                .id(88L)
+                .roomInstance(null)
+                .build();
+
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
+        when(bookingLookupService.getBookingRoomEntityById(88L)).thenReturn(unassignedRoom);
+
+        AppException ex = assertThrows(AppException.class, () -> stayGuestService.createOrCheckIn(request));
+        assertEquals(ErrorCode.ROOM_NOT_YET_ASSIGNED, ex.getErrorCode());
+    }
+
+    @Test
+    void createOrCheckIn_bookingIdAndRoomIdWithoutRoomInstance_throwsException() {
+        mockChainAdminAuth();
+
+        StayGuestCreateRequest request = StayGuestCreateRequest.builder()
+                .hotelId((short) 1)
+                .bookingId(100L)
+                .roomId(5)
+                .roomNumber("101")
+                .fullName("NGUYỄN VĂN C")
+                .documentNumber("001200008888")
+                .build();
+
+        Booking booking = Booking.builder().id(100L).hotel(sampleHotel).build();
+        vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance roomInstance = 
+                vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance.builder().id(5).hotel(sampleHotel).build();
+
+        vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom unassignedRoom = 
+                vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom.builder()
+                .id(99L)
+                .roomInstance(null)
+                .build();
+
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
+        when(bookingLookupService.getBookingEntityById(100L)).thenReturn(booking);
+        when(roomInstanceRepository.findById(5)).thenReturn(Optional.of(roomInstance));
+        when(bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(100L, 5)).thenReturn(Optional.of(unassignedRoom));
+
+        AppException ex = assertThrows(AppException.class, () -> stayGuestService.createOrCheckIn(request));
+        assertEquals(ErrorCode.ROOM_NOT_YET_ASSIGNED, ex.getErrorCode());
     }
 }

@@ -259,4 +259,25 @@ class BookingLookupServiceImplTest {
         assertThat(bookingLookupService.getDailyRoomRevenue((short) 1, null)).isEqualByComparingTo(java.math.BigDecimal.ZERO);
         verifyNoInteractions(bookingDailyRateRepository);
     }
+
+    @Test
+    @DisplayName("findBookingRoomByBookingIdAndRoomInstanceId - Trả về BookingRoom khi tìm thấy")
+    void findBookingRoomByBookingIdAndRoomInstanceId_Success() {
+        BookingRoom bookingRoom = BookingRoom.builder().id(50L).build();
+        when(bookingRoomService.findByBookingIdAndRoomInstanceId(100L, 5)).thenReturn(Optional.of(bookingRoom));
+
+        Optional<BookingRoom> result = bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(100L, 5);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(50L);
+        verify(bookingRoomService).findByBookingIdAndRoomInstanceId(100L, 5);
+    }
+
+    @Test
+    @DisplayName("findBookingRoomByBookingIdAndRoomInstanceId - Trả về empty khi bookingId hoặc roomInstanceId null")
+    void findBookingRoomByBookingIdAndRoomInstanceId_NullArgs_ReturnsEmpty() {
+        assertThat(bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(null, 5)).isEmpty();
+        assertThat(bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(100L, null)).isEmpty();
+        verifyNoInteractions(bookingRoomService);
+    }
 }
