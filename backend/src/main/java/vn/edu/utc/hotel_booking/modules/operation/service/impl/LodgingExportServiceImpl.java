@@ -152,18 +152,26 @@ public class LodgingExportServiceImpl implements LodgingExportService {
     }
 
     private void validateStaffScope(Short hotelId) {
-        if (SecurityUtils.hasRole("ROLE_CHAIN_ADMIN") || SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER")) {
+        if (hotelId == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "hotelId không được để trống");
+        }
+
+        if (SecurityUtils.hasRole("ROLE_CHAIN_ADMIN")) {
             return;
         }
 
-        if (SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
+        if (SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") || SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
             Staff currentStaff = resolveCurrentStaff();
             if ("PROPERTY".equalsIgnoreCase(currentStaff.getScopeType())
                     && currentStaff.getScopeEntityId() != null
                     && !currentStaff.getScopeEntityId().equals(hotelId.intValue())) {
-                throw new AppException(ErrorCode.UNAUTHORIZED, "Lễ tân không có quyền xuất báo cáo trên khách sạn khác");
+                String roleTitle = SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") ? "Quản lý khách sạn" : "Lễ tân";
+                throw new AppException(ErrorCode.UNAUTHORIZED, roleTitle + " không có quyền xuất báo cáo trên khách sạn khác");
             }
+            return;
         }
+
+        throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền xuất báo cáo trên khách sạn này");
     }
 
     private Staff resolveCurrentStaff() {

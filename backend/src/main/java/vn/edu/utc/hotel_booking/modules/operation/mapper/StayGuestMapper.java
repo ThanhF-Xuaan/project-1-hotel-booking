@@ -12,12 +12,16 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE, builder = @Builder(disableBuilder = true))
+@Mapper(componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        nullValuePropertyMappingStrategy = org.mapstruct.NullValuePropertyMappingStrategy.IGNORE,
+        builder = @Builder(disableBuilder = true))
 public interface StayGuestMapper {
 
     @Mapping(target = "hotelId", source = "hotel.id")
     @Mapping(target = "hotelName", source = "hotel.name")
     @Mapping(target = "bookingId", source = "booking.id")
+    @Mapping(target = "bookingRoomId", source = "bookingRoom.id")
     @Mapping(target = "roomId", source = "room.id")
     StayGuestResponse toResponse(StayGuest entity);
 
@@ -26,6 +30,7 @@ public interface StayGuestMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "hotel", ignore = true)
     @Mapping(target = "booking", ignore = true)
+    @Mapping(target = "bookingRoom", ignore = true)
     @Mapping(target = "room", ignore = true)
     @Mapping(target = "actualCheckOutTime", ignore = true)
     @Mapping(target = "imagePurgedAt", ignore = true)
@@ -37,6 +42,7 @@ public interface StayGuestMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "hotel", ignore = true)
     @Mapping(target = "booking", ignore = true)
+    @Mapping(target = "bookingRoom", ignore = true)
     @Mapping(target = "room", ignore = true)
     @Mapping(target = "checkInTime", ignore = true)
     @Mapping(target = "imagePurgedAt", ignore = true)

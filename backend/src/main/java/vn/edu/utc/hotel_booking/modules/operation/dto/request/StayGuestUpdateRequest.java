@@ -19,6 +19,12 @@ public class StayGuestUpdateRequest {
     @Schema(description = "Số phòng", example = "P101")
     String roomNumber;
 
+    @Schema(description = "ID chi tiết phòng đặt (BookingRoom) nếu có", example = "50")
+    Long bookingRoomId;
+
+    @Schema(description = "ID phòng vật lý nếu có", example = "5")
+    Integer roomId;
+
     @Schema(description = "Họ và tên khách", example = "NGUYỄN VĂN A")
     String fullName;
 

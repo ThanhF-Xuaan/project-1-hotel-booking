@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import vn.edu.utc.hotel_booking.common.entity.BaseEntity;
 import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingQueueStatus;
+import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingQueueStatusConverter;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 
 import java.time.OffsetDateTime;
@@ -32,7 +33,7 @@ public class LodgingQueue extends BaseEntity {
     @JoinColumn(name = "hotel_id", nullable = false)
     Hotel hotel;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = LodgingQueueStatusConverter.class)
     @Column(nullable = false, length = 30)
     @Builder.Default
     LodgingQueueStatus status = LodgingQueueStatus.PENDING;
