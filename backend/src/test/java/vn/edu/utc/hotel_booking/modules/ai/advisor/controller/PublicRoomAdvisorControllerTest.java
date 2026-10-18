@@ -17,6 +17,7 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorSearchRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.RoomSearchCriteriaDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.AdvisorStatus;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.service.RoomAdvisorOrchestrationService;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionNotFoundException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionSecurityException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionVersionConflictException;
 
@@ -134,6 +135,25 @@ class PublicRoomAdvisorControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.result.sessionVersion").value(2));
+    }
+
+    @Test
+    @DisplayName("Should handle SessionNotFoundException with 404 Not Found")
+    void shouldHandleSessionNotFoundException() throws Exception {
+        AdvisorRefreshRequestDto request = AdvisorRefreshRequestDto.builder()
+                .contractVersion("2.0")
+                .sessionId(UUID.randomUUID())
+                .build();
+
+        when(orchestrationService.refresh(any(), any()))
+                .thenThrow(new SessionNotFoundException("Session not found or expired"));
+
+        mockMvc.perform(post("/api/v1/public/ai/room-advisor/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value(404))
+                .andExpect(jsonPath("$.message").value("Session not found or expired"));
     }
 
     @Test

@@ -17,12 +17,14 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.model.CandidateAvailability;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.model.RoomCandidate;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.InMemoryRoomAdvisorSessionStore;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSessionStore;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionNotFoundException;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -214,5 +216,18 @@ class RoomAdvisorOrchestrationServiceTest {
 
         assertThat(refreshed.getSessionId()).isEqualTo(sid);
         assertThat(refreshed.getSessionVersion()).isEqualTo(v1 + 1);
+    }
+
+    @Test
+    @DisplayName("Should throw SessionNotFoundException when refreshing non-existent session")
+    void shouldThrowSessionNotFoundOnNonExistentSession() {
+        AdvisorRefreshRequestDto rReq = AdvisorRefreshRequestDto.builder()
+                .contractVersion("2.0")
+                .sessionId(UUID.randomUUID())
+                .build();
+
+        assertThatThrownBy(() -> orchestrationService.refresh(rReq, "user-123"))
+                .isInstanceOf(SessionNotFoundException.class)
+                .hasMessageContaining("Session not found or expired");
     }
 }

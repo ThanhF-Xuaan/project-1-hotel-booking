@@ -12,6 +12,7 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.llm.RoomAdvisorLlmPort;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.model.ValidationResult;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSession;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSessionStore;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionNotFoundException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionSecurityException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionVersionConflictException;
 
@@ -341,7 +342,7 @@ public class RoomAdvisorOrchestrationService {
         }
 
         RoomAdvisorSession session = sessionStore.getSession(request.getSessionId(), ownerKey)
-                .orElseThrow(() -> new SessionSecurityException("Session not found or expired"));
+                .orElseThrow(() -> new SessionNotFoundException("Session not found or expired"));
 
         if (request.getExpectedSessionVersion() != null) {
             if (request.getExpectedSessionVersion() != session.getSessionVersion()) {

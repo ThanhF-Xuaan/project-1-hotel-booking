@@ -10,9 +10,12 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.CriteriaConfirmation;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.CriteriaOrigin;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -113,5 +116,69 @@ class RoomAdvisorSessionStoreTest {
                 null
         )).isInstanceOf(SessionVersionConflictException.class)
                 .hasMessageContaining("Session version conflict");
+    }
+
+    @Test
+    @DisplayName("Should reject update with SessionNotFoundException when session does not exist")
+    void shouldRejectUpdateWhenSessionNotFound() {
+        assertThatThrownBy(() -> store.updateSession(
+                UUID.randomUUID(),
+                "user-123",
+                null,
+                null,
+                null,
+                null
+        )).isInstanceOf(SessionNotFoundException.class)
+                .hasMessageContaining("Session not found or expired");
+    }
+
+    @Test
+    @DisplayName("Concurrent updateSession calls with same expectedVersion: exactly one succeeds and one receives 409")
+    void concurrentUpdateWithSameExpectedVersionShouldConflict() throws Exception {
+        RoomAdvisorSession created = store.getOrCreateSession(null, "user-123");
+        UUID sid = created.getSessionId();
+        long initialVersion = created.getSessionVersion(); // 1L
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CyclicBarrier barrier = new CyclicBarrier(threadCount);
+
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger conflictCount = new AtomicInteger(0);
+
+        List<Future<?>> futures = new ArrayList<>();
+        for (int i = 0; i < threadCount; i++) {
+            final int idx = i;
+            futures.add(executor.submit(() -> {
+                try {
+                    barrier.await();
+                    store.updateSession(
+                            sid,
+                            "user-123",
+                            initialVersion,
+                            RoomSearchCriteriaDto.builder().locationKeyword("City " + idx).build(),
+                            null,
+                            null
+                    );
+                    successCount.incrementAndGet();
+                } catch (SessionVersionConflictException e) {
+                    conflictCount.incrementAndGet();
+                } catch (Exception e) {
+                    // unexpected
+                }
+            }));
+        }
+
+        for (Future<?> f : futures) {
+            f.get(5, TimeUnit.SECONDS);
+        }
+        executor.shutdown();
+
+        assertThat(successCount.get()).isEqualTo(1);
+        assertThat(conflictCount.get()).isEqualTo(1);
+
+        Optional<RoomAdvisorSession> finalSession = store.getSession(sid, "user-123");
+        assertThat(finalSession).isPresent();
+        assertThat(finalSession.get().getSessionVersion()).isEqualTo(initialVersion + 1);
     }
 }

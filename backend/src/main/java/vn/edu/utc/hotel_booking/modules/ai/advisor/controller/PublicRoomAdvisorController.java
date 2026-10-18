@@ -13,6 +13,7 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorRefreshRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorSearchRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.service.RoomAdvisorOrchestrationService;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionNotFoundException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionSecurityException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionVersionConflictException;
 
@@ -22,7 +23,7 @@ import java.util.Base64;
 
 @Slf4j
 @RestController
-@RequestMapping({"/api/v1/public/ai/room-advisor", "/api/v1/ai/room-advisor"})
+@RequestMapping("/api/v1/public/ai/room-advisor")
 @RequiredArgsConstructor
 public class PublicRoomAdvisorController {
 
@@ -56,6 +57,16 @@ public class PublicRoomAdvisorController {
         String ownerKey = extractOwnerKey(servletRequest);
         AdvisorResultDto result = orchestrationService.refresh(request, ownerKey);
         return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @ExceptionHandler(SessionNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNotFound(SessionNotFoundException e) {
+        log.warn("Advisor session not found: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.<Void>builder()
+                        .code(404)
+                        .message(e.getMessage())
+                        .build());
     }
 
     @ExceptionHandler(SessionSecurityException.class)
