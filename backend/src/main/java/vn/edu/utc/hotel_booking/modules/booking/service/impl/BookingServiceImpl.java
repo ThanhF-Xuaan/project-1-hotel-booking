@@ -50,7 +50,9 @@ import vn.edu.utc.hotel_booking.modules.pricing.service.VoucherService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -58,6 +60,8 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.SurchargePreviewRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.SurchargeProposalResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.LeadGuestRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.CartPriceQuoteResponse;
@@ -842,5 +846,121 @@ public class BookingServiceImpl implements BookingService {
 
         log.info("Processed {} No-Show bookings for hotel ID {} on audit date {}", noShowCount, hotelId, auditDate);
         return noShowCount;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SurchargeProposalResponse previewSurcharge(Long bookingRoomId, SurchargePreviewRequest request) {
+        BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
+        BookingDetail detail = bookingRoom.getBookingDetail();
+        BookingChargeType chargeType = request.getChargeType();
+
+        OffsetDateTime actualTime = request.getActualTime() != null ? request.getActualTime() : OffsetDateTime.now();
+        LocalTime timeOnly = actualTime.toLocalTime();
+        LocalDate dateOnly = actualTime.toLocalDate();
+
+        // 1. Tính đơn giá cơ sở của phòng 1 đêm từ daily rates hoặc net price
+        BigDecimal baseRoomRate = BigDecimal.ZERO;
+        if (bookingRoom.getDailyRates() != null && !bookingRoom.getDailyRates().isEmpty()) {
+            BigDecimal sum = bookingRoom.getDailyRates().stream()
+                    .map(BookingDailyRate::getNetPrice)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            baseRoomRate = sum.divide(BigDecimal.valueOf(bookingRoom.getDailyRates().size()), 2, RoundingMode.HALF_UP);
+        } else if (bookingRoom.getRoomInstance() != null && bookingRoom.getRoomInstance().getHotelRoomType() != null) {
+            baseRoomRate = bookingRoom.getRoomInstance().getHotelRoomType().getBasePrice();
+        }
+        if (baseRoomRate == null || baseRoomRate.compareTo(BigDecimal.ZERO) <= 0) {
+            baseRoomRate = new BigDecimal("1000000.00");
+        }
+
+        BigDecimal percentage = BigDecimal.ZERO;
+        String policyRule = "";
+        String standardTime = "";
+        long diffMinutes = 0;
+        boolean applicable = false;
+
+        if (chargeType == BookingChargeType.EARLY_CHECKIN) {
+            standardTime = "14:00";
+            LocalTime standardCheckIn = LocalTime.of(14, 0);
+
+            // Kiểm tra xem khách có nhận sớm hay không
+            if (dateOnly.isBefore(detail.getCheckInDate()) || (dateOnly.isEqual(detail.getCheckInDate()) && timeOnly.isBefore(standardCheckIn))) {
+                applicable = true;
+                diffMinutes = Duration.between(actualTime, detail.getCheckInDate().atTime(standardCheckIn).atOffset(actualTime.getOffset())).toMinutes();
+
+                if (timeOnly.isBefore(LocalTime.of(6, 0))) {
+                    percentage = new BigDecimal("100.0");
+                    policyRule = "Nhận phòng trước 06:00 (Phụ thu 100% giá phòng 1 đêm)";
+                } else if (timeOnly.isBefore(LocalTime.of(9, 0))) {
+                    percentage = new BigDecimal("50.0");
+                    policyRule = "Nhận phòng từ 06:00 đến 09:00 (Phụ thu 50% giá phòng 1 đêm)";
+                } else {
+                    percentage = new BigDecimal("30.0");
+                    policyRule = "Nhận phòng từ 09:00 đến 14:00 (Phụ thu 30% giá phòng 1 đêm)";
+                }
+            } else {
+                policyRule = "Khách nhận phòng đúng hoặc sau giờ quy định (14:00) — Không phát sinh phụ thu";
+            }
+        } else if (chargeType == BookingChargeType.LATE_CHECKOUT) {
+            standardTime = "12:00";
+            LocalTime standardCheckOut = LocalTime.of(12, 0);
+
+            // Kiểm tra xem khách có trả muộn hay không
+            if (dateOnly.isAfter(detail.getCheckOutDate()) || (dateOnly.isEqual(detail.getCheckOutDate()) && timeOnly.isAfter(standardCheckOut))) {
+                applicable = true;
+                diffMinutes = Duration.between(detail.getCheckOutDate().atTime(standardCheckOut).atOffset(actualTime.getOffset()), actualTime).toMinutes();
+
+                if (timeOnly.isAfter(LocalTime.of(18, 0)) || dateOnly.isAfter(detail.getCheckOutDate())) {
+                    percentage = new BigDecimal("100.0");
+                    policyRule = "Trả phòng sau 18:00 (Phụ thu 100% giá phòng 1 đêm)";
+                } else if (timeOnly.isAfter(LocalTime.of(15, 0))) {
+                    percentage = new BigDecimal("50.0");
+                    policyRule = "Trả phòng từ 15:00 đến 18:00 (Phụ thu 50% giá phòng 1 đêm)";
+                } else {
+                    percentage = new BigDecimal("30.0");
+                    policyRule = "Trả phòng từ 12:00 đến 15:00 (Phụ thu 30% giá phòng 1 đêm)";
+                }
+            } else {
+                policyRule = "Khách trả phòng đúng hoặc trước giờ quy định (12:00) — Không phát sinh phụ thu";
+            }
+        } else {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Chỉ hỗ trợ tính phụ thu tự động cho EARLY_CHECKIN hoặc LATE_CHECKOUT");
+        }
+
+        BigDecimal suggestedAmount = baseRoomRate.multiply(percentage).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        String suggestedItemName = chargeType == BookingChargeType.EARLY_CHECKIN
+                ? "Phụ thu nhận phòng sớm (" + percentage.stripTrailingZeros().toPlainString() + "% giá phòng)"
+                : "Phụ thu trả phòng muộn (" + percentage.stripTrailingZeros().toPlainString() + "% giá phòng)";
+
+        return SurchargeProposalResponse.builder()
+                .applicable(applicable)
+                .chargeType(chargeType)
+                .standardTime(standardTime)
+                .actualTime(actualTime)
+                .timeDifferenceMinutes(diffMinutes)
+                .policyRule(policyRule)
+                .baseRoomRate(baseRoomRate)
+                .suggestedPercentage(percentage)
+                .suggestedAmount(suggestedAmount)
+                .suggestedItemName(suggestedItemName)
+                .defaultServiceFeeRate(new BigDecimal("5.00"))
+                .defaultVatRate(new BigDecimal("8.00"))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void deleteCharge(Long chargeId) {
+        BookingCharge charge = bookingChargeService.getById(chargeId);
+        Booking booking = charge.getBookingRoom().getBookingDetail().getBooking();
+
+        // Trừ tiền khỏi tổng tiền của đơn đặt phòng
+        booking.setSubtotalAmount(booking.getSubtotalAmount().subtract(charge.getSubtotal()));
+        booking.setServiceFeeAmount(booking.getServiceFeeAmount().subtract(charge.getServiceFeeAmount()));
+        booking.setTotalVatAmount(booking.getTotalVatAmount().subtract(charge.getVatAmount()));
+        booking.setTotalAmount(booking.getTotalAmount().subtract(charge.getTotalAmount()));
+        bookingRepository.save(booking);
+
+        bookingChargeService.deleteById(chargeId);
     }
 }

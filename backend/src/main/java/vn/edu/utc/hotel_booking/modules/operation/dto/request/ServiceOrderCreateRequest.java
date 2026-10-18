@@ -28,6 +28,11 @@ public class ServiceOrderCreateRequest {
     Long bookingId;
     Integer roomInstanceId;
 
+    @Builder.Default
+    vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod paymentMethod = vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM;
+
+    vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus paymentStatus;
+
     @NotEmpty(message = "Danh sách món ăn/dịch vụ không được để trống")
     @Valid
     @Builder.Default

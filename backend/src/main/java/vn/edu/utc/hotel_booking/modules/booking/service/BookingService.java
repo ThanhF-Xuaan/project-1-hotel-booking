@@ -34,5 +34,12 @@ public interface BookingService {
 
     BookingResponse confirmOnlineBooking(String sessionId, Long paymentId);
 
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.SurchargeProposalResponse previewSurcharge(
+            Long bookingRoomId,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.SurchargePreviewRequest request
+    );
+
+    void deleteCharge(Long chargeId);
+
     int processNoShowBookings(Short hotelId, java.time.LocalDate auditDate);
 }

@@ -127,6 +127,14 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
         String orderNumber = "SO-" + System.currentTimeMillis() + "-" + (int) (Math.random() * 900 + 100);
         BigDecimal standardServiceFeeRate = new BigDecimal("5.00"); // 5% Hotel Service Charge
 
+        ServiceOrderPaymentMethod paymentMethod = request.getPaymentMethod() != null
+                ? request.getPaymentMethod()
+                : (refType == ServiceOrderReferenceType.WALK_IN ? ServiceOrderPaymentMethod.CASH : ServiceOrderPaymentMethod.POST_TO_ROOM);
+
+        ServiceOrderPaymentStatus paymentStatus = request.getPaymentStatus() != null
+                ? request.getPaymentStatus()
+                : (paymentMethod == ServiceOrderPaymentMethod.POST_TO_ROOM ? ServiceOrderPaymentStatus.UNPAID : ServiceOrderPaymentStatus.PAID);
+
         ServiceOrder order = ServiceOrder.builder()
                 .hotel(hotel)
                 .referenceType(refType)
@@ -134,6 +142,8 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
                 .orderNumber(orderNumber)
                 .serviceFeeRate(standardServiceFeeRate)
                 .status(ServiceOrderStatus.PENDING)
+                .paymentMethod(paymentMethod)
+                .paymentStatus(paymentStatus)
                 .issuedAt(OffsetDateTime.now())
                 .build();
 

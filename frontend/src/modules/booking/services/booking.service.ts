@@ -7,6 +7,8 @@ import type {
   BookingStatus,
   BookingChargeCreateRequest,
   BookingChargeResponse,
+  SurchargePreviewRequest,
+  SurchargeProposalResponse,
 } from '../types/booking.types';
 
 const BASE_URL = '/api/v1/bookings';
@@ -32,6 +34,12 @@ export const bookingService = {
 
   addCharge: (bookingRoomId: number, data: BookingChargeCreateRequest) =>
     apiClient.post<BookingChargeResponse>(`${BASE_URL}/rooms/${bookingRoomId}/charges`, data),
+
+  deleteCharge: (chargeId: number) =>
+    apiClient.delete<void>(`${BASE_URL}/charges/${chargeId}`),
+
+  previewSurcharge: (bookingRoomId: number, data: SurchargePreviewRequest) =>
+    apiClient.post<SurchargeProposalResponse>(`${BASE_URL}/rooms/${bookingRoomId}/preview-surcharge`, data),
 
   checkIn: (bookingRoomId: number) =>
     apiClient.post<BookingResponse>(`${BASE_URL}/rooms/${bookingRoomId}/check-in`, {}),

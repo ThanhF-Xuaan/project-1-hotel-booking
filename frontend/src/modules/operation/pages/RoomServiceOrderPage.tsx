@@ -13,6 +13,9 @@ import {
   Sparkles,
   RefreshCw,
   AlertCircle,
+  Banknote,
+  Building,
+  QrCode,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -21,6 +24,7 @@ import type {
   MenuResponse,
   ServiceOrderResponse,
   ServiceOrderStatus,
+  ServiceOrderPaymentMethod,
 } from '../types/operation.types';
 
 export const RoomServiceOrderPage: React.FC = () => {
@@ -36,6 +40,7 @@ export const RoomServiceOrderPage: React.FC = () => {
 
   // Cart
   const [cart, setCart] = useState<{ item: MenuResponse; quantity: number }[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<ServiceOrderPaymentMethod>('POST_TO_ROOM');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderSuccessMessage, setOrderSuccessMessage] = useState('');
   const [orderErrorMessage, setOrderErrorMessage] = useState('');
@@ -128,13 +133,21 @@ export const RoomServiceOrderPage: React.FC = () => {
       const res = await operationService.createServiceOrder({
         bookingId: Number(bookingId),
         roomInstanceId: Number(roomInstanceId),
+        paymentMethod,
         items: cart.map((c) => ({
           menuId: c.item.id,
           quantity: c.quantity,
         })),
       });
 
-      setOrderSuccessMessage(`Đã tạo đơn dịch vụ #${res.orderNumber} thành công và tự động đẩy vào Folio phòng!`);
+      const methodNote =
+        paymentMethod === 'POST_TO_ROOM'
+          ? 'Đã ghi nợ vào Folio phòng (thanh toán khi check-out)!'
+          : 'Đã thanh toán ngay qua ' +
+            (paymentMethod === 'CASH' ? 'Tiền mặt' : 'VN-Pay QR') +
+            ' (không tính lại khi check-out)!';
+
+      setOrderSuccessMessage(`Đã tạo đơn dịch vụ #${res.orderNumber} thành công! ${methodNote}`);
       setCart([]);
       fetchRecentOrders();
       fetchMenuItems(); // Refresh stock
@@ -393,8 +406,64 @@ export const RoomServiceOrderPage: React.FC = () => {
                 <span>Thuế GTGT (VAT 8%):</span>
                 <span>{formatVND(vatAmount)}</span>
               </div>
+              {/* Payment Method Selector */}
+              <div className="space-y-1.5 pt-2 border-t border-neutral-100">
+                <label className="block text-xs font-semibold text-neutral-700">
+                  Phương thức thanh toán POS:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('POST_TO_ROOM')}
+                    className={`p-2 rounded-lg border text-left flex items-start gap-1.5 transition ${
+                      paymentMethod === 'POST_TO_ROOM'
+                        ? 'border-red-600 bg-red-50 text-red-700 font-semibold ring-1 ring-red-600'
+                        : 'border-neutral-200 hover:bg-neutral-50 text-neutral-700'
+                    }`}
+                  >
+                    <Building className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                    <div>
+                      <div className="text-xs font-semibold">Ghi nợ phòng</div>
+                      <div className="text-[10px] text-neutral-500 font-normal">Gộp Folio trả sau</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('CASH')}
+                    className={`p-2 rounded-lg border text-left flex items-start gap-1.5 transition ${
+                      paymentMethod === 'CASH'
+                        ? 'border-red-600 bg-red-50 text-red-700 font-semibold ring-1 ring-red-600'
+                        : 'border-neutral-200 hover:bg-neutral-50 text-neutral-700'
+                    }`}
+                  >
+                    <Banknote className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+                    <div>
+                      <div className="text-xs font-semibold">Tiền mặt</div>
+                      <div className="text-[10px] text-neutral-500 font-normal">Thu tại phòng</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('VNPAY')}
+                    className={`p-2 rounded-lg border text-left flex items-start gap-1.5 transition ${
+                      paymentMethod === 'VNPAY'
+                        ? 'border-red-600 bg-red-50 text-red-700 font-semibold ring-1 ring-red-600'
+                        : 'border-neutral-200 hover:bg-neutral-50 text-neutral-700'
+                    }`}
+                  >
+                    <QrCode className="w-4 h-4 shrink-0 mt-0.5 text-blue-600" />
+                    <div>
+                      <div className="text-xs font-semibold">VN-Pay QR</div>
+                      <div className="text-[10px] text-neutral-500 font-normal">Quét mã ngay</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               <div className="flex justify-between font-bold text-neutral-900 pt-2 border-t border-neutral-100 text-base">
-                <span>Tổng hạch toán Folio:</span>
+                <span>Tổng hạch toán:</span>
                 <span className="text-red-600">{formatVND(grandTotal)}</span>
               </div>
 
@@ -431,7 +500,8 @@ export const RoomServiceOrderPage: React.FC = () => {
                 <th className="py-3 px-4">Mã Đơn</th>
                 <th className="py-3 px-4">Booking / Phòng</th>
                 <th className="py-3 px-4">Các món gọi</th>
-                <th className="py-3 px-4">Tổng tiền (Folio)</th>
+                <th className="py-3 px-4">Tổng tiền</th>
+                <th className="py-3 px-4">Thanh toán</th>
                 <th className="py-3 px-4">Trạng thái</th>
                 <th className="py-3 px-4 text-right">Chuyển trạng thái</th>
               </tr>
@@ -439,13 +509,13 @@ export const RoomServiceOrderPage: React.FC = () => {
             <tbody className="divide-y divide-neutral-200">
               {isLoadingOrders ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-neutral-400">
+                  <td colSpan={7} className="py-8 text-center text-neutral-400">
                     Đang tải danh sách đơn...
                   </td>
                 </tr>
               ) : recentOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-neutral-400">
+                  <td colSpan={7} className="py-8 text-center text-neutral-400">
                     Chưa có đơn dịch vụ phòng nào.
                   </td>
                 </tr>
@@ -469,6 +539,22 @@ export const RoomServiceOrderPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="py-3 px-4 font-bold text-neutral-900">{formatVND(order.totalAmount)}</td>
+                    <td className="py-3 px-4">
+                      <div className="text-xs font-semibold text-neutral-800">
+                        {order.paymentMethod === 'POST_TO_ROOM' && 'Ghi nợ phòng'}
+                        {order.paymentMethod === 'CASH' && 'Tiền mặt'}
+                        {order.paymentMethod === 'VNPAY' && 'VN-Pay QR'}
+                      </div>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded font-medium ${
+                          order.paymentStatus === 'PAID'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {order.paymentStatus === 'PAID' ? 'Đã thu' : 'Chưa thu (Folio)'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4">
                       <span
                         className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${

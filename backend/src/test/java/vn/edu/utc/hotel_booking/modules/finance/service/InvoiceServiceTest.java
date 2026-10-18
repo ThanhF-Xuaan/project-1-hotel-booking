@@ -185,4 +185,58 @@ class InvoiceServiceTest {
         verify(serviceOrderService, times(1)).getOrdersByBookingId(500L);
         verifyNoMoreInteractions(bookingService, serviceOrderService);
     }
+
+    @Test
+    @DisplayName("Chống thu tiền 2 lần: Bỏ qua các đơn dịch vụ đã thanh toán ngay tại POS (PAID hoặc CASH)")
+    void shouldIgnoreServiceOrdersThatAreAlreadyPaidAtPos() {
+        // Arrange
+        InvoiceCreateRequest request = InvoiceCreateRequest.builder()
+                .bookingId(500L)
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .build();
+
+        when(bookingService.getEntityById(500L)).thenReturn(testBooking);
+
+        ServiceOrderDetailResponse paidItem = ServiceOrderDetailResponse.builder()
+                .id(103L)
+                .itemType("PRODUCT")
+                .itemName("Cocktail tại quầy bar")
+                .quantity(1)
+                .unitPrice(new BigDecimal("120000.00"))
+                .subtotal(new BigDecimal("120000.00"))
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .serviceFeeAmount(new BigDecimal("6000.00"))
+                .vatRate(new BigDecimal("10.00"))
+                .vatAmount(new BigDecimal("12600.00"))
+                .totalAmount(new BigDecimal("138600.00"))
+                .build();
+
+        ServiceOrderResponse paidOrder = ServiceOrderResponse.builder()
+                .id(2L)
+                .orderNumber("SO-PAID-002")
+                .paymentMethod(vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.CASH)
+                .paymentStatus(vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID)
+                .details(List.of(paidItem))
+                .build();
+
+        when(serviceOrderService.getOrdersByBookingId(500L)).thenReturn(List.of(paidOrder));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(financeMapper.toResponse(any(Invoice.class))).thenReturn(InvoiceResponse.builder().id(1L).invoiceNumber("INV-002").build());
+
+        // Act
+        InvoiceResponse response = invoiceService.createInvoice(request);
+
+        // Assert
+        assertThat(response).isNotNull();
+
+        ArgumentCaptor<Invoice> invoiceCaptor = ArgumentCaptor.forClass(Invoice.class);
+        verify(invoiceRepository).save(invoiceCaptor.capture());
+        Invoice savedInvoice = invoiceCaptor.getValue();
+
+        List<InvoiceDetail> details = savedInvoice.getDetails();
+        // Chỉ có 3 dòng (1 ROOM_RATE + 1 PENALTY + 1 SURCHARGE), hoàn toàn không có PRODUCT của đơn paidOrder
+        assertThat(details).hasSize(3);
+        List<InvoiceLineType> lineTypes = details.stream().map(InvoiceDetail::getLineType).toList();
+        assertThat(lineTypes).doesNotContain(InvoiceLineType.PRODUCT);
+    }
 }

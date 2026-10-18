@@ -86,6 +86,24 @@ public class BookingController {
         return ApiResponse.success("Thêm phụ phí thành công", bookingService.addCharge(bookingRoomId, request));
     }
 
+    @PostMapping("/rooms/{bookingRoomId}/preview-surcharge")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Xem trước đề xuất phụ thu nhận phòng sớm / trả phòng muộn theo mốc giờ thực tế")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.SurchargeProposalResponse> previewSurcharge(
+            @PathVariable Long bookingRoomId,
+            @Valid @RequestBody SurchargePreviewRequest request
+    ) {
+        return ApiResponse.success("Đề xuất phụ thu thành công", bookingService.previewSurcharge(bookingRoomId, request));
+    }
+
+    @DeleteMapping("/charges/{chargeId}")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Xóa phụ phí đã nhập nhầm khỏi phòng và trừ tiền đơn đặt")
+    public ApiResponse<Void> deleteCharge(@PathVariable Long chargeId) {
+        bookingService.deleteCharge(chargeId);
+        return ApiResponse.success("Xóa phụ phí thành công", null);
+    }
+
     @PostMapping("/rooms/{bookingRoomId}/check-in")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Thực hiện Check-in nhận phòng")

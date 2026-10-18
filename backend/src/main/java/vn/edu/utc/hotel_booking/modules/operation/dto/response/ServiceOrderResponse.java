@@ -36,6 +36,8 @@ public class ServiceOrderResponse {
     BigDecimal vatAmount;
     BigDecimal totalAmount;
     ServiceOrderStatus status;
+    vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod paymentMethod;
+    vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus paymentStatus;
     OffsetDateTime issuedAt;
     OffsetDateTime createdAt;
 

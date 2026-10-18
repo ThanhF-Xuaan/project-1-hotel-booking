@@ -866,4 +866,113 @@ class BookingServiceTest {
         assertThat(stayGuest.getRoomNumber()).isEqualTo("P.201");
         verify(bookingRoomService).save(bookingRoom);
     }
+
+    @Test
+    @DisplayName("previewSurcharge: Đề xuất đúng 50% khi nhận phòng sớm trong khung 06:00 - 09:00")
+    void previewSurcharge_EarlyCheckIn_SuggestsFiftyPercent() {
+        LocalDate checkInDate = LocalDate.now();
+        LocalDate checkOutDate = checkInDate.plusDays(2);
+        BookingDetail detail = BookingDetail.builder()
+                .checkInDate(checkInDate)
+                .checkOutDate(checkOutDate)
+                .build();
+
+        BookingDailyRate rate1 = BookingDailyRate.builder().stayDate(checkInDate).netPrice(new BigDecimal("1000000.00")).build();
+        BookingDailyRate rate2 = BookingDailyRate.builder().stayDate(checkInDate.plusDays(1)).netPrice(new BigDecimal("1000000.00")).build();
+
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(20L)
+                .bookingDetail(detail)
+                .dailyRates(List.of(rate1, rate2))
+                .build();
+
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.SurchargePreviewRequest req =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.SurchargePreviewRequest.builder()
+                        .chargeType(BookingChargeType.EARLY_CHECKIN)
+                        .actualTime(checkInDate.atTime(8, 0).atOffset(java.time.ZoneOffset.ofHours(7)))
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.response.SurchargeProposalResponse proposal =
+                bookingService.previewSurcharge(20L, req);
+
+        assertThat(proposal.isApplicable()).isTrue();
+        assertThat(proposal.getChargeType()).isEqualTo(BookingChargeType.EARLY_CHECKIN);
+        assertThat(proposal.getSuggestedPercentage()).isEqualByComparingTo(new BigDecimal("50.0"));
+        assertThat(proposal.getSuggestedAmount()).isEqualByComparingTo(new BigDecimal("500000.00"));
+        assertThat(proposal.getPolicyRule()).contains("06:00 đến 09:00");
+    }
+
+    @Test
+    @DisplayName("previewSurcharge: Đề xuất đúng 30% khi trả phòng muộn trong khung 12:00 - 15:00")
+    void previewSurcharge_LateCheckOut_SuggestsThirtyPercent() {
+        LocalDate checkInDate = LocalDate.now().minusDays(2);
+        LocalDate checkOutDate = LocalDate.now();
+        BookingDetail detail = BookingDetail.builder()
+                .checkInDate(checkInDate)
+                .checkOutDate(checkOutDate)
+                .build();
+
+        BookingDailyRate rate = BookingDailyRate.builder().stayDate(checkInDate).netPrice(new BigDecimal("2000000.00")).build();
+
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(20L)
+                .bookingDetail(detail)
+                .dailyRates(List.of(rate))
+                .build();
+
+        when(bookingRoomService.getEntityById(20L)).thenReturn(bookingRoom);
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.SurchargePreviewRequest req =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.SurchargePreviewRequest.builder()
+                        .chargeType(BookingChargeType.LATE_CHECKOUT)
+                        .actualTime(checkOutDate.atTime(13, 30).atOffset(java.time.ZoneOffset.ofHours(7)))
+                        .build();
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.response.SurchargeProposalResponse proposal =
+                bookingService.previewSurcharge(20L, req);
+
+        assertThat(proposal.isApplicable()).isTrue();
+        assertThat(proposal.getChargeType()).isEqualTo(BookingChargeType.LATE_CHECKOUT);
+        assertThat(proposal.getSuggestedPercentage()).isEqualByComparingTo(new BigDecimal("30.0"));
+        assertThat(proposal.getSuggestedAmount()).isEqualByComparingTo(new BigDecimal("600000.00"));
+    }
+
+    @Test
+    @DisplayName("deleteCharge thành công: trừ tiền phụ phí khỏi tổng tiền booking và gọi xóa bản ghi")
+    void deleteCharge_Success_RecalculatesBookingTotal() {
+        Booking booking = Booking.builder()
+                .id(100L)
+                .subtotalAmount(new BigDecimal("1500000.00"))
+                .serviceFeeAmount(new BigDecimal("75000.00"))
+                .totalVatAmount(new BigDecimal("126000.00"))
+                .totalAmount(new BigDecimal("1701000.00"))
+                .build();
+
+        BookingDetail detail = BookingDetail.builder().booking(booking).build();
+        BookingRoom room = BookingRoom.builder().id(20L).bookingDetail(detail).build();
+
+        BookingCharge charge = BookingCharge.builder()
+                .id(55L)
+                .bookingRoom(room)
+                .chargeType(BookingChargeType.EARLY_CHECKIN)
+                .subtotal(new BigDecimal("500000.00"))
+                .serviceFeeAmount(new BigDecimal("25000.00"))
+                .vatAmount(new BigDecimal("42000.00"))
+                .totalAmount(new BigDecimal("567000.00"))
+                .build();
+
+        when(bookingChargeService.getById(55L)).thenReturn(charge);
+
+        bookingService.deleteCharge(55L);
+
+        assertThat(booking.getSubtotalAmount()).isEqualByComparingTo(new BigDecimal("1000000.00"));
+        assertThat(booking.getServiceFeeAmount()).isEqualByComparingTo(new BigDecimal("50000.00"));
+        assertThat(booking.getTotalVatAmount()).isEqualByComparingTo(new BigDecimal("84000.00"));
+        assertThat(booking.getTotalAmount()).isEqualByComparingTo(new BigDecimal("1134000.00"));
+
+        verify(bookingRepository).save(booking);
+        verify(bookingChargeService).deleteById(55L);
+    }
 }

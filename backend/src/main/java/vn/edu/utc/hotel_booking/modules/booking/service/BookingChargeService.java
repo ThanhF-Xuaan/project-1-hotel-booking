@@ -14,5 +14,9 @@ public interface BookingChargeService {
 
     List<BookingCharge> findByBookingRoomId(Long bookingRoomId);
 
+    BookingCharge getById(Long id);
+
     BookingCharge createCharge(BookingRoom bookingRoom, BookingChargeCreateRequest request);
+
+    void deleteById(Long id);
 }

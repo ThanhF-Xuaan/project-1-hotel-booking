@@ -165,3 +165,18 @@ export interface BookingResponse {
   updatedAt: string;
   bookingDetails: BookingDetailResponse[];
 }
+
+export interface SurchargePreviewRequest {
+  checkInTime?: string;
+  checkOutTime?: string;
+  actionType: 'CHECK_IN' | 'CHECK_OUT';
+}
+
+export interface SurchargeProposalResponse {
+  applicable: boolean;
+  ruleCode?: string;
+  description?: string;
+  percentage?: number;
+  baseAmount?: number;
+  suggestedAmount?: number;
+}

@@ -72,4 +72,20 @@ public class BookingChargeServiceImpl implements BookingChargeService {
 
         return bookingChargeRepository.save(charge);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BookingCharge getById(Long id) {
+        return bookingChargeRepository.findById(id)
+                .orElseThrow(() -> new vn.edu.utc.hotel_booking.common.exception.AppException(
+                        vn.edu.utc.hotel_booking.common.exception.ErrorCode.BOOKING_CHARGE_NOT_FOUND,
+                        "Không tìm thấy khoản phụ thu ID: " + id));
+    }
+
+    @Override
+    @Transactional
+    public void deleteById(Long id) {
+        BookingCharge charge = getById(id);
+        bookingChargeRepository.delete(charge);
+    }
 }

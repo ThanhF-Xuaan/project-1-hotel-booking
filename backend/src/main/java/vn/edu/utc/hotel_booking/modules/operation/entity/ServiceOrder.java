@@ -65,6 +65,16 @@ public class ServiceOrder extends BaseEntity {
     @Builder.Default
     ServiceOrderStatus status = ServiceOrderStatus.PENDING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false, length = 50)
+    @Builder.Default
+    ServiceOrderPaymentMethod paymentMethod = ServiceOrderPaymentMethod.POST_TO_ROOM;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false, length = 50)
+    @Builder.Default
+    ServiceOrderPaymentStatus paymentStatus = ServiceOrderPaymentStatus.UNPAID;
+
     @Column(name = "issued_at")
     @Builder.Default
     OffsetDateTime issuedAt = OffsetDateTime.now();

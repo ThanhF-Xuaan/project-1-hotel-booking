@@ -128,6 +128,14 @@ public class InvoiceServiceImpl implements InvoiceService {
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
+                // Chống thu tiền 2 lần: Bỏ qua các đơn đã thanh toán tại POS hoặc không ghi nợ phòng
+                if (order.getPaymentMethod() != null && order.getPaymentMethod() != vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM) {
+                    continue;
+                }
+                if (order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID) {
+                    continue;
+                }
+
                 if (order.getDetails() != null) {
                     for (ServiceOrderDetailResponse item : order.getDetails()) {
                         InvoiceLineType itemLineType = "PRODUCT".equalsIgnoreCase(item.getItemType())

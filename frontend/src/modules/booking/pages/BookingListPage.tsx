@@ -11,6 +11,8 @@ import {
   UserCheck,
   AlertTriangle,
   Users,
+  Utensils,
+  Trash2,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -19,11 +21,14 @@ import Pagination from '../../../core/components/ui/Pagination';
 import bookingService from '../services/booking.service';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
 import StayGuestsModal from '../components/StayGuestsModal';
+import SurchargeProposalModal from '../components/SurchargeProposalModal';
+import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import type {
   BookingResponse,
   BookingStatus,
   BookingChargeType,
   BookingRoomResponse,
+  SurchargeProposalResponse,
 } from '../types/booking.types';
 import type { RoomInstanceDto } from '../../inventory/types/inventory.types';
 
@@ -70,6 +75,28 @@ export const BookingListPage: React.FC = () => {
   const [chargeServiceFeeRate, setChargeServiceFeeRate] = useState<number>(5);
   const [chargeVatRate, setChargeVatRate] = useState<number>(8);
   const [isSubmittingCharge, setIsSubmittingCharge] = useState(false);
+
+  // Surcharge Proposal Modal
+  const [isSurchargeProposalModalOpen, setIsSurchargeProposalModalOpen] = useState(false);
+  const [surchargeProposal, setSurchargeProposal] = useState<SurchargeProposalResponse | null>(null);
+  const [surchargeActionType, setSurchargeActionType] = useState<'CHECK_IN' | 'CHECK_OUT'>('CHECK_IN');
+  const [surchargeTargetRoom, setSurchargeTargetRoom] = useState<BookingRoomResponse | null>(null);
+  const [isProcessingSurchargeAction, setIsProcessingSurchargeAction] = useState(false);
+
+  // Room Service Order Modal
+  const [isServiceOrderModalOpen, setIsServiceOrderModalOpen] = useState(false);
+  const [serviceOrderTarget, setServiceOrderTarget] = useState<{
+    bookingId: number;
+    bookingNumber?: string;
+    roomInstanceId: number;
+    roomNumber?: string;
+    hotelId: number;
+  } | null>(null);
+
+  // Delete Charge Confirmation Modal
+  const [isDeleteChargeModalOpen, setIsDeleteChargeModalOpen] = useState(false);
+  const [chargeToDelete, setChargeToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [isDeletingCharge, setIsDeletingCharge] = useState(false);
 
   // Cancel Modal
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -240,6 +267,147 @@ export const BookingListPage: React.FC = () => {
     } catch (err) {
       console.error('Lỗi check-out:', err);
       alert('Check-out thất bại.');
+    }
+  };
+
+  const handleInitiateCheckIn = async (room: BookingRoomResponse) => {
+    try {
+      const preview = await bookingService.previewSurcharge(room.id, { actionType: 'CHECK_IN' });
+      if (preview.result && preview.result.applicable) {
+        setSurchargeProposal(preview.result);
+        setSurchargeActionType('CHECK_IN');
+        setSurchargeTargetRoom(room);
+        setIsSurchargeProposalModalOpen(true);
+        return;
+      }
+    } catch (err) {
+      console.warn('Lỗi kiểm tra phụ thu nhận phòng sớm, tiếp tục check-in thường:', err);
+    }
+    await handleCheckIn(room.id);
+  };
+
+  const handleInitiateCheckOut = async (room: BookingRoomResponse) => {
+    try {
+      const preview = await bookingService.previewSurcharge(room.id, { actionType: 'CHECK_OUT' });
+      if (preview.result && preview.result.applicable) {
+        setSurchargeProposal(preview.result);
+        setSurchargeActionType('CHECK_OUT');
+        setSurchargeTargetRoom(room);
+        setIsSurchargeProposalModalOpen(true);
+        return;
+      }
+    } catch (err) {
+      console.warn('Lỗi kiểm tra phụ thu trả phòng muộn, tiếp tục check-out thường:', err);
+    }
+    await handleCheckOut(room.id);
+  };
+
+  const handleApplySurchargeProposal = async () => {
+    if (!surchargeTargetRoom || !surchargeProposal) return;
+    setIsProcessingSurchargeAction(true);
+    try {
+      await bookingService.addCharge(surchargeTargetRoom.id, {
+        chargeType: surchargeActionType === 'CHECK_IN' ? 'EARLY_CHECKIN' : 'LATE_CHECKOUT',
+        itemName:
+          surchargeProposal.description ||
+          (surchargeActionType === 'CHECK_IN' ? 'Phụ thu nhận phòng sớm' : 'Phụ thu trả phòng muộn'),
+        quantity: 1,
+        unitPrice: surchargeProposal.suggestedAmount || 0,
+        serviceFeeRate: 0,
+        vatRate: 0,
+      });
+
+      setIsSurchargeProposalModalOpen(false);
+
+      if (surchargeActionType === 'CHECK_IN') {
+        await handleCheckIn(surchargeTargetRoom.id);
+      } else {
+        await handleCheckOut(surchargeTargetRoom.id);
+      }
+    } catch (err) {
+      console.error('Lỗi khi áp dụng phụ thu:', err);
+      alert('Không thể ghi nhận phụ thu.');
+    } finally {
+      setIsProcessingSurchargeAction(false);
+    }
+  };
+
+  const handleWaiveSurcharge = async (reason: string) => {
+    if (!surchargeTargetRoom) return;
+    setIsProcessingSurchargeAction(true);
+    try {
+      setIsSurchargeProposalModalOpen(false);
+      if (surchargeActionType === 'CHECK_IN') {
+        await handleCheckIn(surchargeTargetRoom.id);
+      } else {
+        await handleCheckOut(surchargeTargetRoom.id);
+      }
+      setActionSuccessMessage(
+        `Đã miễn phụ thu (${reason}) và hoàn tất ${surchargeActionType === 'CHECK_IN' ? 'Check-in' : 'Check-out'}!`
+      );
+    } catch (err) {
+      console.error('Lỗi khi miễn phụ thu:', err);
+    } finally {
+      setIsProcessingSurchargeAction(false);
+    }
+  };
+
+  const handleCustomAdjustSurcharge = () => {
+    if (!surchargeTargetRoom || !surchargeProposal) return;
+    setIsSurchargeProposalModalOpen(false);
+    setTargetBookingRoomId(surchargeTargetRoom.id);
+    setChargeType(surchargeActionType === 'CHECK_IN' ? 'EARLY_CHECKIN' : 'LATE_CHECKOUT');
+    setChargeItemName(
+      surchargeProposal.description ||
+        (surchargeActionType === 'CHECK_IN' ? 'Phụ thu nhận phòng sớm' : 'Phụ thu trả phòng muộn')
+    );
+    setChargeQuantity(1);
+    setChargeUnitPrice(surchargeProposal.suggestedAmount || 100000);
+    setChargeServiceFeeRate(0);
+    setChargeVatRate(0);
+    setIsChargeModalOpen(true);
+  };
+
+  const handleOpenServiceOrderModal = (booking: BookingResponse, room: BookingRoomResponse) => {
+    if (!room.roomInstanceId || !room.roomNumber) {
+      alert('Phòng chưa được xếp phòng vật lý. Vui lòng xếp phòng trước khi gọi món POS!');
+      return;
+    }
+    setServiceOrderTarget({
+      bookingId: booking.id,
+      bookingNumber: booking.bookingNumber,
+      roomInstanceId: room.roomInstanceId,
+      roomNumber: room.roomNumber,
+      hotelId: booking.hotelId,
+    });
+    setIsServiceOrderModalOpen(true);
+  };
+
+  const handlePromptDeleteCharge = (chargeId: number, itemName: string) => {
+    setChargeToDelete({ id: chargeId, name: itemName });
+    setIsDeleteChargeModalOpen(true);
+  };
+
+  const handleConfirmDeleteCharge = async () => {
+    if (!chargeToDelete) return;
+    setIsDeletingCharge(true);
+    try {
+      await bookingService.deleteCharge(chargeToDelete.id);
+      setIsDeleteChargeModalOpen(false);
+      setChargeToDelete(null);
+      setActionSuccessMessage('Đã xóa phụ phí thành công!');
+      loadData();
+      if (selectedBooking) {
+        const updated = await bookingService.getById(selectedBooking.id);
+        if (updated.result) {
+          setSelectedBooking(updated.result);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi xóa phụ phí:', err);
+      alert('Không thể xóa phụ phí. Vui lòng thử lại.');
+    } finally {
+      setIsDeletingCharge(false);
     }
   };
 
@@ -626,7 +794,7 @@ export const BookingListPage: React.FC = () => {
                                     ? 'Cần xếp phòng vật lý trước khi Check-in'
                                     : 'Thực hiện thủ tục Check-in'
                                 }
-                                onClick={() => handleCheckIn(room.id)}
+                                onClick={() => handleInitiateCheckIn(room)}
                                 className={
                                   !isRoomAssigned
                                     ? 'opacity-50 cursor-not-allowed bg-neutral-400 hover:bg-neutral-400'
@@ -643,12 +811,33 @@ export const BookingListPage: React.FC = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleCheckOut(room.id)}
+                                onClick={() => handleInitiateCheckOut(room)}
                               >
                                 <LogOut className="w-3.5 h-3.5 mr-1" />
                                 Check-out
                               </Button>
                             )}
+
+                            {/* Nút Gọi món / POS Dịch vụ phòng */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={!isRoomAssigned}
+                              title={
+                                !isRoomAssigned
+                                  ? 'Cần xếp phòng vật lý trước khi gọi món POS'
+                                  : 'Đặt món ăn, đồ uống minibar và dịch vụ phòng'
+                              }
+                              onClick={() => handleOpenServiceOrderModal(selectedBooking, room)}
+                              className={
+                                !isRoomAssigned
+                                  ? 'opacity-50 cursor-not-allowed'
+                                  : 'text-emerald-700 hover:text-emerald-800 border-emerald-200 hover:bg-emerald-50'
+                              }
+                            >
+                              <Utensils className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                              Gọi món / POS
+                            </Button>
 
                             {/* Nút Phụ phí */}
                             <Button
@@ -666,13 +855,30 @@ export const BookingListPage: React.FC = () => {
                         {room.charges && room.charges.length > 0 && (
                           <div className="border-t border-neutral-200 pt-2 text-xs">
                             <span className="font-semibold text-neutral-700">Phụ phí phát sinh:</span>
-                            <ul className="list-disc pl-4 mt-1 text-neutral-600 space-y-0.5">
+                            <div className="mt-1 space-y-1">
                               {room.charges.map((c) => (
-                                <li key={c.id}>
-                                  {c.itemName} x{c.quantity}: {new Intl.NumberFormat('vi-VN').format(c.totalAmount)} đ ({c.chargeType})
-                                </li>
+                                <div
+                                  key={c.id}
+                                  className="flex items-center justify-between bg-neutral-50 px-2.5 py-1 rounded-md border border-neutral-200"
+                                >
+                                  <span className="text-neutral-700">
+                                    {c.itemName} x{c.quantity}:{' '}
+                                    <strong className="text-neutral-900">
+                                      {new Intl.NumberFormat('vi-VN').format(c.totalAmount)} đ
+                                    </strong>{' '}
+                                    <span className="text-neutral-500">({c.chargeType})</span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePromptDeleteCharge(c.id, c.itemName)}
+                                    className="p-1 text-neutral-400 hover:text-red-600 rounded hover:bg-red-50 transition"
+                                    title="Xóa khoản phụ phí này"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               ))}
-                            </ul>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -837,6 +1043,62 @@ export const BookingListPage: React.FC = () => {
         description="Bạn có chắc chắn muốn hủy đơn đặt phòng này? Quỹ phòng và các phòng vật lý đã gán sẽ được giải phóng lập tức."
         confirmText={isCancelling ? 'Đang hủy...' : 'Xác nhận hủy'}
         cancelText="Đóng"
+        variant="danger"
+      />
+
+      {/* SURCHARGE PROPOSAL MODAL */}
+      <SurchargeProposalModal
+        isOpen={isSurchargeProposalModalOpen}
+        onClose={() => {
+          setIsSurchargeProposalModalOpen(false);
+          setSurchargeProposal(null);
+          setSurchargeTargetRoom(null);
+        }}
+        proposal={surchargeProposal}
+        actionType={surchargeActionType}
+        roomNumber={surchargeTargetRoom?.roomNumber}
+        onApplyProposal={handleApplySurchargeProposal}
+        onWaiveSurcharge={handleWaiveSurcharge}
+        onCustomAdjust={handleCustomAdjustSurcharge}
+        isProcessing={isProcessingSurchargeAction}
+      />
+
+      {/* ROOM SERVICE ORDER MODAL (POS) */}
+      {serviceOrderTarget && (
+        <RoomServiceOrderModal
+          isOpen={isServiceOrderModalOpen}
+          onClose={() => {
+            setIsServiceOrderModalOpen(false);
+            setServiceOrderTarget(null);
+          }}
+          bookingId={serviceOrderTarget.bookingId}
+          bookingNumber={serviceOrderTarget.bookingNumber}
+          roomInstanceId={serviceOrderTarget.roomInstanceId}
+          roomNumber={serviceOrderTarget.roomNumber}
+          hotelId={serviceOrderTarget.hotelId}
+          onOrderSuccess={() => {
+            loadData();
+            if (selectedBooking) {
+              bookingService.getById(selectedBooking.id).then((res) => {
+                if (res.result) setSelectedBooking(res.result);
+              });
+            }
+          }}
+        />
+      )}
+
+      {/* CONFIRM DELETE CHARGE MODAL */}
+      <ConfirmModal
+        isOpen={isDeleteChargeModalOpen}
+        onClose={() => {
+          setIsDeleteChargeModalOpen(false);
+          setChargeToDelete(null);
+        }}
+        onConfirm={handleConfirmDeleteCharge}
+        title="Xác nhận xóa khoản phụ phí"
+        description={`Bạn có chắc chắn muốn xóa khoản phụ phí "${chargeToDelete?.name || ''}" này không? Khoản tiền này sẽ được khấu trừ khỏi hóa đơn phòng.`}
+        confirmText={isDeletingCharge ? 'Đang xóa...' : 'Xóa phụ phí'}
+        cancelText="Hủy"
         variant="danger"
       />
     </div>
