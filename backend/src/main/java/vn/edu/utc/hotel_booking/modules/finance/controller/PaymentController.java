@@ -94,13 +94,19 @@ public class PaymentController {
                 paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
     }
 
-    /** Lấy IP thật của khách (qua proxy/load-balancer nếu có) — VNPay yêu cầu vnp_IpAddr */
+    /** Lấy IP thật của khách (qua proxy/load-balancer nếu có) — VNPay yêu cầu vnp_IpAddr chuẩn IPv4 */
     private String resolveClientIp(HttpServletRequest request) {
+        String ip = null;
         String forwarded = request.getHeader("X-Forwarded-For");
         if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+            ip = forwarded.split(",")[0].trim();
+        } else {
+            ip = request.getRemoteAddr();
         }
-        return request.getRemoteAddr();
+        if (ip == null || "0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip) || "localhost".equalsIgnoreCase(ip)) {
+            return "127.0.0.1";
+        }
+        return ip;
     }
 
     @PostMapping("/{id}/refund")

@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
@@ -70,8 +71,9 @@ public class RoomTypeServiceImpl implements RoomTypeService {
                 Sort.by(Sort.Direction.fromString(searchDto.getSortDirection()), searchDto.getSortBy())
         );
 
+        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : "";
         Page<RoomType> page = roomTypeRepository.filterRoomTypes(
-                searchDto.getKeyword(),
+                keyword,
                 searchDto.getStatus(),
                 pageable
         );

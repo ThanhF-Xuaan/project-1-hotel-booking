@@ -51,16 +51,26 @@ public class InvoiceServiceImpl implements InvoiceService {
     public InvoiceResponse createInvoice(InvoiceCreateRequest request) {
         Booking booking = bookingService.getEntityById(request.getBookingId());
 
-        String invoiceNumber = generateInvoiceNumber();
-
         BigDecimal serviceFeeRate = request.getServiceFeeRate() != null ? request.getServiceFeeRate() : booking.getServiceFeeRate();
 
-        Invoice invoice = Invoice.builder()
-                .booking(booking)
-                .invoiceNumber(invoiceNumber)
-                .serviceFeeRate(serviceFeeRate)
-                .status(InvoiceStatus.DRAFT)
-                .build();
+        List<Invoice> existingInvoices = invoiceRepository.findByBookingId(booking.getId());
+        Invoice invoice;
+        if (existingInvoices != null && !existingInvoices.isEmpty()) {
+            invoice = existingInvoices.get(0);
+            if (invoice.getStatus() == InvoiceStatus.ISSUED || invoice.getStatus() == InvoiceStatus.PAID) {
+                return financeMapper.toResponse(invoice);
+            }
+            invoice.getDetails().clear();
+            invoice.setServiceFeeRate(serviceFeeRate);
+        } else {
+            String invoiceNumber = generateInvoiceNumber();
+            invoice = Invoice.builder()
+                    .booking(booking)
+                    .invoiceNumber(invoiceNumber)
+                    .serviceFeeRate(serviceFeeRate)
+                    .status(InvoiceStatus.DRAFT)
+                    .build();
+        }
 
         List<InvoiceDetail> details = new ArrayList<>();
         BigDecimal subTotal = BigDecimal.ZERO;
