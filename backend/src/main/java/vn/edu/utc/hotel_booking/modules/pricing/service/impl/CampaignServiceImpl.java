@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
@@ -78,9 +79,10 @@ public class CampaignServiceImpl implements CampaignService {
                 Sort.by(Sort.Direction.fromString(searchDto.getSortDirection()), searchDto.getSortBy())
         );
 
+        String name = StringUtils.hasText(searchDto.getName()) ? searchDto.getName().trim() : "";
         Page<Campaign> page = campaignRepository.filterCampaigns(
                 searchDto.getHotelId(),
-                searchDto.getName(),
+                name,
                 searchDto.getActiveOnDate(),
                 searchDto.getStatus(),
                 pageable

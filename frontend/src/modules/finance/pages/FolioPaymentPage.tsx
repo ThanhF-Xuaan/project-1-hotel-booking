@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   DollarSign,
   Search,
   RefreshCw,
   CheckCircle,
   Receipt,
+  Printer,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -19,6 +21,7 @@ import CheckoutModal from '../components/payment/CheckoutModal';
 import PaymentErrorModal from '../components/payment/PaymentErrorModal';
 import PaymentStatusBadge from '../components/payment/PaymentStatusBadge';
 import InvoicePaymentFlowModal from '../components/payment/InvoicePaymentFlowModal';
+import HotelFolioReceipt from '../components/payment/HotelFolioReceipt';
 import type {
   PaymentResponse,
   InvoiceResponse,
@@ -47,6 +50,8 @@ const REFERENCE_CONFIG: Record<
 const isGatewayMethod = (m: PaymentMethod): m is GatewayMethod => m === 'VNPAY';
 
 export const FolioPaymentPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const urlBookingId = searchParams.get('bookingId');
   const [bookingNumberInput, setBookingNumberInput] = useState('');
   const [currentBooking, setCurrentBooking] = useState<BookingResponse | null>(null);
   const [payments, setPayments] = useState<PaymentResponse[]>([]);
@@ -54,6 +59,10 @@ export const FolioPaymentPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // In ấn biên lai Folio
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<PaymentResponse | null>(null);
 
   // Payment Modal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -215,6 +224,48 @@ export const FolioPaymentPage: React.FC = () => {
       isMounted = false;
     };
   }, [fetchBookingList]);
+
+  // Tự động load đơn theo bookingId từ query param (khi thanh toán VNPay chuyển hướng về)
+  useEffect(() => {
+    if (!urlBookingId) return;
+    const bid = Number(urlBookingId);
+    if (!bid || isNaN(bid)) return;
+
+    let isMounted = true;
+    const loadBookingFromParam = async () => {
+      try {
+        setIsLoading(true);
+        const res = await bookingService.getById(bid);
+        if (res.result && isMounted) {
+          setBookingNumberInput(res.result.bookingNumber);
+          setCurrentBooking(res.result);
+          // Load payments
+          const pRes = await financeService.getPaymentsByBookingId(res.result.id);
+          if (pRes.result && isMounted) {
+            setPayments(pRes.result);
+          }
+          // Load invoice
+          try {
+            const invRes = await financeService.getInvoiceByBookingId(res.result.id);
+            if (invRes.result && isMounted) {
+              setInvoice(invRes.result);
+            }
+          } catch {
+            if (isMounted) setInvoice(null);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi tự động tải booking theo urlParam bookingId:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    void loadBookingFromParam();
+    return () => {
+      isMounted = false;
+    };
+  }, [urlBookingId]);
 
   // Lọc realtime danh sách booking theo cả MÃ BOOKING và SỐ PHÒNG (nhập từng số nhảy tìm kiếm luôn)
   const filteredBookingList = useMemo(() => {
@@ -847,6 +898,18 @@ export const FolioPaymentPage: React.FC = () => {
 
             <Button
               variant="outline"
+              onClick={() => {
+                setSelectedReceiptPayment(payments.find((p) => p.status === 'SUCCESS') || null);
+                setIsReceiptModalOpen(true);
+              }}
+              className="border-neutral-300 hover:bg-neutral-50 text-neutral-800"
+            >
+              <Printer className="w-4 h-4 mr-2 text-neutral-600" />
+              Xem &amp; In Biên lai Folio
+            </Button>
+
+            <Button
+              variant="outline"
               onClick={() => fetchFolioData(currentBooking.bookingNumber)}
               disabled={isLoading}
             >
@@ -900,14 +963,31 @@ export const FolioPaymentPage: React.FC = () => {
                           {p.paidAt ? new Date(p.paidAt).toLocaleString('vi-VN') : 'N/A'}
                         </td>
                         <td className="p-4 text-center">
-                          {p.status === 'SUCCESS' && (
-                            <button
-                              onClick={() => handleOpenRefundModal(p)}
-                              className="text-xs text-amber-600 hover:text-amber-800 font-semibold px-2 py-1 rounded-md hover:bg-amber-50"
-                            >
-                              Hoàn tiền
-                            </button>
-                          )}
+                          <div className="flex items-center justify-center gap-1.5">
+                            {p.status === 'SUCCESS' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedReceiptPayment(p);
+                                    setIsReceiptModalOpen(true);
+                                  }}
+                                  className="text-xs text-neutral-700 hover:text-neutral-900 font-semibold px-2 py-1 rounded-md hover:bg-neutral-100 flex items-center gap-1 border border-neutral-200 cursor-pointer"
+                                  title="In biên lai cho giao dịch này"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-neutral-600" />
+                                  Biên lai
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRefundModal(p)}
+                                  className="text-xs text-amber-600 hover:text-amber-800 font-semibold px-2 py-1 rounded-md hover:bg-amber-50 cursor-pointer"
+                                >
+                                  Hoàn tiền
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -1180,6 +1260,8 @@ export const FolioPaymentPage: React.FC = () => {
         onClose={() => setIsInvoicePaymentFlowOpen(false)}
         booking={currentBooking}
         invoice={invoice}
+        initialPaidAmount={totalPaid}
+        initialBalanceDue={balanceDue}
         onPaymentSuccess={(payment) => {
           setSuccessMessage(
             `Thanh toán ${payment.transactionReference || `PAY-${payment.id}`} đã được ghi nhận thành công!`
@@ -1189,6 +1271,20 @@ export const FolioPaymentPage: React.FC = () => {
           }
         }}
       />
+
+      {/* MODAL XEM VÀ IN BIÊN LAI FOLIO ĐẦY ĐỦ */}
+      {isReceiptModalOpen && (
+        <HotelFolioReceipt
+          isOpen={isReceiptModalOpen}
+          onClose={() => {
+            setIsReceiptModalOpen(false);
+            setSelectedReceiptPayment(null);
+          }}
+          booking={currentBooking}
+          invoice={invoice}
+          payment={selectedReceiptPayment}
+        />
+      )}
     </div>
   );
 };
