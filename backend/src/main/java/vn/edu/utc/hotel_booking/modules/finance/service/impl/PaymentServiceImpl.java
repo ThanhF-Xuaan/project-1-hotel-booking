@@ -26,6 +26,7 @@ import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CallbackResult;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
+import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
@@ -49,6 +50,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     PaymentRepository paymentRepository;
     TransactionRepository transactionRepository;
+    InvoiceRepository invoiceRepository;
     BookingRepository bookingRepository;
     FinanceMapper financeMapper;
     StringRedisTemplate redisTemplate;
@@ -67,6 +69,19 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (request.getTotalAmount() == null || request.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT, "Số tiền thanh toán phải lớn hơn 0");
+        }
+
+        BigDecimal grandTotal = getGrandTotal(booking);
+        BigDecimal remainingBalance = getRemainingBalance(booking, grandTotal);
+
+        if (remainingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new AppException(ErrorCode.PAYMENT_ALREADY_COMPLETED,
+                    "Đơn đặt phòng đã thanh toán hoàn tất (Số dư nợ = 0)");
+        }
+
+        if (request.getTotalAmount().compareTo(remainingBalance) > 0) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT,
+                    "Số tiền thanh toán (" + request.getTotalAmount() + ") vượt quá số dư còn nợ (" + remainingBalance + ")");
         }
 
         // B1: Validate & chuẩn hóa mã tham chiếu theo từng phương thức (mục 1)
@@ -118,6 +133,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .issuedAt(OffsetDateTime.now())
                     .build();
             transactionRepository.save(transaction);
+            updateInvoiceStatusIfSettled(booking);
         }
 
         return financeMapper.toResponse(savedPayment);
@@ -175,15 +191,28 @@ public class PaymentServiceImpl implements PaymentService {
                 }
                 payment.setGatewayTxnId(txnRef);
             } else {
-                // Contract { bookingId, method } — số tiền lấy từ request hoặc đơn đặt phòng
+                BigDecimal grandTotal = getGrandTotal(booking);
+                BigDecimal remainingBalance = getRemainingBalance(booking, grandTotal);
+
+                if (remainingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw new AppException(ErrorCode.PAYMENT_ALREADY_COMPLETED,
+                            "Đơn đặt phòng đã thanh toán hoàn tất (Số dư nợ = 0)");
+                }
+
                 BigDecimal paymentAmount = request.getAmount();
                 if (paymentAmount == null) {
-                    paymentAmount = booking.getTotalAmount();
+                    paymentAmount = remainingBalance;
+                } else {
+                    if (paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                        throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT,
+                                "Số tiền thanh toán phải lớn hơn 0");
+                    }
+                    if (paymentAmount.compareTo(remainingBalance) > 0) {
+                        throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT,
+                                "Số tiền thanh toán (" + paymentAmount + ") vượt quá số dư còn nợ (" + remainingBalance + ")");
+                    }
                 }
-                if (paymentAmount == null || paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                    throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT,
-                            "Đơn đặt phòng chưa có số tiền thanh toán hợp lệ");
-                }
+
                 payment = Payment.builder()
                         .booking(booking)
                         .totalAmount(paymentAmount)
@@ -223,7 +252,7 @@ public class PaymentServiceImpl implements PaymentService {
         // C5: verify chữ ký TRƯỚC — sai → 8004 (không đụng DB)
         CallbackResult result = gateway.verifyCallback(params);
         if (!result.isValid()) {
-            log.warn("Callback chữ ký sai method={} payload={}", method, result.getRawPayload());
+            log.warn("Callback chữ ký sai method={} payload={}", method, maskPayload(result.getRawPayload()));
             throw new AppException(ErrorCode.PAYMENT_SIGNATURE_INVALID,
                     "Chữ ký callback không hợp lệ (" + method + ")");
         }
@@ -270,6 +299,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .issuedAt(OffsetDateTime.now())
                     .build();
             transactionRepository.save(transaction);
+            updateInvoiceStatusIfSettled(saved.getBooking());
         } else {
             // Gateway báo thất bại (hủy/đủ hạn mức...) → FAILED để FE hiển thị thử lại
             payment.setStatus(PaymentStatus.FAILED);
@@ -373,6 +403,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .issuedAt(OffsetDateTime.now())
                 .build();
         transactionRepository.save(transaction);
+        updateInvoiceStatusIfSettled(saved.getBooking());
 
         return financeMapper.toResponse(saved);
     }
@@ -430,5 +461,50 @@ public class PaymentServiceImpl implements PaymentService {
         transactionRepository.save(transaction);
 
         return financeMapper.toResponse(saved);
+    }
+
+    private BigDecimal getGrandTotal(Booking booking) {
+        List<Invoice> invoices = invoiceRepository.findByBookingId(booking.getId());
+        if (invoices != null && !invoices.isEmpty()) {
+            return invoices.get(0).getGrandTotal();
+        }
+        return booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal getRemainingBalance(Booking booking, BigDecimal grandTotal) {
+        List<Payment> existingPayments = paymentRepository.findByBookingId(booking.getId());
+        BigDecimal totalPaid = existingPayments.stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .map(Payment::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return grandTotal.subtract(totalPaid);
+    }
+
+    private void updateInvoiceStatusIfSettled(Booking booking) {
+        try {
+            List<Invoice> invoices = invoiceRepository.findByBookingId(booking.getId());
+            if (invoices != null && !invoices.isEmpty()) {
+                Invoice inv = invoices.get(0);
+                if (inv.getStatus() != InvoiceStatus.PAID && inv.getStatus() != InvoiceStatus.CANCELLED) {
+                    List<Payment> existingPayments = paymentRepository.findByBookingId(booking.getId());
+                    BigDecimal totalPaid = existingPayments.stream()
+                            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                            .map(Payment::getTotalAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    if (totalPaid.compareTo(inv.getGrandTotal()) >= 0) {
+                        inv.setStatus(InvoiceStatus.PAID);
+                        invoiceRepository.save(inv);
+                        log.info("Hóa đơn {} của booking {} đã được tự động chuyển sang PAID", inv.getInvoiceNumber(), booking.getId());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể cập nhật trạng thái hóa đơn cho booking {}: {}", booking.getId(), e.getMessage());
+        }
+    }
+
+    private String maskPayload(String payload) {
+        if (payload == null) return null;
+        return payload.replaceAll("(\"vnp_SecureHash\"\\s*:\\s*\")[^\"]+(\")", "$1****$2");
     }
 }
