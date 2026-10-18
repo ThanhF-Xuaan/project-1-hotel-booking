@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class T12Release1EvaluationSuiteTest {
 
-    private static final String EXPECTED_CASES_SHA256 = "e307d4a9ae9ff3b6b31b1704b7a063c2c9b25e70bb7e0b65b2a5cc3305efd8f2";
+    private static final String EXPECTED_CASES_SHA256 = "8b8f086d5da5f08679f63053e9d17dbc1cbaa510b68a8c16c68e2da680c6bf5c";
 
     private static ObjectMapper objectMapper;
     private static Path workspaceRoot;
@@ -401,6 +401,18 @@ class T12Release1EvaluationSuiteTest {
             for (JsonNode n : expected.get("eligibleIds")) {
                 eligible.add(n.asInt());
             }
+
+            // Prevent vacuous pass when recommendations are empty.
+            // Cases expecting at least one recommendation must assert that a recommendation exists.
+            // Do not force a nonempty result for legitimate NO_MATCH cases or explicit 0 recommendation count.
+            boolean expectsZero = (expected.has("recommendationCount") && expected.get("recommendationCount").asInt() == 0)
+                    || (expected.has("status") && "NO_MATCH".equals(expected.get("status").asText()));
+            if (!expectsZero) {
+                assertThat(lastResult.getRecommendations())
+                        .as(caseId + " recommendations must not be empty when asserting eligibleIds")
+                        .isNotEmpty();
+            }
+
             for (RoomRecommendationDto rec : lastResult.getRecommendations()) {
                 assertThat(eligible)
                         .as(caseId + " eligibleIds contains " + rec.getRoom().getHotelRoomTypeId())
@@ -516,6 +528,141 @@ class T12Release1EvaluationSuiteTest {
                 assertThat(optRec.get().getPrice().getFinalTotalAmount())
                         .as(caseId + " quote total for " + rIdStr)
                         .isEqualTo(expTotal);
+            }
+        }
+
+        if (expected.has("extractedCriteria") && lastResult != null) {
+            JsonNode expCritNode = expected.get("extractedCriteria");
+            RoomSearchCriteriaDto actualCriteria = lastResult.getCriteria();
+            assertThat(actualCriteria).as(caseId + " criteria must not be null").isNotNull();
+
+            if (expCritNode.has("locationKeyword")) {
+                assertThat(actualCriteria.getLocationKeyword())
+                        .as(caseId + " criteria.locationKeyword")
+                        .isEqualTo(expCritNode.get("locationKeyword").asText());
+            }
+            if (expCritNode.has("checkInDate")) {
+                assertThat(actualCriteria.getCheckInDate())
+                        .as(caseId + " criteria.checkInDate")
+                        .isEqualTo(LocalDate.parse(expCritNode.get("checkInDate").asText()));
+            }
+            if (expCritNode.has("checkOutDate")) {
+                assertThat(actualCriteria.getCheckOutDate())
+                        .as(caseId + " criteria.checkOutDate")
+                        .isEqualTo(LocalDate.parse(expCritNode.get("checkOutDate").asText()));
+            }
+            if (expCritNode.has("adults")) {
+                assertThat(actualCriteria.getAdults())
+                        .as(caseId + " criteria.adults")
+                        .isEqualTo(expCritNode.get("adults").asInt());
+            }
+            if (expCritNode.has("children")) {
+                assertThat(actualCriteria.getChildren())
+                        .as(caseId + " criteria.children")
+                        .isEqualTo(expCritNode.get("children").asInt());
+            }
+            if (expCritNode.has("extraBeds")) {
+                assertThat(actualCriteria.getExtraBeds())
+                        .as(caseId + " criteria.extraBeds")
+                        .isEqualTo(expCritNode.get("extraBeds").asInt());
+            }
+            if (expCritNode.has("roomsCount")) {
+                assertThat(actualCriteria.getRoomsCount())
+                        .as(caseId + " criteria.roomsCount")
+                        .isEqualTo(expCritNode.get("roomsCount").asInt());
+            }
+            if (expCritNode.has("requiredFeatureCodes")) {
+                List<String> expReq = new ArrayList<>();
+                expCritNode.get("requiredFeatureCodes").forEach(n -> expReq.add(n.asText()));
+                List<String> actualReq = actualCriteria.getRequiredFeatureCodes() != null
+                        ? actualCriteria.getRequiredFeatureCodes()
+                        : Collections.emptyList();
+                assertThat(actualReq)
+                        .as(caseId + " criteria.requiredFeatureCodes")
+                        .containsExactlyInAnyOrderElementsOf(expReq);
+            }
+            if (expCritNode.has("preferredFeatureCodes")) {
+                List<String> expPref = new ArrayList<>();
+                expCritNode.get("preferredFeatureCodes").forEach(n -> expPref.add(n.asText()));
+                List<String> actualPref = actualCriteria.getPreferredFeatureCodes() != null
+                        ? actualCriteria.getPreferredFeatureCodes()
+                        : Collections.emptyList();
+                assertThat(actualPref)
+                        .as(caseId + " criteria.preferredFeatureCodes")
+                        .containsExactlyInAnyOrderElementsOf(expPref);
+            }
+            if (expCritNode.has("budget")) {
+                JsonNode expBudget = expCritNode.get("budget");
+                BudgetDto actualBudget = actualCriteria.getBudget();
+                assertThat(actualBudget).as(caseId + " criteria.budget must not be null").isNotNull();
+
+                if (expBudget.has("amount")) {
+                    assertThat(actualBudget.getAmount())
+                            .as(caseId + " criteria.budget.amount")
+                            .isEqualTo(expBudget.get("amount").asText());
+                }
+                if (expBudget.has("currency")) {
+                    assertThat(actualBudget.getCurrency())
+                            .as(caseId + " criteria.budget.currency")
+                            .isEqualTo(expBudget.get("currency").asText());
+                }
+                if (expBudget.has("basis")) {
+                    assertThat(actualBudget.getBasis() != null ? actualBudget.getBasis().name() : null)
+                            .as(caseId + " criteria.budget.basis")
+                            .isEqualTo(expBudget.get("basis").asText());
+                }
+                if (expBudget.has("coverage")) {
+                    assertThat(actualBudget.getCoverage() != null ? actualBudget.getCoverage().name() : null)
+                            .as(caseId + " criteria.budget.coverage")
+                            .isEqualTo(expBudget.get("coverage").asText());
+                }
+                if (expBudget.has("hard")) {
+                    assertThat(actualBudget.isHard())
+                            .as(caseId + " criteria.budget.hard")
+                            .isEqualTo(expBudget.get("hard").asBoolean());
+                }
+            }
+        }
+
+        if (expected.has("mustTrackOrigins") && expected.get("mustTrackOrigins").asBoolean() && lastResult != null) {
+            List<CriteriaEvidenceDto> provenance = lastResult.getCriteriaProvenance();
+            assertThat(provenance)
+                    .as(caseId + " criteriaProvenance must not be empty when mustTrackOrigins=true")
+                    .isNotEmpty();
+
+            Map<String, CriteriaEvidenceDto> provMap = new HashMap<>();
+            for (CriteriaEvidenceDto ev : provenance) {
+                assertThat(ev.getField()).as(caseId + " provenance field must not be blank").isNotBlank();
+                assertThat(ev.getOrigin()).as(caseId + " provenance origin must not be null").isNotNull();
+                assertThat(ev.getConfirmation()).as(caseId + " provenance confirmation must not be null").isNotNull();
+                provMap.put(ev.getField(), ev);
+            }
+
+            List<String> expectedUserFields = List.of(
+                    "locationKeyword",
+                    "checkInDate",
+                    "checkOutDate",
+                    "adults",
+                    "children",
+                    "roomsCount",
+                    "budget.amount",
+                    "budget.currency",
+                    "budget.basis",
+                    "budget.coverage",
+                    "budget.hard"
+            );
+
+            for (String field : expectedUserFields) {
+                assertThat(provMap)
+                        .as(caseId + " provenance must contain field: " + field)
+                        .containsKey(field);
+                CriteriaEvidenceDto ev = provMap.get(field);
+                assertThat(ev.getOrigin())
+                        .as(caseId + " origin for field " + field)
+                        .isEqualTo(CriteriaOrigin.USER_PROVIDED);
+                assertThat(ev.getConfirmation())
+                        .as(caseId + " confirmation for field " + field)
+                        .isEqualTo(CriteriaConfirmation.CONFIRMED);
             }
         }
     }

@@ -1376,7 +1376,7 @@
               "requiredFeatureCodes": [],
               "preferredFeatureCodes": [],
               "budget": {
-                "amount": "900000",
+                "amount": "950000",
                 "currency": "VND",
                 "basis": "STAY_TOTAL",
                 "coverage": "BACKEND_QUOTED_TOTAL",
@@ -1624,7 +1624,7 @@
               "requiredFeatureCodes": [],
               "preferredFeatureCodes": [],
               "budget": {
-                "amount": "450000",
+                "amount": "500000",
                 "currency": "VND",
                 "basis": "AVERAGE_PER_NIGHT",
                 "coverage": "BACKEND_QUOTED_TOTAL",
@@ -1639,7 +1639,8 @@
         "businessWriteCalls": 0,
         "eligibleIds": [
           1026
-        ]
+        ],
+        "recommendationCount": 1
       },
       "context": {
         "clock": "2026-10-08T10:00:00+07:00",
@@ -3520,7 +3521,7 @@
           "operation": "CHAT",
           "request": {
             "contractVersion": "2.0",
-            "message": "Tìm 1 phòng cho 2 người lớn, không trẻ em tại Synthetic City, 20–22/11/2026, tổng tối đa 900000 VND theo tổng API, không yêu cầu all-in."
+            "message": "Tìm 1 phòng cho 2 người lớn, không trẻ em tại Synthetic City, 20–22/11/2026, tổng tối đa 950000 VND theo tổng API, không yêu cầu all-in."
           }
         }
       ],
@@ -3556,7 +3557,7 @@
           "requiredFeatureCodes": [],
           "preferredFeatureCodes": [],
           "budget": {
-            "amount": "900000",
+            "amount": "950000",
             "currency": "VND",
             "basis": "STAY_TOTAL",
             "coverage": "BACKEND_QUOTED_TOTAL",
@@ -4202,7 +4203,7 @@
               "requiredFeatureCodes": [],
               "preferredFeatureCodes": [],
               "budget": {
-                "amount": "880000",
+                "amount": "924000",
                 "currency": "VND",
                 "basis": "STAY_TOTAL",
                 "coverage": "BACKEND_QUOTED_TOTAL",
