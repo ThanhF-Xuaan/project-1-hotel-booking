@@ -17,6 +17,7 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.*;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.PaymentGateway;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.VnPayGateway;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
+import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.impl.PaymentServiceImpl;
@@ -41,6 +42,7 @@ class VnPayCallbackTest {
 
     @Mock PaymentRepository paymentRepository;
     @Mock TransactionRepository transactionRepository;
+    @Mock InvoiceRepository invoiceRepository;
     @Mock BookingRepository bookingRepository;
     @Mock FinanceMapper financeMapper;
     @Mock StringRedisTemplate redisTemplate;
@@ -62,7 +64,7 @@ class VnPayCallbackTest {
                 "http://localhost:3000/payment/result");
         List<PaymentGateway> gateways = List.of(vnPayGateway);
         paymentService = new PaymentServiceImpl(
-                paymentRepository, transactionRepository, bookingRepository,
+                paymentRepository, transactionRepository, invoiceRepository, bookingRepository,
                 financeMapper, redisTemplate, gateways);
 
         booking = Booking.builder().id(1L).bookingNumber("BK99999")

@@ -95,8 +95,9 @@ public class VnPayGateway implements PaymentGateway {
         data.put("vnp_BankCode", effectiveBankCode);
 
         data.put("vnp_CreateDate", LocalDateTime.now(VN_TZ).format(VNPAY_DATE));
-        data.put("vnp_CurrCode", VNPAY_CURR_CODE);
-        data.put("vnp_IpAddr", ipAddress);
+        String effectiveIp = (ipAddress == null || ipAddress.isBlank() || ipAddress.contains(":"))
+                ? "127.0.0.1" : ipAddress;
+        data.put("vnp_IpAddr", effectiveIp);
         data.put("vnp_Locale", VNPAY_LOCALE);
         data.put("vnp_OrderInfo", orderInfo);
         data.put("vnp_ReturnUrl", returnUrl);
