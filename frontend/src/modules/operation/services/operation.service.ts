@@ -13,6 +13,10 @@ import type {
   ServiceOrderResponse,
   ServiceOrderSearchDto,
   ServiceOrderStatus,
+  MaintenanceBlockDto,
+  CreateMaintenanceBlockRequest,
+  UpdateMaintenanceBlockRequest,
+  MaintenanceBlockSearchDto,
 } from '../types/operation.types';
 
 export const operationService = {
@@ -84,6 +88,42 @@ export const operationService = {
 
   getAuditSummary: async (hotelId: number, auditDate: string): Promise<NightAuditResponse> => {
     const res = await apiClient.get<NightAuditResponse>(`/api/v1/night-audit/summary?hotelId=${hotelId}&auditDate=${auditDate}`);
+    return res.result;
+  },
+
+  // Room Maintenance Block APIs (Task 2B)
+  createMaintenanceBlock: async (request: CreateMaintenanceBlockRequest): Promise<MaintenanceBlockDto> => {
+    const res = await apiClient.post<MaintenanceBlockDto>('/api/v1/maintenance-blocks/create', request);
+    return res.result;
+  },
+
+  updateMaintenanceBlock: async (id: number, request: UpdateMaintenanceBlockRequest): Promise<MaintenanceBlockDto> => {
+    const res = await apiClient.put<MaintenanceBlockDto>(`/api/v1/maintenance-blocks/${id}`, request);
+    return res.result;
+  },
+
+  completeMaintenanceBlock: async (id: number): Promise<MaintenanceBlockDto> => {
+    const res = await apiClient.put<MaintenanceBlockDto>(`/api/v1/maintenance-blocks/${id}/complete`);
+    return res.result;
+  },
+
+  cancelMaintenanceBlock: async (id: number): Promise<MaintenanceBlockDto> => {
+    const res = await apiClient.put<MaintenanceBlockDto>(`/api/v1/maintenance-blocks/${id}/cancel`);
+    return res.result;
+  },
+
+  filterMaintenanceBlocks: async (searchDto: MaintenanceBlockSearchDto): Promise<PageResponse<MaintenanceBlockDto>> => {
+    const res = await apiClient.post<PageResponse<MaintenanceBlockDto>>('/api/v1/maintenance-blocks/filter', searchDto);
+    return res.result;
+  },
+
+  getMaintenanceBlockById: async (id: number): Promise<MaintenanceBlockDto> => {
+    const res = await apiClient.get<MaintenanceBlockDto>(`/api/v1/maintenance-blocks/${id}`);
+    return res.result;
+  },
+
+  getMaintenanceBlocksByRoom: async (roomInstanceId: number): Promise<MaintenanceBlockDto[]> => {
+    const res = await apiClient.get<MaintenanceBlockDto[]>(`/api/v1/maintenance-blocks/room/${roomInstanceId}`);
     return res.result;
   },
 };

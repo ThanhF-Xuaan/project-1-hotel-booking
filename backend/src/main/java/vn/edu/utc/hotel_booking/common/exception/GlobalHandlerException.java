@@ -96,32 +96,30 @@ public class GlobalHandlerException {
                         .build());
     }
 
-//    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
-//    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException e) {
-//        log.warn("Xảy ra đụng độ Optimistic Lock khi giữ phòng!", e);
-//
-//        // Lấy ErrorCode đã định nghĩa
-//        ErrorCode errorCode = ErrorCode.ROOM_CONCURRENCY_CONFLICT;
-//
-//        // Build ApiResponse chuẩn theo format dự án của bạn
-//        ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
-//                .code(errorCode.getCode())
-//                .message(errorCode.getMessage())
-//                .build();
-//
-//        return ResponseEntity
-//                .status(HttpStatus.BAD_REQUEST)
-//                .body(apiResponse);
-//    }
-//
-//    @ExceptionHandler({PessimisticLockException.class, CannotAcquireLockException.class})
-//    public ResponseEntity<ApiResponse<Void>> handleLockTimeout(Exception e) {
-//        log.warn("Lỗi tranh chấp khóa Database: {}", e.getMessage());
-//        return ResponseEntity.status(HttpStatus.CONFLICT).body(
-//                ApiResponse.<Void>builder()
-//                        .code(ErrorCode.ROOM_ALREADY_BLOCKED.getCode())
-//                        .message("Hệ thống đang quá tải hoặc phòng đang được người khác thao tác. Vui lòng thử lại sau giây lát.")
-//                        .build()
-//        );
-//    }
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException e) {
+        log.warn("Xảy ra đụng độ Optimistic Lock khi cập nhật phòng!", e);
+
+        ErrorCode errorCode = ErrorCode.OPTIMISTIC_LOCK_CONFLICT;
+
+        ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
+                .code(errorCode.getCode())
+                .message(errorCode.getMessage())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(apiResponse);
+    }
+
+    @ExceptionHandler({PessimisticLockException.class, CannotAcquireLockException.class})
+    public ResponseEntity<ApiResponse<Void>> handleLockTimeout(Exception e) {
+        log.warn("Lỗi tranh chấp khóa Database: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.<Void>builder()
+                        .code(ErrorCode.ROOM_ALREADY_BLOCKED.getCode())
+                        .message("Hệ thống đang quá tải hoặc phòng đang được người khác thao tác. Vui lòng thử lại sau giây lát.")
+                        .build()
+        );
+    }
 }

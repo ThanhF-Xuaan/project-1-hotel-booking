@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261019-174500-maintenance-block-index-audit" author="utc-hotel-team">
+        <comment>Index, cot audit updated_by_staff_id, notes va CHECK ooo_rooms >= 0 cho room_maintenance_blocks</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261019-174500-maintenance-block-index-audit.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+        <rollback>
+            <sql>
+                DROP INDEX IF EXISTS idx_room_maintenance_block_active;
+                DROP INDEX IF EXISTS idx_room_maintenance_block_range;
+                DROP INDEX IF EXISTS idx_room_maintenance_block_room_status;
+                ALTER TABLE room_maintenance_blocks DROP COLUMN IF EXISTS notes;
+                ALTER TABLE room_maintenance_blocks DROP COLUMN IF EXISTS updated_by_staff_id;
+                ALTER TABLE room_availability DROP CONSTRAINT IF EXISTS chk_ooo_rooms_non_negative;
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
