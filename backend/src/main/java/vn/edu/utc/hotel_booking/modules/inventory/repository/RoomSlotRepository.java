@@ -35,4 +35,10 @@ public interface RoomSlotRepository extends JpaRepository<RoomSlot, Long> {
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate
     );
+
+    List<RoomSlot> findByMaintenanceBlockId(Long maintenanceBlockId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT rs FROM RoomSlot rs WHERE rs.maintenanceBlock.id = :maintenanceBlockId")
+    List<RoomSlot> findByMaintenanceBlockIdWithLock(@Param("maintenanceBlockId") Long maintenanceBlockId);
 }
