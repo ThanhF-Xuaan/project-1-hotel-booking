@@ -285,6 +285,22 @@ public class StayGuestServiceImpl implements StayGuestService {
         }
     }
 
+    @Override
+    @Transactional
+    public void cancelLodgingQueueForBookingRoom(Long bookingRoomId) {
+        if (bookingRoomId == null) {
+            return;
+        }
+        List<StayGuest> guests = stayGuestRepository.findByBookingRoomId(bookingRoomId);
+        for (StayGuest guest : guests) {
+            lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId())
+                    .ifPresent(queue -> {
+                        queue.setStatus(LodgingQueueStatus.CANCELLED);
+                        lodgingQueueRepository.save(queue);
+                    });
+        }
+    }
+
     private void syncLodgingQueue(StayGuest guest) {
         List<String> missingFields = validateBcaFields(guest);
 

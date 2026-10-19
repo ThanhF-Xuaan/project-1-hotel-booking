@@ -52,4 +52,14 @@ public interface BookingService {
     BookingResponse createWalkInBooking(
             vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest request
     );
+
+    BookingResponse markBookingAsNoShow(
+            Long id,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest request
+    );
+
+    BookingResponse markBookingRoomAsNoShow(
+            Long bookingRoomId,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest request
+    );
 }

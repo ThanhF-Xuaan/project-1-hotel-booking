@@ -52,8 +52,15 @@ import java.util.Optional;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest;
+import vn.edu.utc.hotel_booking.modules.finance.entity.Payment;
+import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentPurpose;
+import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
+import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.CheckoutSettlementResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -87,6 +94,7 @@ class BookingServiceTest {
     @Mock vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository paymentRepository;
     @Mock vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper financeMapper;
     @Mock vn.edu.utc.hotel_booking.modules.pricing.repository.SurchargeRuleRepository surchargeRuleRepository;
+    @Mock vn.edu.utc.hotel_booking.modules.identity.service.AuditLogService auditLogService;
 
     @Mock org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     @Mock org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
@@ -1403,6 +1411,536 @@ class BookingServiceTest {
         verify(paymentRepository).save(any());
         verify(invoiceService).createInvoice(any());
         verify(invoiceService).settleAndCloseInvoice(888L);
+    }
+
+    @Test
+    @DisplayName("processNoShowBookings: Đơn 1 đêm không trả trước -> Phạt đêm đầu, giải phóng phòng và kho, không tạo REFUND")
+    void processNoShowBookings_SingleNight_AppliesPenalty_AndReleasesAll() {
+        Short hotelId = 1;
+        LocalDate auditDate = LocalDate.of(2026, 10, 20);
+        LocalDate checkIn = LocalDate.of(2026, 10, 20);
+        LocalDate checkOut = LocalDate.of(2026, 10, 21);
+
+        RoomInstance roomInstance = RoomInstance.builder()
+                .id(101)
+                .roomNumber("101")
+                .build();
+
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(501L)
+                .status(BookingRoomStatus.EXPECTED)
+                .roomInstance(roomInstance)
+                .build();
+
+        BookingDailyRate dailyRate = BookingDailyRate.builder()
+                .stayDate(checkIn)
+                .netPrice(new BigDecimal("1000000.00"))
+                .serviceFeeAmount(new BigDecimal("50000.00"))
+                .vatAmount(new BigDecimal("105000.00"))
+                .build();
+        bookingRoom.setDailyRates(List.of(dailyRate));
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(301L)
+                .hotelRoomType(testHotelRoomType)
+                .quantity((short) 1)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .bookingRooms(new ArrayList<>(List.of(bookingRoom)))
+                .build();
+        bookingRoom.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(1001L)
+                .hotel(testHotel)
+                .bookingNumber("BK-NOSHOW-1")
+                .status(BookingStatus.CONFIRMED)
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+
+        when(bookingRepository.findByHotelIdAndStatusWithDetails(hotelId, BookingStatus.CONFIRMED))
+                .thenReturn(List.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentRepository.findByBookingId(1001L)).thenReturn(List.of());
+
+        int count = bookingService.processNoShowBookings(hotelId, auditDate);
+
+        assertThat(count).isEqualTo(1);
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.NO_SHOW);
+        assertThat(bookingRoom.getStatus()).isEqualTo(BookingRoomStatus.NO_SHOW);
+
+        // 1. Phạt đêm đầu: 1,000,000 + 50,000 + 105,000 = 1,155,000đ
+        verify(bookingChargeService).createCharge(eq(bookingRoom), argThat(req ->
+                req.getChargeType() == BookingChargeType.PENALTY &&
+                        req.getUnitPrice().compareTo(new BigDecimal("1155000.00")) == 0
+        ));
+
+        // 2. Release phòng vật lý và room slot
+        verify(roomSlotService).releaseSlots(101, checkIn, checkOut);
+        verify(roomInstanceService).updateRoomStatusEntity(101, "READY");
+
+        // 3. Hoàn trả kho bán
+        verify(roomAvailabilityService).releaseBookedInventory(testHotelRoomType.getId(), checkIn, checkOut, 1);
+
+        // 4. Hủy hàng chờ lưu trú BCA
+        verify(stayGuestService).cancelLodgingQueueForBookingRoom(501L);
+
+        // 5. Không tạo Payment refund vì totalPaid = 0
+        verify(paymentRepository, never()).save(any(Payment.class));
+
+        // 6. Ghi AuditLog
+        verify(auditLogService).recordLog(isNull(), eq("BOOKING_NO_SHOW"), eq("Booking"), eq("1001"), eq("CONFIRMED"), anyString(), isNull(), eq("SYSTEM_NIGHT_AUDIT"));
+    }
+
+    @Test
+    @DisplayName("processNoShowBookings: Đơn nhiều đêm đã trả trước 100% -> Phạt đêm 1, release toàn bộ đêm, tạo Payment REFUND ở trạng thái PENDING")
+    void processNoShowBookings_MultiNight_WithFullPrepayment_CreatesPendingRefund() {
+        Short hotelId = 1;
+        LocalDate auditDate = LocalDate.of(2026, 10, 20);
+        LocalDate checkIn = LocalDate.of(2026, 10, 20);
+        LocalDate checkOut = LocalDate.of(2026, 10, 23); // 3 đêm
+
+        RoomInstance roomInstance = RoomInstance.builder()
+                .id(202)
+                .roomNumber("202")
+                .build();
+
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(601L)
+                .status(BookingRoomStatus.EXPECTED)
+                .roomInstance(roomInstance)
+                .build();
+
+        BookingDailyRate d1 = BookingDailyRate.builder()
+                .stayDate(LocalDate.of(2026, 10, 20))
+                .netPrice(new BigDecimal("1000000.00"))
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .vatAmount(BigDecimal.ZERO)
+                .build();
+        BookingDailyRate d2 = BookingDailyRate.builder()
+                .stayDate(LocalDate.of(2026, 10, 21))
+                .netPrice(new BigDecimal("1000000.00"))
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .vatAmount(BigDecimal.ZERO)
+                .build();
+        BookingDailyRate d3 = BookingDailyRate.builder()
+                .stayDate(LocalDate.of(2026, 10, 22))
+                .netPrice(new BigDecimal("1000000.00"))
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .vatAmount(BigDecimal.ZERO)
+                .build();
+        bookingRoom.setDailyRates(List.of(d1, d2, d3));
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(401L)
+                .hotelRoomType(testHotelRoomType)
+                .quantity((short) 1)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .bookingRooms(new ArrayList<>(List.of(bookingRoom)))
+                .build();
+        bookingRoom.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(2002L)
+                .hotel(testHotel)
+                .bookingNumber("BK-MULTINIGHT-1")
+                .status(BookingStatus.CONFIRMED)
+                .serviceFeeRate(BigDecimal.ZERO)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+
+        // Khách đã trả trước 3,000,000đ qua cổng thanh toán
+        Payment payment = Payment.builder()
+                .id(901L)
+                .booking(booking)
+                .totalAmount(new BigDecimal("3000000.00"))
+                .status(PaymentStatus.SUCCESS)
+                .paymentPurpose(PaymentPurpose.DEPOSIT)
+                .build();
+
+        when(bookingRepository.findByHotelIdAndStatusWithDetails(hotelId, BookingStatus.CONFIRMED))
+                .thenReturn(List.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentRepository.findByBookingId(2002L)).thenReturn(List.of(payment));
+
+        int count = bookingService.processNoShowBookings(hotelId, auditDate);
+
+        assertThat(count).isEqualTo(1);
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.NO_SHOW);
+
+        // 1. Phạt đêm 1 = 1,000,000đ
+        verify(bookingChargeService).createCharge(eq(bookingRoom), argThat(req ->
+                req.getChargeType() == BookingChargeType.PENALTY &&
+                        req.getUnitPrice().compareTo(new BigDecimal("1000000.00")) == 0
+        ));
+
+        // 2. Release toàn bộ 3 đêm
+        verify(roomSlotService).releaseSlots(202, checkIn, checkOut);
+        verify(roomInstanceService).updateRoomStatusEntity(202, "READY");
+        verify(roomAvailabilityService).releaseBookedInventory(testHotelRoomType.getId(), checkIn, checkOut, 1);
+
+        // 3. Tạo bản ghi REFUND ở trạng thái PENDING với số tiền dư 2,000,000đ (3tr - 1tr phạt)
+        verify(paymentRepository).save(argThat(p ->
+                p.getPaymentPurpose() == PaymentPurpose.REFUND &&
+                        p.getStatus() == PaymentStatus.PENDING &&
+                        p.getTotalAmount().compareTo(new BigDecimal("2000000.00")) == 0
+        ));
+    }
+
+    @Test
+    @DisplayName("markBookingAsNoShow: Lễ tân gọi API thủ công có lý do -> Thực thi pipeline và lưu AuditLog")
+    void markBookingAsNoShow_Manual_WithReason_Success() {
+        Long bookingId = 3003L;
+        LocalDate checkIn = LocalDate.of(2026, 10, 20);
+        LocalDate checkOut = LocalDate.of(2026, 10, 21);
+
+        BookingRoom room = BookingRoom.builder()
+                .id(701L)
+                .status(BookingRoomStatus.EXPECTED)
+                .build();
+        BookingDailyRate d1 = BookingDailyRate.builder()
+                .stayDate(checkIn)
+                .netPrice(new BigDecimal("800000.00"))
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .vatAmount(BigDecimal.ZERO)
+                .build();
+        room.setDailyRates(List.of(d1));
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(501L)
+                .hotelRoomType(testHotelRoomType)
+                .quantity((short) 1)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .bookingRooms(new ArrayList<>(List.of(room)))
+                .build();
+        room.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .hotel(testHotel)
+                .bookingNumber("BK-MANUAL-1")
+                .status(BookingStatus.CONFIRMED)
+                .serviceFeeRate(BigDecimal.ZERO)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of());
+        when(bookingMapper.toResponse(any())).thenReturn(BookingResponse.builder().id(bookingId).status(BookingStatus.NO_SHOW).build());
+
+        BookingNoShowRequest request = new BookingNoShowRequest("Khách gọi điện hủy gấp do lỡ chuyến bay");
+        BookingResponse response = bookingService.markBookingAsNoShow(bookingId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(BookingStatus.NO_SHOW);
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.NO_SHOW);
+        assertThat(booking.getNotes()).contains("Khách gọi điện hủy gấp do lỡ chuyến bay");
+
+        verify(bookingChargeService).createCharge(eq(room), any());
+        verify(auditLogService).recordLog(isNull(), eq("BOOKING_NO_SHOW"), eq("Booking"), eq("3003"), eq("CONFIRMED"), anyString(), isNull(), anyString());
+    }
+
+    @Test
+    @DisplayName("markBookingAsNoShow: Đơn đã có phòng CHECKED_IN -> Ném ngoại lệ BOOKING_ALREADY_CHECKED_IN")
+    void markBookingAsNoShow_AlreadyCheckedIn_ThrowsException() {
+        Long bookingId = 4004L;
+        BookingRoom room = BookingRoom.builder()
+                .id(801L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .actualCheckInAt(OffsetDateTime.now())
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(601L)
+                .checkInDate(LocalDate.now())
+                .checkOutDate(LocalDate.now().plusDays(1))
+                .bookingRooms(List.of(room))
+                .build();
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(List.of(detail))
+                .build();
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        BookingNoShowRequest request = new BookingNoShowRequest("Khách không đến");
+
+        assertThatThrownBy(() -> bookingService.markBookingAsNoShow(bookingId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOKING_ALREADY_CHECKED_IN);
+    }
+
+    @Test
+    @DisplayName("markBookingAsNoShow: Lý do rỗng hoặc khoảng trắng -> Ném ngoại lệ INVALID_REQUEST_DATA")
+    void markBookingAsNoShow_BlankReason_ThrowsValidationException() {
+        Long bookingId = 5005L;
+        BookingNoShowRequest request = new BookingNoShowRequest("   ");
+
+        assertThatThrownBy(() -> bookingService.markBookingAsNoShow(bookingId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA);
+    }
+
+    @Test
+    @DisplayName("markBookingAsNoShow: Đơn có dịch vụ đặt trước -> Giữ lại tiền dịch vụ và tiền phạt đêm đầu, không hoàn tiền dịch vụ")
+    void executeNoShowPipeline_WithPreorderedServices_DoesNotRefundServices() {
+        Long bookingId = 6006L;
+        LocalDate checkIn = LocalDate.of(2026, 10, 20);
+        LocalDate checkOut = LocalDate.of(2026, 10, 22);
+
+        BookingRoom room = BookingRoom.builder()
+                .id(901L)
+                .status(BookingRoomStatus.EXPECTED)
+                .build();
+        BookingDailyRate d1 = BookingDailyRate.builder()
+                .stayDate(checkIn)
+                .netPrice(new BigDecimal("1000000.00"))
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .vatAmount(BigDecimal.ZERO)
+                .build();
+        room.setDailyRates(List.of(d1));
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(701L)
+                .hotelRoomType(testHotelRoomType)
+                .quantity((short) 1)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .bookingRooms(new ArrayList<>(List.of(room)))
+                .build();
+        room.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .hotel(testHotel)
+                .bookingNumber("BK-SERVICES-1")
+                .status(BookingStatus.CONFIRMED)
+                .serviceFeeRate(BigDecimal.ZERO)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+
+        // Khách đã trả 2,000,000 đ cọc
+        Payment successPayment = Payment.builder()
+                .id(1L)
+                .booking(booking)
+                .status(PaymentStatus.SUCCESS)
+                .paymentPurpose(PaymentPurpose.DEPOSIT)
+                .totalAmount(new BigDecimal("2000000.00"))
+                .build();
+
+        // Khách đã order trước dịch vụ đón sân bay 500,000 đ
+        ServiceOrderResponse preorderedService = ServiceOrderResponse.builder()
+                .id(55L)
+                .status(ServiceOrderStatus.PENDING)
+                .totalAmount(new BigDecimal("500000.00"))
+                .build();
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(successPayment));
+        when(serviceOrderService.getOrdersByBookingId(bookingId)).thenReturn(List.of(preorderedService));
+        when(bookingMapper.toResponse(any())).thenReturn(BookingResponse.builder().id(bookingId).status(BookingStatus.NO_SHOW).build());
+
+        BookingResponse response = bookingService.markBookingAsNoShow(bookingId, new BookingNoShowRequest("Khách không đến nhận phòng"));
+
+        assertThat(response).isNotNull();
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.NO_SHOW);
+
+        // Phạt đêm đầu: 1,000,000 đ. Dịch vụ không hoàn: 500,000 đ. NonRefundable = 1,500,000 đ.
+        // Cọc đã đóng: 2,000,000 đ -> Tiền dư hoàn trả: 2,000,000 - 1,500,000 = 500,000 đ
+        verify(paymentRepository).save(argThat(p ->
+                p.getPaymentPurpose() == PaymentPurpose.REFUND
+                        && p.getStatus() == PaymentStatus.PENDING
+                        && p.getTotalAmount().compareTo(new BigDecimal("500000.00")) == 0
+        ));
+    }
+
+    @Test
+    @DisplayName("markBookingRoomAsNoShow: Khách đoàn 1 phòng ở (CHECKED_IN), 1 phòng không đến -> Đánh dấu phòng đó No-Show, giữ nguyên Booking hoạt động")
+    void markBookingRoomAsNoShow_MultiRoom_OneInHouse_OneNoShow_Success() {
+        Long bookingId = 7007L;
+        LocalDate checkIn = LocalDate.of(2026, 10, 20);
+        LocalDate checkOut = LocalDate.of(2026, 10, 22);
+
+        RoomInstance roomInstanceB = RoomInstance.builder().roomNumber("202").build();
+        roomInstanceB.setId(202);
+
+        BookingRoom roomA = BookingRoom.builder()
+                .id(801L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .actualCheckInAt(OffsetDateTime.now())
+                .build();
+
+        BookingRoom roomB = BookingRoom.builder()
+                .id(802L)
+                .status(BookingRoomStatus.EXPECTED)
+                .roomInstance(roomInstanceB)
+                .build();
+
+        BookingDailyRate d1 = BookingDailyRate.builder()
+                .stayDate(checkIn)
+                .netPrice(new BigDecimal("1000000.00"))
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .vatAmount(BigDecimal.ZERO)
+                .build();
+        roomB.setDailyRates(List.of(d1));
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(601L)
+                .hotelRoomType(testHotelRoomType)
+                .quantity((short) 2)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .bookingRooms(new ArrayList<>(List.of(roomA, roomB)))
+                .build();
+
+        roomA.setBookingDetail(detail);
+        roomB.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .hotel(testHotel)
+                .bookingNumber("BK-MULTI-1")
+                .status(BookingStatus.CONFIRMED)
+                .serviceFeeRate(BigDecimal.ZERO)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+        detail.setBooking(booking);
+
+        when(bookingRoomService.getEntityById(802L)).thenReturn(roomB);
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(bookingMapper.toResponse(any())).thenReturn(BookingResponse.builder().id(bookingId).status(BookingStatus.CONFIRMED).build());
+
+        BookingResponse response = bookingService.markBookingRoomAsNoShow(802L, new BookingNoShowRequest("1 thành viên trong đoàn không đi"));
+
+        assertThat(response).isNotNull();
+        assertThat(roomB.getStatus()).isEqualTo(BookingRoomStatus.NO_SHOW);
+        // Booking vẫn duy trì CONFIRMED / active vì Room A vẫn đang CHECKED_IN
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+
+        verify(bookingChargeService).createCharge(eq(roomB), any());
+        verify(roomSlotService).releaseSlots(eq(202), eq(checkIn), eq(checkOut));
+        verify(roomInstanceService).updateRoomStatusEntity(eq(202), eq("READY"));
+        verify(roomAvailabilityService).releaseBookedInventory(eq(testHotelRoomType.getId()), eq(checkIn), eq(checkOut), eq(1));
+        verify(stayGuestService).cancelLodgingQueueForBookingRoom(eq(802L));
+        verify(auditLogService).recordLog(isNull(), eq("BOOKING_ROOM_NO_SHOW"), eq("BookingRoom"), eq("802"), eq("EXPECTED"), anyString(), isNull(), anyString());
+    }
+
+    @Test
+    @DisplayName("markBookingRoomAsNoShow: Phòng đã CHECKED_IN -> Ném ngoại lệ INVALID_REQUEST_DATA")
+    void markBookingRoomAsNoShow_AlreadyCheckedIn_ThrowsException() {
+        BookingRoom room = BookingRoom.builder()
+                .id(803L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .build();
+
+        when(bookingRoomService.getEntityById(803L)).thenReturn(room);
+
+        assertThatThrownBy(() -> bookingService.markBookingRoomAsNoShow(803L, new BookingNoShowRequest("Hủy phòng")))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REQUEST_DATA);
+    }
+
+    @Test
+    @DisplayName("getCheckoutSettlement: Đơn có phòng No-Show và cọc dư -> Bù trừ Folio Netting tính chính xác NetOverpayment")
+    void checkoutSettlement_WithNoShowCredit_FolioNetting() {
+        Long bookingId = 8008L;
+        LocalDate checkIn = LocalDate.of(2026, 10, 20);
+
+        RoomInstance roomInstanceA = RoomInstance.builder().roomNumber("101").build();
+        roomInstanceA.setId(101);
+
+        BookingRoom roomA = BookingRoom.builder()
+                .id(801L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .roomInstance(roomInstanceA)
+                .build();
+        BookingDailyRate drA1 = BookingDailyRate.builder()
+                .id(1L)
+                .stayDate(checkIn)
+                .netPrice(new BigDecimal("1000000.00"))
+                .vatPercent(BigDecimal.ZERO)
+                .build();
+        BookingDailyRate drA2 = BookingDailyRate.builder()
+                .id(2L)
+                .stayDate(checkIn.plusDays(1))
+                .netPrice(new BigDecimal("1000000.00"))
+                .vatPercent(BigDecimal.ZERO)
+                .build();
+        roomA.setDailyRates(List.of(drA1, drA2));
+
+        BookingRoom roomB = BookingRoom.builder()
+                .id(802L)
+                .status(BookingRoomStatus.NO_SHOW)
+                .charges(new ArrayList<>(List.of(
+                        BookingCharge.builder()
+                                .id(10L)
+                                .chargeType(BookingChargeType.PENALTY)
+                                .itemName("Phí phạt No-Show phòng 102")
+                                .quantity(1)
+                                .unitPrice(new BigDecimal("1000000.00"))
+                                .subtotal(new BigDecimal("1000000.00"))
+                                .serviceFeeRate(BigDecimal.ZERO)
+                                .serviceFeeAmount(BigDecimal.ZERO)
+                                .vatRate(BigDecimal.ZERO)
+                                .vatAmount(BigDecimal.ZERO)
+                                .totalAmount(new BigDecimal("1000000.00"))
+                                .build()
+                )))
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(701L)
+                .roomTypeName("Deluxe Room")
+                .hotelRoomType(testHotelRoomType)
+                .bookingRooms(List.of(roomA, roomB))
+                .build();
+        roomA.setBookingDetail(detail);
+        roomB.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingNumber("BK-NETTING-1")
+                .serviceFeeRate(BigDecimal.ZERO)
+                .bookingDetails(List.of(detail))
+                .build();
+        detail.setBooking(booking);
+
+        // Khách ban đầu cọc 4,000,000 đ
+        Payment deposit = Payment.builder()
+                .id(1L)
+                .booking(booking)
+                .status(PaymentStatus.SUCCESS)
+                .paymentPurpose(PaymentPurpose.DEPOSIT)
+                .totalAmount(new BigDecimal("4000000.00"))
+                .build();
+
+        when(bookingRoomService.getEntityById(801L)).thenReturn(roomA);
+        when(serviceOrderService.getOrdersByBookingId(bookingId)).thenReturn(List.of());
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(deposit));
+
+        CheckoutSettlementResponse settlement = bookingService.getCheckoutSettlement(801L);
+
+        assertThat(settlement).isNotNull();
+        // Tiền phòng thực ở của phòng A = 2,000,000 đ
+        assertThat(settlement.getTotalRoomCharges()).isEqualByComparingTo("2000000.00");
+        // Phạt No-Show phòng B = 1,000,000 đ
+        assertThat(settlement.getNoShowPenaltyAmount()).isEqualByComparingTo("1000000.00");
+        // Tổng chi phí = 3,000,000 đ
+        assertThat(settlement.getGrandTotal()).isEqualByComparingTo("3000000.00");
+        // Tổng đã thanh toán = 4,000,000 đ
+        assertThat(settlement.getTotalPaid()).isEqualByComparingTo("4000000.00");
+        // Dư nợ = 0 đ (cho phép check-out)
+        assertThat(settlement.getBalanceDue()).isEqualByComparingTo("0.00");
+        assertThat(settlement.isCanCheckOut()).isTrue();
+        // Khoản cọc thừa dôi dư chờ hoàn = 1,000,000 đ
+        assertThat(settlement.getNetOverpaymentAmount()).isEqualByComparingTo("1000000.00");
     }
 }
 

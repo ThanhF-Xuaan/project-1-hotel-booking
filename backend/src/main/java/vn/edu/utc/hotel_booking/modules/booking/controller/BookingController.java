@@ -64,6 +64,28 @@ public class BookingController {
         return ApiResponse.success("Cập nhật trạng thái đơn thành công", bookingService.updateStatus(id, request.getStatus()));
     }
 
+    @PostMapping("/{id}/no-show")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Lễ tân đánh dấu khách vãng mặt (No-Show) kèm lý do, áp dụng phạt đêm đầu và tạo yêu cầu hoàn cọc dư")
+    public ApiResponse<BookingResponse> markAsNoShow(
+            @PathVariable Long id,
+            @Valid @RequestBody BookingNoShowRequest request
+    ) {
+        return ApiResponse.success("Đã ghi nhận khách vãng mặt (No-Show) thành công",
+                bookingService.markBookingAsNoShow(id, request));
+    }
+
+    @PostMapping("/rooms/{bookingRoomId}/no-show")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Lễ tân đánh dấu một phòng riêng lẻ khách không đến (Room-Level No-Show) kèm lý do, áp dụng phạt đêm đầu và nhả tài nguyên phòng")
+    public ApiResponse<BookingResponse> markRoomAsNoShow(
+            @PathVariable Long bookingRoomId,
+            @Valid @RequestBody BookingNoShowRequest request
+    ) {
+        return ApiResponse.success("Đã ghi nhận phòng No-Show thành công",
+                bookingService.markBookingRoomAsNoShow(bookingRoomId, request));
+    }
+
     @PostMapping("/rooms/{bookingRoomId}/assign")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Xếp phòng vật lý cho phòng đặt (Physical Room Assignment)")

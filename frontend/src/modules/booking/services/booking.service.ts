@@ -10,6 +10,7 @@ import type {
   SurchargePreviewRequest,
   SurchargeProposalResponse,
   CheckoutSettlementResponse,
+  BookingNoShowRequest,
 } from '../types/booking.types';
 
 const BASE_URL = '/api/v1/bookings';
@@ -29,6 +30,12 @@ export const bookingService = {
 
   updateStatus: (id: number, status: BookingStatus) =>
     apiClient.put<BookingResponse>(`${BASE_URL}/${id}/status`, { status }),
+
+  markAsNoShow: (id: number, data: BookingNoShowRequest) =>
+    apiClient.post<BookingResponse>(`${BASE_URL}/${id}/no-show`, data),
+
+  markRoomAsNoShow: (bookingRoomId: number, data: BookingNoShowRequest) =>
+    apiClient.post<BookingResponse>(`${BASE_URL}/rooms/${bookingRoomId}/no-show`, data),
 
   assignRoom: (bookingRoomId: number, roomInstanceId: number) =>
     apiClient.post<BookingResponse>(`${BASE_URL}/rooms/${bookingRoomId}/assign`, { roomInstanceId }),

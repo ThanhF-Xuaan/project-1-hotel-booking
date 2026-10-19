@@ -210,10 +210,12 @@ export interface CheckoutSettlementResponse {
   guestPhone: string;
   totalRoomCharges: number;
   totalSurcharges: number;
+  noShowPenaltyAmount?: number;
   totalServiceCharges: number;
   grandTotal: number;
   totalPaid: number;
   balanceDue: number;
+  netOverpaymentAmount?: number;
   canCheckOut: boolean;
   lineItems: SettlementLineItemDto[];
   paymentHistory: any[];
@@ -354,6 +356,10 @@ export interface WalkInBookingRequest {
   confirmedCharges?: WalkInConfirmedChargeRequest[];
   serviceItems?: WalkInServiceItemRequest[];
   payment: WalkInPaymentRequest;
+}
+
+export interface BookingNoShowRequest {
+  reason: string;
 }
 
 

@@ -32,6 +32,13 @@ public class CheckoutSettlementResponse {
     BigDecimal balanceDue;
     boolean canCheckOut;
 
+    // Bổ sung cho Folio Netting khi có phòng No-Show hoặc tiền cọc thừa
+    @Builder.Default
+    BigDecimal noShowPenaltyAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    BigDecimal netOverpaymentAmount = BigDecimal.ZERO;
+
     // Chi tiết từng dòng chi phí
     @Builder.Default
     List<SettlementLineItemDto> lineItems = new ArrayList<>();

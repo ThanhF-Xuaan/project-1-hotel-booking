@@ -37,6 +37,7 @@ import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
 import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
 import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
@@ -58,6 +59,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -87,6 +89,9 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.CompanyCreateReques
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.CompanyResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse;
+import vn.edu.utc.hotel_booking.modules.identity.service.AuditLogService;
+import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest;
 import org.springframework.util.StringUtils;
 import java.time.ZoneOffset;
@@ -126,6 +131,7 @@ public class BookingServiceImpl implements BookingService {
     InvoiceService invoiceService;
     PaymentRepository paymentRepository;
     SurchargeRuleRepository surchargeRuleRepository;
+    AuditLogService auditLogService;
     BookingMapper bookingMapper;
     FinanceMapper financeMapper;
     StringRedisTemplate redisTemplate;
@@ -448,6 +454,12 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng ID: " + id));
 
+        if (status == BookingStatus.NO_SHOW) {
+            String username = SecurityUtils.getCurrentUsername().orElse("STAFF");
+            Booking saved = executeNoShowPipeline(booking, "Cập nhật thủ công trạng thái No-Show", username);
+            return bookingMapper.toResponse(saved);
+        }
+
         booking.setStatus(status);
 
         if (status == BookingStatus.CANCELLED) {
@@ -593,6 +605,30 @@ public class BookingServiceImpl implements BookingService {
         // 6. Đồng bộ hàng chờ lưu trú BCA
         stayGuestService.syncLodgingQueueForBookingRoom(bookingRoomId);
 
+        // 7. Bù trừ công nợ chéo (Folio Netting): Nếu tất cả phòng đã kết thúc và phát sinh khoản cọc thừa -> Tạo REFUND PENDING
+        boolean allRoomsDone = booking.getBookingDetails().stream()
+                .flatMap(bd -> bd.getBookingRooms().stream())
+                .allMatch(br -> br.getStatus() == BookingRoomStatus.CHECKED_OUT
+                        || br.getStatus() == BookingRoomStatus.NO_SHOW
+                        || br.getStatus() == BookingRoomStatus.CANCELLED);
+
+        if (allRoomsDone && settlement.getNetOverpaymentAmount() != null && settlement.getNetOverpaymentAmount().compareTo(BigDecimal.ZERO) > 0) {
+            Payment overpaymentRefund = Payment.builder()
+                    .booking(booking)
+                    .totalAmount(settlement.getNetOverpaymentAmount())
+                    .paymentPurpose(PaymentPurpose.REFUND)
+                    .paymentMethod(PaymentMethod.OTHER)
+                    .paymentProvider("SYSTEM_FOLIO_NETTING_REFUND")
+                    .status(PaymentStatus.PENDING)
+                    .transactionReference("REFUND-NETTING-" + booking.getBookingNumber())
+                    .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
+                    .rawCallbackPayload("{\"reason\": \"Hoàn tiền cọc dôi dư sau khi bù trừ công nợ chéo check-out\", \"amount\": " + settlement.getNetOverpaymentAmount() + "}")
+                    .build();
+            paymentRepository.save(overpaymentRefund);
+            log.info("Booking {} hoàn tất check-out tất cả các phòng, phát sinh khoản cọc thừa {} đ, đã tạo yêu cầu REFUND ở trạng thái PENDING",
+                    booking.getBookingNumber(), settlement.getNetOverpaymentAmount());
+        }
+
         return bookingMapper.toResponse(booking);
     }
 
@@ -609,11 +645,13 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalServiceCharges = BigDecimal.ZERO;
 
         BigDecimal bookingServiceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
+        BigDecimal totalNoShowPenalty = BigDecimal.ZERO;
 
-        // 1. Tiền phòng (daily_rates) của toàn bộ các phòng trong booking
+        // 1. Tiền phòng (daily_rates) & phụ phí/phạt của toàn bộ các phòng trong booking
         for (BookingDetail bd : booking.getBookingDetails()) {
             for (BookingRoom br : bd.getBookingRooms()) {
-                if (br.getDailyRates() != null) {
+                // Nếu phòng bị NO_SHOW: Không tính tiền phòng lưu trú daily_rates các đêm (chỉ tính phí phạt đêm đầu ở mục BookingCharge bên dưới)
+                if (br.getStatus() != BookingRoomStatus.NO_SHOW && br.getDailyRates() != null) {
                     for (BookingDailyRate dr : br.getDailyRates()) {
                         BigDecimal lineSubtotal = dr.getNetPrice();
                         BigDecimal lineFee = lineSubtotal.multiply(bookingServiceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -643,7 +681,8 @@ public class BookingServiceImpl implements BookingService {
                 // 2. Phụ phí & Phạt (booking_charges)
                 if (br.getCharges() != null) {
                     for (BookingCharge charge : br.getCharges()) {
-                        String lineType = charge.getChargeType() == BookingChargeType.PENALTY ? "PENALTY" : "SURCHARGE";
+                        boolean isPenalty = charge.getChargeType() == BookingChargeType.PENALTY;
+                        String lineType = isPenalty ? "PENALTY" : "SURCHARGE";
                         String roomLabel = (br.getRoomInstance() != null ? " (Phòng " + br.getRoomInstance().getRoomNumber() + ")" : "");
                         lineItems.add(SettlementLineItemDto.builder()
                                 .lineType(lineType)
@@ -659,7 +698,11 @@ public class BookingServiceImpl implements BookingService {
                                 .totalAmount(charge.getTotalAmount())
                                 .build());
 
-                        totalSurcharges = totalSurcharges.add(charge.getTotalAmount());
+                        if (isPenalty) {
+                            totalNoShowPenalty = totalNoShowPenalty.add(charge.getTotalAmount());
+                        } else {
+                            totalSurcharges = totalSurcharges.add(charge.getTotalAmount());
+                        }
                     }
                 }
             }
@@ -694,7 +737,7 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        BigDecimal grandTotal = totalRoomCharges.add(totalSurcharges).add(totalServiceCharges);
+        BigDecimal grandTotal = totalRoomCharges.add(totalSurcharges).add(totalNoShowPenalty).add(totalServiceCharges);
 
         // 4. Lấy lịch sử thanh toán thành công (payments)
         List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
@@ -703,14 +746,17 @@ public class BookingServiceImpl implements BookingService {
         if (payments != null) {
             for (Payment p : payments) {
                 if (p.getStatus() == PaymentStatus.SUCCESS) {
-                    totalPaid = totalPaid.add(p.getTotalAmount());
+                    BigDecimal amt = p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount();
+                    totalPaid = totalPaid.add(amt);
                 }
                 paymentResponses.add(financeMapper.toResponse(p));
             }
         }
 
         BigDecimal balanceDue = grandTotal.subtract(totalPaid);
+        BigDecimal netOverpaymentAmount = BigDecimal.ZERO;
         if (balanceDue.compareTo(BigDecimal.ZERO) < 0) {
+            netOverpaymentAmount = balanceDue.abs();
             balanceDue = BigDecimal.ZERO;
         }
 
@@ -730,10 +776,12 @@ public class BookingServiceImpl implements BookingService {
                 .guestPhone(guestPhone)
                 .totalRoomCharges(totalRoomCharges)
                 .totalSurcharges(totalSurcharges)
+                .noShowPenaltyAmount(totalNoShowPenalty)
                 .totalServiceCharges(totalServiceCharges)
                 .grandTotal(grandTotal)
                 .totalPaid(totalPaid)
                 .balanceDue(balanceDue)
+                .netOverpaymentAmount(netOverpaymentAmount)
                 .canCheckOut(canCheckOut)
                 .lineItems(lineItems)
                 .paymentHistory(paymentResponses)
@@ -1010,42 +1058,409 @@ public class BookingServiceImpl implements BookingService {
 
         for (Booking booking : pendingBookings) {
             boolean isNoShow = false;
-            for (BookingDetail detail : booking.getBookingDetails()) {
-                if (!detail.getCheckInDate().isAfter(auditDate)) {
-                    boolean anyCheckedIn = detail.getBookingRooms().stream()
-                            .anyMatch(br -> br.getStatus() == BookingRoomStatus.CHECKED_IN || br.getActualCheckInAt() != null);
-                    if (!anyCheckedIn) {
-                        isNoShow = true;
-                        break;
+            if (booking.getBookingDetails() != null) {
+                for (BookingDetail detail : booking.getBookingDetails()) {
+                    if (!detail.getCheckInDate().isAfter(auditDate)) {
+                        boolean anyCheckedIn = detail.getBookingRooms() != null && detail.getBookingRooms().stream()
+                                .anyMatch(br -> br.getStatus() == BookingRoomStatus.CHECKED_IN || br.getActualCheckInAt() != null);
+                        if (!anyCheckedIn) {
+                            isNoShow = true;
+                            break;
+                        }
                     }
                 }
             }
 
             if (isNoShow) {
-                booking.setStatus(BookingStatus.NO_SHOW);
-
-                for (BookingDetail detail : booking.getBookingDetails()) {
-                    for (BookingRoom br : detail.getBookingRooms()) {
-                        br.setStatus(BookingRoomStatus.NO_SHOW);
-                        bookingRoomService.save(br);
-
-                        if (br.getRoomInstance() != null) {
-                            roomSlotService.releaseSlots(
-                                    br.getRoomInstance().getId(),
-                                    detail.getCheckInDate(),
-                                    detail.getCheckOutDate()
-                            );
-                        }
-                    }
-                }
-
-                bookingRepository.save(booking);
+                executeNoShowPipeline(booking, "Khách không đến quá 23:59 ngày check-in (Night Audit)", "SYSTEM_NIGHT_AUDIT");
                 noShowCount++;
             }
         }
 
         log.info("Processed {} No-Show bookings for hotel ID {} on audit date {}", noShowCount, hotelId, auditDate);
         return noShowCount;
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse markBookingAsNoShow(Long id, BookingNoShowRequest request) {
+        if (request == null || !StringUtils.hasText(request.getReason())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Lý do khách không đến (No-show) không được để trống");
+        }
+
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng ID: " + id));
+
+        if (booking.getStatus() == BookingStatus.NO_SHOW) {
+            return bookingMapper.toResponse(booking);
+        }
+
+        String username = SecurityUtils.getCurrentUsername().orElse("STAFF");
+        Booking saved = executeNoShowPipeline(booking, request.getReason(), username);
+        return bookingMapper.toResponse(saved);
+    }
+
+    private BigDecimal calculateSingleRoomFirstNightPenalty(BookingRoom room, BookingDetail detail, Booking booking) {
+        BigDecimal roomFirstNight = BigDecimal.ZERO;
+        LocalDate firstNightDate = detail.getCheckInDate();
+
+        if (room.getDailyRates() != null && !room.getDailyRates().isEmpty()) {
+            Optional<BookingDailyRate> firstNightRateOpt = room.getDailyRates().stream()
+                    .filter(dr -> dr.getStayDate() != null && dr.getStayDate().equals(firstNightDate))
+                    .findFirst();
+            BookingDailyRate rate = firstNightRateOpt.orElse(room.getDailyRates().get(0));
+            BigDecimal net = rate.getNetPrice() != null ? rate.getNetPrice() : BigDecimal.ZERO;
+            BigDecimal fee = rate.getServiceFeeAmount() != null ? rate.getServiceFeeAmount() : BigDecimal.ZERO;
+            BigDecimal vat = rate.getVatAmount() != null ? rate.getVatAmount() : BigDecimal.ZERO;
+            roomFirstNight = net.add(fee).add(vat);
+        } else if (detail.getHotelRoomType() != null && detail.getHotelRoomType().getBasePrice() != null) {
+            BigDecimal base = detail.getHotelRoomType().getBasePrice();
+            BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
+            BigDecimal fee = base.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal vat = base.add(fee).multiply(BigDecimal.valueOf(10)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            roomFirstNight = base.add(fee).add(vat);
+        }
+        return roomFirstNight;
+    }
+
+    private BigDecimal calculateFirstNightPenalty(Booking booking) {
+        BigDecimal totalPenalty = BigDecimal.ZERO;
+        if (booking.getBookingDetails() == null || booking.getBookingDetails().isEmpty()) {
+            return totalPenalty;
+        }
+
+        for (BookingDetail detail : booking.getBookingDetails()) {
+            if (detail.getBookingRooms() == null) {
+                continue;
+            }
+            for (BookingRoom room : detail.getBookingRooms()) {
+                totalPenalty = totalPenalty.add(calculateSingleRoomFirstNightPenalty(room, detail, booking));
+            }
+        }
+        return totalPenalty;
+    }
+
+    private Booking executeNoShowPipeline(Booking booking, String reason, String executedBy) {
+        // 1. Validation: Không cho phép No-Show nếu đã có phòng CHECKED_IN
+        if (booking.getBookingDetails() != null) {
+            for (BookingDetail detail : booking.getBookingDetails()) {
+                if (detail.getBookingRooms() != null) {
+                    boolean anyCheckedIn = detail.getBookingRooms().stream()
+                            .anyMatch(br -> br.getStatus() == BookingRoomStatus.CHECKED_IN || br.getActualCheckInAt() != null);
+                    if (anyCheckedIn) {
+                        throw new AppException(ErrorCode.BOOKING_ALREADY_CHECKED_IN);
+                    }
+                }
+            }
+        }
+
+        // 2. Tính tiền phạt đêm đầu tiên (100% first night rate cho tất cả các phòng trong đơn)
+        BigDecimal penaltyAmount = calculateFirstNightPenalty(booking);
+
+        // 2.1. Tính tiền dịch vụ đã đặt trước (Strictly Non-refundable và KHÔNG cancel dịch vụ)
+        List<ServiceOrderResponse> preorderedOrders = serviceOrderService.getOrdersByBookingId(booking.getId());
+        BigDecimal preorderedServicesTotal = BigDecimal.ZERO;
+        if (preorderedOrders != null) {
+            preorderedServicesTotal = preorderedOrders.stream()
+                    .filter(o -> o.getStatus() != ServiceOrderStatus.CANCELLED)
+                    .map(ServiceOrderResponse::getTotalAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        // Addon charges trên các phòng nếu có (ngoài penalty)
+        BigDecimal addonChargesTotal = BigDecimal.ZERO;
+        if (booking.getBookingDetails() != null) {
+            for (BookingDetail detail : booking.getBookingDetails()) {
+                if (detail.getBookingRooms() != null) {
+                    for (BookingRoom br : detail.getBookingRooms()) {
+                        if (br.getCharges() != null) {
+                            for (BookingCharge c : br.getCharges()) {
+                                if (c.getChargeType() != BookingChargeType.PENALTY) {
+                                    addonChargesTotal = addonChargesTotal.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        BigDecimal nonRefundableTotal = penaltyAmount.add(preorderedServicesTotal).add(addonChargesTotal);
+
+        // 3. Tạo BookingCharge (charge_type = PENALTY) nếu penaltyAmount > 0
+        BookingRoom firstRoom = null;
+        if (booking.getBookingDetails() != null) {
+            for (BookingDetail detail : booking.getBookingDetails()) {
+                if (detail.getBookingRooms() != null && !detail.getBookingRooms().isEmpty()) {
+                    firstRoom = detail.getBookingRooms().get(0);
+                    break;
+                }
+            }
+        }
+
+        if (firstRoom != null && penaltyAmount.compareTo(BigDecimal.ZERO) > 0) {
+            BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
+                    .chargeType(BookingChargeType.PENALTY)
+                    .itemName("Phí phạt No-Show (100% đêm đầu)")
+                    .description("Phí phạt khách vắng mặt không nhận phòng đêm đầu tiên: " + reason)
+                    .quantity(1)
+                    .unitPrice(penaltyAmount)
+                    .serviceFeeRate(BigDecimal.ZERO)
+                    .vatRate(BigDecimal.ZERO)
+                    .build();
+            bookingChargeService.createCharge(firstRoom, chargeReq);
+        }
+
+        // 4. Release toàn bộ phòng, lịch phòng và hoàn trả kho bán cho TOÀN BỘ các đêm của đơn
+        if (booking.getBookingDetails() != null) {
+            for (BookingDetail detail : booking.getBookingDetails()) {
+                if (detail.getBookingRooms() != null) {
+                    for (BookingRoom br : detail.getBookingRooms()) {
+                        br.setStatus(BookingRoomStatus.NO_SHOW);
+                        bookingRoomService.save(br);
+
+                        // Hủy hàng chờ lưu trú BCA nếu có
+                        if (br.getId() != null) {
+                            stayGuestService.cancelLodgingQueueForBookingRoom(br.getId());
+                        }
+
+                        if (br.getRoomInstance() != null) {
+                            // Nhả toàn bộ slots các đêm của đơn
+                            roomSlotService.releaseSlots(
+                                    br.getRoomInstance().getId(),
+                                    detail.getCheckInDate(),
+                                    detail.getCheckOutDate()
+                            );
+                            // Cập nhật trạng thái phòng vật lý về READY
+                            roomInstanceService.updateRoomStatusEntity(br.getRoomInstance().getId(), "READY");
+                        }
+                    }
+                }
+
+                // Hoàn trả kho phòng bán hàng cho các đêm của detail
+                if (detail.getHotelRoomType() != null) {
+                    int roomsCount = detail.getQuantity() != null && detail.getQuantity() > 0 ? detail.getQuantity().intValue() : 1;
+                    roomAvailabilityService.releaseBookedInventory(
+                            detail.getHotelRoomType().getId(),
+                            detail.getCheckInDate(),
+                            detail.getCheckOutDate(),
+                            roomsCount
+                    );
+                }
+            }
+        }
+
+        // 5. Tính tiền dư và tạo bản ghi cần REFUND ở trạng thái PENDING
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        if (payments != null) {
+            totalPaid = payments.stream()
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        BigDecimal surplusAmount = totalPaid.subtract(nonRefundableTotal);
+        if (surplusAmount.compareTo(BigDecimal.ZERO) > 0) {
+            Payment refundPayment = Payment.builder()
+                    .booking(booking)
+                    .totalAmount(surplusAmount)
+                    .paymentPurpose(PaymentPurpose.REFUND)
+                    .paymentMethod(PaymentMethod.OTHER)
+                    .paymentProvider("SYSTEM_NO_SHOW_REFUND")
+                    .status(PaymentStatus.PENDING)
+                    .transactionReference("REFUND-SURPLUS-" + booking.getBookingNumber())
+                    .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
+                    .rawCallbackPayload("{\"reason\": \"Hoàn tiền cọc dôi dư do No-Show sau khi trừ phạt đêm đầu và dịch vụ đặt trước\", \"amount\": " + surplusAmount + "}")
+                    .build();
+            paymentRepository.save(refundPayment);
+            log.info("Booking {} có số tiền cọc dư {} đ (đã giữ lại phạt {} đ và dịch vụ {} đ), đã tạo bản ghi REFUND ở trạng thái PENDING",
+                    booking.getBookingNumber(), surplusAmount, penaltyAmount, preorderedServicesTotal.add(addonChargesTotal));
+        }
+
+        // 6. Cập nhật Booking: status = NO_SHOW và nối thêm ghi chú
+        booking.setStatus(BookingStatus.NO_SHOW);
+        String noShowNote = String.format("[NO_SHOW - %s] Lý do: %s. Phạt đêm đầu: %,.0f đ. Dịch vụ không hoàn: %,.0f đ. Tiền dư cần refund: %,.0f đ. Thực hiện bởi: %s",
+                OffsetDateTime.now().toString(),
+                reason,
+                penaltyAmount,
+                preorderedServicesTotal.add(addonChargesTotal),
+                surplusAmount.compareTo(BigDecimal.ZERO) > 0 ? surplusAmount : BigDecimal.ZERO,
+                executedBy);
+        booking.setNotes(booking.getNotes() != null ? booking.getNotes() + "\n" + noShowNote : noShowNote);
+        Booking savedBooking = bookingRepository.save(booking);
+
+        // 7. Ghi nhật ký kiểm toán (AuditLog)
+        auditLogService.recordLog(
+                null,
+                "BOOKING_NO_SHOW",
+                "Booking",
+                booking.getId().toString(),
+                "CONFIRMED",
+                noShowNote,
+                null,
+                executedBy
+        );
+
+        return savedBooking;
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse markBookingRoomAsNoShow(Long bookingRoomId, BookingNoShowRequest request) {
+        if (request == null || !StringUtils.hasText(request.getReason())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Lý do khách không đến (No-show) không được để trống");
+        }
+
+        BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
+
+        // 1. Kiểm tra trạng thái BookingRoom
+        if (bookingRoom.getStatus() == BookingRoomStatus.NO_SHOW) {
+            Booking booking = bookingRoom.getBookingDetail() != null ? bookingRoom.getBookingDetail().getBooking() : null;
+            return booking != null ? bookingMapper.toResponse(booking) : null;
+        }
+        if (bookingRoom.getStatus() != BookingRoomStatus.EXPECTED) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Chỉ có thể đánh dấu No-Show cho phòng đang ở trạng thái chờ nhận phòng (EXPECTED). Trạng thái hiện tại: " + bookingRoom.getStatus());
+        }
+
+        BookingDetail detail = bookingRoom.getBookingDetail();
+        Booking booking = detail.getBooking();
+
+        String username = SecurityUtils.getCurrentUsername().orElse("STAFF");
+
+        // 2. Tính tiền phạt đêm đầu cho riêng phòng này
+        BigDecimal penaltyAmount = calculateSingleRoomFirstNightPenalty(bookingRoom, detail, booking);
+
+        // 3. Tạo BookingCharge (charge_type = PENALTY) cho phòng này
+        if (penaltyAmount.compareTo(BigDecimal.ZERO) > 0) {
+            String roomLabel = bookingRoom.getRoomInstance() != null ? bookingRoom.getRoomInstance().getRoomNumber() : detail.getRoomTypeName();
+            BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
+                    .chargeType(BookingChargeType.PENALTY)
+                    .itemName("Phí phạt No-Show phòng " + roomLabel + " (100% đêm đầu)")
+                    .description("Phí phạt khách không đến nhận phòng " + roomLabel + ": " + request.getReason())
+                    .quantity(1)
+                    .unitPrice(penaltyAmount)
+                    .serviceFeeRate(BigDecimal.ZERO)
+                    .vatRate(BigDecimal.ZERO)
+                    .build();
+            bookingChargeService.createCharge(bookingRoom, chargeReq);
+        }
+
+        // 4. Giải phóng tài nguyên của phòng này
+        bookingRoom.setStatus(BookingRoomStatus.NO_SHOW);
+        bookingRoomService.save(bookingRoom);
+
+        // Hủy hàng chờ lưu trú BCA nếu có
+        stayGuestService.cancelLodgingQueueForBookingRoom(bookingRoom.getId());
+
+        if (bookingRoom.getRoomInstance() != null) {
+            // Nhả slots các đêm của phòng
+            roomSlotService.releaseSlots(
+                    bookingRoom.getRoomInstance().getId(),
+                    detail.getCheckInDate(),
+                    detail.getCheckOutDate()
+            );
+            // Cập nhật trạng thái phòng vật lý về READY
+            roomInstanceService.updateRoomStatusEntity(bookingRoom.getRoomInstance().getId(), "READY");
+        }
+
+        // Hoàn trả kho phòng bán hàng cho 1 phòng của hạng phòng này
+        if (detail.getHotelRoomType() != null) {
+            roomAvailabilityService.releaseBookedInventory(
+                    detail.getHotelRoomType().getId(),
+                    detail.getCheckInDate(),
+                    detail.getCheckOutDate(),
+                    1
+            );
+        }
+
+        // 5. Kiểm tra trạng thái chung của Booking
+        boolean allRoomsNoShowOrCancelled = booking.getBookingDetails().stream()
+                .flatMap(bd -> bd.getBookingRooms().stream())
+                .allMatch(br -> br.getStatus() == BookingRoomStatus.NO_SHOW
+                        || br.getStatus() == BookingRoomStatus.CANCELLED);
+
+        if (allRoomsNoShowOrCancelled) {
+            booking.setStatus(BookingStatus.NO_SHOW);
+            // Nếu tất cả các phòng đều không đến, kích hoạt hoàn tiền cọc dôi dư toàn đơn
+            List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+            BigDecimal totalPaid = BigDecimal.ZERO;
+            if (payments != null) {
+                totalPaid = payments.stream()
+                        .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                        .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            }
+
+            BigDecimal allPenalties = BigDecimal.ZERO;
+            BigDecimal allAddons = BigDecimal.ZERO;
+            for (BookingDetail bd : booking.getBookingDetails()) {
+                if (bd.getBookingRooms() != null) {
+                    for (BookingRoom br : bd.getBookingRooms()) {
+                        if (br.getCharges() != null) {
+                            for (BookingCharge c : br.getCharges()) {
+                                if (c.getChargeType() == BookingChargeType.PENALTY) {
+                                    allPenalties = allPenalties.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
+                                } else {
+                                    allAddons = allAddons.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
+            BigDecimal preorderedTotal = BigDecimal.ZERO;
+            if (orders != null) {
+                preorderedTotal = orders.stream()
+                        .filter(o -> o.getStatus() != ServiceOrderStatus.CANCELLED)
+                        .map(ServiceOrderResponse::getTotalAmount)
+                        .filter(Objects::nonNull)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            }
+
+            BigDecimal nonRefundableTotal = allPenalties.add(preorderedTotal).add(allAddons);
+            BigDecimal surplus = totalPaid.subtract(nonRefundableTotal);
+            if (surplus.compareTo(BigDecimal.ZERO) > 0) {
+                Payment refundPayment = Payment.builder()
+                        .booking(booking)
+                        .totalAmount(surplus)
+                        .paymentPurpose(PaymentPurpose.REFUND)
+                        .paymentMethod(PaymentMethod.OTHER)
+                        .paymentProvider("SYSTEM_NO_SHOW_REFUND")
+                        .status(PaymentStatus.PENDING)
+                        .transactionReference("REFUND-SURPLUS-" + booking.getBookingNumber())
+                        .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
+                        .rawCallbackPayload("{\"reason\": \"Hoàn tiền cọc dôi dư do tất cả các phòng No-Show\", \"amount\": " + surplus + "}")
+                        .build();
+                paymentRepository.save(refundPayment);
+            }
+        }
+
+        String logNote = String.format("[ROOM_NO_SHOW - %s] Phòng ID %s bị No-Show. Lý do: %s. Phạt: %,.0f đ. Bởi: %s",
+                OffsetDateTime.now().toString(),
+                bookingRoomId,
+                request.getReason(),
+                penaltyAmount,
+                username);
+        booking.setNotes(booking.getNotes() != null ? booking.getNotes() + "\n" + logNote : logNote);
+        Booking saved = bookingRepository.save(booking);
+
+        auditLogService.recordLog(
+                null,
+                "BOOKING_ROOM_NO_SHOW",
+                "BookingRoom",
+                bookingRoomId.toString(),
+                "EXPECTED",
+                logNote,
+                null,
+                username
+        );
+
+        return bookingMapper.toResponse(saved);
     }
 
     @Override

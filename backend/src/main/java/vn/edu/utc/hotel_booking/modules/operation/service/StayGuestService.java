@@ -26,4 +26,6 @@ public interface StayGuestService {
     void delete(List<Long> ids);
 
     void syncLodgingQueueForBookingRoom(Long bookingRoomId);
+
+    void cancelLodgingQueueForBookingRoom(Long bookingRoomId);
 }

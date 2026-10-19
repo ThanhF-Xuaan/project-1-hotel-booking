@@ -15,6 +15,7 @@ import {
   Trash2,
   Receipt,
   UserPlus,
+  UserX,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -106,6 +107,18 @@ export const BookingListPage: React.FC = () => {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // No-Show Modal
+  const [isNoShowModalOpen, setIsNoShowModalOpen] = useState(false);
+  const [noShowBooking, setNoShowBooking] = useState<BookingResponse | null>(null);
+  const [noShowReason, setNoShowReason] = useState('Khách không đến nhận phòng theo lịch (Quá 23:59)');
+  const [isSubmittingNoShow, setIsSubmittingNoShow] = useState(false);
+
+  // Room No-Show Modal
+  const [isRoomNoShowModalOpen, setIsRoomNoShowModalOpen] = useState(false);
+  const [noShowTargetRoom, setNoShowTargetRoom] = useState<{ id: number; label: string } | null>(null);
+  const [roomNoShowReason, setRoomNoShowReason] = useState('Khách không đến nhận phòng này');
+  const [isSubmittingRoomNoShow, setIsSubmittingRoomNoShow] = useState(false);
 
   // Action status message
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
@@ -432,6 +445,81 @@ export const BookingListPage: React.FC = () => {
     }
   };
 
+  const handleOpenNoShowModal = (booking: BookingResponse) => {
+    setNoShowBooking(booking);
+    setNoShowReason('Khách không đến nhận phòng theo lịch (Quá 23:59)');
+    setIsNoShowModalOpen(true);
+  };
+
+  const handleConfirmNoShow = async () => {
+    if (!noShowBooking) return;
+    if (!noShowReason.trim()) {
+      alert('Vui lòng nhập lý do khách không đến (No-Show).');
+      return;
+    }
+    setIsSubmittingNoShow(true);
+    try {
+      await bookingService.markAsNoShow(noShowBooking.id, { reason: noShowReason.trim() });
+      setIsNoShowModalOpen(false);
+      setActionSuccessMessage(
+        `Đã ghi nhận khách vắng mặt (No-Show) cho đơn ${noShowBooking.bookingNumber}! Đã phạt đêm đầu, giải phóng các đêm còn lại và tạo yêu cầu hoàn cọc dôi dư (nếu có).`
+      );
+      loadData();
+      if (selectedBooking && selectedBooking.id === noShowBooking.id) {
+        const updated = await bookingService.getById(selectedBooking.id);
+        if (updated.result) {
+          setSelectedBooking(updated.result);
+        }
+      }
+    } catch (err: unknown) {
+      console.error('Lỗi khi đánh dấu No-Show:', err);
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Đánh dấu No-Show thất bại. Vui lòng kiểm tra lại.';
+      alert(`Thao tác thất bại: ${errorMsg}`);
+    } finally {
+      setIsSubmittingNoShow(false);
+    }
+  };
+
+  const handlePromptRoomNoShow = (room: BookingRoomResponse) => {
+    const label = room.roomNumber ? `Phòng ${room.roomNumber}` : `Phòng ID ${room.id}`;
+    setNoShowTargetRoom({ id: room.id, label });
+    setRoomNoShowReason('Khách không đến nhận phòng này theo lịch');
+    setIsRoomNoShowModalOpen(true);
+  };
+
+  const handleConfirmRoomNoShow = async () => {
+    if (!noShowTargetRoom) return;
+    if (!roomNoShowReason.trim()) {
+      alert('Vui lòng nhập lý do khách không đến nhận phòng.');
+      return;
+    }
+    setIsSubmittingRoomNoShow(true);
+    try {
+      await bookingService.markRoomAsNoShow(noShowTargetRoom.id, { reason: roomNoShowReason.trim() });
+      setIsRoomNoShowModalOpen(false);
+      setActionSuccessMessage(
+        `Đã ghi nhận No-Show cho ${noShowTargetRoom.label}! Hệ thống đã tính phạt đêm đầu cho phòng này và giải phóng phòng vật lý.`
+      );
+      loadData();
+      if (selectedBooking) {
+        const updated = await bookingService.getById(selectedBooking.id);
+        if (updated.result) {
+          setSelectedBooking(updated.result);
+        }
+      }
+    } catch (err: unknown) {
+      console.error('Lỗi khi đánh dấu No-Show phòng:', err);
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Đánh dấu No-Show phòng thất bại. Vui lòng kiểm tra lại.';
+      alert(`Thao tác thất bại: ${errorMsg}`);
+    } finally {
+      setIsSubmittingRoomNoShow(false);
+    }
+  };
+
   const getStatusBadge = (status: BookingStatus) => {
     switch (status) {
       case 'CONFIRMED':
@@ -662,16 +750,26 @@ export const BookingListPage: React.FC = () => {
                           </button>
 
                           {booking.status === 'CONFIRMED' && (
-                            <button
-                              onClick={() => {
-                                setCancellingBookingId(booking.id);
-                                setIsCancelModalOpen(true);
-                              }}
-                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                              title="Hủy đơn đặt phòng"
-                            >
-                              <Ban className="w-4 h-4" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleOpenNoShowModal(booking)}
+                                className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
+                                title="Đánh dấu khách không đến (No-Show)"
+                              >
+                                <UserX className="w-4 h-4" />
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setCancellingBookingId(booking.id);
+                                  setIsCancelModalOpen(true);
+                                }}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                                title="Hủy đơn đặt phòng"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -716,7 +814,18 @@ export const BookingListPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-xs text-neutral-500">Trạng thái</span>
-                <div className="mt-1">{getStatusBadge(selectedBooking.status)}</div>
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                  {getStatusBadge(selectedBooking.status)}
+                  {selectedBooking.status === 'CONFIRMED' && (
+                    <button
+                      onClick={() => handleOpenNoShowModal(selectedBooking)}
+                      className="px-2 py-0.5 text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-md transition-colors"
+                      title="Xử lý khách vắng mặt (No-Show)"
+                    >
+                      Xử lý No-Show
+                    </button>
+                  )}
+                </div>
               </div>
               <div>
                 <span className="text-xs text-neutral-500">Tổng thanh toán</span>
@@ -752,7 +861,11 @@ export const BookingListPage: React.FC = () => {
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                           <div className="text-sm font-semibold text-neutral-800 flex items-center gap-2">
                             <span>Phòng #{idx + 1}:</span>
-                            {isRoomAssigned ? (
+                            {room.status === 'NO_SHOW' ? (
+                              <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded-md font-semibold text-xs border border-red-200">
+                                Vắng mặt (No-Show)
+                              </span>
+                            ) : isRoomAssigned ? (
                               <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono font-semibold border border-emerald-200">
                                 {room.roomNumber}
                               </span>
@@ -765,7 +878,7 @@ export const BookingListPage: React.FC = () => {
 
                           <div className="flex flex-wrap items-center gap-2">
                             {/* Nút Xếp phòng / Đổi phòng */}
-                            {selectedBooking.status === 'CONFIRMED' && (
+                            {selectedBooking.status === 'CONFIRMED' && room.status !== 'NO_SHOW' && (
                               <Button
                                 variant={!isRoomAssigned ? 'primary' : 'outline'}
                                 size="sm"
@@ -777,25 +890,27 @@ export const BookingListPage: React.FC = () => {
                             )}
 
                             {/* Nút Khách lưu trú (Bắt buộc phải gán phòng trước) */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={!isRoomAssigned}
-                              title={
-                                !isRoomAssigned
-                                  ? 'Cần xếp phòng vật lý trước khi khai báo khách lưu trú'
-                                  : 'Quản lý thông tin khách lưu trú (CCCD/Hộ chiếu)'
-                              }
-                              onClick={() => handleOpenStayGuestsModal(selectedBooking, room)}
-                              className={
-                                !isRoomAssigned
-                                  ? 'opacity-50 cursor-not-allowed'
-                                  : 'text-blue-700 hover:text-blue-800 border-blue-200 hover:bg-blue-50'
-                              }
-                            >
-                              <Users className="w-3.5 h-3.5 mr-1" />
-                              Khách lưu trú
-                            </Button>
+                            {room.status !== 'NO_SHOW' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={!isRoomAssigned}
+                                title={
+                                  !isRoomAssigned
+                                    ? 'Cần xếp phòng vật lý trước khi khai báo khách lưu trú'
+                                    : 'Quản lý thông tin khách lưu trú (CCCD/Hộ chiếu)'
+                                }
+                                onClick={() => handleOpenStayGuestsModal(selectedBooking, room)}
+                                className={
+                                  !isRoomAssigned
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'text-blue-700 hover:text-blue-800 border-blue-200 hover:bg-blue-50'
+                                }
+                              >
+                                <Users className="w-3.5 h-3.5 mr-1" />
+                                Khách lưu trú
+                              </Button>
+                            )}
 
                             {/* Nút Check-in (Bắt buộc phải gán phòng trước) */}
                             {room.status === 'EXPECTED' && (
@@ -817,6 +932,20 @@ export const BookingListPage: React.FC = () => {
                               >
                                 <CheckCircle className="w-3.5 h-3.5 mr-1" />
                                 Check-in
+                              </Button>
+                            )}
+
+                            {/* Nút No-Show phòng lẻ */}
+                            {room.status === 'EXPECTED' && selectedBooking.status !== 'NO_SHOW' && selectedBooking.status !== 'CANCELLED' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePromptRoomNoShow(room)}
+                                className="text-amber-700 hover:text-amber-800 border-amber-300 hover:bg-amber-50"
+                                title="Đánh dấu khách không đến nhận phòng này (Phạt đêm đầu và nhả phòng)"
+                              >
+                                <UserX className="w-3.5 h-3.5 mr-1 text-amber-600" />
+                                No-Show
                               </Button>
                             )}
 
@@ -1074,6 +1203,80 @@ export const BookingListPage: React.FC = () => {
         variant="danger"
       />
 
+      {/* NO-SHOW CONFIRMATION & PENALTY PIPELINE MODAL */}
+      {noShowBooking && (
+        <Modal
+          isOpen={isNoShowModalOpen}
+          onClose={() => setIsNoShowModalOpen(false)}
+          title={`Xử lý khách vắng mặt (No-Show): ${noShowBooking.bookingNumber}`}
+          maxWidth="lg"
+        >
+          <div className="space-y-4">
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-800 space-y-1">
+                <p className="font-bold text-sm text-amber-900">Quy trình xử lý No-Show theo pipeline chuẩn:</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li><strong>Phạt đêm đầu:</strong> Hệ thống tự động hạch toán phạt 100% tiền phòng đêm đầu tiên vào Folio.</li>
+                  <li><strong>Giải phóng phòng:</strong> Nhả toàn bộ các đêm còn lại về kho bán hàng và đưa phòng vật lý về READY.</li>
+                  <li><strong>Hoàn tiền cọc dôi dư:</strong> Nếu khách đã cọc/trả trước nhiều hơn phí phạt, hệ thống sẽ tự động tạo yêu cầu REFUND ở trạng thái PENDING.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3 bg-neutral-50 rounded-xl text-xs">
+              <div>
+                <span className="text-neutral-500">Mã đơn:</span>
+                <p className="font-semibold text-neutral-900 font-mono">{noShowBooking.bookingNumber}</p>
+              </div>
+              <div>
+                <span className="text-neutral-500">Khách hàng:</span>
+                <p className="font-semibold text-neutral-900">{noShowBooking.guestPhone || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="text-neutral-500">Thời gian lưu trú:</span>
+                <p className="font-semibold text-neutral-900">
+                  {noShowBooking.bookingDetails?.[0]?.checkInDate} ➔ {noShowBooking.bookingDetails?.[0]?.checkOutDate}
+                </p>
+              </div>
+              <div>
+                <span className="text-neutral-500">Tổng giá trị đơn:</span>
+                <p className="font-bold text-red-600">
+                  {new Intl.NumberFormat('vi-VN').format(noShowBooking.totalAmount)} đ
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                Lý do khách không đến (No-Show) <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={noShowReason}
+                onChange={(e) => setNoShowReason(e.target.value)}
+                placeholder="Nhập lý do khách vãng mặt (ví dụ: Khách không liên lạc được quá 23:59, khách báo hủy chuyến...)"
+                rows={3}
+                className="w-full text-xs p-2.5 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-neutral-100">
+              <Button variant="outline" onClick={() => setIsNoShowModalOpen(false)}>
+                Hủy bỏ
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleConfirmNoShow}
+                disabled={isSubmittingNoShow || !noShowReason.trim()}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+              >
+                {isSubmittingNoShow ? 'Đang xử lý No-Show...' : 'Xác nhận No-Show & Hạch toán phạt'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {/* SURCHARGE PROPOSAL MODAL */}
       <SurchargeProposalModal
         isOpen={isSurchargeProposalModalOpen}
@@ -1164,6 +1367,62 @@ export const BookingListPage: React.FC = () => {
           loadData();
         }}
       />
+
+      {/* MODAL XÁC NHẬN ROOM NO-SHOW */}
+      <Modal
+        isOpen={isRoomNoShowModalOpen}
+        onClose={() => setIsRoomNoShowModalOpen(false)}
+        title={`Xác nhận Khách vắng mặt (No-Show) — ${noShowTargetRoom?.label || ''}`}
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 space-y-1">
+            <p className="font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              Quy tắc xử lý No-Show phòng lẻ:
+            </p>
+            <ul className="list-disc list-inside space-y-0.5 pl-1 text-neutral-600">
+              <li>Áp dụng phí phạt 100% đêm đầu tiên cho riêng phòng này vào công nợ đơn.</li>
+              <li>Các đêm tiếp theo của phòng sẽ được hủy tính tiền phòng.</li>
+              <li>Dịch vụ đã đặt trước (nếu có) được giữ nguyên, không hoàn tiền.</li>
+              <li>Phòng vật lý và lịch phòng các đêm còn lại sẽ lập tức được giải phóng về trạng thái Sẵn sàng (READY).</li>
+              <li>Các phòng khác trong đơn vẫn tiếp tục lưu trú bình thường (sẽ được bù trừ công nợ chéo khi Check-out).</li>
+            </ul>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+              Lý do không đến <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              className="w-full text-xs p-2.5 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden min-h-[80px]"
+              placeholder="VD: Thành viên này trong đoàn lỡ chuyến bay không đến nhận phòng..."
+              value={roomNoShowReason}
+              onChange={(e) => setRoomNoShowReason(e.target.value)}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-neutral-100">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsRoomNoShowModalOpen(false)}
+              disabled={isSubmittingRoomNoShow}
+            >
+              Hủy bỏ
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleConfirmRoomNoShow}
+              isLoading={isSubmittingRoomNoShow}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+            >
+              Xác nhận No-Show phòng này
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

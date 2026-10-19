@@ -218,7 +218,11 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
             <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200">
               <p className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider">Tổng chi phí phát sinh</p>
               <p className="text-base font-extrabold text-neutral-900 mt-1">{formatVND(settlement.grandTotal)}</p>
-              <p className="text-[10px] text-neutral-400 mt-0.5">Tiền phòng + Phụ thu + Dịch vụ</p>
+              <p className="text-[10px] text-neutral-400 mt-0.5">
+                {settlement.noShowPenaltyAmount && settlement.noShowPenaltyAmount > 0
+                  ? `Bao gồm phạt No-show: ${formatVND(settlement.noShowPenaltyAmount)}`
+                  : 'Tiền phòng + Phụ thu + Dịch vụ'}
+              </p>
             </div>
             <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200">
               <p className="text-[11px] font-medium text-neutral-500 uppercase tracking-wider">Đã thanh toán</p>
@@ -243,6 +247,22 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
               </p>
             </div>
           </div>
+
+          {/* Folio Netting Surplus Refund Alert */}
+          {settlement.netOverpaymentAmount && settlement.netOverpaymentAmount > 0 && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2.5 text-xs text-blue-900">
+              <CheckCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-blue-800">
+                  Dôi dư tiền cọc sau bù trừ chéo (Folio Netting Surplus):{' '}
+                  <span className="font-bold text-blue-900">{formatVND(settlement.netOverpaymentAmount)}</span>
+                </p>
+                <p className="text-[11px] text-blue-700 mt-0.5">
+                  Số tiền thanh toán lớn hơn chi phí lưu trú thực tế (do có phòng No-Show hoặc cọc dư). Hệ thống sẽ tự động tạo yêu cầu hoàn tiền (REFUND PENDING) khi tất cả các phòng hoàn tất check-out.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Itemized Line Items Table */}
           <div className="border border-neutral-200 rounded-xl overflow-hidden text-xs">
