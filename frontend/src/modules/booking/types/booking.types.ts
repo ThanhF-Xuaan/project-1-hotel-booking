@@ -219,3 +219,141 @@ export interface CheckoutSettlementResponse {
   paymentHistory: any[];
 }
 
+export interface ItemizedSurchargeDto {
+  extraAdultsCount: number;
+  extraAdultsSurchargeTotal: number;
+  extraChildrenCount: number;
+  extraChildrenSurchargeTotal: number;
+  infantsCount: number;
+  infantsSurchargeTotal: number;
+  extraBedsCount: number;
+  extraBedsSurchargeTotal: number;
+  totalSurchargeAmount: number;
+  surchargeNotes?: string[];
+}
+
+export interface WalkInQuoteRoomItemRequest {
+  hotelRoomTypeId: number;
+  adultCount?: number;
+  childCount?: number;
+  infantCount?: number;
+  extraBeds?: number;
+}
+
+export interface WalkInQuoteRequest {
+  hotelId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  actualCheckInTime?: string;
+  rooms: WalkInQuoteRoomItemRequest[];
+}
+
+export interface WalkInQuoteRoomItemResponse {
+  roomIndex: number;
+  hotelRoomTypeId: number;
+  roomTypeName: string;
+  adultCount: number;
+  childCount: number;
+  infantCount: number;
+  extraBeds: number;
+  dailyRates?: any[];
+  netPrice: number;
+  vatAmount: number;
+  serviceFeeAmount: number;
+  totalPrice: number;
+  capacitySurcharge?: ItemizedSurchargeDto;
+  earlyCheckinProposal?: SurchargeProposalResponse;
+}
+
+export interface WalkInQuoteResponse {
+  hotelId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  rooms: WalkInQuoteRoomItemResponse[];
+  subtotalAmount: number;
+  totalServiceFeeAmount: number;
+  totalVatAmount: number;
+  totalSurchargesAmount: number;
+  totalAmount: number;
+}
+
+export interface NewCompanyRequest {
+  name: string;
+  taxCode?: string;
+  address?: string;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+}
+
+export interface NewGuestRequest {
+  fullName: string;
+  phone: string;
+  email?: string;
+  identityType?: string;
+  identityNumber?: string;
+  birthDate?: string;
+  nationality?: string;
+}
+
+export interface WalkInStayGuestRequest {
+  fullName: string;
+  birthDate?: string;
+  guestType?: BookingGuestType;
+  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  identityType?: string;
+  identityNumber?: string;
+  nationality?: string;
+  isPrimaryGuest?: boolean;
+}
+
+export interface WalkInRoomItemRequest {
+  hotelRoomTypeId: number;
+  roomInstanceId: number;
+  adultCount?: number;
+  childCount?: number;
+  infantCount?: number;
+  extraBeds?: number;
+  stayGuests: WalkInStayGuestRequest[];
+}
+
+export interface WalkInConfirmedChargeRequest {
+  roomInstanceId?: number;
+  chargeType: BookingChargeType;
+  amount: number;
+  description: string;
+  isWaived?: boolean;
+  waivedReason?: string;
+}
+
+export interface WalkInServiceItemRequest {
+  roomInstanceId?: number;
+  menuItemId: number;
+  quantity: number;
+  note?: string;
+}
+
+export interface WalkInPaymentRequest {
+  paymentMethod: 'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY';
+  paymentPurpose: 'FULL_PAYMENT' | 'DEPOSIT';
+  amount: number;
+  transactionReference?: string;
+}
+
+export interface WalkInBookingRequest {
+  hotelId: number;
+  bookingType?: BookingType;
+  companyId?: number;
+  newCompany?: NewCompanyRequest;
+  guestId?: number;
+  newGuest?: NewGuestRequest;
+  checkInDate: string;
+  checkOutDate: string;
+  notes?: string;
+  rooms: WalkInRoomItemRequest[];
+  confirmedCharges?: WalkInConfirmedChargeRequest[];
+  serviceItems?: WalkInServiceItemRequest[];
+  payment: WalkInPaymentRequest;
+}
+
+

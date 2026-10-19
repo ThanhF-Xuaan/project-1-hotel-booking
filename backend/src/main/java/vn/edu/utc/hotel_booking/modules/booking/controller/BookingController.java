@@ -126,5 +126,24 @@ public class BookingController {
     public ApiResponse<BookingResponse> checkOut(@PathVariable Long bookingRoomId) {
         return ApiResponse.success("Check-out trả phòng và đóng sổ thành công", bookingService.checkOut(bookingRoomId));
     }
+
+    @PostMapping("/walk-in/quote")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Tính giá tạm tính và phát hiện phụ thu tự động cho quy trình đón khách vãng lai (Walk-in)")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse> calculateWalkInQuote(
+            @Valid @RequestBody vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInQuoteRequest request
+    ) {
+        return ApiResponse.success("Tính báo giá walk-in thành công", bookingService.calculateWalkInQuote(request));
+    }
+
+    @PostMapping("/walk-in")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Tạo đơn đặt phòng khách vãng lai (Walk-in), thanh toán tại quầy và Check-in chuyển ngay sang IN-HOUSE")
+    public ApiResponse<BookingResponse> createWalkInBooking(
+            @Valid @RequestBody vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest request
+    ) {
+        return ApiResponse.success("Nhận khách vãng lai và check-in thành công", bookingService.createWalkInBooking(request));
+    }
 }
 

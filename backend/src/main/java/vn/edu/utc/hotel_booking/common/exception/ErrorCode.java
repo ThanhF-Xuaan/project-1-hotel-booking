@@ -77,6 +77,8 @@ public enum ErrorCode {
     BOOKING_ROOM_NOT_CHECKED_IN(7027, "Phòng này không ở trạng thái đang lưu trú (CHECKED_IN) để thực hiện check-out.", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_ROOM_AVAILABILITY(7031, "Không đủ phòng trống để thực hiện đặt phòng", HttpStatus.CONFLICT),
     EXCEEDS_MAX_CAPACITY(7041, "Số lượng khách hoặc giường phụ vượt quá sức chứa tối đa của hạng phòng", HttpStatus.BAD_REQUEST),
+    EXCEEDS_MAX_ROOMS(7042, "Đơn đặt phòng walk-in tối đa 5 phòng", HttpStatus.BAD_REQUEST),
+    WALK_IN_REQUIRE_FULL_PAYMENT(7043, "Khách vãng lai đặt ít phòng (≤ 2 phòng) bắt buộc thanh toán 100% khi nhận phòng", HttpStatus.BAD_REQUEST),
     BOOKING_SESSION_EXPIRED(7051, "Phiên đặt phòng hoặc thanh toán đã hết hạn, vui lòng thao tác lại", HttpStatus.GONE),
 
     // Finance & Payment Module Errors (8000s)

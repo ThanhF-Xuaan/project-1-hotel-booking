@@ -44,4 +44,12 @@ public interface BookingService {
     void deleteCharge(Long chargeId);
 
     int processNoShowBookings(Short hotelId, java.time.LocalDate auditDate);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse calculateWalkInQuote(
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInQuoteRequest request
+    );
+
+    BookingResponse createWalkInBooking(
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest request
+    );
 }

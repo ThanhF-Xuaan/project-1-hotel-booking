@@ -77,7 +77,19 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
+import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
+import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentPurpose;
+import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType;
+import vn.edu.utc.hotel_booking.modules.operation.entity.enums.DocumentType;
+import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.CompanyCreateRequest;
+import vn.edu.utc.hotel_booking.modules.identity.dto.response.CompanyResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInQuoteRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest;
+import org.springframework.util.StringUtils;
+import java.time.ZoneOffset;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.SurchargeRule;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
 import vn.edu.utc.hotel_booking.modules.pricing.repository.SurchargeRuleRepository;
@@ -1243,5 +1255,605 @@ public class BookingServiceImpl implements BookingService {
         bookingRepository.save(booking);
 
         bookingChargeService.deleteById(chargeId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WalkInQuoteResponse calculateWalkInQuote(WalkInQuoteRequest request) {
+        if (request.getRooms() == null || request.getRooms().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Danh sách phòng không được để trống");
+        }
+        if (request.getRooms().size() > 5) {
+            throw new AppException(ErrorCode.EXCEEDS_MAX_ROOMS);
+        }
+        if (!request.getCheckInDate().isBefore(request.getCheckOutDate())) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_DATES, "Ngày nhận phòng phải trước ngày trả phòng");
+        }
+
+        Hotel hotel = hotelService.getEntityById(request.getHotelId());
+        LocalTime actualTime = request.getActualCheckInTime() != null ? request.getActualCheckInTime() : LocalTime.now();
+
+        List<WalkInQuoteResponse.WalkInQuoteRoomItemResponse> roomItemResponses = new ArrayList<>();
+        BigDecimal totalSubtotal = BigDecimal.ZERO;
+        BigDecimal totalVat = BigDecimal.ZERO;
+        BigDecimal totalServiceFee = BigDecimal.ZERO;
+        BigDecimal totalSurcharges = BigDecimal.ZERO;
+        BigDecimal totalAmount = BigDecimal.ZERO;
+
+        for (int i = 0; i < request.getRooms().size(); i++) {
+            WalkInQuoteRequest.WalkInQuoteRoomItemRequest roomReq = request.getRooms().get(i);
+            HotelRoomType roomType = hotelRoomTypeService.getEntityById(roomReq.getHotelRoomTypeId());
+
+            short adults = roomReq.getAdultCount() != null ? roomReq.getAdultCount() : (short) 1;
+            short children = roomReq.getChildCount() != null ? roomReq.getChildCount() : (short) 0;
+            short infants = roomReq.getInfantCount() != null ? roomReq.getInfantCount() : (short) 0;
+            short extraBeds = roomReq.getExtraBeds() != null ? roomReq.getExtraBeds() : (short) 0;
+
+            PriceCalculationRequest priceReq = PriceCalculationRequest.builder()
+                    .hotelRoomTypeId(roomType.getId())
+                    .checkInDate(request.getCheckInDate())
+                    .checkOutDate(request.getCheckOutDate())
+                    .adults(adults)
+                    .children(children)
+                    .infants(infants)
+                    .extraBeds(extraBeds)
+                    .build();
+
+            PriceBreakdownDto breakdown = priceEngine.calculatePrice(priceReq);
+
+            BigDecimal netPrice = breakdown.getTotalRoomNetAmount() != null ? breakdown.getTotalRoomNetAmount() : BigDecimal.ZERO;
+            BigDecimal vatAmount = breakdown.getTotalRoomVat() != null ? breakdown.getTotalRoomVat() : BigDecimal.ZERO;
+            BigDecimal serviceFeeAmount = breakdown.getTotalRoomServiceFee() != null ? breakdown.getTotalRoomServiceFee() : BigDecimal.ZERO;
+            BigDecimal roomTotal = breakdown.getTotalRoomGrossAmount() != null ? breakdown.getTotalRoomGrossAmount() : BigDecimal.ZERO;
+
+            totalSubtotal = totalSubtotal.add(netPrice);
+            totalVat = totalVat.add(vatAmount);
+            totalServiceFee = totalServiceFee.add(serviceFeeAmount);
+            totalAmount = totalAmount.add(roomTotal);
+
+            ItemizedSurchargeDto capSurcharge = ItemizedSurchargeDto.builder()
+                    .extraAdultsCount(adults > (roomType.getStandardAdults() != null ? roomType.getStandardAdults() : 2)
+                            ? (short) (adults - (roomType.getStandardAdults() != null ? roomType.getStandardAdults() : 2))
+                            : (short) 0)
+                    .extraAdultsSurchargeTotal(breakdown.getTotalExtraAdultsSurcharge() != null ? breakdown.getTotalExtraAdultsSurcharge() : BigDecimal.ZERO)
+                    .extraChildrenCount(children)
+                    .extraChildrenSurchargeTotal(breakdown.getTotalExtraChildrenSurcharge() != null ? breakdown.getTotalExtraChildrenSurcharge() : BigDecimal.ZERO)
+                    .infantsCount(infants)
+                    .infantsSurchargeTotal(BigDecimal.ZERO)
+                    .extraBedsCount(extraBeds)
+                    .extraBedsSurchargeTotal(breakdown.getTotalExtraBedsSurcharge() != null ? breakdown.getTotalExtraBedsSurcharge() : BigDecimal.ZERO)
+                    .totalSurchargeAmount(breakdown.getTotalSurchargeAmount() != null ? breakdown.getTotalSurchargeAmount() : BigDecimal.ZERO)
+                    .build();
+
+            if (breakdown.getTotalSurchargeAmount() != null) {
+                totalSurcharges = totalSurcharges.add(breakdown.getTotalSurchargeAmount());
+            }
+
+            int nights = breakdown.getTotalNights() != null && breakdown.getTotalNights() > 0 ? breakdown.getTotalNights() : 1;
+            BigDecimal baseDailyRate = netPrice.divide(BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP);
+            SurchargeProposalResponse earlyProposal = evaluateEarlyCheckinProposal(
+                    roomType.getId(),
+                    request.getCheckInDate(),
+                    actualTime,
+                    baseDailyRate,
+                    hotel
+            );
+
+            WalkInQuoteResponse.WalkInQuoteRoomItemResponse roomItem = WalkInQuoteResponse.WalkInQuoteRoomItemResponse.builder()
+                    .roomIndex(i)
+                    .hotelRoomTypeId(roomType.getId())
+                    .roomTypeName(roomType.getRoomType().getName())
+                    .adultCount(adults)
+                    .childCount(children)
+                    .infantCount(infants)
+                    .extraBeds(extraBeds)
+                    .dailyRates(breakdown.getDailyPrices())
+                    .netPrice(netPrice)
+                    .vatAmount(vatAmount)
+                    .serviceFeeAmount(serviceFeeAmount)
+                    .totalPrice(roomTotal)
+                    .capacitySurcharge(capSurcharge)
+                    .earlyCheckinProposal(earlyProposal)
+                    .build();
+
+            roomItemResponses.add(roomItem);
+        }
+
+        return WalkInQuoteResponse.builder()
+                .hotelId(hotel.getId())
+                .checkInDate(request.getCheckInDate())
+                .checkOutDate(request.getCheckOutDate())
+                .rooms(roomItemResponses)
+                .subtotalAmount(totalSubtotal)
+                .totalVatAmount(totalVat)
+                .totalServiceFeeAmount(totalServiceFee)
+                .totalSurchargesAmount(totalSurcharges)
+                .totalAmount(totalAmount)
+                .build();
+    }
+
+    private SurchargeProposalResponse evaluateEarlyCheckinProposal(
+            Integer hotelRoomTypeId,
+            LocalDate checkInDate,
+            LocalTime actualTime,
+            BigDecimal baseRoomRate,
+            Hotel hotel
+    ) {
+        String standardTime = "14:00";
+        if (hotel.getCheckInTime() != null) {
+            standardTime = hotel.getCheckInTime().toString();
+        }
+
+        Optional<SurchargeRule> configuredRuleOpt = Optional.empty();
+        if (hotelRoomTypeId != null && surchargeRuleRepository != null) {
+            configuredRuleOpt = surchargeRuleRepository.findActiveRuleForRoomTypeAndDate(
+                    hotelRoomTypeId, BookingChargeType.EARLY_CHECKIN.name(), checkInDate
+            );
+        }
+
+        JsonNode conditionsNode = null;
+        if (configuredRuleOpt.isPresent() && configuredRuleOpt.get().getConditions() != null) {
+            try {
+                conditionsNode = objectMapper.readTree(configuredRuleOpt.get().getConditions());
+                if (conditionsNode.has("standard_time")) {
+                    standardTime = conditionsNode.get("standard_time").asText();
+                }
+            } catch (Exception e) {
+                log.warn("Lỗi đọc conditions JSON của surcharge rule: {}", e.getMessage());
+            }
+        }
+
+        LocalTime standardLocalTime;
+        try {
+            standardLocalTime = LocalTime.parse(standardTime);
+        } catch (Exception e) {
+            standardLocalTime = LocalTime.of(14, 0);
+        }
+
+        BigDecimal percentage = BigDecimal.ZERO;
+        BigDecimal fixedAmount = null;
+        String policyRule = "";
+        long diffMinutes = 0;
+        boolean applicable = false;
+
+        OffsetDateTime actualOffsetTime = checkInDate.atTime(actualTime).atOffset(ZoneOffset.ofHours(7));
+
+        if (actualTime.isBefore(standardLocalTime)) {
+            applicable = true;
+            diffMinutes = Duration.between(actualTime, standardLocalTime).toMinutes();
+
+            boolean tierMatched = false;
+            if (conditionsNode != null && conditionsNode.has("tiers") && conditionsNode.get("tiers").isArray()) {
+                for (JsonNode tier : conditionsNode.get("tiers")) {
+                    LocalTime from = tier.has("from_time") ? LocalTime.parse(tier.get("from_time").asText()) : LocalTime.MIN;
+                    LocalTime to = tier.has("to_time") ? LocalTime.parse(tier.get("to_time").asText()) : standardLocalTime;
+                    if (!actualTime.isBefore(from) && !actualTime.isAfter(to)) {
+                        tierMatched = true;
+                        if ("PERCENT".equalsIgnoreCase(tier.path("adjustment_type").asText("PERCENT"))) {
+                            percentage = new BigDecimal(tier.path("adjustment_value").asText("30.0"));
+                        } else {
+                            fixedAmount = new BigDecimal(tier.path("adjustment_value").asText("0"));
+                        }
+                        policyRule = tier.has("description") ? tier.get("description").asText() : "Phụ thu nhận phòng sớm theo cấu hình hạng phòng";
+                        break;
+                    }
+                }
+            }
+
+            if (!tierMatched) {
+                if (configuredRuleOpt.isPresent() && !"PERCENT".equalsIgnoreCase(configuredRuleOpt.get().getAdjustmentType())) {
+                    fixedAmount = configuredRuleOpt.get().getAdjustmentValue();
+                    policyRule = "Phụ thu nhận phòng sớm cố định theo cấu hình hạng phòng";
+                } else if (configuredRuleOpt.isPresent()) {
+                    percentage = configuredRuleOpt.get().getAdjustmentValue();
+                    policyRule = "Phụ thu nhận phòng sớm theo tỷ lệ cấu hình hạng phòng (" + percentage + "%)";
+                } else {
+                    if (actualTime.isBefore(LocalTime.of(6, 0))) {
+                        percentage = new BigDecimal("100.0");
+                        policyRule = "Nhận phòng trước 06:00 (Phụ thu 100% giá phòng 1 đêm)";
+                    } else if (actualTime.isBefore(LocalTime.of(9, 0))) {
+                        percentage = new BigDecimal("50.0");
+                        policyRule = "Nhận phòng từ 06:00 đến 09:00 (Phụ thu 50% giá phòng 1 đêm)";
+                    } else {
+                        percentage = new BigDecimal("30.0");
+                        policyRule = "Nhận phòng từ 09:00 đến 14:00 (Phụ thu 30% giá phòng 1 đêm)";
+                    }
+                }
+            }
+        } else {
+            policyRule = "Khách nhận phòng đúng hoặc sau giờ quy định (" + standardTime + ") — Không phát sinh phụ thu";
+        }
+
+        BigDecimal suggestedAmount = BigDecimal.ZERO;
+        String suggestedItemName = "Phụ thu nhận phòng sớm (Early Check-in)";
+        if (applicable) {
+            if (fixedAmount != null && fixedAmount.compareTo(BigDecimal.ZERO) > 0) {
+                suggestedAmount = fixedAmount;
+                suggestedItemName = "Phụ thu nhận phòng sớm (Mức cố định: " + String.format("%,.0f", fixedAmount) + " đ)";
+            } else if (percentage.compareTo(BigDecimal.ZERO) > 0) {
+                suggestedAmount = baseRoomRate.multiply(percentage).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                suggestedItemName = "Phụ thu nhận phòng sớm (" + percentage.stripTrailingZeros().toPlainString() + "% giá phòng 1 đêm)";
+            }
+        }
+
+        return SurchargeProposalResponse.builder()
+                .applicable(applicable)
+                .chargeType(BookingChargeType.EARLY_CHECKIN)
+                .standardTime(standardTime)
+                .actualTime(actualOffsetTime)
+                .timeDifferenceMinutes(diffMinutes)
+                .policyRule(policyRule)
+                .baseRoomRate(baseRoomRate)
+                .suggestedPercentage(percentage)
+                .suggestedAmount(suggestedAmount)
+                .suggestedItemName(suggestedItemName)
+                .defaultServiceFeeRate(new BigDecimal("5.00"))
+                .defaultVatRate(new BigDecimal("8.00"))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public BookingResponse createWalkInBooking(WalkInBookingRequest request) {
+        if (request.getRooms() == null || request.getRooms().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Danh sách phòng đặt không được để trống");
+        }
+        if (request.getRooms().size() > 5) {
+            throw new AppException(ErrorCode.EXCEEDS_MAX_ROOMS);
+        }
+        if (!request.getCheckInDate().isBefore(request.getCheckOutDate())) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_DATES, "Ngày nhận phòng phải trước ngày trả phòng");
+        }
+
+        Hotel hotel = hotelService.getEntityById(request.getHotelId());
+
+        // 1. Phân loại Company & BookingGuest
+        boolean hasCompany = request.getCompanyId() != null
+                || (request.getNewCompany() != null && StringUtils.hasText(request.getNewCompany().getName()));
+        boolean isSmallOrFit = request.getRooms().size() <= 2 && !hasCompany;
+
+        // Xử lý Company
+        Company company = null;
+        if (request.getCompanyId() != null) {
+            company = companyService.getEntityById(request.getCompanyId());
+        } else if (request.getNewCompany() != null && StringUtils.hasText(request.getNewCompany().getName())) {
+            CompanyCreateRequest compReq = CompanyCreateRequest.builder()
+                    .name(request.getNewCompany().getName())
+                    .taxCode(request.getNewCompany().getTaxCode())
+                    .address(request.getNewCompany().getAddress())
+                    .contactName(request.getNewCompany().getContactName())
+                    .contactPhone(request.getNewCompany().getContactPhone())
+                    .contactEmail(request.getNewCompany().getContactEmail())
+                    .build();
+            CompanyResponse compResp = companyService.create(compReq);
+            company = companyService.getEntityById(compResp.getId());
+        }
+
+        // Xử lý BookingGuest (Người đặt / Đại diện)
+        BookingGuest bookingGuest;
+        if (request.getGuestId() != null) {
+            bookingGuest = guestService.getEntityById(request.getGuestId());
+        } else if (request.getNewGuest() != null && StringUtils.hasText(request.getNewGuest().getPhone())) {
+            bookingGuest = guestService.getOrCreateGuest(
+                    request.getNewGuest().getPhone(),
+                    request.getNewGuest().getFullName(),
+                    request.getNewGuest().getEmail(),
+                    request.getNewGuest().getNationality() != null ? request.getNewGuest().getNationality() : "Việt Nam"
+            );
+            if (request.getNewGuest().getIdentityNumber() != null) {
+                bookingGuest.setIdentityNumber(request.getNewGuest().getIdentityNumber());
+            }
+            if (request.getNewGuest().getIdentityType() != null) {
+                bookingGuest.setIdentityType(request.getNewGuest().getIdentityType());
+            }
+            if (request.getNewGuest().getBirthDate() != null) {
+                bookingGuest.setBirthDate(request.getNewGuest().getBirthDate());
+            }
+        } else {
+            throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Vui lòng cung cấp thông tin người đặt / đại diện thanh toán");
+        }
+
+        // 2. Sequential Lock Ordering & Kiểm tra phòng vật lý READY
+        List<WalkInBookingRequest.WalkInRoomItemRequest> sortedRooms = new ArrayList<>(request.getRooms());
+        sortedRooms.sort(Comparator.comparing(WalkInBookingRequest.WalkInRoomItemRequest::getRoomInstanceId));
+
+        Map<Integer, RoomInstance> roomInstanceMap = new HashMap<>();
+        for (WalkInBookingRequest.WalkInRoomItemRequest rReq : sortedRooms) {
+            RoomInstance roomInst = roomInstanceService.getEntityById(rReq.getRoomInstanceId());
+
+            if (!roomInst.getHotel().getId().equals(hotel.getId())) {
+                throw new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Phòng " + roomInst.getRoomNumber() + " không thuộc khách sạn này");
+            }
+            if (!roomInst.getHotelRoomType().getId().equals(rReq.getHotelRoomTypeId())) {
+                throw new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Phòng " + roomInst.getRoomNumber() + " không đúng hạng phòng yêu cầu");
+            }
+            if (!"READY".equalsIgnoreCase(roomInst.getCurrentStatus())) {
+                throw new AppException(ErrorCode.ROOM_NOT_READY_FOR_CHECKIN,
+                        "Phòng vật lý " + roomInst.getRoomNumber() + " đang ở trạng thái '" + roomInst.getCurrentStatus() + "'. Chỉ có thể nhận phòng với phòng sẵn sàng (READY).");
+            }
+
+            List<BookingRoom> overlapping = bookingRoomService.findOverlappingAssignedRooms(
+                    roomInst.getId(), request.getCheckInDate(), request.getCheckOutDate());
+            if (!overlapping.isEmpty()) {
+                throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                        "Phòng " + roomInst.getRoomNumber() + " đã có khách đặt trong khoảng thời gian này");
+            }
+
+            roomInstanceMap.put(roomInst.getId(), roomInst);
+        }
+
+        // 3. Tính toán chi phí sơ bộ để kiểm tra quy tắc thanh toán
+        BigDecimal calculatedRoomTotal = BigDecimal.ZERO;
+        for (WalkInBookingRequest.WalkInRoomItemRequest rReq : sortedRooms) {
+            PriceCalculationRequest priceReq = PriceCalculationRequest.builder()
+                    .hotelRoomTypeId(rReq.getHotelRoomTypeId())
+                    .checkInDate(request.getCheckInDate())
+                    .checkOutDate(request.getCheckOutDate())
+                    .adults(rReq.getAdultCount() != null ? rReq.getAdultCount() : (short) 1)
+                    .children(rReq.getChildCount() != null ? rReq.getChildCount() : (short) 0)
+                    .infants(rReq.getInfantCount() != null ? rReq.getInfantCount() : (short) 0)
+                    .extraBeds(rReq.getExtraBeds() != null ? rReq.getExtraBeds() : (short) 0)
+                    .build();
+            PriceBreakdownDto breakdown = priceEngine.calculatePrice(priceReq);
+            calculatedRoomTotal = calculatedRoomTotal.add(breakdown.getTotalRoomGrossAmount() != null ? breakdown.getTotalRoomGrossAmount() : BigDecimal.ZERO);
+        }
+
+        BigDecimal calculatedChargesTotal = BigDecimal.ZERO;
+        if (request.getConfirmedCharges() != null) {
+            for (WalkInBookingRequest.WalkInConfirmedChargeRequest c : request.getConfirmedCharges()) {
+                if (!Boolean.TRUE.equals(c.getIsWaived()) && c.getAmount() != null) {
+                    calculatedChargesTotal = calculatedChargesTotal.add(c.getAmount());
+                }
+            }
+        }
+
+        BigDecimal totalExpected = calculatedRoomTotal.add(calculatedChargesTotal);
+
+        // 4. RÀNG BUỘC THANH TOÁN (Payment Enforcement)
+        if (request.getPayment() == null || request.getPayment().getAmount() == null) {
+            throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT, "Thông tin thanh toán không được để trống");
+        }
+
+        BigDecimal paidAmount = request.getPayment().getAmount();
+        String paymentPurposeStr = request.getPayment().getPaymentPurpose() != null ? request.getPayment().getPaymentPurpose() : "FULL_PAYMENT";
+
+        if (isSmallOrFit) {
+            if (!"FULL_PAYMENT".equalsIgnoreCase(paymentPurposeStr) || paidAmount.compareTo(totalExpected) < 0) {
+                throw new AppException(ErrorCode.WALK_IN_REQUIRE_FULL_PAYMENT,
+                        "Khách vãng lai đặt ít phòng (≤ 2 phòng) bắt buộc thanh toán 100% khi nhận phòng (Cần: " + String.format("%,.0f", totalExpected) + " đ, Thực trả: " + String.format("%,.0f", paidAmount) + " đ)");
+            }
+        } else {
+            if ("DEPOSIT".equalsIgnoreCase(paymentPurposeStr)) {
+                BigDecimal minDeposit = totalExpected.multiply(new BigDecimal("0.50"));
+                if (paidAmount.compareTo(minDeposit) < 0) {
+                    throw new AppException(ErrorCode.INVALID_PAYMENT_AMOUNT,
+                            "Số tiền đặt cọc tối thiểu là 50% tổng chi phí (" + String.format("%,.0f", minDeposit) + " đ)");
+                }
+            }
+        }
+
+        // 5. Khởi tạo Booking Entity
+        BookingType bType = hasCompany ? BookingType.CORPORATE : (request.getBookingType() != null ? request.getBookingType() : BookingType.FIT);
+        Booking booking = Booking.builder()
+                .hotel(hotel)
+                .bookingGuest(bookingGuest)
+                .company(company)
+                .bookingType(bType)
+                .bookingNumber(generateBookingNumber())
+                .status(BookingStatus.CONFIRMED)
+                .issuedAt(OffsetDateTime.now())
+                .notes(request.getNotes())
+                .subtotalAmount(BigDecimal.ZERO)
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .totalVatAmount(BigDecimal.ZERO)
+                .totalAmount(BigDecimal.ZERO)
+                .build();
+
+        BigDecimal bookingSubtotal = BigDecimal.ZERO;
+        BigDecimal bookingVatTotal = BigDecimal.ZERO;
+        List<BookingDetail> details = new ArrayList<>();
+        List<BookingRoom> allCreatedBookingRooms = new ArrayList<>();
+
+        for (WalkInBookingRequest.WalkInRoomItemRequest rReq : sortedRooms) {
+            HotelRoomType roomType = hotelRoomTypeService.getEntityById(rReq.getHotelRoomTypeId());
+            RoomInstance roomInst = roomInstanceMap.get(rReq.getRoomInstanceId());
+
+            roomAvailabilityService.confirmBookingInventory(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate(), 1);
+
+            PriceCalculationRequest priceReq = PriceCalculationRequest.builder()
+                    .hotelRoomTypeId(roomType.getId())
+                    .checkInDate(request.getCheckInDate())
+                    .checkOutDate(request.getCheckOutDate())
+                    .adults(rReq.getAdultCount() != null ? rReq.getAdultCount() : (short) 1)
+                    .children(rReq.getChildCount() != null ? rReq.getChildCount() : (short) 0)
+                    .infants(rReq.getInfantCount() != null ? rReq.getInfantCount() : (short) 0)
+                    .extraBeds(rReq.getExtraBeds() != null ? rReq.getExtraBeds() : (short) 0)
+                    .build();
+            PriceBreakdownDto breakdown = priceEngine.calculatePrice(priceReq);
+
+            BookingDetail detail = BookingDetail.builder()
+                    .booking(booking)
+                    .hotelRoomType(roomType)
+                    .roomTypeName(roomType.getRoomType().getName())
+                    .quantity((short) 1)
+                    .checkInDate(request.getCheckInDate())
+                    .checkOutDate(request.getCheckOutDate())
+                    .build();
+
+            short adultCount = rReq.getAdultCount() != null ? rReq.getAdultCount() : (short) 1;
+            short childCount = rReq.getChildCount() != null ? rReq.getChildCount() : (short) 0;
+            short infantCount = rReq.getInfantCount() != null ? rReq.getInfantCount() : (short) 0;
+            short totalGuests = (short) (adultCount + childCount + infantCount);
+
+            BookingRoom bookingRoom = BookingRoom.builder()
+                    .bookingDetail(detail)
+                    .roomInstance(roomInst)
+                    .adultCount(adultCount)
+                    .childCount(childCount)
+                    .infantCount(infantCount)
+                    .guestCount(totalGuests)
+                    .status(BookingRoomStatus.CHECKED_IN)
+                    .assignedAt(OffsetDateTime.now())
+                    .actualCheckInAt(OffsetDateTime.now())
+                    .build();
+
+            List<BookingDailyRate> dailyRates = new ArrayList<>();
+            BigDecimal roomSubtotal = BigDecimal.ZERO;
+            BigDecimal roomVat = BigDecimal.ZERO;
+
+            TaxCategory taxCategory = null;
+            BigDecimal vatPercent = BigDecimal.valueOf(10);
+            if (roomType.getTaxCategoryId() != null) {
+                taxCategory = taxCategoryService.getEntityById(roomType.getTaxCategoryId());
+                BigDecimal activeVat = vatRuleService.getActiveVatPercent(roomType.getTaxCategoryId(), request.getCheckInDate());
+                if (activeVat != null && activeVat.compareTo(BigDecimal.ZERO) > 0) {
+                    vatPercent = activeVat;
+                }
+            }
+
+            for (DailyPriceDto daily : breakdown.getDailyPrices()) {
+                BigDecimal netPrice = daily.getNetAmount();
+                BigDecimal serviceFee = netPrice.multiply(booking.getServiceFeeRate()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                BigDecimal taxable = netPrice.add(serviceFee);
+                BigDecimal vatAmount = taxable.multiply(vatPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+
+                BookingDailyRate dr = BookingDailyRate.builder()
+                        .bookingRoom(bookingRoom)
+                        .stayDate(daily.getDate())
+                        .basePrice(daily.getBaseRate())
+                        .discountAmount(daily.getDiscountAmount())
+                        .surchargeAmount(daily.getSurchargeAmount())
+                        .serviceFeeRate(booking.getServiceFeeRate())
+                        .serviceFeeAmount(serviceFee)
+                        .taxCategory(taxCategory)
+                        .vatPercent(vatPercent)
+                        .vatAmount(vatAmount)
+                        .netPrice(netPrice)
+                        .status("CONFIRMED")
+                        .build();
+                dailyRates.add(dr);
+                roomSubtotal = roomSubtotal.add(netPrice);
+                roomVat = roomVat.add(vatAmount);
+            }
+
+            bookingRoom.setDailyRates(dailyRates);
+            detail.setBookingRooms(List.of(bookingRoom));
+            details.add(detail);
+            allCreatedBookingRooms.add(bookingRoom);
+
+            bookingSubtotal = bookingSubtotal.add(roomSubtotal);
+            bookingVatTotal = bookingVatTotal.add(roomVat);
+        }
+
+        booking.setBookingDetails(details);
+        booking.setSubtotalAmount(bookingSubtotal);
+        BigDecimal bookingServiceFee = bookingSubtotal.multiply(booking.getServiceFeeRate()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        booking.setServiceFeeAmount(bookingServiceFee);
+        booking.setTotalVatAmount(bookingVatTotal);
+        booking.setTotalAmount(bookingSubtotal.add(bookingServiceFee).add(bookingVatTotal));
+
+        Booking savedBooking = bookingRepository.save(booking);
+
+        // 6. Xếp phòng vật lý & Check-in & StayGuest & RoomSlots
+        for (int i = 0; i < sortedRooms.size(); i++) {
+            WalkInBookingRequest.WalkInRoomItemRequest rReq = sortedRooms.get(i);
+            BookingRoom br = allCreatedBookingRooms.get(i);
+            RoomInstance roomInst = roomInstanceMap.get(rReq.getRoomInstanceId());
+
+            // Cập nhật trạng thái phòng -> OCCUPIED
+            roomInstanceService.updateRoomStatusEntity(roomInst.getId(), "OCCUPIED");
+
+            // Tạo & Chiếm dụng RoomSlot
+            roomSlotService.createOrReserveSlots(roomInst, request.getCheckInDate(), request.getCheckOutDate(), br.getId());
+            roomSlotService.occupySlots(roomInst.getId(), request.getCheckInDate(), request.getCheckOutDate());
+
+            // Tạo StayGuests
+            if (rReq.getStayGuests() != null && !rReq.getStayGuests().isEmpty()) {
+                for (WalkInBookingRequest.WalkInStayGuestRequest sg : rReq.getStayGuests()) {
+                    DocumentType docType = DocumentType.CCCD;
+                    if (sg.getIdentityType() != null) {
+                        try {
+                            docType = DocumentType.valueOf(sg.getIdentityType());
+                        } catch (Exception ignored) {}
+                    }
+                    StayGuestCreateRequest sgReq = StayGuestCreateRequest.builder()
+                            .hotelId(hotel.getId())
+                            .bookingId(savedBooking.getId())
+                            .bookingRoomId(br.getId())
+                            .roomId(roomInst.getId())
+                            .roomNumber(roomInst.getRoomNumber())
+                            .fullName(sg.getFullName())
+                            .dateOfBirth(sg.getBirthDate())
+                            .gender(sg.getGender())
+                            .nationality(sg.getNationality() != null ? sg.getNationality() : "Việt Nam")
+                            .documentType(docType)
+                            .documentNumber(sg.getIdentityNumber() != null ? sg.getIdentityNumber() : "N/A")
+                            .checkInTime(OffsetDateTime.now())
+                            .expectedCheckOutTime(request.getCheckOutDate().atTime(12, 0).atOffset(ZoneOffset.ofHours(7)))
+                            .build();
+                    stayGuestService.createOrCheckIn(sgReq);
+                }
+            }
+
+            stayGuestService.syncLodgingQueueForBookingRoom(br.getId());
+        }
+
+        // 7. Ghi nhận Phụ thu đã xác nhận
+        if (request.getConfirmedCharges() != null && !request.getConfirmedCharges().isEmpty()) {
+            for (WalkInBookingRequest.WalkInConfirmedChargeRequest c : request.getConfirmedCharges()) {
+                BookingRoom targetRoom = allCreatedBookingRooms.get(0);
+                if (c.getRoomInstanceId() != null) {
+                    for (BookingRoom br : allCreatedBookingRooms) {
+                        if (br.getRoomInstance() != null && br.getRoomInstance().getId().equals(c.getRoomInstanceId())) {
+                            targetRoom = br;
+                            break;
+                        }
+                    }
+                }
+
+                boolean isWaived = Boolean.TRUE.equals(c.getIsWaived());
+                BigDecimal unitPrice = isWaived ? BigDecimal.ZERO : (c.getAmount() != null ? c.getAmount() : BigDecimal.ZERO);
+                String desc = c.getDescription() != null ? c.getDescription() : "";
+                if (isWaived && StringUtils.hasText(c.getWaivedReason())) {
+                    desc += " (Miễn phụ thu: " + c.getWaivedReason() + ")";
+                }
+
+                BookingChargeCreateRequest chReq = BookingChargeCreateRequest.builder()
+                        .chargeType(c.getChargeType())
+                        .itemName(c.getDescription() != null ? c.getDescription() : c.getChargeType().name())
+                        .description(desc)
+                        .quantity(1)
+                        .unitPrice(unitPrice)
+                        .serviceFeeRate(BigDecimal.ZERO)
+                        .vatRate(BigDecimal.ZERO)
+                        .build();
+                bookingChargeService.createCharge(targetRoom, chReq);
+            }
+        }
+
+        // 8. Ghi nhận Thanh toán Payment
+        PaymentPurpose pPurpose = "DEPOSIT".equalsIgnoreCase(paymentPurposeStr) ? PaymentPurpose.DEPOSIT : PaymentPurpose.FULL_PAYMENT;
+        Payment payment = Payment.builder()
+                .booking(savedBooking)
+                .totalAmount(paidAmount)
+                .paymentMethod(request.getPayment().getPaymentMethod())
+                .paymentPurpose(pPurpose)
+                .status(PaymentStatus.SUCCESS)
+                .transactionReference(request.getPayment().getTransactionReference())
+                .paidAt(OffsetDateTime.now())
+                .build();
+        paymentRepository.save(payment);
+
+        // 9. Sinh hóa đơn & Quyết toán nếu đủ tiền
+        invoiceService.createInvoice(InvoiceCreateRequest.builder()
+                .bookingId(savedBooking.getId())
+                .serviceFeeRate(savedBooking.getServiceFeeRate())
+                .build());
+
+        if (paidAmount.compareTo(savedBooking.getTotalAmount()) >= 0) {
+            invoiceService.settleAndCloseInvoice(savedBooking.getId());
+        }
+
+        return bookingMapper.toResponse(savedBooking);
     }
 }

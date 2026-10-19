@@ -49,6 +49,11 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInQuoteRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest;
+import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
+import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -1155,6 +1160,249 @@ class BookingServiceTest {
         verify(serviceOrderService).markOrdersPaidForBooking(301L);
         verify(invoiceService).settleAndCloseInvoice(301L);
         verify(stayGuestService).syncLodgingQueueForBookingRoom(101L);
+    }
+
+    @Test
+    @DisplayName("calculateWalkInQuote - Thành công tính giá và phụ thu cho phòng walk-in")
+    void calculateWalkInQuote_Success() {
+        Short hotelId = 1;
+        Integer roomTypeId = 10;
+        LocalDate checkIn = LocalDate.now();
+        LocalDate checkOut = checkIn.plusDays(1);
+
+        WalkInQuoteRequest request = WalkInQuoteRequest.builder()
+                .hotelId(hotelId)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .rooms(List.of(
+                        WalkInQuoteRequest.WalkInQuoteRoomItemRequest.builder()
+                                .hotelRoomTypeId(roomTypeId)
+                                .adultCount((short) 2)
+                                .build()
+                ))
+                .build();
+
+        Hotel hotel = Hotel.builder().id(hotelId).name("Khách sạn Grand").build();
+        RoomType rt = RoomType.builder().id((short) 1).name("Deluxe").build();
+        HotelRoomType hrt = HotelRoomType.builder().id(roomTypeId).roomType(rt).hotel(hotel).standardAdults((short) 2).build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .totalRoomNetAmount(new BigDecimal("1000000.00"))
+                .totalRoomServiceFee(new BigDecimal("50000.00"))
+                .totalRoomVat(new BigDecimal("105000.00"))
+                .totalRoomGrossAmount(new BigDecimal("1155000.00"))
+                .totalNights(1)
+                .dailyPrices(List.of())
+                .build();
+
+        when(hotelService.getEntityById(hotelId)).thenReturn(hotel);
+        when(hotelRoomTypeService.getEntityById(roomTypeId)).thenReturn(hrt);
+        when(priceEngine.calculatePrice(any())).thenReturn(breakdown);
+
+        WalkInQuoteResponse response = bookingService.calculateWalkInQuote(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getRooms()).hasSize(1);
+        assertThat(response.getSubtotalAmount()).isEqualByComparingTo("1000000.00");
+        assertThat(response.getTotalAmount()).isEqualByComparingTo("1155000.00");
+    }
+
+    @Test
+    @DisplayName("calculateWalkInQuote - Ném ngoại lệ khi chọn quá 5 phòng")
+    void calculateWalkInQuote_ExceedsMaxRooms_ThrowsException() {
+        WalkInQuoteRequest request = WalkInQuoteRequest.builder()
+                .hotelId((short) 1)
+                .checkInDate(LocalDate.now())
+                .checkOutDate(LocalDate.now().plusDays(1))
+                .rooms(List.of(
+                        WalkInQuoteRequest.WalkInQuoteRoomItemRequest.builder().hotelRoomTypeId(1).build(),
+                        WalkInQuoteRequest.WalkInQuoteRoomItemRequest.builder().hotelRoomTypeId(2).build(),
+                        WalkInQuoteRequest.WalkInQuoteRoomItemRequest.builder().hotelRoomTypeId(3).build(),
+                        WalkInQuoteRequest.WalkInQuoteRoomItemRequest.builder().hotelRoomTypeId(4).build(),
+                        WalkInQuoteRequest.WalkInQuoteRoomItemRequest.builder().hotelRoomTypeId(5).build(),
+                        WalkInQuoteRequest.WalkInQuoteRoomItemRequest.builder().hotelRoomTypeId(6).build()
+                ))
+                .build();
+
+        assertThatThrownBy(() -> bookingService.calculateWalkInQuote(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EXCEEDS_MAX_ROOMS);
+    }
+
+    @Test
+    @DisplayName("createWalkInBooking - Đặt phòng ít (1 phòng) bắt buộc thanh toán 100%, ném ngoại lệ nếu trả thiếu hoặc chọn đặt cọc")
+    void createWalkInBooking_SmallBooking_Requires100PercentPayment() {
+        Short hotelId = 1;
+        Integer roomTypeId = 10;
+        Integer roomInstanceId = 101;
+        LocalDate checkIn = LocalDate.now();
+        LocalDate checkOut = checkIn.plusDays(1);
+
+        WalkInBookingRequest request = WalkInBookingRequest.builder()
+                .hotelId(hotelId)
+                .guestId(1L)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .rooms(List.of(
+                        WalkInBookingRequest.WalkInRoomItemRequest.builder()
+                                .hotelRoomTypeId(roomTypeId)
+                                .roomInstanceId(roomInstanceId)
+                                .build()
+                ))
+                .payment(WalkInBookingRequest.WalkInPaymentRequest.builder()
+                        .paymentMethod(PaymentMethod.CASH)
+                        .paymentPurpose("DEPOSIT") // Chọn deposit cho đơn ít phòng
+                        .amount(new BigDecimal("500000.00")) // Trả thiếu so với 1155000
+                        .build())
+                .build();
+
+        Hotel hotel = Hotel.builder().id(hotelId).build();
+        BookingGuest guest = BookingGuest.builder().id(1L).build();
+        RoomType rt = RoomType.builder().id((short) 1).name("Deluxe").build();
+        HotelRoomType hrt = HotelRoomType.builder().id(roomTypeId).roomType(rt).hotel(hotel).build();
+        RoomInstance roomInst = RoomInstance.builder().id(roomInstanceId).hotel(hotel).hotelRoomType(hrt).roomNumber("101").currentStatus("READY").build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .totalRoomGrossAmount(new BigDecimal("1155000.00"))
+                .build();
+
+        when(hotelService.getEntityById(hotelId)).thenReturn(hotel);
+        when(guestService.getEntityById(1L)).thenReturn(guest);
+        when(roomInstanceService.getEntityById(roomInstanceId)).thenReturn(roomInst);
+        when(bookingRoomService.findOverlappingAssignedRooms(eq(roomInstanceId), any(), any())).thenReturn(List.of());
+        when(priceEngine.calculatePrice(any())).thenReturn(breakdown);
+
+        assertThatThrownBy(() -> bookingService.createWalkInBooking(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.WALK_IN_REQUIRE_FULL_PAYMENT);
+    }
+
+    @Test
+    @DisplayName("createWalkInBooking - Ném ngoại lệ khi phòng vật lý không ở trạng thái READY")
+    void createWalkInBooking_RoomNotReady_ThrowsException() {
+        Short hotelId = 1;
+        Integer roomTypeId = 10;
+        Integer roomInstanceId = 101;
+        LocalDate checkIn = LocalDate.now();
+        LocalDate checkOut = checkIn.plusDays(1);
+
+        WalkInBookingRequest request = WalkInBookingRequest.builder()
+                .hotelId(hotelId)
+                .guestId(1L)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .rooms(List.of(
+                        WalkInBookingRequest.WalkInRoomItemRequest.builder()
+                                .hotelRoomTypeId(roomTypeId)
+                                .roomInstanceId(roomInstanceId)
+                                .build()
+                ))
+                .payment(WalkInBookingRequest.WalkInPaymentRequest.builder()
+                        .paymentMethod(PaymentMethod.CASH)
+                        .paymentPurpose("FULL_PAYMENT")
+                        .amount(new BigDecimal("1155000.00"))
+                        .build())
+                .build();
+
+        Hotel hotel = Hotel.builder().id(hotelId).build();
+        BookingGuest guest = BookingGuest.builder().id(1L).build();
+        RoomType rt = RoomType.builder().id((short) 1).name("Deluxe").build();
+        HotelRoomType hrt = HotelRoomType.builder().id(roomTypeId).roomType(rt).hotel(hotel).build();
+        RoomInstance dirtyRoom = RoomInstance.builder().id(roomInstanceId).hotel(hotel).hotelRoomType(hrt).roomNumber("101").currentStatus("DIRTY").build();
+
+        when(hotelService.getEntityById(hotelId)).thenReturn(hotel);
+        when(guestService.getEntityById(1L)).thenReturn(guest);
+        when(roomInstanceService.getEntityById(roomInstanceId)).thenReturn(dirtyRoom);
+
+        assertThatThrownBy(() -> bookingService.createWalkInBooking(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.ROOM_NOT_READY_FOR_CHECKIN);
+    }
+
+    @Test
+    @DisplayName("createWalkInBooking - Thành công tạo đơn, Check-in sang OCCUPIED/IN-HOUSE và quyết toán")
+    void createWalkInBooking_Success_DirectInHouse_AndPaid() {
+        Short hotelId = 1;
+        Integer roomTypeId = 10;
+        Integer roomInstanceId = 101;
+        LocalDate checkIn = LocalDate.now();
+        LocalDate checkOut = checkIn.plusDays(1);
+        BigDecimal total = new BigDecimal("1155000.00");
+
+        WalkInBookingRequest request = WalkInBookingRequest.builder()
+                .hotelId(hotelId)
+                .guestId(1L)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .rooms(List.of(
+                        WalkInBookingRequest.WalkInRoomItemRequest.builder()
+                                .hotelRoomTypeId(roomTypeId)
+                                .roomInstanceId(roomInstanceId)
+                                .stayGuests(List.of(
+                                        WalkInBookingRequest.WalkInStayGuestRequest.builder()
+                                                .fullName("Nguyễn Văn A")
+                                                .identityNumber("001200000123")
+                                                .gender(Gender.MALE)
+                                                .build()
+                                ))
+                                .build()
+                ))
+                .payment(WalkInBookingRequest.WalkInPaymentRequest.builder()
+                        .paymentMethod(PaymentMethod.CASH)
+                        .paymentPurpose("FULL_PAYMENT")
+                        .amount(total)
+                        .build())
+                .build();
+
+        Hotel hotel = Hotel.builder().id(hotelId).build();
+        BookingGuest guest = BookingGuest.builder().id(1L).build();
+        RoomType rt = RoomType.builder().id((short) 1).name("Deluxe").build();
+        HotelRoomType hrt = HotelRoomType.builder().id(roomTypeId).roomType(rt).hotel(hotel).build();
+        RoomInstance readyRoom = RoomInstance.builder().id(roomInstanceId).hotel(hotel).hotelRoomType(hrt).roomNumber("101").currentStatus("READY").build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .totalRoomNetAmount(new BigDecimal("1000000.00"))
+                .totalRoomGrossAmount(total)
+                .dailyPrices(List.of(
+                        DailyPriceDto.builder()
+                                .date(checkIn)
+                                .baseRate(new BigDecimal("1000000.00"))
+                                .netAmount(new BigDecimal("1000000.00"))
+                                .build()
+                ))
+                .build();
+
+        when(hotelService.getEntityById(hotelId)).thenReturn(hotel);
+        when(guestService.getEntityById(1L)).thenReturn(guest);
+        when(roomInstanceService.getEntityById(roomInstanceId)).thenReturn(readyRoom);
+        when(hotelRoomTypeService.getEntityById(roomTypeId)).thenReturn(hrt);
+        when(bookingRoomService.findOverlappingAssignedRooms(eq(roomInstanceId), any(), any())).thenReturn(List.of());
+        when(priceEngine.calculatePrice(any())).thenReturn(breakdown);
+        when(bookingRepository.save(any())).thenAnswer(inv -> {
+            Booking b = inv.getArgument(0);
+            b.setId(888L);
+            return b;
+        });
+        when(bookingMapper.toResponse(any())).thenReturn(BookingResponse.builder().id(888L).status(BookingStatus.CONFIRMED).build());
+
+        BookingResponse response = bookingService.createWalkInBooking(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getId()).isEqualTo(888L);
+
+        // Kiểm tra chuyển trạng thái phòng sang OCCUPIED
+        verify(roomInstanceService).updateRoomStatusEntity(roomInstanceId, "OCCUPIED");
+        verify(roomSlotService).createOrReserveSlots(eq(readyRoom), eq(checkIn), eq(checkOut), any());
+        verify(roomSlotService).occupySlots(eq(roomInstanceId), eq(checkIn), eq(checkOut));
+
+        // Kiểm tra tạo stay guest và đồng bộ BCA
+        verify(stayGuestService).createOrCheckIn(any());
+        verify(stayGuestService).syncLodgingQueueForBookingRoom(any());
+
+        // Kiểm tra ghi nhận thanh toán và hóa đơn
+        verify(paymentRepository).save(any());
+        verify(invoiceService).createInvoice(any());
+        verify(invoiceService).settleAndCloseInvoice(888L);
     }
 }
 

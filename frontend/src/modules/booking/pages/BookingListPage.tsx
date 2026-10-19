@@ -14,6 +14,7 @@ import {
   Utensils,
   Trash2,
   Receipt,
+  UserPlus,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -25,6 +26,7 @@ import StayGuestsModal from '../components/StayGuestsModal';
 import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
+import WalkInBookingModal from '../components/WalkInBookingModal';
 import type {
   BookingResponse,
   BookingStatus,
@@ -107,6 +109,9 @@ export const BookingListPage: React.FC = () => {
 
   // Action status message
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // Walk-in Booking Modal
+  const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
 
   // Checkout Settlement Modal
   const [isCheckoutSettlementModalOpen, setIsCheckoutSettlementModalOpen] = useState(false);
@@ -551,7 +556,16 @@ export const BookingListPage: React.FC = () => {
         <div className="text-sm text-neutral-600 font-medium">
           Tổng số: <span className="font-bold text-neutral-900">{totalElements}</span> đơn đặt phòng
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsWalkInModalOpen(true)}
+            className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs"
+          >
+            <UserPlus className="w-4 h-4 mr-1.5" />
+            Nhận khách vãng lai (Walk-in)
+          </Button>
           <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
             Làm mới
@@ -1135,6 +1149,19 @@ export const BookingListPage: React.FC = () => {
               setSelectedBooking(updated.result);
             }
           }
+        }}
+      />
+
+      {/* WALK-IN BOOKING & INSTANT CHECK-IN MODAL */}
+      <WalkInBookingModal
+        isOpen={isWalkInModalOpen}
+        onClose={() => setIsWalkInModalOpen(false)}
+        onSuccess={(bookingNumber) => {
+          setIsWalkInModalOpen(false);
+          setActionSuccessMessage(
+            `Tạo đơn Walk-in thành công cho đơn ${bookingNumber}! Các phòng đã được check-in trực tiếp sang trạng thái In-house.`
+          );
+          loadData();
         }}
       />
     </div>

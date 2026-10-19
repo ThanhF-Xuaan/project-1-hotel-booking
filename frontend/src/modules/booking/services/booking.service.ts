@@ -50,6 +50,12 @@ export const bookingService = {
 
   checkOut: (bookingRoomId: number) =>
     apiClient.post<BookingResponse>(`${BASE_URL}/rooms/${bookingRoomId}/check-out`, {}),
+
+  calculateWalkInQuote: (data: import('../types/booking.types').WalkInQuoteRequest) =>
+    apiClient.post<import('../types/booking.types').WalkInQuoteResponse>(`${BASE_URL}/walk-in/quote`, data),
+
+  createWalkInBooking: (data: import('../types/booking.types').WalkInBookingRequest) =>
+    apiClient.post<BookingResponse>(`${BASE_URL}/walk-in`, data),
 };
 
 export default bookingService;
