@@ -33,6 +33,7 @@ import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomSlot;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomMaintenanceBlockRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomSlotRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
@@ -70,6 +71,7 @@ public class BookingServiceImpl implements BookingService {
     HotelRoomTypeRepository hotelRoomTypeRepository;
     RoomInstanceRepository roomInstanceRepository;
     RoomSlotRepository roomSlotRepository;
+    RoomMaintenanceBlockRepository roomMaintenanceBlockRepository;
 
     RoomAvailabilityService roomAvailabilityService;
     PriceEngine priceEngine;
@@ -187,9 +189,17 @@ public class BookingServiceImpl implements BookingService {
                 RoomInstance assignedRoom = null;
                 // Nếu là walk-in hoặc có chỉ định phòng vật lý
                 if (i == 0 && roomReq.getRoomInstanceId() != null) {
-                    assignedRoom = roomInstanceRepository.findByIdAndIsDeletedFalse(roomReq.getRoomInstanceId())
+                    assignedRoom = roomInstanceRepository.findByIdWithLock(roomReq.getRoomInstanceId())
+                            .or(() -> roomInstanceRepository.findByIdAndIsDeletedFalse(roomReq.getRoomInstanceId()))
                             .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND,
                                     "Không tìm thấy phòng vật lý: " + roomReq.getRoomInstanceId()));
+
+                    LocalDate lastNight = roomReq.getCheckOutDate().isAfter(roomReq.getCheckInDate())
+                            ? roomReq.getCheckOutDate().minusDays(1) : roomReq.getCheckInDate();
+                    if (roomMaintenanceBlockRepository.isRoomBlockedBetween(assignedRoom.getId(), roomReq.getCheckInDate(), lastNight)) {
+                        throw new AppException(ErrorCode.ROOM_ALREADY_BLOCKED,
+                                "Phòng " + assignedRoom.getRoomNumber() + " đang trong thời gian bảo trì/khóa phòng");
+                    }
 
                     // Sequential Lock ordering: Kiểm tra xem phòng có bị trùng lịch không
                     List<BookingRoom> overlapping = bookingRoomRepository.findOverlappingAssignedRooms(
@@ -443,7 +453,8 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_ROOM_NOT_FOUND,
                         "Không tìm thấy phòng đặt ID: " + bookingRoomId));
 
-        RoomInstance roomInstance = roomInstanceRepository.findByIdAndIsDeletedFalse(roomInstanceId)
+        RoomInstance roomInstance = roomInstanceRepository.findByIdWithLock(roomInstanceId)
+                .or(() -> roomInstanceRepository.findByIdAndIsDeletedFalse(roomInstanceId))
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND,
                         "Không tìm thấy phòng vật lý ID: " + roomInstanceId));
 
@@ -463,7 +474,15 @@ public class BookingServiceImpl implements BookingService {
                     "Phòng " + roomInstance.getRoomNumber() + " đang có khách lưu trú, không thể xếp phòng");
         }
 
-        // 3. Kiểm tra xung đột lịch
+        // 3. Không được xếp vào phòng đang trong thời gian bảo trì / khóa phòng
+        LocalDate lastNight = detail.getCheckOutDate().isAfter(detail.getCheckInDate())
+                ? detail.getCheckOutDate().minusDays(1) : detail.getCheckInDate();
+        if (roomMaintenanceBlockRepository.isRoomBlockedBetween(roomInstance.getId(), detail.getCheckInDate(), lastNight)) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_BLOCKED,
+                    "Phòng " + roomInstance.getRoomNumber() + " đang trong thời gian bảo trì/khóa phòng");
+        }
+
+        // 4. Kiểm tra xung đột lịch
         List<BookingRoom> overlapping = bookingRoomRepository.findOverlappingAssignedRooms(
                 roomInstance.getId(), detail.getCheckInDate(), detail.getCheckOutDate());
         for (BookingRoom o : overlapping) {
@@ -547,6 +566,11 @@ public class BookingServiceImpl implements BookingService {
                     "Phòng " + roomInstance.getRoomNumber() + " hiện đang có khách lưu trú, không thể check-in trùng phòng");
         }
 
+        if (roomMaintenanceBlockRepository.isRoomBlockedOnDate(roomInstance.getId(), LocalDate.now())) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_BLOCKED,
+                    "Phòng " + roomInstance.getRoomNumber() + " đang trong thời gian bảo trì/khóa phòng hôm nay, không thể check-in");
+        }
+
         bookingRoom.setStatus(BookingRoomStatus.CHECKED_IN);
         bookingRoom.setActualCheckInAt(OffsetDateTime.now());
         bookingRoomRepository.save(bookingRoom);
@@ -607,5 +631,15 @@ public class BookingServiceImpl implements BookingService {
 
     private String generateBookingNumber() {
         return "BK" + System.currentTimeMillis() + (int) (Math.random() * 900 + 100);
+    }
+
+    @Override
+    public boolean isRoomBookedBetween(Integer roomInstanceId, LocalDate startDate, LocalDate endDate) {
+        if (roomInstanceId == null || startDate == null || endDate == null) {
+            return false;
+        }
+        List<BookingRoom> overlapping = bookingRoomRepository.findOverlappingAssignedRooms(
+                roomInstanceId, startDate, endDate.plusDays(1));
+        return !overlapping.isEmpty();
     }
 }

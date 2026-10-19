@@ -27,4 +27,6 @@ public interface RoomAvailabilityService {
     int releaseExpiredHolds();
 
     void confirmBookingInventory(Integer hotelRoomTypeId, LocalDate startDate, LocalDate endDate, Integer roomsCount);
+
+    void applyOooDelta(Integer hotelRoomTypeId, LocalDate startDate, LocalDate endDate, int delta);
 }

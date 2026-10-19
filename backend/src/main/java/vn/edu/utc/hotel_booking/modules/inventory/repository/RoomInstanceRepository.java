@@ -1,9 +1,11 @@
 package vn.edu.utc.hotel_booking.modules.inventory.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +17,10 @@ import java.util.Optional;
 
 @Repository
 public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Integer>, JpaSpecificationExecutor<RoomInstance> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM RoomInstance r WHERE r.id = :id AND r.isDeleted = false")
+    Optional<RoomInstance> findByIdWithLock(@Param("id") Integer id);
 
     @Query("SELECT r FROM RoomInstance r " +
             "JOIN FETCH r.hotel h " +

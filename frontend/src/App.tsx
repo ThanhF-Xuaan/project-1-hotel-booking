@@ -60,7 +60,7 @@ export function App() {
               <Route path="operation/menus" element={<MenuListPage />} />
               <Route path="operation/room-service" element={<RoomServiceOrderPage />} />
             </Route>
-            <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING']} />}>
+            <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'ENGINEERING']} />}>
               <Route path="operation/housekeeping" element={<HousekeepingPage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE']} />}>

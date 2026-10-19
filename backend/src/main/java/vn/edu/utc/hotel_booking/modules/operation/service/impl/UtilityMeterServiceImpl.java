@@ -37,7 +37,7 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
     public PageResponse<UtilityMeterResponse> search(UtilityMeterSearchDto request) {
         Pageable pageable = PageRequest.of(request.getPage(), request.getPageSize(), Sort.by("id").descending());
         String keyword = StringUtils.hasText(request.getKeyword()) ? request.getKeyword().trim() : "";
-        Page<UtilityMeter> page = repository.search(request.getHotelId(), request.getMeterType(), keyword, pageable);
+        Page<UtilityMeter> page = repository.search(request.getHotelId(), request.getRegionId(), request.getMeterType(), keyword, pageable);
         return PageResponse.from(page.map(mapper::toResponse));
     }
 

@@ -40,6 +40,9 @@ public class RoomMaintenanceBlock {
     @Column(nullable = false, columnDefinition = "TEXT")
     String reason;
 
+    @Column(columnDefinition = "TEXT")
+    String notes;
+
     @Column(nullable = false, length = 50)
     @Builder.Default
     String status = "ACTIVE"; // 'ACTIVE', 'COMPLETED', 'CANCELLED'
@@ -49,6 +52,9 @@ public class RoomMaintenanceBlock {
 
     @Column(name = "created_by_staff_id")
     Integer createdByStaffId;
+
+    @Column(name = "updated_by_staff_id")
+    Integer updatedByStaffId;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

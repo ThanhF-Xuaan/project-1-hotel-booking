@@ -8,6 +8,8 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeRespon
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingStatus;
 
+import java.time.LocalDate;
+
 public interface BookingService {
 
     BookingResponse createBooking(BookingCreateRequest request);
@@ -29,4 +31,6 @@ public interface BookingService {
     BookingResponse checkIn(Long bookingRoomId);
 
     BookingResponse checkOut(Long bookingRoomId);
+
+    boolean isRoomBookedBetween(Integer roomInstanceId, LocalDate startDate, LocalDate endDate);
 }

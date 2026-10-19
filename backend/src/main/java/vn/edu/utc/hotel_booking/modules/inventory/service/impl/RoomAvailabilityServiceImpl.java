@@ -374,6 +374,52 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
         }
     }
 
+    @Override
+    @Transactional
+    public void applyOooDelta(Integer hotelRoomTypeId, LocalDate startDate, LocalDate endDate, int delta) {
+        if (startDate == null || endDate == null || startDate.isAfter(endDate)) {
+            throw new AppException(ErrorCode.MAINTENANCE_BLOCK_TIME_INVALID, "Khoảng thời gian bảo trì không hợp lệ");
+        }
+        HotelRoomType hotelRoomType = hotelRoomTypeService.getEntityById(hotelRoomTypeId);
+
+        LocalDate cur = startDate;
+        while (!cur.isAfter(endDate)) {
+            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(hotelRoomTypeId, cur);
+
+            RoomAvailability availability;
+            if (opt.isPresent()) {
+                availability = opt.get();
+            } else {
+                availability = RoomAvailability.builder()
+                        .hotelRoomType(hotelRoomType)
+                        .date(cur)
+                        .totalRooms(hotelRoomType.getTotalQuantity())
+                        .bookedRooms(0)
+                        .lockedRooms(0)
+                        .oooRooms(0)
+                        .build();
+            }
+
+            int currentBooked = availability.getBookedRooms() != null ? availability.getBookedRooms() : 0;
+            int currentLocked = availability.getLockedRooms() != null ? availability.getLockedRooms() : 0;
+            int currentOoo = availability.getOooRooms() != null ? availability.getOooRooms() : 0;
+            int total = availability.getTotalRooms() != null ? availability.getTotalRooms() : hotelRoomType.getTotalQuantity();
+
+            if (delta > 0) {
+                int available = total - currentBooked - currentLocked - currentOoo;
+                if (available - delta < 0) {
+                    throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE,
+                            "Không đủ phòng trống để thực hiện khóa phòng OOO cho ngày " + cur);
+                }
+            }
+
+            availability.setOooRooms(Math.max(0, currentOoo + delta));
+            roomAvailabilityRepository.save(availability);
+
+            cur = cur.plusDays(1);
+        }
+    }
+
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void scheduledReleaseExpiredHolds() {

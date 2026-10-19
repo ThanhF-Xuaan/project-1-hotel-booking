@@ -55,6 +55,9 @@ public enum ErrorCode {
     ROOM_INSTANCE_NOT_FOUND(5021, "Không tìm thấy phòng vật lý", HttpStatus.NOT_FOUND),
     ROOM_NUMBER_ALREADY_EXISTS(5022, "Số phòng đã tồn tại trong khách sạn", HttpStatus.CONFLICT),
     ROOM_NOT_AVAILABLE(5031, "Không đủ phòng trống trong khoảng thời gian yêu cầu", HttpStatus.CONFLICT),
+    MAINTENANCE_BLOCK_NOT_FOUND(5041, "Không tìm thấy thông tin khóa phòng", HttpStatus.NOT_FOUND),
+    ROOM_ALREADY_BLOCKED(5042, "Phòng đã bị khóa hoặc đang có khách lưu trú trong khoảng thời gian này", HttpStatus.CONFLICT),
+    MAINTENANCE_BLOCK_TIME_INVALID(5043, "Khoảng thời gian khóa phòng không hợp lệ", HttpStatus.BAD_REQUEST),
 
     // Pricing Module Errors
     PRICING_RULE_NOT_FOUND(6001, "Không tìm thấy quy tắc giá", HttpStatus.NOT_FOUND),

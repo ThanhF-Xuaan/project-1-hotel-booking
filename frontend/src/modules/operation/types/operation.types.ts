@@ -135,3 +135,69 @@ export interface NightAuditResponse {
   auditTimestamp: string;
   status: string;
 }
+
+export type MaintenanceBlockType = 'OOO' | 'OOS';
+
+export type MaintenanceBlockStatus = 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+
+export interface MaintenanceBlockDto {
+  id: number;
+  roomInstanceId: number;
+  roomNumber: string;
+  hotelId?: number;
+  hotelName?: string;
+  hotelRoomTypeId?: number;
+  roomTypeName?: string;
+  blockType: MaintenanceBlockType;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  notes?: string;
+  status: MaintenanceBlockStatus;
+  maintenanceTicketId?: number;
+  createdByStaffId?: number;
+  updatedByStaffId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateMaintenanceBlockRequest {
+  roomInstanceId: number;
+  blockType: MaintenanceBlockType;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  notes?: string;
+  maintenanceTicketId?: number;
+}
+
+export interface UpdateMaintenanceBlockRequest {
+  blockType?: MaintenanceBlockType;
+  startDate?: string;
+  endDate?: string;
+  reason?: string;
+  notes?: string;
+  maintenanceTicketId?: number;
+}
+
+export interface MaintenanceBlockSearchDto {
+  roomInstanceId?: number;
+  hotelId?: number;
+  blockType?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export const BLOCK_TYPE_OPTIONS = [
+  { value: 'OOO', label: 'OOO (Out of Order) - Trừ khỏi quỹ phòng bán' },
+  { value: 'OOS', label: 'OOS (Out of Service) - Sửa chữa tạm thời, giữ quỹ phòng' },
+];
+
+export const BLOCK_STATUS_OPTIONS = [
+  { value: 'ACTIVE', label: 'Đang khóa (ACTIVE)' },
+  { value: 'COMPLETED', label: 'Đã hoàn tất (COMPLETED)' },
+  { value: 'CANCELLED', label: 'Đã hủy (CANCELLED)' },
+];

@@ -65,6 +65,7 @@ class BookingServiceTest {
     @Mock HotelRoomTypeRepository hotelRoomTypeRepository;
     @Mock RoomInstanceRepository roomInstanceRepository;
     @Mock RoomSlotRepository roomSlotRepository;
+    @Mock vn.edu.utc.hotel_booking.modules.inventory.repository.RoomMaintenanceBlockRepository roomMaintenanceBlockRepository;
 
     @Mock RoomAvailabilityService roomAvailabilityService;
     @Mock PriceEngine priceEngine;
@@ -228,6 +229,33 @@ class BookingServiceTest {
         assertThatThrownBy(() -> bookingService.assignRoom(20L, 50))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.ROOM_ALREADY_ASSIGNED));
+    }
+
+    @Test
+    @DisplayName("Gán phòng thất bại khi phòng vật lý đang trong thời gian bảo trì OOO/OOS")
+    void assignRoom_BlockedRoom_ThrowsException() {
+        BookingDetail detail = BookingDetail.builder()
+                .checkInDate(LocalDate.now())
+                .checkOutDate(LocalDate.now().plusDays(2))
+                .build();
+        BookingRoom bookingRoom = BookingRoom.builder()
+                .id(20L)
+                .bookingDetail(detail)
+                .build();
+
+        RoomInstance roomInstance = RoomInstance.builder()
+                .roomNumber("P.201")
+                .build();
+        roomInstance.setId(50);
+
+        when(bookingRoomRepository.findById(20L)).thenReturn(Optional.of(bookingRoom));
+        when(roomInstanceRepository.findByIdWithLock(50)).thenReturn(Optional.of(roomInstance));
+        when(roomMaintenanceBlockRepository.isRoomBlockedBetween(eq(50), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> bookingService.assignRoom(20L, 50))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.ROOM_ALREADY_BLOCKED));
     }
 
     @Test
