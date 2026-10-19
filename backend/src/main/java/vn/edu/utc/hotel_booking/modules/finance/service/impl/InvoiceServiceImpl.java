@@ -112,15 +112,19 @@ public class InvoiceServiceImpl implements InvoiceService {
 
                 // 2. Phụ thu phòng & Phí phạt (BookingCharge -> SURCHARGE / PENALTY)
                 for (BookingCharge charge : br.getCharges()) {
-                    InvoiceLineType chargeLineType = (charge.getChargeType() == BookingChargeType.PENALTY)
+                    String roomSuffix = (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null)
+                            ? " [Phòng " + br.getRoomInstance().getRoomNumber() + "]"
+                            : "";
+
+                    InvoiceLineType lineType = (charge.getChargeType() == BookingChargeType.PENALTY)
                             ? InvoiceLineType.PENALTY
                             : InvoiceLineType.SURCHARGE;
 
                     InvoiceDetail invDetail = InvoiceDetail.builder()
                             .invoice(invoice)
                             .referenceId(charge.getId())
-                            .lineType(chargeLineType)
-                            .description(charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name())
+                            .lineType(lineType)
+                            .description((charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name()) + roomSuffix)
                             .quantity(charge.getQuantity())
                             .unitPrice(charge.getUnitPrice())
                             .subtotal(charge.getSubtotal())
