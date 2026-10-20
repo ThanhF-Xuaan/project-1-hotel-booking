@@ -362,4 +362,46 @@ export interface BookingNoShowRequest {
   reason: string;
 }
 
+export interface BookingCancelPreviewResponse {
+  bookingId: number;
+  bookingNumber: string;
+  bookingRoomId?: number;
+  roomTypeName?: string;
+  cancelledRoomsCount: number;
+  remainingRoomsCount: number;
+  willCancelWholeBooking: boolean;
+  policyTier: string;
+  penaltyRate: number;
+  totalPaid: number;
+  roomOriginalAmount: number;
+  cancellationPenalty: number;
+  preorderedServicesAmount: number;
+  retainedAddonsAmount: number;
+  refundAmount: number;
+  refundMethod: 'AUTO_GATEWAY_REFUND' | 'WAITING_FINANCE_APPROVAL';
+  message: string;
+}
+
+export interface BookingCancelRequest {
+  reason: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  accountHolderName?: string;
+}
+
+export interface BookingCancelResponse {
+  bookingId: number;
+  bookingNumber: string;
+  bookingRoomId?: number;
+  bookingStatus: BookingStatus;
+  cancelledRoomsCount: number;
+  remainingRoomsCount: number;
+  cancellationPenalty: number;
+  refundAmount: number;
+  refundMethod: 'AUTO_GATEWAY_REFUND' | 'WAITING_FINANCE_APPROVAL';
+  refundStatus: string;
+  message: string;
+}
+
+
 

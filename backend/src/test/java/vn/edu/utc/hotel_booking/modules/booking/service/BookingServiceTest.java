@@ -17,6 +17,9 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.CartPriceQuoteRespo
 import vn.edu.utc.hotel_booking.modules.booking.dto.session.BookingDraftSession;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
 import vn.edu.utc.hotel_booking.modules.booking.mapper.BookingMapper;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
@@ -682,6 +685,7 @@ class BookingServiceTest {
         RoomInstance roomInstance = RoomInstance.builder().roomNumber("P.101").build();
         roomInstance.setId(101);
         BookingRoom bookingRoom = BookingRoom.builder().id(20L).roomInstance(roomInstance).build();
+        bookingRoom.setBookingDetail(detail);
         detail.setBookingRooms(List.of(bookingRoom));
         testBooking.setBookingDetails(List.of(detail));
 
@@ -1942,5 +1946,331 @@ class BookingServiceTest {
         // Khoản cọc thừa dôi dư chờ hoàn = 1,000,000 đ
         assertThat(settlement.getNetOverpaymentAmount()).isEqualByComparingTo("1000000.00");
     }
+
+    // =========================================================================
+    // FIT CANCELLATION TESTS (UC-CUST-06, SQ-03, US12, FR-RES-09)
+    // =========================================================================
+
+    @Test
+    @DisplayName("Preview hủy FIT: Kiểm tra các mốc chính sách hủy >= 7 ngày, 4 đến < 7 ngày, và < 4 ngày")
+    void previewCancelBooking_FitCancellationPolicyTiers() {
+        Long bookingId = 901L;
+
+        // Case 1: >= 7 days before checkin -> 0% penalty
+        BookingRoom room1 = BookingRoom.builder()
+                .id(911L)
+                .status(BookingRoomStatus.EXPECTED)
+                .dailyRates(new ArrayList<>(List.of(
+                        BookingDailyRate.builder().stayDate(LocalDate.now().plusDays(10)).netPrice(BigDecimal.valueOf(1000000)).build()
+                )))
+                .build();
+        BookingDetail detail1 = BookingDetail.builder()
+                .id(921L)
+                .checkInDate(LocalDate.now().plusDays(10))
+                .checkOutDate(LocalDate.now().plusDays(11))
+                .quantity((short) 1)
+                .bookingRooms(new ArrayList<>(List.of(room1)))
+                .build();
+        room1.setBookingDetail(detail1);
+
+        Booking booking1 = Booking.builder()
+                .id(bookingId)
+                .bookingNumber("BK-CANCEL-TIER1")
+                .bookingType(BookingType.FIT)
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(new ArrayList<>(List.of(detail1)))
+                .build();
+        detail1.setBooking(booking1);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking1));
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(
+                Payment.builder().status(PaymentStatus.SUCCESS).totalAmount(BigDecimal.valueOf(1000000)).build()
+        ));
+
+        BookingCancelPreviewResponse preview1 = bookingService.previewCancelBooking(bookingId);
+        assertThat(preview1.getPenaltyRatePercentage()).isEqualByComparingTo("0.0");
+        assertThat(preview1.getCancellationPenalty()).isEqualByComparingTo("0.00");
+        assertThat(preview1.getRefundAmount()).isEqualByComparingTo("1000000.00");
+        assertThat(preview1.getRefundRouting()).isEqualTo("AUTO_REFUND");
+
+        // Case 2: 4 to < 7 days -> 50% penalty
+        detail1.setCheckInDate(LocalDate.now().plusDays(5));
+        BookingCancelPreviewResponse preview2 = bookingService.previewCancelBooking(bookingId);
+        assertThat(preview2.getPenaltyRatePercentage()).isEqualByComparingTo("50.0");
+        assertThat(preview2.getCancellationPenalty()).isEqualByComparingTo("500000.00");
+        assertThat(preview2.getRefundAmount()).isEqualByComparingTo("500000.00");
+
+        // Case 3: < 4 days -> 100% penalty
+        detail1.setCheckInDate(LocalDate.now().plusDays(2));
+        BookingCancelPreviewResponse preview3 = bookingService.previewCancelBooking(bookingId);
+        assertThat(preview3.getPenaltyRatePercentage()).isEqualByComparingTo("100.0");
+        assertThat(preview3.getCancellationPenalty()).isEqualByComparingTo("1000000.00");
+        assertThat(preview3.getRefundAmount()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    @DisplayName("Hủy toàn bộ đơn FIT: Tất cả phòng đều EXPECTED -> Chuyển Booking sang CANCELLED, nhả tồn kho và lịch giữ phòng")
+    void cancelBooking_AllRoomsCancelled_BookingBecomesCancelled() {
+        Long bookingId = 902L;
+        LocalDate checkIn = LocalDate.now().plusDays(10);
+        LocalDate checkOut = LocalDate.now().plusDays(12);
+
+        RoomInstance roomInstance = RoomInstance.builder()
+                .roomNumber("301")
+                .currentStatus("OCCUPIED")
+                .build();
+        roomInstance.setId(301);
+
+        BookingRoom room = BookingRoom.builder()
+                .id(912L)
+                .status(BookingRoomStatus.EXPECTED)
+                .roomInstance(roomInstance)
+                .dailyRates(new ArrayList<>(List.of(
+                        BookingDailyRate.builder().stayDate(checkIn).netPrice(BigDecimal.valueOf(1000000)).build(),
+                        BookingDailyRate.builder().stayDate(checkIn.plusDays(1)).netPrice(BigDecimal.valueOf(1000000)).build()
+                )))
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(922L)
+                .hotelRoomType(testHotelRoomType)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 1)
+                .bookingRooms(new ArrayList<>(List.of(room)))
+                .build();
+        room.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingNumber("BK-CANCEL-ALL")
+                .bookingType(BookingType.FIT)
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+        detail.setBooking(booking);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(
+                Payment.builder().status(PaymentStatus.SUCCESS).totalAmount(BigDecimal.valueOf(2000000)).build()
+        ));
+
+        BookingCancelRequest request = BookingCancelRequest.builder()
+                .reason("Khách bận việc đột xuất")
+                .build();
+
+        BookingCancelResponse response = bookingService.cancelBooking(bookingId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getBookingStatus()).isEqualTo("CANCELLED");
+        assertThat(response.getCancelledRoomsCount()).isEqualTo(1);
+        assertThat(room.getStatus()).isEqualTo(BookingRoomStatus.CANCELLED);
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+
+        // Kho phòng được hoàn trả đúng số lượng phòng hủy (1)
+        verify(roomAvailabilityService).releaseBookedInventory(eq(testHotelRoomType.getId()), eq(checkIn), eq(checkOut), eq(1));
+        // Lịch giữ phòng bị hủy
+        verify(roomSlotService).releaseSlots(eq(roomInstance.getId()), eq(checkIn), eq(checkOut));
+        // Với ngày tương lai (> now), roomInstance.currentStatus KHÔNG ĐƯỢC chạm vào!
+        verify(roomInstanceService, never()).updateRoomStatus(any(), any());
+        // Hàng chờ lưu trú BCA được hủy
+        verify(stayGuestService).cancelLodgingQueueForBookingRoom(room.getId());
+    }
+
+    @Test
+    @DisplayName("Hủy phòng lẻ FIT: 1 phòng EXPECTED và 1 phòng còn lại -> Booking vẫn giữ CONFIRMED")
+    void cancelBookingRoom_PartialCancellation_BookingRemainsConfirmed() {
+        Long bookingId = 903L;
+        Long bookingRoomId = 913L;
+        LocalDate checkIn = LocalDate.now().plusDays(5);
+        LocalDate checkOut = LocalDate.now().plusDays(7);
+
+        RoomInstance roomInstanceA = RoomInstance.builder()
+                .roomNumber("101")
+                .currentStatus("READY")
+                .build();
+        roomInstanceA.setId(101);
+
+        BookingRoom roomA = BookingRoom.builder()
+                .id(bookingRoomId)
+                .status(BookingRoomStatus.EXPECTED)
+                .roomInstance(roomInstanceA)
+                .dailyRates(new ArrayList<>(List.of(
+                        BookingDailyRate.builder().stayDate(checkIn).netPrice(BigDecimal.valueOf(1000000)).build()
+                )))
+                .build();
+
+        BookingRoom roomB = BookingRoom.builder()
+                .id(914L)
+                .status(BookingRoomStatus.EXPECTED)
+                .dailyRates(new ArrayList<>(List.of(
+                        BookingDailyRate.builder().stayDate(checkIn).netPrice(BigDecimal.valueOf(1000000)).build()
+                )))
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(923L)
+                .hotelRoomType(testHotelRoomType)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 2)
+                .bookingRooms(new ArrayList<>(List.of(roomA, roomB)))
+                .build();
+        roomA.setBookingDetail(detail);
+        roomB.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingNumber("BK-CANCEL-PARTIAL")
+                .bookingType(BookingType.FIT)
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+        detail.setBooking(booking);
+
+        when(bookingRoomService.getEntityById(bookingRoomId)).thenReturn(roomA);
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(
+                Payment.builder().status(PaymentStatus.SUCCESS).totalAmount(BigDecimal.valueOf(2000000)).build()
+        ));
+
+        BookingCancelRequest request = BookingCancelRequest.builder()
+                .reason("1 người trong nhóm hủy phòng")
+                .build();
+
+        BookingCancelResponse response = bookingService.cancelBookingRoom(bookingRoomId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getBookingStatus()).isEqualTo("CONFIRMED");
+        assertThat(response.getCancelledRoomsCount()).isEqualTo(1);
+        assertThat(roomA.getStatus()).isEqualTo(BookingRoomStatus.CANCELLED);
+        assertThat(roomB.getStatus()).isEqualTo(BookingRoomStatus.EXPECTED);
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
+
+        // Kho phòng hoàn trả 1 phòng
+        verify(roomAvailabilityService).releaseBookedInventory(eq(testHotelRoomType.getId()), eq(checkIn), eq(checkOut), eq(1));
+        // Lịch giữ phòng của riêng phòng A bị hủy
+        verify(roomSlotService).releaseSlots(eq(roomInstanceA.getId()), eq(checkIn), eq(checkOut));
+        // Hàng chờ lưu trú của riêng phòng A bị hủy
+        verify(stayGuestService).cancelLodgingQueueForBookingRoom(bookingRoomId);
+    }
+
+    @Test
+    @DisplayName("Không cho phép hủy toàn bộ Booking nếu đã có phòng CHECKED_IN")
+    void cancelBooking_CannotCancelIfAnyRoomAlreadyCheckedIn() {
+        Long bookingId = 904L;
+
+        BookingRoom roomA = BookingRoom.builder()
+                .id(915L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .build();
+        BookingRoom roomB = BookingRoom.builder()
+                .id(916L)
+                .status(BookingRoomStatus.EXPECTED)
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(924L)
+                .bookingRooms(new ArrayList<>(List.of(roomA, roomB)))
+                .build();
+        roomA.setBookingDetail(detail);
+        roomB.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingNumber("BK-CANNOT-CANCEL")
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+        detail.setBooking(booking);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        BookingCancelRequest request = BookingCancelRequest.builder().reason("Hủy đơn").build();
+
+        assertThatThrownBy(() -> bookingService.cancelBooking(bookingId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.CANCELLATION_NOT_ALLOWED_AFTER_CHECKIN);
+    }
+
+    @Test
+    @DisplayName("Không cho phép hủy phòng lẻ nếu phòng đó đang CHECKED_IN")
+    void cancelBookingRoom_CannotCancelCheckedInRoom() {
+        Long bookingRoomId = 917L;
+
+        BookingRoom room = BookingRoom.builder()
+                .id(bookingRoomId)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .build();
+
+        when(bookingRoomService.getEntityById(bookingRoomId)).thenReturn(room);
+
+        BookingCancelRequest request = BookingCancelRequest.builder().reason("Hủy phòng").build();
+
+        assertThatThrownBy(() -> bookingService.cancelBookingRoom(bookingRoomId, request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOKING_ROOM_NOT_ELIGIBLE_FOR_CANCELLATION);
+    }
+
+    @Test
+    @DisplayName("Hoàn tiền > 5.000.000 VNĐ -> Điều hướng sang WAITING_FINANCE_APPROVAL và lưu trạng thái PENDING")
+    void cancelBooking_RefundOver5Million_RoutesToWaitingFinanceApproval() {
+        Long bookingId = 905L;
+        LocalDate checkIn = LocalDate.now().plusDays(10);
+        LocalDate checkOut = LocalDate.now().plusDays(12);
+
+        BookingRoom room = BookingRoom.builder()
+                .id(918L)
+                .status(BookingRoomStatus.EXPECTED)
+                .dailyRates(new ArrayList<>(List.of(
+                        BookingDailyRate.builder().stayDate(checkIn).netPrice(BigDecimal.valueOf(10000000)).build()
+                )))
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(925L)
+                .hotelRoomType(testHotelRoomType)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .quantity((short) 1)
+                .bookingRooms(new ArrayList<>(List.of(room)))
+                .build();
+        room.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingNumber("BK-REFUND-LARGE")
+                .bookingType(BookingType.FIT)
+                .status(BookingStatus.CONFIRMED)
+                .bookingDetails(new ArrayList<>(List.of(detail)))
+                .build();
+        detail.setBooking(booking);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(
+                Payment.builder().status(PaymentStatus.SUCCESS).totalAmount(BigDecimal.valueOf(10000000)).build()
+        ));
+
+        BookingCancelRequest request = BookingCancelRequest.builder()
+                .reason("Khách hủy đặt trước và yêu cầu hoàn về tài khoản VCB")
+                .note("Hoàn về tài khoản Vietcombank 001122334455 NGUYEN VAN A")
+                .build();
+
+        BookingCancelResponse response = bookingService.cancelBooking(bookingId, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getRefundAmount()).isEqualByComparingTo("10000000.00");
+        assertThat(response.getRefundRouting()).isEqualTo("WAITING_FINANCE_APPROVAL");
+
+        // Kiểm tra Payment record được lưu với PENDING
+        verify(paymentRepository).save(argThat(payment ->
+                payment.getPaymentPurpose() == PaymentPurpose.REFUND &&
+                payment.getStatus() == PaymentStatus.PENDING &&
+                payment.getTotalAmount().compareTo(new BigDecimal("10000000.00")) == 0
+        ));
+    }
 }
+
 

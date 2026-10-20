@@ -62,4 +62,25 @@ public interface BookingService {
             Long bookingRoomId,
             vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest request
     );
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse previewCancelBooking(Long id);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse previewCancelBookingRoom(Long bookingRoomId);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse previewPublicCancelBooking(String bookingNumber);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse cancelBooking(
+            Long id,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest request
+    );
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse cancelBookingRoom(
+            Long bookingRoomId,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest request
+    );
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse cancelPublicBooking(
+            String bookingNumber,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest request
+    );
 }

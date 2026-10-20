@@ -167,5 +167,43 @@ public class BookingController {
     ) {
         return ApiResponse.success("Nhận khách vãng lai và check-in thành công", bookingService.createWalkInBooking(request));
     }
+
+    @GetMapping("/{id}/cancel-preview")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Xem trước chi phí phạt và tiền hoàn khi hủy các phòng còn lại của đơn đặt phòng")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse> previewCancelBooking(
+            @PathVariable Long id
+    ) {
+        return ApiResponse.success(bookingService.previewCancelBooking(id));
+    }
+
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Lễ tân hủy các phòng còn lại của đơn đặt phòng (FIT <= 5 phòng)")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse> cancelBooking(
+            @PathVariable Long id,
+            @Valid @RequestBody BookingCancelRequest request
+    ) {
+        return ApiResponse.success("Hủy đơn đặt phòng thành công", bookingService.cancelBooking(id, request));
+    }
+
+    @GetMapping("/rooms/{bookingRoomId}/cancel-preview")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Xem trước chi phí phạt và tiền hoàn khi hủy 1 phòng đơn lẻ (Room-Level Cancel Preview)")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse> previewCancelBookingRoom(
+            @PathVariable Long bookingRoomId
+    ) {
+        return ApiResponse.success(bookingService.previewCancelBookingRoom(bookingRoomId));
+    }
+
+    @PostMapping("/rooms/{bookingRoomId}/cancel")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Lễ tân hủy 1 phòng đơn lẻ trong đơn đặt phòng (Room-Level Cancel)")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse> cancelBookingRoom(
+            @PathVariable Long bookingRoomId,
+            @Valid @RequestBody BookingCancelRequest request
+    ) {
+        return ApiResponse.success("Hủy phòng thành công", bookingService.cancelBookingRoom(bookingRoomId, request));
+    }
 }
 

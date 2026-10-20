@@ -28,6 +28,7 @@ import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
 import WalkInBookingModal from '../components/WalkInBookingModal';
+import CancelBookingModal from '../components/CancelBookingModal';
 import type {
   BookingResponse,
   BookingStatus,
@@ -103,10 +104,15 @@ export const BookingListPage: React.FC = () => {
   const [chargeToDelete, setChargeToDelete] = useState<{ id: number; name: string } | null>(null);
   const [isDeletingCharge, setIsDeletingCharge] = useState(false);
 
-  // Cancel Modal
+  // Cancel Modal (FIT Cancellation Policy)
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<{
+    bookingId: number;
+    bookingNumber: string;
+    bookingRoomId?: number;
+    roomNumber?: string;
+    roomTypeName?: string;
+  } | null>(null);
 
   // No-Show Modal
   const [isNoShowModalOpen, setIsNoShowModalOpen] = useState(false);
@@ -429,20 +435,23 @@ export const BookingListPage: React.FC = () => {
     }
   };
 
-  const handleConfirmCancel = async () => {
-    if (!cancellingBookingId) return;
-    setIsCancelling(true);
-    try {
-      await bookingService.updateStatus(cancellingBookingId, 'CANCELLED');
-      setIsCancelModalOpen(false);
-      setActionSuccessMessage('Đã hủy đơn đặt phòng thành công!');
-      loadData();
-    } catch (err) {
-      console.error('Lỗi hủy phòng:', err);
-      alert('Hủy phòng thất bại.');
-    } finally {
-      setIsCancelling(false);
-    }
+  const handleOpenCancelBookingModal = (booking: BookingResponse) => {
+    setCancelTarget({
+      bookingId: booking.id,
+      bookingNumber: booking.bookingNumber,
+    });
+    setIsCancelModalOpen(true);
+  };
+
+  const handleOpenCancelRoomModal = (booking: BookingResponse, room: BookingRoomResponse, roomTypeName?: string) => {
+    setCancelTarget({
+      bookingId: booking.id,
+      bookingNumber: booking.bookingNumber,
+      bookingRoomId: room.id,
+      roomNumber: room.roomNumber,
+      roomTypeName: roomTypeName,
+    });
+    setIsCancelModalOpen(true);
   };
 
   const handleOpenNoShowModal = (booking: BookingResponse) => {
@@ -760,12 +769,9 @@ export const BookingListPage: React.FC = () => {
                               </button>
 
                               <button
-                                onClick={() => {
-                                  setCancellingBookingId(booking.id);
-                                  setIsCancelModalOpen(true);
-                                }}
+                                onClick={() => handleOpenCancelBookingModal(booking)}
                                 className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                                title="Hủy đơn đặt phòng"
+                                title="Hủy đơn đặt phòng theo chính sách FIT"
                               >
                                 <Ban className="w-4 h-4" />
                               </button>
@@ -946,6 +952,20 @@ export const BookingListPage: React.FC = () => {
                               >
                                 <UserX className="w-3.5 h-3.5 mr-1 text-amber-600" />
                                 No-Show
+                              </Button>
+                            )}
+
+                            {/* Nút Hủy phòng lẻ */}
+                            {room.status === 'EXPECTED' && selectedBooking.status !== 'CANCELLED' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenCancelRoomModal(selectedBooking, room, detail.roomTypeName)}
+                                className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
+                                title="Hủy phòng này theo chính sách FIT"
+                              >
+                                <Ban className="w-3.5 h-3.5 mr-1" />
+                                Hủy phòng
                               </Button>
                             )}
 
@@ -1191,17 +1211,6 @@ export const BookingListPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* CONFIRM CANCEL MODAL */}
-      <ConfirmModal
-        isOpen={isCancelModalOpen}
-        onClose={() => setIsCancelModalOpen(false)}
-        onConfirm={handleConfirmCancel}
-        title="Xác nhận hủy đơn đặt phòng"
-        description="Bạn có chắc chắn muốn hủy đơn đặt phòng này? Quỹ phòng và các phòng vật lý đã gán sẽ được giải phóng lập tức."
-        confirmText={isCancelling ? 'Đang hủy...' : 'Xác nhận hủy'}
-        cancelText="Đóng"
-        variant="danger"
-      />
 
       {/* NO-SHOW CONFIRMATION & PENALTY PIPELINE MODAL */}
       {noShowBooking && (
@@ -1423,6 +1432,28 @@ export const BookingListPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {/* MODAL HỦY ĐƠN / PHÒNG FIT */}
+      <CancelBookingModal
+        isOpen={isCancelModalOpen}
+        onClose={() => {
+          setIsCancelModalOpen(false);
+          setCancelTarget(null);
+        }}
+        target={cancelTarget}
+        onSuccess={async (cancelRes) => {
+          setActionSuccessMessage(
+            `Hủy thành công cho ${cancelRes.bookingNumber}! Đã hoàn trả kho phòng và giải phóng lịch giữ phòng.`
+          );
+          loadData();
+          if (selectedBooking) {
+            const updated = await bookingService.getById(selectedBooking.id);
+            if (updated.result) {
+              setSelectedBooking(updated.result);
+            }
+          }
+        }}
+      />
     </div>
   );
 };

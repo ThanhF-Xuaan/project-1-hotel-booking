@@ -81,6 +81,10 @@ public enum ErrorCode {
     WALK_IN_REQUIRE_FULL_PAYMENT(7043, "Khách vãng lai đặt ít phòng (≤ 2 phòng) bắt buộc thanh toán 100% khi nhận phòng", HttpStatus.BAD_REQUEST),
     BOOKING_ALREADY_CHECKED_IN(7044, "Không thể đánh dấu No-Show do đã có phòng làm thủ tục nhận phòng", HttpStatus.BAD_REQUEST),
     BOOKING_SESSION_EXPIRED(7051, "Phiên đặt phòng hoặc thanh toán đã hết hạn, vui lòng thao tác lại", HttpStatus.GONE),
+    BOOKING_CANNOT_BE_CANCELLED(7061, "Đơn đặt phòng không ở trạng thái được phép hủy", HttpStatus.BAD_REQUEST),
+    BOOKING_ALREADY_CANCELLED(7062, "Đơn đặt phòng này đã được hủy trước đó", HttpStatus.BAD_REQUEST),
+    CANCELLATION_NOT_ALLOWED_AFTER_CHECKIN(7063, "Không thể hủy toàn bộ đơn đặt phòng do đã có phòng hoàn tất nhận phòng hoặc đã kết thúc lưu trú", HttpStatus.BAD_REQUEST),
+    BOOKING_ROOM_NOT_ELIGIBLE_FOR_CANCELLATION(7064, "Phòng này không ở trạng thái hợp lệ (EXPECTED) để thực hiện hủy", HttpStatus.BAD_REQUEST),
 
     // Finance & Payment Module Errors (8000s)
     PAYMENT_NOT_FOUND(8001, "Không tìm thấy thông tin thanh toán", HttpStatus.NOT_FOUND),
