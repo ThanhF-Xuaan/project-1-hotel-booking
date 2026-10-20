@@ -1418,6 +1418,217 @@ class BookingServiceTest {
     }
 
     @Test
+    @DisplayName("createWalkInBooking - Đặt nhiều phòng (3 phòng) cho phép đặt cọc >= 50%")
+    void createWalkInBooking_GroupBooking_AllowsDepositPayment() {
+        Short hotelId = 1;
+        Integer roomTypeId = 10;
+        LocalDate checkIn = LocalDate.now();
+        LocalDate checkOut = checkIn.plusDays(1);
+        BigDecimal singleGross = new BigDecimal("1000000.00");
+        BigDecimal depositAmount = new BigDecimal("1500000.00"); // 50% của 3,000,000 đ
+
+        List<WalkInBookingRequest.WalkInRoomItemRequest> rooms = List.of(
+                WalkInBookingRequest.WalkInRoomItemRequest.builder().hotelRoomTypeId(roomTypeId).roomInstanceId(101).build(),
+                WalkInBookingRequest.WalkInRoomItemRequest.builder().hotelRoomTypeId(roomTypeId).roomInstanceId(102).build(),
+                WalkInBookingRequest.WalkInRoomItemRequest.builder().hotelRoomTypeId(roomTypeId).roomInstanceId(103).build()
+        );
+
+        WalkInBookingRequest request = WalkInBookingRequest.builder()
+                .hotelId(hotelId)
+                .guestId(1L)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .rooms(rooms)
+                .payment(WalkInBookingRequest.WalkInPaymentRequest.builder()
+                        .paymentMethod(PaymentMethod.BANK_TRANSFER)
+                        .paymentPurpose("DEPOSIT")
+                        .amount(depositAmount)
+                        .transactionReference("TXN-DEP-3ROOMS")
+                        .build())
+                .build();
+
+        Hotel hotel = Hotel.builder().id(hotelId).build();
+        BookingGuest guest = BookingGuest.builder().id(1L).build();
+        RoomType rt = RoomType.builder().id((short) 1).name("Deluxe").build();
+        HotelRoomType hrt = HotelRoomType.builder().id(roomTypeId).roomType(rt).hotel(hotel).build();
+
+        RoomInstance r101 = RoomInstance.builder().id(101).hotel(hotel).hotelRoomType(hrt).roomNumber("101").currentStatus("READY").build();
+        RoomInstance r102 = RoomInstance.builder().id(102).hotel(hotel).hotelRoomType(hrt).roomNumber("102").currentStatus("READY").build();
+        RoomInstance r103 = RoomInstance.builder().id(103).hotel(hotel).hotelRoomType(hrt).roomNumber("103").currentStatus("READY").build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .totalRoomNetAmount(new BigDecimal("900000.00"))
+                .totalRoomGrossAmount(singleGross)
+                .dailyPrices(List.of(
+                        DailyPriceDto.builder()
+                                .date(checkIn)
+                                .baseRate(new BigDecimal("900000.00"))
+                                .netAmount(new BigDecimal("900000.00"))
+                                .build()
+                ))
+                .build();
+
+        when(hotelService.getEntityById(hotelId)).thenReturn(hotel);
+        when(guestService.getEntityById(1L)).thenReturn(guest);
+        when(roomInstanceService.getEntityById(101)).thenReturn(r101);
+        when(roomInstanceService.getEntityById(102)).thenReturn(r102);
+        when(roomInstanceService.getEntityById(103)).thenReturn(r103);
+        when(hotelRoomTypeService.getEntityById(roomTypeId)).thenReturn(hrt);
+        when(bookingRoomService.findOverlappingAssignedRooms(any(), any(), any())).thenReturn(List.of());
+        when(priceEngine.calculatePrice(any())).thenReturn(breakdown);
+        when(bookingRepository.save(any())).thenAnswer(inv -> {
+            Booking b = inv.getArgument(0);
+            b.setId(777L);
+            return b;
+        });
+        when(bookingMapper.toResponse(any())).thenReturn(BookingResponse.builder().id(777L).status(BookingStatus.CONFIRMED).build());
+
+        BookingResponse response = bookingService.createWalkInBooking(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getId()).isEqualTo(777L);
+
+        // Các phòng đều chuyển sang OCCUPIED
+        verify(roomInstanceService).updateRoomStatusEntity(101, "OCCUPIED");
+        verify(roomInstanceService).updateRoomStatusEntity(102, "OCCUPIED");
+        verify(roomInstanceService).updateRoomStatusEntity(103, "OCCUPIED");
+
+        // Ghi nhận thanh toán và hóa đơn mở (không đóng vì chỉ mới đặt cọc 50%)
+        verify(paymentRepository).save(any());
+        verify(invoiceService).createInvoice(any());
+        verify(invoiceService, never()).settleAndCloseInvoice(777L);
+    }
+
+    @Test
+    @DisplayName("createWalkInBooking - Đặt nhiều phòng nhưng cọc dưới 50% ném INVALID_PAYMENT_AMOUNT")
+    void createWalkInBooking_GroupBooking_DepositLessThan50Percent_ThrowsException() {
+        Short hotelId = 1;
+        Integer roomTypeId = 10;
+        LocalDate checkIn = LocalDate.now();
+        LocalDate checkOut = checkIn.plusDays(1);
+        BigDecimal singleGross = new BigDecimal("1000000.00");
+        BigDecimal depositAmount = new BigDecimal("1000000.00"); // 1M < 1.5M (50% của 3M)
+
+        List<WalkInBookingRequest.WalkInRoomItemRequest> rooms = List.of(
+                WalkInBookingRequest.WalkInRoomItemRequest.builder().hotelRoomTypeId(roomTypeId).roomInstanceId(101).build(),
+                WalkInBookingRequest.WalkInRoomItemRequest.builder().hotelRoomTypeId(roomTypeId).roomInstanceId(102).build(),
+                WalkInBookingRequest.WalkInRoomItemRequest.builder().hotelRoomTypeId(roomTypeId).roomInstanceId(103).build()
+        );
+
+        WalkInBookingRequest request = WalkInBookingRequest.builder()
+                .hotelId(hotelId)
+                .guestId(1L)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .rooms(rooms)
+                .payment(WalkInBookingRequest.WalkInPaymentRequest.builder()
+                        .paymentMethod(PaymentMethod.CASH)
+                        .paymentPurpose("DEPOSIT")
+                        .amount(depositAmount)
+                        .build())
+                .build();
+
+        Hotel hotel = Hotel.builder().id(hotelId).build();
+        BookingGuest guest = BookingGuest.builder().id(1L).build();
+        RoomType rt = RoomType.builder().id((short) 1).name("Deluxe").build();
+        HotelRoomType hrt = HotelRoomType.builder().id(roomTypeId).roomType(rt).hotel(hotel).build();
+
+        RoomInstance r101 = RoomInstance.builder().id(101).hotel(hotel).hotelRoomType(hrt).roomNumber("101").currentStatus("READY").build();
+        RoomInstance r102 = RoomInstance.builder().id(102).hotel(hotel).hotelRoomType(hrt).roomNumber("102").currentStatus("READY").build();
+        RoomInstance r103 = RoomInstance.builder().id(103).hotel(hotel).hotelRoomType(hrt).roomNumber("103").currentStatus("READY").build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .totalRoomGrossAmount(singleGross)
+                .build();
+
+        when(hotelService.getEntityById(hotelId)).thenReturn(hotel);
+        when(guestService.getEntityById(1L)).thenReturn(guest);
+        when(roomInstanceService.getEntityById(101)).thenReturn(r101);
+        when(roomInstanceService.getEntityById(102)).thenReturn(r102);
+        when(roomInstanceService.getEntityById(103)).thenReturn(r103);
+        when(bookingRoomService.findOverlappingAssignedRooms(any(), any(), any())).thenReturn(List.of());
+        when(priceEngine.calculatePrice(any())).thenReturn(breakdown);
+
+        assertThatThrownBy(() -> bookingService.createWalkInBooking(request))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_PAYMENT_AMOUNT);
+    }
+
+    @Test
+    @DisplayName("createWalkInBooking - Khách doanh nghiệp (1 phòng có Company) cho phép đặt cọc >= 50%")
+    void createWalkInBooking_CorporateBooking_AllowsDepositPayment() {
+        Short hotelId = 1;
+        Integer roomTypeId = 10;
+        Integer roomInstanceId = 101;
+        Long companyId = 50L;
+        LocalDate checkIn = LocalDate.now();
+        LocalDate checkOut = checkIn.plusDays(1);
+        BigDecimal total = new BigDecimal("1000000.00");
+        BigDecimal depositAmount = new BigDecimal("600000.00"); // 60% >= 50%
+
+        WalkInBookingRequest request = WalkInBookingRequest.builder()
+                .hotelId(hotelId)
+                .guestId(1L)
+                .companyId(companyId)
+                .checkInDate(checkIn)
+                .checkOutDate(checkOut)
+                .rooms(List.of(
+                        WalkInBookingRequest.WalkInRoomItemRequest.builder()
+                                .hotelRoomTypeId(roomTypeId)
+                                .roomInstanceId(roomInstanceId)
+                                .build()
+                ))
+                .payment(WalkInBookingRequest.WalkInPaymentRequest.builder()
+                        .paymentMethod(PaymentMethod.CREDIT_CARD)
+                        .paymentPurpose("DEPOSIT")
+                        .amount(depositAmount)
+                        .transactionReference("CC-REF-CORP")
+                        .build())
+                .build();
+
+        Hotel hotel = Hotel.builder().id(hotelId).build();
+        BookingGuest guest = BookingGuest.builder().id(1L).build();
+        Company company = Company.builder().id(companyId).name("FPT Software").build();
+        RoomType rt = RoomType.builder().id((short) 1).name("Deluxe").build();
+        HotelRoomType hrt = HotelRoomType.builder().id(roomTypeId).roomType(rt).hotel(hotel).build();
+        RoomInstance readyRoom = RoomInstance.builder().id(roomInstanceId).hotel(hotel).hotelRoomType(hrt).roomNumber("101").currentStatus("READY").build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .totalRoomNetAmount(new BigDecimal("900000.00"))
+                .totalRoomGrossAmount(total)
+                .dailyPrices(List.of(
+                        DailyPriceDto.builder()
+                                .date(checkIn)
+                                .baseRate(new BigDecimal("900000.00"))
+                                .netAmount(new BigDecimal("900000.00"))
+                                .build()
+                ))
+                .build();
+
+        when(hotelService.getEntityById(hotelId)).thenReturn(hotel);
+        when(companyService.getEntityById(companyId)).thenReturn(company);
+        when(guestService.getEntityById(1L)).thenReturn(guest);
+        when(roomInstanceService.getEntityById(roomInstanceId)).thenReturn(readyRoom);
+        when(hotelRoomTypeService.getEntityById(roomTypeId)).thenReturn(hrt);
+        when(bookingRoomService.findOverlappingAssignedRooms(eq(roomInstanceId), any(), any())).thenReturn(List.of());
+        when(priceEngine.calculatePrice(any())).thenReturn(breakdown);
+        when(bookingRepository.save(any())).thenAnswer(inv -> {
+            Booking b = inv.getArgument(0);
+            b.setId(999L);
+            return b;
+        });
+        when(bookingMapper.toResponse(any())).thenReturn(BookingResponse.builder().id(999L).status(BookingStatus.CONFIRMED).build());
+
+        BookingResponse response = bookingService.createWalkInBooking(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getId()).isEqualTo(999L);
+        verify(companyService).getEntityById(companyId);
+        verify(roomInstanceService).updateRoomStatusEntity(roomInstanceId, "OCCUPIED");
+        verify(invoiceService, never()).settleAndCloseInvoice(999L);
+    }
+
+    @Test
     @DisplayName("processNoShowBookings: Đơn 1 đêm không trả trước -> Phạt đêm đầu, giải phóng phòng và kho, không tạo REFUND")
     void processNoShowBookings_SingleNight_AppliesPenalty_AndReleasesAll() {
         Short hotelId = 1;

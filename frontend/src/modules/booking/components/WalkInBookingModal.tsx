@@ -119,13 +119,17 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
   // Bước 2: Thông tin Doanh nghiệp & Khách đặt
   const [bookingType, setBookingType] = useState<BookingType>('FIT');
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | undefined>(undefined);
   const [companyName, setCompanyName] = useState('');
   const [taxCode, setTaxCode] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
   const [companyContactName, setCompanyContactName] = useState('');
   const [companyContactPhone, setCompanyContactPhone] = useState('');
+  const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
+  const [isSearchingCompany, setIsSearchingCompany] = useState(false);
 
   // Người đặt / Đại diện thanh toán (BookingGuest)
+  const [selectedGuestId, setSelectedGuestId] = useState<number | undefined>(undefined);
   const [guestPhone, setGuestPhone] = useState('');
   const [guestFullName, setGuestFullName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
@@ -256,18 +260,54 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     try {
       const res = await apiClient.get<any>(`/api/v1/guests/phone/${guestPhone.trim()}`);
       if (res.result) {
+        setSelectedGuestId(res.result.id);
         setGuestFullName(res.result.fullName || `${res.result.lastName || ''} ${res.result.firstName || ''}`.trim());
         if (res.result.email) setGuestEmail(res.result.email);
         if (res.result.identityNumber) setGuestIdentityNumber(res.result.identityNumber);
         if (res.result.identityType) setGuestIdentityType(res.result.identityType);
         if (res.result.nationality) setGuestNationality(res.result.nationality);
-        setGuestFoundMessage(`Đã tìm thấy hồ sơ khách: ${res.result.fullName || 'Khách quen'}`);
+        setGuestFoundMessage(`Đã tìm thấy hồ sơ khách: ${res.result.fullName || 'Khách quen'} (ID #${res.result.id})`);
       }
     } catch {
-      setGuestFoundMessage('Không tìm thấy khách cũ. Sẽ tạo mới hồ sơ khách.');
+      setSelectedGuestId(undefined);
+      setGuestFoundMessage('Khách mới - Hệ thống sẽ tự động lưu hồ sơ khách.');
     } finally {
       setIsSearchingGuest(false);
     }
+  };
+
+  // Tra cứu nhanh Doanh nghiệp (Autocomplete)
+  const handleSearchCompany = async (query: string) => {
+    setCompanyName(query);
+    setSelectedCompanyId(undefined);
+    if (!query.trim() || query.trim().length < 2) {
+      setCompanySuggestions([]);
+      return;
+    }
+    setIsSearchingCompany(true);
+    try {
+      const res = await apiClient.post<any>('/api/v1/companies/filter', {
+        keyword: query.trim(),
+        pageSize: 5,
+      });
+      if (res.result?.content) {
+        setCompanySuggestions(res.result.content);
+      }
+    } catch {
+      setCompanySuggestions([]);
+    } finally {
+      setIsSearchingCompany(false);
+    }
+  };
+
+  const handleSelectCompany = (comp: any) => {
+    setSelectedCompanyId(comp.id);
+    setCompanyName(comp.name || '');
+    setTaxCode(comp.taxCode || '');
+    setCompanyAddress(comp.address || '');
+    setCompanyContactName(comp.contactName || '');
+    setCompanyContactPhone(comp.contactPhone || '');
+    setCompanySuggestions([]);
   };
 
   // Nút 1-click: Gán người đặt vào phòng #1
@@ -460,9 +500,9 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       const payload: WalkInBookingRequest = {
         hotelId: selectedHotelId,
         bookingType,
-        companyId: undefined,
+        companyId: selectedCompanyId,
         newCompany:
-          bookingType === 'CORPORATE'
+          bookingType === 'CORPORATE' && !selectedCompanyId && companyName.trim()
             ? {
                 name: companyName,
                 taxCode,
@@ -471,15 +511,17 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 contactPhone: companyContactPhone,
               }
             : undefined,
-        guestId: undefined,
-        newGuest: {
-          fullName: guestFullName,
-          phone: guestPhone,
-          email: guestEmail,
-          identityType: guestIdentityType,
-          identityNumber: guestIdentityNumber,
-          nationality: guestNationality,
-        },
+        guestId: selectedGuestId,
+        newGuest: !selectedGuestId
+          ? {
+              fullName: guestFullName,
+              phone: guestPhone,
+              email: guestEmail,
+              identityType: guestIdentityType,
+              identityNumber: guestIdentityNumber,
+              nationality: guestNationality,
+            }
+          : undefined,
         checkInDate,
         checkOutDate,
         notes: `Khách vãng lai Check-in ngay tại quầy lúc ${actualCheckInTime}.`,
@@ -846,22 +888,48 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             {/* Thông tin Doanh nghiệp nếu chọn CORPORATE */}
             {bookingType === 'CORPORATE' && (
               <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-200 space-y-4">
-                <h4 className="text-sm font-bold text-blue-900 flex items-center gap-2">
-                  <Briefcase className="w-4 h-4 text-blue-600" />
-                  Thông tin Doanh nghiệp bảo trợ / Đối tác công tác
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    Thông tin Doanh nghiệp bảo trợ / Đối tác công tác
+                  </h4>
+                  {selectedCompanyId && (
+                    <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-full border border-blue-300">
+                      Đã chọn đối tác #{selectedCompanyId}
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
+                  <div className="relative">
                     <label className="block text-xs font-semibold text-neutral-700 mb-1">
                       Tên công ty <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
-                      placeholder="VD: Công ty TNHH Giải Pháp Công Nghệ"
+                      placeholder="Gõ tìm hoặc nhập mới..."
                       value={companyName}
-                      onChange={(e) => setCompanyName(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm"
+                      onChange={(e) => handleSearchCompany(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
+                    {isSearchingCompany && (
+                      <span className="absolute right-3 top-8 text-xs text-neutral-400">Đang tìm...</span>
+                    )}
+                    {companySuggestions.length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-neutral-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                        {companySuggestions.map((c) => (
+                          <div
+                            key={c.id}
+                            onClick={() => handleSelectCompany(c)}
+                            className="p-2.5 hover:bg-blue-50 cursor-pointer border-b border-neutral-100 last:border-b-0 text-left"
+                          >
+                            <div className="font-semibold text-xs text-neutral-900">{c.name}</div>
+                            <div className="text-[11px] text-neutral-500">
+                              MST: {c.taxCode || 'N/A'} {c.contactPhone ? `| SĐT: ${c.contactPhone}` : ''}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-neutral-700 mb-1">Mã số thuế</label>
