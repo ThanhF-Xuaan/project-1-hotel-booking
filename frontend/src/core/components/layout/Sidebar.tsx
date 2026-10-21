@@ -50,21 +50,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    groupName: 'CỔNG KHÁCH HÀNG',
-    items: [
-      {
-        label: 'Giao diện Đặt phòng Portal',
-        to: '/portal/search',
-        icon: <Globe className="w-5 h-5" />,
-      },
-      {
-        label: 'Tra cứu Đơn của Khách',
-        to: '/portal/my-bookings',
-        icon: <UserSquare2 className="w-5 h-5" />,
-      },
-    ],
-  },
-  {
     groupName: 'ĐẶT PHÒNG & LƯU TRÚ',
     items: [
       {
@@ -78,6 +63,18 @@ const navGroups: NavGroup[] = [
         to: '/booking/walk-in',
         icon: <UserPlus className="w-5 h-5" />,
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST'],
+      },
+      {
+        label: 'Chính sách Hủy & No-Show',
+        to: '/booking/policies',
+        icon: <ShieldCheck className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Tra cứu Đơn của Khách',
+        to: '/portal/my-bookings',
+        icon: <UserSquare2 className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE'],
       },
     ],
   },

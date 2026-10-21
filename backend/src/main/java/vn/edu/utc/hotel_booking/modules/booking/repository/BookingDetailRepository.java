@@ -10,4 +10,8 @@ import java.util.List;
 public interface BookingDetailRepository extends JpaRepository<BookingDetail, Long> {
 
     List<BookingDetail> findByBookingId(Long bookingId);
+
+    boolean existsByCancellationPolicyId(Integer cancellationPolicyId);
+
+    boolean existsByNoShowPolicyId(Integer noShowPolicyId);
 }

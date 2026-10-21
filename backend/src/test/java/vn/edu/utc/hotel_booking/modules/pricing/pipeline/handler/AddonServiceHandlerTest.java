@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import vn.edu.utc.hotel_booking.modules.operation.entity.HotelServiceItem;
+import vn.edu.utc.hotel_booking.modules.operation.entity.MasterItem;
 import vn.edu.utc.hotel_booking.modules.operation.entity.Menu;
 import vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PriceCalculationRequest;
@@ -43,12 +43,28 @@ class AddonServiceHandlerTest {
         // Arrange
         TaxCategory catService = TaxCategory.builder().id(2).categoryCode("SERVICE").categoryName("F&B").build();
 
+        MasterItem masterHoneymoon = MasterItem.builder()
+                .id(101)
+                .code("SRV_HONEYMOON")
+                .name("Honeymoon Setup")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_STAY)
+                .defaultBasePrice(new BigDecimal("500000.00"))
+                .build();
+
         Menu menu101 = Menu.builder()
                 .id(101)
                 .name("Honeymoon Setup")
                 .basePrice(new BigDecimal("500000.00"))
                 .taxCategory(catService)
-                .hotelServiceItem(HotelServiceItem.builder().pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_STAY).build())
+                .masterItem(masterHoneymoon)
+                .build();
+
+        MasterItem masterBuffet = MasterItem.builder()
+                .id(102)
+                .code("SRV_BUFFET")
+                .name("Buffet Breakfast")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_PERSON_PER_NIGHT)
+                .defaultBasePrice(new BigDecimal("300000.00"))
                 .build();
 
         Menu menu102 = Menu.builder()
@@ -56,7 +72,7 @@ class AddonServiceHandlerTest {
                 .name("Buffet Breakfast")
                 .basePrice(new BigDecimal("300000.00"))
                 .taxCategory(catService)
-                .hotelServiceItem(HotelServiceItem.builder().pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_PERSON_PER_NIGHT).build())
+                .masterItem(masterBuffet)
                 .build();
 
         when(menuRepository.findByIdAndIsDeletedFalse(101)).thenReturn(Optional.of(menu101));
@@ -106,5 +122,51 @@ class AddonServiceHandlerTest {
                 .map(ServiceItemContext::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         assertThat(totalServices).isEqualByComparingTo(new BigDecimal("2300000.00"));
+    }
+
+    @Test
+    @DisplayName("Should fallback to MasterItem defaultBasePrice when Menu basePrice is null")
+    void shouldFallbackToMasterItemDefaultPrice() {
+        TaxCategory catService = TaxCategory.builder().id(2).categoryCode("SERVICE").categoryName("F&B").build();
+
+        MasterItem masterAirport = MasterItem.builder()
+                .id(103)
+                .code("SRV_AIRPORT")
+                .name("Airport Shuttle")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_STAY)
+                .defaultBasePrice(new BigDecimal("250000.00"))
+                .build();
+
+        // Menu has null basePrice, should use masterItem default
+        Menu menu103 = Menu.builder()
+                .id(103)
+                .name("Airport Shuttle")
+                .basePrice(null)
+                .taxCategory(catService)
+                .masterItem(masterAirport)
+                .build();
+
+        when(menuRepository.findByIdAndIsDeletedFalse(103)).thenReturn(Optional.of(menu103));
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 12, 31))
+                .checkOutDate(LocalDate.of(2027, 1, 2))
+                .adults((short) 2)
+                .selectedServices(List.of(
+                        SelectedServiceRequest.builder().serviceId(103).quantity(1).build()
+                ))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .build();
+
+        addonServiceHandler.handle(context);
+
+        List<ServiceItemContext> items = context.getServiceItems();
+        assertThat(items).hasSize(1);
+        assertThat(items.get(0).getUnitPrice()).isEqualByComparingTo(new BigDecimal("250000.00"));
+        assertThat(items.get(0).getSubtotal()).isEqualByComparingTo(new BigDecimal("250000.00"));
     }
 }

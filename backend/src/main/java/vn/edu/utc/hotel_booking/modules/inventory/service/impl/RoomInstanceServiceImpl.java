@@ -83,19 +83,49 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
     @Override
     @Transactional
     public RoomInstanceResponse updateRoomStatus(Integer id, String status) {
-        RoomInstance roomInstance = roomInstanceRepository.findByIdWithDetails(id)
-                .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng id: " + id));
-
-        roomInstance.setCurrentStatus(status);
-        RoomInstance updated = roomInstanceRepository.save(roomInstance);
+        RoomInstance updated = updateRoomStatusEntity(id, status);
         return roomInstanceMapper.toResponse(updated);
     }
 
     @Override
-    public RoomInstanceResponse getRoomInstanceById(Integer id) {
+    @Transactional
+    public RoomInstance updateRoomStatusEntity(Integer id, String status) {
         RoomInstance roomInstance = roomInstanceRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng id: " + id));
+
+        roomInstance.setCurrentStatus(status);
+        return roomInstanceRepository.save(roomInstance);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RoomInstance> getRoomsByHotelAndStatus(Short hotelId, String status) {
+        if (hotelId == null) {
+            return List.of();
+        }
+        String searchStatus = (status != null && !status.isBlank()) ? status.trim() : null;
+        return roomInstanceRepository.findByHotelIdAndCurrentStatus(hotelId, searchStatus);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public int countOccupiedRooms(Short hotelId) {
+        if (hotelId == null) {
+            return 0;
+        }
+        return (int) roomInstanceRepository.countOccupiedRoomsByHotelId(hotelId);
+    }
+
+    @Override
+    public RoomInstanceResponse getRoomInstanceById(Integer id) {
+        RoomInstance roomInstance = getEntityById(id);
         return roomInstanceMapper.toResponse(roomInstance);
+    }
+
+    @Override
+    public RoomInstance getEntityById(Integer id) {
+        return roomInstanceRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng vật lý id: " + id));
     }
 
     @Override

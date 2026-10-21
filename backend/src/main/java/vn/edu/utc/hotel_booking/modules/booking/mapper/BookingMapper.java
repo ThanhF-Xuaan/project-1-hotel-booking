@@ -41,6 +41,5 @@ public interface BookingMapper {
     BookingDailyRateResponse toDailyRateResponse(BookingDailyRate entity);
 
     @Mapping(target = "bookingRoomId", source = "bookingRoom.id")
-    @Mapping(target = "bookingGuestId", source = "stayGuest.id")
     BookingChargeResponse toChargeResponse(BookingCharge entity);
 }

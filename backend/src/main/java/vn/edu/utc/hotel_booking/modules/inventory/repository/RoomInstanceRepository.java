@@ -48,6 +48,18 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
 
     List<RoomInstance> findByHotelRoomTypeIdAndCurrentStatusAndIsDeletedFalse(Integer hotelRoomTypeId, String status);
 
+    @Query("SELECT r FROM RoomInstance r " +
+            "JOIN FETCH r.hotel h " +
+            "JOIN FETCH r.hotelRoomType hrt " +
+            "JOIN FETCH hrt.roomType rt " +
+            "WHERE r.isDeleted = false " +
+            "AND r.hotel.id = :hotelId " +
+            "AND (:status IS NULL OR UPPER(r.currentStatus) = UPPER(:status))")
+    List<RoomInstance> findByHotelIdAndCurrentStatus(@Param("hotelId") Short hotelId, @Param("status") String status);
+
+    @Query("SELECT COUNT(r) FROM RoomInstance r WHERE r.isDeleted = false AND r.hotel.id = :hotelId AND UPPER(r.currentStatus) = 'OCCUPIED'")
+    long countOccupiedRoomsByHotelId(@Param("hotelId") Short hotelId);
+
     @Modifying
     @Query("UPDATE RoomInstance r SET r.isDeleted = true WHERE r.id IN :ids")
     int softDeleteByIds(@Param("ids") List<Integer> ids);

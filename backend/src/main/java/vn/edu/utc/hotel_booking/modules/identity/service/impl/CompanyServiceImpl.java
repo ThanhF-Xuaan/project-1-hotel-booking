@@ -49,9 +49,14 @@ public class CompanyServiceImpl implements CompanyService {
 
     @Override
     public CompanyResponse getById(Long id) {
-        Company company = companyRepository.findByIdAndIsDeletedFalse(id)
-                .orElseThrow(() -> new AppException(ErrorCode.COMPANY_NOT_FOUND));
+        Company company = getEntityById(id);
         return companyMapper.toResponse(company);
+    }
+
+    @Override
+    public Company getEntityById(Long id) {
+        return companyRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.COMPANY_NOT_FOUND, "Không tìm thấy doanh nghiệp đối tác ID: " + id));
     }
 
     @Override

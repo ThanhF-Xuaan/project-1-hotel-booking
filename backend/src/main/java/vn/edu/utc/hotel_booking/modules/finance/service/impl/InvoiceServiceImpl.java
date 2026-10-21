@@ -14,7 +14,7 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
-import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceSearchDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
@@ -42,14 +42,14 @@ import java.util.List;
 public class InvoiceServiceImpl implements InvoiceService {
 
     InvoiceRepository invoiceRepository;
-    BookingService bookingService;
+    BookingLookupService bookingLookupService;
     ServiceOrderService serviceOrderService;
     FinanceMapper financeMapper;
 
     @Override
     @Transactional
     public InvoiceResponse createInvoice(InvoiceCreateRequest request) {
-        Booking booking = bookingService.getEntityById(request.getBookingId());
+        Booking booking = bookingLookupService.getBookingEntityById(request.getBookingId());
 
         String invoiceNumber = generateInvoiceNumber();
 
@@ -62,6 +62,13 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .status(InvoiceStatus.DRAFT)
                 .build();
 
+        populateInvoiceData(invoice, booking, serviceFeeRate);
+
+        Invoice saved = invoiceRepository.save(invoice);
+        return financeMapper.toResponse(saved);
+    }
+
+    private void populateInvoiceData(Invoice invoice, Booking booking, BigDecimal serviceFeeRate) {
         List<InvoiceDetail> details = new ArrayList<>();
         BigDecimal subTotal = BigDecimal.ZERO;
         BigDecimal totalVat = BigDecimal.ZERO;
@@ -128,6 +135,14 @@ public class InvoiceServiceImpl implements InvoiceService {
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
+                // Chống thu tiền 2 lần: Bỏ qua các đơn đã thanh toán tại POS hoặc không ghi nợ phòng
+                if (order.getPaymentMethod() != null && order.getPaymentMethod() != vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM) {
+                    continue;
+                }
+                if (order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID) {
+                    continue;
+                }
+
                 if (order.getDetails() != null) {
                     for (ServiceOrderDetailResponse item : order.getDetails()) {
                         InvoiceLineType itemLineType = "PRODUCT".equalsIgnoreCase(item.getItemType())
@@ -165,6 +180,30 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setServiceFeeAmount(serviceFeeAmount);
         invoice.setVatAmount(totalVat);
         invoice.setGrandTotal(grandTotal);
+    }
+
+    @Override
+    @Transactional
+    public InvoiceResponse settleAndCloseInvoice(Long bookingId) {
+        Booking booking = bookingLookupService.getBookingEntityById(bookingId);
+        List<Invoice> existingInvoices = invoiceRepository.findByBookingId(bookingId);
+
+        Invoice invoice;
+        BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
+
+        if (existingInvoices != null && !existingInvoices.isEmpty()) {
+            invoice = existingInvoices.get(0);
+        } else {
+            invoice = Invoice.builder()
+                    .booking(booking)
+                    .invoiceNumber(generateInvoiceNumber())
+                    .serviceFeeRate(serviceFeeRate)
+                    .build();
+        }
+
+        populateInvoiceData(invoice, booking, serviceFeeRate);
+        invoice.setStatus(InvoiceStatus.PAID);
+        invoice.setIssuedAt(OffsetDateTime.now());
 
         Invoice saved = invoiceRepository.save(invoice);
         return financeMapper.toResponse(saved);

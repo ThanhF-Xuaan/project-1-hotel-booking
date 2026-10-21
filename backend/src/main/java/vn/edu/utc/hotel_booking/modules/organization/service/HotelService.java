@@ -5,6 +5,7 @@ import vn.edu.utc.hotel_booking.modules.organization.dto.request.HotelCreateRequ
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.HotelSearchDto;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.HotelUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.organization.dto.response.HotelResponse;
+import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 
 import java.util.List;
 
@@ -13,6 +14,8 @@ public interface HotelService {
     PageResponse<HotelResponse> filter(HotelSearchDto searchDto);
 
     HotelResponse getById(Short id);
+
+    Hotel getEntityById(Short id);
 
     HotelResponse create(HotelCreateRequest request);
 

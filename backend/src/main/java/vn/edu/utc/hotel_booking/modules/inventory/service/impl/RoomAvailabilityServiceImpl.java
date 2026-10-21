@@ -374,6 +374,24 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
         }
     }
 
+    @Override
+    @Transactional
+    public void releaseBookedInventory(Integer hotelRoomTypeId, LocalDate startDate, LocalDate endDate, Integer roomsCount) {
+        if (hotelRoomTypeId == null || startDate == null || endDate == null || roomsCount == null || roomsCount <= 0) {
+            return;
+        }
+        LocalDate cur = startDate;
+        while (cur.isBefore(endDate)) {
+            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(hotelRoomTypeId, cur);
+            if (opt.isPresent()) {
+                RoomAvailability availability = opt.get();
+                availability.setBookedRooms(Math.max(0, availability.getBookedRooms() - roomsCount));
+                roomAvailabilityRepository.save(availability);
+            }
+            cur = cur.plusDays(1);
+        }
+    }
+
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void scheduledReleaseExpiredHolds() {

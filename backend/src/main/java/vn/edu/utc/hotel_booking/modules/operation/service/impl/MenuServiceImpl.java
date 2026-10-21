@@ -17,19 +17,17 @@ import vn.edu.utc.hotel_booking.modules.operation.dto.request.MenuCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.MenuSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.MenuUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.MenuResponse;
-import vn.edu.utc.hotel_booking.modules.operation.entity.CatalogItem;
-import vn.edu.utc.hotel_booking.modules.operation.entity.HotelServiceItem;
+import vn.edu.utc.hotel_booking.modules.operation.entity.MasterItem;
 import vn.edu.utc.hotel_booking.modules.operation.entity.Menu;
 import vn.edu.utc.hotel_booking.modules.operation.entity.MenuType;
 import vn.edu.utc.hotel_booking.modules.operation.mapper.OperationMapper;
-import vn.edu.utc.hotel_booking.modules.operation.repository.CatalogItemRepository;
-import vn.edu.utc.hotel_booking.modules.operation.repository.HotelServiceItemRepository;
 import vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository;
+import vn.edu.utc.hotel_booking.modules.operation.service.MasterItemService;
 import vn.edu.utc.hotel_booking.modules.operation.service.MenuService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
-import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
+import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
-import vn.edu.utc.hotel_booking.modules.pricing.repository.TaxCategoryRepository;
+import vn.edu.utc.hotel_booking.modules.pricing.service.TaxCategoryService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,69 +39,55 @@ import java.util.List;
 public class MenuServiceImpl implements MenuService {
 
     MenuRepository menuRepository;
-    CatalogItemRepository catalogItemRepository;
-    HotelServiceItemRepository hotelServiceItemRepository;
-    HotelRepository hotelRepository;
-    TaxCategoryRepository taxCategoryRepository;
+    MasterItemService masterItemService;
+    HotelService hotelService;
+    TaxCategoryService taxCategoryService;
     OperationMapper operationMapper;
 
     @Override
     @Transactional
     public MenuResponse create(MenuCreateRequest request) {
-        Hotel hotel = null;
-        if (request.getHotelId() != null) {
-            hotel = hotelRepository.findByIdAndIsDeletedFalse(request.getHotelId())
-                    .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn ID: " + request.getHotelId()));
-        }
-
-        TaxCategory taxCategory = taxCategoryRepository.findById(request.getTaxCategoryId())
-                .orElseThrow(() -> new AppException(ErrorCode.TAX_CATEGORY_NOT_FOUND, "Không tìm thấy nhóm thuế ID: " + request.getTaxCategoryId()));
+        Hotel hotel = hotelService.getEntityById(request.getHotelId());
+        TaxCategory taxCategory = taxCategoryService.getEntityById(request.getTaxCategoryId());
+        MasterItem masterItem = masterItemService.getEntityById(request.getMasterItemId());
 
         Menu menu = Menu.builder()
                 .hotel(hotel)
+                .masterItem(masterItem)
                 .taxCategory(taxCategory)
                 .menuType(request.getMenuType())
                 .name(request.getName().trim())
+                .customName(request.getCustomName())
                 .description(request.getDescription())
                 .basePrice(request.getBasePrice())
+                .stockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : 0)
                 .status("ACTIVE")
                 .build();
 
         Menu savedMenu = menuRepository.save(menu);
-
-        if (request.getMenuType() == MenuType.PRODUCT) {
-            CatalogItem catalogItem = CatalogItem.builder()
-                    .menu(savedMenu)
-                    .stockQuantity(request.getStockQuantity() != null ? request.getStockQuantity() : 0)
-                    .build();
-            catalogItemRepository.save(catalogItem);
-            savedMenu.setCatalogItem(catalogItem);
-        } else if (request.getMenuType() == MenuType.SERVICE) {
-            HotelServiceItem serviceItem = HotelServiceItem.builder()
-                    .menu(savedMenu)
-                    .pricingType(request.getPricingType())
-                    .build();
-            hotelServiceItemRepository.save(serviceItem);
-            savedMenu.setHotelServiceItem(serviceItem);
-        }
-
         return operationMapper.toResponse(savedMenu);
     }
 
     @Override
     @Transactional
     public MenuResponse update(Integer id, MenuUpdateRequest request) {
-        Menu menu = menuRepository.findByIdAndIsDeletedFalse(id)
-                .orElseThrow(() -> new AppException(ErrorCode.MENU_ITEM_NOT_FOUND, "Không tìm thấy món ăn/dịch vụ ID: " + id));
+        Menu menu = getEntityById(id);
 
         if (request.getTaxCategoryId() != null) {
-            TaxCategory taxCategory = taxCategoryRepository.findById(request.getTaxCategoryId())
-                    .orElseThrow(() -> new AppException(ErrorCode.TAX_CATEGORY_NOT_FOUND, "Không tìm thấy nhóm thuế ID: " + request.getTaxCategoryId()));
+            TaxCategory taxCategory = taxCategoryService.getEntityById(request.getTaxCategoryId());
             menu.setTaxCategory(taxCategory);
+        }
+
+        if (request.getMasterItemId() != null) {
+            MasterItem masterItem = masterItemService.getEntityById(request.getMasterItemId());
+            menu.setMasterItem(masterItem);
         }
 
         if (request.getName() != null && !request.getName().isBlank()) {
             menu.setName(request.getName().trim());
+        }
+        if (request.getCustomName() != null) {
+            menu.setCustomName(request.getCustomName());
         }
         if (request.getDescription() != null) {
             menu.setDescription(request.getDescription());
@@ -114,17 +98,13 @@ public class MenuServiceImpl implements MenuService {
         if (request.getStatus() != null) {
             menu.setStatus(request.getStatus());
         }
+        if (request.getStockQuantity() != null) {
+            menu.setStockQuantity(request.getStockQuantity());
+        }
 
-        if (menu.getMenuType() == MenuType.PRODUCT && request.getStockQuantity() != null) {
-            CatalogItem catalogItem = catalogItemRepository.findById(id).orElseGet(() -> CatalogItem.builder().menu(menu).build());
-            catalogItem.setStockQuantity(request.getStockQuantity());
-            catalogItemRepository.save(catalogItem);
-            menu.setCatalogItem(catalogItem);
-        } else if (menu.getMenuType() == MenuType.SERVICE && request.getPricingType() != null) {
-            HotelServiceItem serviceItem = hotelServiceItemRepository.findById(id).orElseGet(() -> HotelServiceItem.builder().menu(menu).build());
-            serviceItem.setPricingType(request.getPricingType());
-            hotelServiceItemRepository.save(serviceItem);
-            menu.setHotelServiceItem(serviceItem);
+        if (menu.getMenuType() == MenuType.SERVICE && request.getPricingType() != null && menu.getMasterItem() != null) {
+            menu.getMasterItem().setPricingType(request.getPricingType());
+            masterItemService.saveEntity(menu.getMasterItem());
         }
 
         Menu saved = menuRepository.save(menu);
@@ -133,9 +113,42 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public MenuResponse getById(Integer id) {
-        Menu menu = menuRepository.findByIdAndIsDeletedFalse(id)
-                .orElseThrow(() -> new AppException(ErrorCode.MENU_ITEM_NOT_FOUND, "Không tìm thấy món ăn/dịch vụ ID: " + id));
+        Menu menu = getEntityById(id);
         return operationMapper.toResponse(menu);
+    }
+
+    @Override
+    public Menu getEntityById(Integer id) {
+        if (id == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID món ăn/dịch vụ không được để trống");
+        }
+        return menuRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.MENU_ITEM_NOT_FOUND, "Không tìm thấy món ăn/dịch vụ ID: " + id));
+    }
+
+    @Override
+    @Transactional
+    public void deductStock(Integer menuId, int quantity) {
+        Menu menu = getEntityById(menuId);
+        if (menu.getMenuType() == MenuType.PRODUCT) {
+            int currentStock = menu.getStockQuantity() != null ? menu.getStockQuantity() : 0;
+            if (currentStock < quantity) {
+                throw new AppException(ErrorCode.OUT_OF_STOCK, "Sản phẩm " + menu.getName() + " không đủ tồn kho (còn " + currentStock + ")");
+            }
+            menu.setStockQuantity(currentStock - quantity);
+            menuRepository.save(menu);
+        }
+    }
+
+    @Override
+    @Transactional
+    public void restoreStock(Integer menuId, int quantity) {
+        Menu menu = getEntityById(menuId);
+        if (menu.getMenuType() == MenuType.PRODUCT) {
+            int currentStock = menu.getStockQuantity() != null ? menu.getStockQuantity() : 0;
+            menu.setStockQuantity(currentStock + quantity);
+            menuRepository.save(menu);
+        }
     }
 
     @Override

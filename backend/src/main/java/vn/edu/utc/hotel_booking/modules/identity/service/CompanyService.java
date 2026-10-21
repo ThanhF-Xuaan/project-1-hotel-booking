@@ -6,6 +6,8 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.CompanySearchDto;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.CompanyUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.CompanyResponse;
 
+import vn.edu.utc.hotel_booking.modules.identity.entity.Company;
+
 import java.util.List;
 
 public interface CompanyService {
@@ -13,6 +15,8 @@ public interface CompanyService {
     PageResponse<CompanyResponse> filter(CompanySearchDto searchDto);
 
     CompanyResponse getById(Long id);
+
+    Company getEntityById(Long id);
 
     CompanyResponse create(CompanyCreateRequest request);
 

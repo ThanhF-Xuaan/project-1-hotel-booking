@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -26,6 +26,7 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -51,7 +52,8 @@ export const LoginPage: React.FC = () => {
         if (res.result.refresh_token) {
           localStorage.setItem('auth_refresh_token', res.result.refresh_token)
         }
-        navigate('/dashboard')
+        const from = (location.state as any)?.from?.pathname || '/dashboard'
+        navigate(from, { replace: true })
       } else {
         setErrorMsg(res.message || 'Đăng nhập thất bại')
       }

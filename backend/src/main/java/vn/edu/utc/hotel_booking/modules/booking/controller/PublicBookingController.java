@@ -34,4 +34,21 @@ public class PublicBookingController {
     public ApiResponse<BookingResponse> getBookingByNumber(@PathVariable String bookingNumber) {
         return ApiResponse.success(bookingService.getByBookingNumber(bookingNumber));
     }
+
+    @GetMapping("/{bookingNumber}/cancel-preview")
+    @Operation(summary = "Khách hàng tra cứu xem trước chi phí phạt và tiền hoàn khi hủy đơn trực tuyến")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse> previewPublicCancelBooking(
+            @PathVariable String bookingNumber
+    ) {
+        return ApiResponse.success(bookingService.previewPublicCancelBooking(bookingNumber));
+    }
+
+    @PostMapping("/{bookingNumber}/cancel")
+    @Operation(summary = "Khách hàng xác nhận hủy đơn đặt phòng trực tuyến (FIT <= 5 phòng)")
+    public ApiResponse<vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse> cancelPublicBooking(
+            @PathVariable String bookingNumber,
+            @Valid @RequestBody vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest request
+    ) {
+        return ApiResponse.success("Hủy đơn đặt phòng thành công", bookingService.cancelPublicBooking(bookingNumber, request));
+    }
 }

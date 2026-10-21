@@ -6,6 +6,8 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestResponse;
 
+import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -14,6 +16,10 @@ public interface GuestService {
     PageResponse<GuestResponse> filter(GuestSearchDto searchDto);
 
     GuestResponse getById(Long id);
+
+    BookingGuest getEntityById(Long id);
+
+    BookingGuest getOrCreateGuest(String phone, String fullName, String email, String nationality);
 
     GuestResponse getByPublicId(UUID publicId);
 

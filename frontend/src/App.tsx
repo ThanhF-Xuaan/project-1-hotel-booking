@@ -10,6 +10,7 @@ import PricingRuleListPage from './modules/pricing/pages/PricingRuleListPage'
 import CampaignListPage from './modules/pricing/pages/CampaignListPage'
 import BookingListPage from './modules/booking/pages/BookingListPage'
 import WalkInBookingPage from './modules/booking/pages/WalkInBookingPage'
+import PolicyManagementPage from './modules/booking/pages/PolicyManagementPage'
 import FolioPaymentPage from './modules/finance/pages/FolioPaymentPage'
 import PaymentResultPage from './modules/finance/pages/PaymentResultPage'
 import { MenuListPage } from './modules/operation/pages/MenuListPage'
@@ -31,7 +32,8 @@ export function App() {
         {/* Trang kết quả trả về từ cổng thanh toán (VNPay return / MoMo redirect) */}
         <Route path="/payment/result" element={<PaymentResultPage />} />
 
-        {/* Customer-facing Public Booking Portal */}
+        {/* Customer-facing Public Booking Portal (công khai) */}
+        <Route path="/" element={<Navigate to="/portal/search" replace />} />
         <Route path="/portal">
           <Route index element={<Navigate to="/portal/search" replace />} />
           <Route path="search" element={<SearchPage />} />
@@ -41,57 +43,58 @@ export function App() {
 
         {/* Internal Hotel Staff & Executive Admin Console (bắt buộc đăng nhập) */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-
+          <Route element={<AdminLayout />}>
             {/* Dashboard chung cho toàn bộ nhân sự */}
-            <Route path="dashboard" element={<ManagementDashboard />} />
+            <Route path="/dashboard" element={<ManagementDashboard />} />
 
             {/* Phân hệ Đặt phòng */}
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE']} />}>
-              <Route path="booking/list" element={<BookingListPage />} />
+              <Route path="/booking/list" element={<BookingListPage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
-              <Route path="booking/walk-in" element={<WalkInBookingPage />} />
+              <Route path="/booking/walk-in" element={<WalkInBookingPage />} />
+            </Route>
+            <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
+              <Route path="booking/policies" element={<PolicyManagementPage />} />
             </Route>
 
             {/* Phân hệ Vận hành & Nhà hàng */}
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B', 'RECEPTIONIST']} />}>
-              <Route path="operation/menus" element={<MenuListPage />} />
-              <Route path="operation/room-service" element={<RoomServiceOrderPage />} />
+              <Route path="/operation/menus" element={<MenuListPage />} />
+              <Route path="/operation/room-service" element={<RoomServiceOrderPage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING']} />}>
-              <Route path="operation/housekeeping" element={<HousekeepingPage />} />
+              <Route path="/operation/housekeeping" element={<HousekeepingPage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE']} />}>
-              <Route path="operation/night-audit" element={<NightAuditPage />} />
+              <Route path="/operation/night-audit" element={<NightAuditPage />} />
             </Route>
 
             {/* Phân hệ Tài chính */}
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE']} />}>
-              <Route path="finance/folios" element={<FolioPaymentPage />} />
+              <Route path="/finance/folios" element={<FolioPaymentPage />} />
             </Route>
 
             {/* Phân hệ Cơ cấu tổ chức */}
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER']} />}>
-              <Route path="organization/regions" element={<RegionListPage />} />
+              <Route path="/organization/regions" element={<RegionListPage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
-              <Route path="organization/hotels" element={<HotelListPage />} />
+              <Route path="/organization/hotels" element={<HotelListPage />} />
             </Route>
 
             {/* Phân hệ Quản lý Tồn phòng */}
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
-              <Route path="inventory/room-types" element={<RoomTypeListPage />} />
+              <Route path="/inventory/room-types" element={<RoomTypeListPage />} />
             </Route>
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'ENGINEERING']} />}>
-              <Route path="inventory/rooms" element={<RoomInstanceListPage />} />
+              <Route path="/inventory/rooms" element={<RoomInstanceListPage />} />
             </Route>
 
             {/* Phân hệ Giá & Khuyến mại */}
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
-              <Route path="pricing/rules" element={<PricingRuleListPage />} />
-              <Route path="pricing/campaigns" element={<CampaignListPage />} />
+              <Route path="/pricing/rules" element={<PricingRuleListPage />} />
+              <Route path="/pricing/campaigns" element={<CampaignListPage />} />
             </Route>
 
             {/* Fallback cho các module chưa triển khai */}

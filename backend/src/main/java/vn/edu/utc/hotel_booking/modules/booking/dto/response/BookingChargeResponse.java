@@ -16,7 +16,6 @@ public class BookingChargeResponse {
 
     Long id;
     Long bookingRoomId;
-    Long bookingGuestId;
     BookingChargeType chargeType;
     String itemName;
     String description;

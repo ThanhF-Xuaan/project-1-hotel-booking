@@ -18,7 +18,7 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.GuestMapper;
-import vn.edu.utc.hotel_booking.modules.identity.repository.GuestRepository;
+import vn.edu.utc.hotel_booking.modules.identity.repository.BookingGuestRepository;
 import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
 
 import java.util.List;
@@ -30,7 +30,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class GuestServiceImpl implements GuestService {
 
-    private final GuestRepository guestRepository;
+    private final BookingGuestRepository guestRepository;
     private final GuestMapper guestMapper;
 
     @Override
@@ -51,9 +51,31 @@ public class GuestServiceImpl implements GuestService {
 
     @Override
     public GuestResponse getById(Long id) {
-        BookingGuest guest = guestRepository.findByIdAndIsDeletedFalse(id)
-                .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND));
+        BookingGuest guest = getEntityById(id);
         return guestMapper.toResponse(guest);
+    }
+
+    @Override
+    public BookingGuest getEntityById(Long id) {
+        return guestRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND, "Không tìm thấy thông tin khách hàng ID: " + id));
+    }
+
+    @Override
+    @Transactional
+    public BookingGuest getOrCreateGuest(String phone, String fullName, String email, String nationality) {
+        String cleanPhone = phone != null ? phone.trim() : "";
+        return guestRepository.findByPhoneAndIsDeletedFalse(cleanPhone)
+                .orElseGet(() -> {
+                    BookingGuest newGuest = BookingGuest.builder()
+                            .fullName(fullName != null ? fullName.trim() : "")
+                            .email(email != null ? email.trim() : null)
+                            .phone(cleanPhone)
+                            .nationality(nationality != null ? nationality : "VN")
+                            .status("ACTIVE")
+                            .build();
+                    return guestRepository.save(newGuest);
+                });
     }
 
     @Override

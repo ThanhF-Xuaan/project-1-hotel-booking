@@ -15,6 +15,8 @@ import java.math.BigDecimal;
 public class MenuUpdateRequest {
 
     Integer taxCategoryId;
+    Integer masterItemId;
+    String customName;
     String name;
     String description;
 

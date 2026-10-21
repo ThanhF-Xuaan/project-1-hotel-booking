@@ -66,10 +66,19 @@ public class BookingRoom {
     @Builder.Default
     List<StayGuest> stayGuests = new ArrayList<>();
 
+    /**
+     * @deprecated Sử dụng {@link #getStayGuests()} thay thế.
+     * Khách lưu trú thực tế tại phòng được lưu trong bảng {@code stay_guests} (thể hiện bởi entity {@link StayGuest}).
+     */
+    @Deprecated
     public List<StayGuest> getBookingGuests() {
         return stayGuests;
     }
 
+    /**
+     * @deprecated Sử dụng {@link #setStayGuests(List)} thay thế.
+     */
+    @Deprecated
     public void setBookingGuests(List<StayGuest> guests) {
         this.stayGuests = guests;
     }

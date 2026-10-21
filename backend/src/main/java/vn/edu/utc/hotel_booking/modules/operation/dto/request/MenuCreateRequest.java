@@ -18,6 +18,8 @@ import java.math.BigDecimal;
 public class MenuCreateRequest {
 
     Short hotelId;
+    Integer masterItemId;
+    String customName;
 
     @NotNull(message = "Nhóm thuế không được để trống")
     Integer taxCategoryId;

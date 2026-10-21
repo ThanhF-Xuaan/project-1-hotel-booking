@@ -9,7 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
-import vn.edu.utc.hotel_booking.modules.operation.entity.HotelServiceItem;
+import vn.edu.utc.hotel_booking.modules.operation.entity.MasterItem;
 import vn.edu.utc.hotel_booking.modules.operation.entity.Menu;
 import vn.edu.utc.hotel_booking.modules.operation.repository.MenuRepository;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
@@ -155,12 +155,28 @@ class PricingPipelineEndToEndTest {
         TaxCategory catRoom = TaxCategory.builder().id(1).categoryCode("ROOM").categoryName("Room Tax").build();
         TaxCategory catService = TaxCategory.builder().id(2).categoryCode("SERVICE").categoryName("Service Tax").build();
 
+        MasterItem masterHoneymoon = MasterItem.builder()
+                .id(101)
+                .code("SRV_HONEYMOON")
+                .name("Honeymoon Setup")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_STAY)
+                .defaultBasePrice(new BigDecimal("500000.00"))
+                .build();
+
         Menu honeymoonMenu = Menu.builder()
                 .id(101)
                 .name("Honeymoon Setup")
                 .basePrice(new BigDecimal("500000.00"))
                 .taxCategory(catService)
-                .hotelServiceItem(HotelServiceItem.builder().pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_STAY).build())
+                .masterItem(masterHoneymoon)
+                .build();
+
+        MasterItem masterBuffet = MasterItem.builder()
+                .id(102)
+                .code("SRV_BUFFET")
+                .name("Buffet Breakfast")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_PERSON_PER_NIGHT)
+                .defaultBasePrice(new BigDecimal("300000.00"))
                 .build();
 
         Menu buffetMenu = Menu.builder()
@@ -168,7 +184,7 @@ class PricingPipelineEndToEndTest {
                 .name("Buffet Breakfast")
                 .basePrice(new BigDecimal("300000.00"))
                 .taxCategory(catService)
-                .hotelServiceItem(HotelServiceItem.builder().pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_PERSON_PER_NIGHT).build())
+                .masterItem(masterBuffet)
                 .build();
 
         when(menuRepository.findByIdAndIsDeletedFalse(101)).thenReturn(Optional.of(honeymoonMenu));
