@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.ai.advisor.session;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.CriteriaEvidenceDto;
@@ -12,6 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Component
+@ConditionalOnProperty(prefix = "hotel.ai.advisor.session", name = "store-type", havingValue = "in-memory", matchIfMissing = true)
 public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
 
     private static final Duration SESSION_TTL = Duration.ofMinutes(30);
