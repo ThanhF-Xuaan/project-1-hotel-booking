@@ -6,6 +6,8 @@ import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceSearch
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse;
 
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
+
 import java.util.List;
 
 public interface RoomInstanceService {
@@ -18,7 +20,15 @@ public interface RoomInstanceService {
 
     RoomInstanceResponse getRoomInstanceById(Integer id);
 
+    RoomInstance getEntityById(Integer id);
+
     PageResponse<RoomInstanceResponse> filterRoomInstances(RoomInstanceSearchDto searchDto);
+
+    List<RoomInstance> getRoomsByHotelAndStatus(Short hotelId, String status);
+
+    RoomInstance updateRoomStatusEntity(Integer id, String status);
+
+    int countOccupiedRooms(Short hotelId);
 
     void deleteRoomInstances(List<Integer> ids);
 }

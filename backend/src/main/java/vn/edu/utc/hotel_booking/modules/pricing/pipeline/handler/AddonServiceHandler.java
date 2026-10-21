@@ -51,15 +51,18 @@ public class AddonServiceHandler extends AbstractPricingHandler {
                     BigDecimal unitPrice = req.getUnitPrice();
                     if (unitPrice == null && menu != null) {
                         unitPrice = menu.getBasePrice();
+                        if (unitPrice == null && menu.getMasterItem() != null) {
+                            unitPrice = menu.getMasterItem().getDefaultBasePrice();
+                        }
                     }
                     if (unitPrice == null) {
                         unitPrice = BigDecimal.ZERO;
                     }
 
                     ServicePricingType pricingType = req.getPricingType();
-                    if (pricingType == null && menu != null && menu.getHotelServiceItem() != null && menu.getHotelServiceItem().getPricingType() != null) {
+                    if (pricingType == null && menu != null && menu.getMasterItem() != null && menu.getMasterItem().getPricingType() != null) {
                         try {
-                            pricingType = ServicePricingType.valueOf(menu.getHotelServiceItem().getPricingType().name());
+                            pricingType = ServicePricingType.valueOf(menu.getMasterItem().getPricingType().name());
                         } catch (IllegalArgumentException ignored) {
                             pricingType = ServicePricingType.PER_STAY;
                         }

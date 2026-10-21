@@ -26,6 +26,10 @@ public class MenuResponse {
     BigDecimal basePrice;
     String status;
 
+    Integer masterItemId;
+    String masterItemCode;
+    String customName;
+
     // Riêng cho PRODUCT
     Integer stockQuantity;
 

@@ -18,6 +18,8 @@ public interface BookingService {
 
     vn.edu.utc.hotel_booking.modules.booking.entity.Booking getEntityById(Long id);
 
+    vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom getBookingRoomEntityById(Long id);
+
     BookingResponse getByBookingNumber(String bookingNumber);
 
     BookingResponse updateStatus(Long id, BookingStatus status);
@@ -29,4 +31,56 @@ public interface BookingService {
     BookingResponse checkIn(Long bookingRoomId);
 
     BookingResponse checkOut(Long bookingRoomId);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.CheckoutSettlementResponse getCheckoutSettlement(Long bookingRoomId);
+
+    BookingResponse confirmOnlineBooking(String sessionId, Long paymentId);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.SurchargeProposalResponse previewSurcharge(
+            Long bookingRoomId,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.SurchargePreviewRequest request
+    );
+
+    void deleteCharge(Long chargeId);
+
+    int processNoShowBookings(Short hotelId, java.time.LocalDate auditDate);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse calculateWalkInQuote(
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInQuoteRequest request
+    );
+
+    BookingResponse createWalkInBooking(
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest request
+    );
+
+    BookingResponse markBookingAsNoShow(
+            Long id,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest request
+    );
+
+    BookingResponse markBookingRoomAsNoShow(
+            Long bookingRoomId,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest request
+    );
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse previewCancelBooking(Long id);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse previewCancelBookingRoom(Long bookingRoomId);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse previewPublicCancelBooking(String bookingNumber);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse cancelBooking(
+            Long id,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest request
+    );
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse cancelBookingRoom(
+            Long bookingRoomId,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest request
+    );
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse cancelPublicBooking(
+            String bookingNumber,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest request
+    );
 }

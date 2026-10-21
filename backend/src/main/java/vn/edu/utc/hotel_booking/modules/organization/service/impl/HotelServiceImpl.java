@@ -80,6 +80,15 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    public Hotel getEntityById(Short id) {
+        if (id == null) {
+            return null;
+        }
+        return hotelRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn ID: " + id));
+    }
+
+    @Override
     @Transactional
     public HotelResponse create(HotelCreateRequest request) {
         Region region = regionRepository.findByIdAndIsDeletedFalse(request.getRegionId())

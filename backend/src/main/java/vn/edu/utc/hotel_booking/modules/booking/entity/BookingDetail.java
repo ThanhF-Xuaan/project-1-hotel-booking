@@ -50,6 +50,22 @@ public class BookingDetail {
     @Column(name = "selection_deadline")
     OffsetDateTime selectionDeadline;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cancellation_policy_id")
+    CancellationPolicy cancellationPolicy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "no_show_policy_id")
+    NoShowPolicy noShowPolicy;
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "cancellation_policy_snapshot", columnDefinition = "jsonb")
+    String cancellationPolicySnapshot;
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name = "no_show_policy_snapshot", columnDefinition = "jsonb")
+    String noShowPolicySnapshot;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     OffsetDateTime createdAt;

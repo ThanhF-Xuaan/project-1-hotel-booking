@@ -23,4 +23,5 @@ public class BookingSearchDto extends BaseSearchDto {
     BookingStatus status;
     LocalDate checkInDate;
     LocalDate checkOutDate;
+    Boolean isAssigned;
 }

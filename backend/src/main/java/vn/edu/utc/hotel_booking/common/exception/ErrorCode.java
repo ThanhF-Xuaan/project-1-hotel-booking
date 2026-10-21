@@ -70,9 +70,21 @@ public enum ErrorCode {
     BOOKING_DETAIL_NOT_FOUND(7011, "Không tìm thấy chi tiết đặt phòng", HttpStatus.NOT_FOUND),
     BOOKING_ROOM_NOT_FOUND(7021, "Không tìm thấy thông tin phòng đặt", HttpStatus.NOT_FOUND),
     ROOM_ALREADY_ASSIGNED(7022, "Phòng vật lý này đã được xếp trong khoảng thời gian trên", HttpStatus.CONFLICT),
+    ROOM_NOT_YET_ASSIGNED(7023, "Phòng đặt chưa được gán phòng vật lý. Vui lòng xếp phòng trước khi thực hiện thao tác này.", HttpStatus.BAD_REQUEST),
+    ROOM_NOT_READY_FOR_CHECKIN(7024, "Phòng vật lý chưa sẵn sàng để check-in (đang dọn dẹp hoặc bảo trì).", HttpStatus.BAD_REQUEST),
+    BOOKING_CHARGE_NOT_FOUND(7025, "Không tìm thấy khoản phụ phí yêu cầu", HttpStatus.NOT_FOUND),
+    CHECKOUT_BALANCE_UNPAID(7026, "Không thể check-out: Booking còn khoản nợ chưa thanh toán. Vui lòng thanh toán toàn bộ chi phí trước khi trả phòng.", HttpStatus.BAD_REQUEST),
+    BOOKING_ROOM_NOT_CHECKED_IN(7027, "Phòng này không ở trạng thái đang lưu trú (CHECKED_IN) để thực hiện check-out.", HttpStatus.BAD_REQUEST),
     INSUFFICIENT_ROOM_AVAILABILITY(7031, "Không đủ phòng trống để thực hiện đặt phòng", HttpStatus.CONFLICT),
     EXCEEDS_MAX_CAPACITY(7041, "Số lượng khách hoặc giường phụ vượt quá sức chứa tối đa của hạng phòng", HttpStatus.BAD_REQUEST),
+    EXCEEDS_MAX_ROOMS(7042, "Đơn đặt phòng walk-in tối đa 5 phòng", HttpStatus.BAD_REQUEST),
+    WALK_IN_REQUIRE_FULL_PAYMENT(7043, "Khách vãng lai đặt ít phòng (≤ 2 phòng) bắt buộc thanh toán 100% khi nhận phòng", HttpStatus.BAD_REQUEST),
+    BOOKING_ALREADY_CHECKED_IN(7044, "Không thể đánh dấu No-Show do đã có phòng làm thủ tục nhận phòng", HttpStatus.BAD_REQUEST),
     BOOKING_SESSION_EXPIRED(7051, "Phiên đặt phòng hoặc thanh toán đã hết hạn, vui lòng thao tác lại", HttpStatus.GONE),
+    BOOKING_CANNOT_BE_CANCELLED(7061, "Đơn đặt phòng không ở trạng thái được phép hủy", HttpStatus.BAD_REQUEST),
+    BOOKING_ALREADY_CANCELLED(7062, "Đơn đặt phòng này đã được hủy trước đó", HttpStatus.BAD_REQUEST),
+    CANCELLATION_NOT_ALLOWED_AFTER_CHECKIN(7063, "Không thể hủy toàn bộ đơn đặt phòng do đã có phòng hoàn tất nhận phòng hoặc đã kết thúc lưu trú", HttpStatus.BAD_REQUEST),
+    BOOKING_ROOM_NOT_ELIGIBLE_FOR_CANCELLATION(7064, "Phòng này không ở trạng thái hợp lệ (EXPECTED) để thực hiện hủy", HttpStatus.BAD_REQUEST),
 
     // Finance & Payment Module Errors (8000s)
     PAYMENT_NOT_FOUND(8001, "Không tìm thấy thông tin thanh toán", HttpStatus.NOT_FOUND),
@@ -102,6 +114,19 @@ public enum ErrorCode {
     STAY_GUEST_NOT_FOUND(9061, "Không tìm thấy thông tin khách lưu trú", HttpStatus.NOT_FOUND),
     LODGING_QUEUE_NOT_FOUND(9071, "Không tìm thấy bản ghi trong hàng chờ khai báo lưu trú", HttpStatus.NOT_FOUND),
     LODGING_EXPORT_EMPTY(9072, "Không có dữ liệu khách lưu trú phù hợp để xuất file khai báo", HttpStatus.BAD_REQUEST),
+
+    // Policy Module Errors (7100s)
+    CANCELLATION_POLICY_NOT_FOUND(7101, "Không tìm thấy chính sách hủy phòng", HttpStatus.NOT_FOUND),
+    CANCELLATION_POLICY_CODE_EXISTS(7102, "Mã chính sách hủy phòng đã tồn tại", HttpStatus.CONFLICT),
+    NO_SHOW_POLICY_NOT_FOUND(7111, "Không tìm thấy chính sách No-Show", HttpStatus.NOT_FOUND),
+    NO_SHOW_POLICY_CODE_EXISTS(7112, "Mã chính sách No-Show đã tồn tại", HttpStatus.CONFLICT),
+    PROPERTY_POLICY_OVERRIDE_NOT_FOUND(7121, "Không tìm thấy cấu hình ghi đè chính sách", HttpStatus.NOT_FOUND),
+    PROPERTY_POLICY_OVERRIDE_EXISTS(7122, "Cấu hình ghi đè chính sách đang kích hoạt đã tồn tại cho cơ sở/hạng phòng này", HttpStatus.CONFLICT),
+    INVALID_POLICY_TIERS(7131, "Cấu trúc bậc phạt (tiers) không hợp lệ, không liên tục hoặc chồng lấn", HttpStatus.BAD_REQUEST),
+    CANNOT_OVERRIDE_TIERED_POLICY_DAYS(7132, "Chính sách bậc thang (TIERED) sử dụng tiers JSON làm nguồn sự thật duy nhất, không cho phép gán free_cancellation_before_days_override", HttpStatus.BAD_REQUEST),
+    ROOM_TYPE_NOT_BELONG_TO_HOTEL(7133, "Hạng phòng không thuộc khách sạn đã chọn", HttpStatus.BAD_REQUEST),
+    POLICY_NOT_ACTIVE_OR_DELETED(7134, "Chính sách áp dụng không còn hiệu lực hoặc đã bị xóa", HttpStatus.BAD_REQUEST),
+    POLICY_IN_USE(7135, "Chính sách đang được tham chiếu bởi đơn đặt phòng hoặc cấu hình ghi đè, không thể xóa", HttpStatus.CONFLICT),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

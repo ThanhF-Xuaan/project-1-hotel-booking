@@ -48,9 +48,14 @@ public class Menu extends BaseEntity {
     @Builder.Default
     String status = "ACTIVE";
 
-    @OneToOne(mappedBy = "menu", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    CatalogItem catalogItem;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "master_item_id")
+    MasterItem masterItem;
 
-    @OneToOne(mappedBy = "menu", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    HotelServiceItem hotelServiceItem;
+    @Column(name = "custom_name", length = 255)
+    String customName;
+
+    @Column(name = "stock_quantity", nullable = false)
+    @Builder.Default
+    Integer stockQuantity = 0;
 }

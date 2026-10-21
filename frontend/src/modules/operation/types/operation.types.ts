@@ -49,6 +49,10 @@ export interface MenuResponse {
   pricingType?: ServicePricingType;
 }
 
+export type ServiceOrderPaymentMethod = 'POST_TO_ROOM' | 'CASH' | 'VNPAY';
+
+export type ServiceOrderPaymentStatus = 'UNPAID' | 'PAID';
+
 export interface OrderItemRequest {
   menuId: number;
   quantity: number;
@@ -57,6 +61,7 @@ export interface OrderItemRequest {
 export interface ServiceOrderCreateRequest {
   bookingId: number;
   roomInstanceId: number;
+  paymentMethod?: ServiceOrderPaymentMethod;
   items: OrderItemRequest[];
 }
 
@@ -91,6 +96,8 @@ export interface ServiceOrderResponse {
   bookingNumber?: string;
   roomInstanceId: number;
   roomNumber?: string;
+  paymentMethod?: ServiceOrderPaymentMethod;
+  paymentStatus?: ServiceOrderPaymentStatus;
   subTotal: number;
   serviceFeeRate: number;
   serviceFeeAmount: number;

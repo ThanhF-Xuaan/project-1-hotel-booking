@@ -65,6 +65,12 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST'],
       },
       {
+        label: 'Chính sách Hủy & No-Show',
+        to: '/booking/policies',
+        icon: <ShieldCheck className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
         label: 'Tra cứu Đơn của Khách',
         to: '/portal/my-bookings',
         icon: <UserSquare2 className="w-5 h-5" />,

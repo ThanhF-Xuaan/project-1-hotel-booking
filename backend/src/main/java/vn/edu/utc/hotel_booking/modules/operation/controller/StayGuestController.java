@@ -42,6 +42,15 @@ public class StayGuestController {
                 .build();
     }
 
+    @GetMapping("/by-booking-room/{bookingRoomId}")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Lấy danh sách khách lưu trú theo BookingRoom ID")
+    public ApiResponse<List<StayGuestResponse>> getByBookingRoomId(@PathVariable Long bookingRoomId) {
+        return ApiResponse.<List<StayGuestResponse>>builder()
+                .result(stayGuestService.getByBookingRoomId(bookingRoomId))
+                .build();
+    }
+
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Ghi nhận khách lưu trú (Check-in)", description = "Tự động phân loại hàng chờ khai báo BCA: PENDING nếu đủ trường, ERROR nếu thiếu trường")

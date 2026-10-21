@@ -184,4 +184,32 @@ class HotelServiceTest {
 
         verify(hotelRepository).softDeleteBatch(ids);
     }
+
+    @Test
+    @DisplayName("getEntityById - Trả về Entity thành công khi ID hợp lệ")
+    void getEntityById_Success() {
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 10)).thenReturn(Optional.of(hotel));
+
+        Hotel result = hotelService.getEntityById((short) 10);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo((short) 10);
+        verify(hotelRepository).findByIdAndIsDeletedFalse((short) 10);
+    }
+
+    @Test
+    @DisplayName("getEntityById - Trả về null khi ID là null")
+    void getEntityById_NullId_ReturnsNull() {
+        Hotel result = hotelService.getEntityById(null);
+        assertThat(result).isNull();
+    }
+
+    @Test
+    @DisplayName("getEntityById - Ném ngoại lệ HOTEL_NOT_FOUND khi không tìm thấy")
+    void getEntityById_NotFound_ThrowsException() {
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 99)).thenReturn(Optional.empty());
+
+        assertThrows(AppException.class, () -> hotelService.getEntityById((short) 99));
+        verify(hotelRepository).findByIdAndIsDeletedFalse((short) 99);
+    }
 }

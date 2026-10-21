@@ -27,18 +27,6 @@ public class BookingCharge {
     @JoinColumn(name = "booking_room_id", nullable = false)
     BookingRoom bookingRoom;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "booking_guest_id")
-    StayGuest stayGuest;
-
-    public StayGuest getBookingGuest() {
-        return stayGuest;
-    }
-
-    public void setBookingGuest(StayGuest stayGuest) {
-        this.stayGuest = stayGuest;
-    }
-
     @Enumerated(EnumType.STRING)
     @Column(name = "charge_type", nullable = false, length = 50)
     BookingChargeType chargeType;

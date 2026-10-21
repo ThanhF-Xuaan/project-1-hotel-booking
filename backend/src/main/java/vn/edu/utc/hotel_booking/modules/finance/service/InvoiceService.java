@@ -16,4 +16,13 @@ public interface InvoiceService {
     InvoiceResponse getByBookingId(Long bookingId);
 
     InvoiceResponse issueInvoice(Long id);
+
+    /**
+     * Quyết toán và đóng hóa đơn Folio (PAID) khi hoàn tất check-out
+     *
+     * @param bookingId ID đơn đặt phòng
+     * @return Hóa đơn đã đóng sổ
+     */
+    InvoiceResponse settleAndCloseInvoice(Long bookingId);
 }
+
