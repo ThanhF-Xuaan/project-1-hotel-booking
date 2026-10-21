@@ -24,7 +24,9 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
-      "sha256": "407fb57045db44baadd3665d8b25ee81cb8972439a2480af4b1f7a34a8708a9f",
+      "sha256": "b6c113e6dca4514cf335132168d9889e5dc187e421858ff624f88a807ed41f98",
+      "historicalSha256": "407fb57045db44baadd3665d8b25ee81cb8972439a2480af4b1f7a34a8708a9f",
+      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
       "baselineUnmodified": true
     },
     {
@@ -74,7 +76,9 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java",
-      "sha256": "1e54ee1d889eddfc6462aaca5a13e1cec533a7efca74b42bae880996db56cc21",
+      "sha256": "6d1ec1dc376f503ff9a23b9e9a1262120f11e64aa57fce2d4cff7d4ba1ef7cfd",
+      "historicalSha256": "1e54ee1d889eddfc6462aaca5a13e1cec533a7efca74b42bae880996db56cc21",
+      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
       "baselineUnmodified": true
     },
     {
@@ -154,7 +158,9 @@
     },
     {
       "path": "backend/pom.xml",
-      "sha256": "a9cdaf257a014858242c2844453503b59714258e793b94367ae04e217410d3cc",
+      "sha256": "1eaa80c0bb6458a2c550f19378a22818649ada190f5c23e2aed44d64e1850f0c",
+      "historicalSha256": "a9cdaf257a014858242c2844453503b59714258e793b94367ae04e217410d3cc",
+      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
       "baselineUnmodified": true
     },
     {
@@ -164,7 +170,9 @@
     },
     {
       "path": "frontend/src/App.tsx",
-      "sha256": "74548b3331c764736f311d0d3810ec67fd3381f376f9f506b7748e29aa36f2d3",
+      "sha256": "1284c1e4eae2b6902431cf6737b7417c11f7cd3a92c4a259cc6906d012877351",
+      "historicalSha256": "74548b3331c764736f311d0d3810ec67fd3381f376f9f506b7748e29aa36f2d3",
+      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
       "baselineUnmodified": true
     },
     {
