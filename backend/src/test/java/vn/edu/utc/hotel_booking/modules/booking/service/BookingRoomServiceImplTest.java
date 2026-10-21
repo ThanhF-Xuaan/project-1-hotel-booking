@@ -161,4 +161,28 @@ class BookingRoomServiceImplTest {
         assertThat(resultEmptyStatuses).isEmpty();
         verifyNoInteractions(bookingRoomRepository);
     }
+
+    @Test
+    @DisplayName("findActiveByRoomInstanceIdInWithDetails - Thành công khi có phòng thỏa mãn")
+    void findActiveByRoomInstanceIdInWithDetails_Success() {
+        BookingRoom room = BookingRoom.builder().id(101L).build();
+        when(bookingRoomRepository.findActiveByRoomInstanceIdInWithDetails(List.of(1), List.of(vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CHECKED_IN)))
+                .thenReturn(List.of(room));
+
+        List<BookingRoom> result = bookingRoomService.findActiveByRoomInstanceIdInWithDetails(
+                List.of(1), List.of(vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CHECKED_IN)
+        );
+
+        assertThat(result).hasSize(1);
+        verify(bookingRoomRepository).findActiveByRoomInstanceIdInWithDetails(List.of(1), List.of(vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CHECKED_IN));
+    }
+
+    @Test
+    @DisplayName("findActiveByRoomInstanceIdInWithDetails - Trả về rỗng khi input null hoặc rỗng")
+    void findActiveByRoomInstanceIdInWithDetails_EmptyInput_ReturnsEmpty() {
+        assertThat(bookingRoomService.findActiveByRoomInstanceIdInWithDetails(null, List.of())).isEmpty();
+        assertThat(bookingRoomService.findActiveByRoomInstanceIdInWithDetails(List.of(), List.of())).isEmpty();
+        assertThat(bookingRoomService.findActiveByRoomInstanceIdInWithDetails(List.of(1), null)).isEmpty();
+        verifyNoInteractions(bookingRoomRepository);
+    }
 }

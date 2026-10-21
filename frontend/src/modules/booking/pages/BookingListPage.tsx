@@ -456,7 +456,7 @@ export const BookingListPage: React.FC = () => {
 
   const handleOpenNoShowModal = (booking: BookingResponse) => {
     setNoShowBooking(booking);
-    setNoShowReason('Khách không đến nhận phòng theo lịch (Quá 23:59)');
+    setNoShowReason('Khách không đến nhận phòng theo lịch hẹn');
     setIsNoShowModalOpen(true);
   };
 
@@ -471,7 +471,7 @@ export const BookingListPage: React.FC = () => {
       await bookingService.markAsNoShow(noShowBooking.id, { reason: noShowReason.trim() });
       setIsNoShowModalOpen(false);
       setActionSuccessMessage(
-        `Đã ghi nhận khách vắng mặt (No-Show) cho đơn ${noShowBooking.bookingNumber}! Đã phạt đêm đầu, giải phóng các đêm còn lại và tạo yêu cầu hoàn cọc dôi dư (nếu có).`
+        `Đã ghi nhận khách vắng mặt (No-Show) cho đơn ${noShowBooking.bookingNumber}! Đã áp dụng phạt theo chính sách No-Show, giải phóng phòng và tạo yêu cầu hoàn cọc dôi dư (nếu có).`
       );
       loadData();
       if (selectedBooking && selectedBooking.id === noShowBooking.id) {

@@ -9,12 +9,11 @@ import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomOccupancyDto;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
-import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingDailyRateRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
-import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingDailyRateService;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingDetailService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingRoomService;
 
@@ -34,9 +33,9 @@ import java.util.Optional;
 public class BookingLookupServiceImpl implements BookingLookupService {
 
     BookingRepository bookingRepository;
-    BookingRoomRepository bookingRoomRepository;
-    BookingDailyRateRepository bookingDailyRateRepository;
     BookingRoomService bookingRoomService;
+    BookingDetailService bookingDetailService;
+    BookingDailyRateService bookingDailyRateService;
 
     @Override
     public Booking getBookingEntityById(Long id) {
@@ -95,7 +94,7 @@ public class BookingLookupServiceImpl implements BookingLookupService {
             return Collections.emptyMap();
         }
 
-        List<BookingRoom> activeRooms = bookingRoomRepository.findActiveByRoomInstanceIdInWithDetails(
+        List<BookingRoom> activeRooms = bookingRoomService.findActiveByRoomInstanceIdInWithDetails(
                 roomInstanceIds,
                 List.of(BookingRoomStatus.CHECKED_IN)
         );
@@ -141,9 +140,22 @@ public class BookingLookupServiceImpl implements BookingLookupService {
         if (hotelId == null || date == null) {
             return BigDecimal.ZERO;
         }
-        List<BookingDailyRate> dailyRates = bookingDailyRateRepository.findActiveDailyRatesForHotelAndDate(hotelId, date);
-        return dailyRates.stream()
-                .map(BookingDailyRate::getNetPrice)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return bookingDailyRateService.calculateDailyRoomRevenue(hotelId, date);
+    }
+
+    @Override
+    public boolean existsBookingDetailByCancellationPolicyId(Integer cancellationPolicyId) {
+        if (cancellationPolicyId == null) {
+            return false;
+        }
+        return bookingDetailService.existsByCancellationPolicyId(cancellationPolicyId);
+    }
+
+    @Override
+    public boolean existsBookingDetailByNoShowPolicyId(Integer noShowPolicyId) {
+        if (noShowPolicyId == null) {
+            return false;
+        }
+        return bookingDetailService.existsByNoShowPolicyId(noShowPolicyId);
     }
 }

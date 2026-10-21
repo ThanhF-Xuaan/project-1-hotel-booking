@@ -92,6 +92,8 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.WalkInQuoteResponse
 import vn.edu.utc.hotel_booking.modules.identity.service.AuditLogService;
 import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingNoShowRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.policy.ResolvedBookingPolicies;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingPolicyResolverService;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.WalkInBookingRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse;
@@ -137,6 +139,7 @@ public class BookingServiceImpl implements BookingService {
     PaymentRepository paymentRepository;
     SurchargeRuleRepository surchargeRuleRepository;
     AuditLogService auditLogService;
+    BookingPolicyResolverService bookingPolicyResolverService;
     BookingMapper bookingMapper;
     FinanceMapper financeMapper;
     StringRedisTemplate redisTemplate;
@@ -231,6 +234,9 @@ public class BookingServiceImpl implements BookingService {
                     .build();
             PriceBreakdownDto priceBreakdown = priceEngine.calculatePrice(priceReq);
 
+            ResolvedBookingPolicies resolvedPolicies = bookingPolicyResolverService.resolvePolicyForBooking(
+                    hotel.getId(), hotelRoomType.getId(), booking.getBookingType());
+
             BookingDetail detail = BookingDetail.builder()
                     .booking(booking)
                     .hotelRoomType(hotelRoomType)
@@ -238,6 +244,10 @@ public class BookingServiceImpl implements BookingService {
                     .quantity(roomReq.getQuantity())
                     .checkInDate(roomReq.getCheckInDate())
                     .checkOutDate(roomReq.getCheckOutDate())
+                    .cancellationPolicy(resolvedPolicies != null ? resolvedPolicies.getCancellationPolicy() : null)
+                    .noShowPolicy(resolvedPolicies != null ? resolvedPolicies.getNoShowPolicy() : null)
+                    .cancellationPolicySnapshot(resolvedPolicies != null ? resolvedPolicies.getCancellationPolicySnapshotJson() : null)
+                    .noShowPolicySnapshot(resolvedPolicies != null ? resolvedPolicies.getNoShowPolicySnapshotJson() : null)
                     .build();
 
             List<BookingRoom> bookingRooms = new ArrayList<>();
@@ -862,6 +872,9 @@ public class BookingServiceImpl implements BookingService {
         for (CartPriceQuoteRequest.CartItemQuoteRequest item : draftSession.getItems()) {
             HotelRoomType hotelRoomType = hotelRoomTypeService.getEntityById(item.getHotelRoomTypeId());
 
+            ResolvedBookingPolicies resolvedPolicies = bookingPolicyResolverService.resolvePolicyForBooking(
+                    hotel.getId(), hotelRoomType.getId(), booking.getBookingType());
+
             BookingDetail detail = BookingDetail.builder()
                     .booking(booking)
                     .hotelRoomType(hotelRoomType)
@@ -869,6 +882,10 @@ public class BookingServiceImpl implements BookingService {
                     .quantity(item.getQuantity())
                     .checkInDate(draftSession.getCheckInDate())
                     .checkOutDate(draftSession.getCheckOutDate())
+                    .cancellationPolicy(resolvedPolicies != null ? resolvedPolicies.getCancellationPolicy() : null)
+                    .noShowPolicy(resolvedPolicies != null ? resolvedPolicies.getNoShowPolicy() : null)
+                    .cancellationPolicySnapshot(resolvedPolicies != null ? resolvedPolicies.getCancellationPolicySnapshotJson() : null)
+                    .noShowPolicySnapshot(resolvedPolicies != null ? resolvedPolicies.getNoShowPolicySnapshotJson() : null)
                     .build();
 
             RoomPriceQuoteResponse roomQuote = quoteMap.get(item.getHotelRoomTypeId());
@@ -1075,7 +1092,7 @@ public class BookingServiceImpl implements BookingService {
             }
 
             if (isNoShow) {
-                executeNoShowPipeline(booking, "Khách không đến quá 23:59 ngày check-in (Night Audit)", "SYSTEM_NIGHT_AUDIT");
+                executeNoShowPipeline(booking, "Khách không đến nhận phòng theo lịch (Night Audit)", "SYSTEM_NIGHT_AUDIT");
                 noShowCount++;
             }
         }
@@ -1120,7 +1137,12 @@ public class BookingServiceImpl implements BookingService {
             BigDecimal base = detail.getHotelRoomType().getBasePrice();
             BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
             BigDecimal fee = base.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            BigDecimal vat = base.add(fee).multiply(BigDecimal.valueOf(10)).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal vatBase = (booking.getSubtotalAmount() != null ? booking.getSubtotalAmount() : BigDecimal.ZERO)
+                    .add(booking.getServiceFeeAmount() != null ? booking.getServiceFeeAmount() : BigDecimal.ZERO);
+            BigDecimal vatRate = (vatBase.compareTo(BigDecimal.ZERO) > 0 && booking.getTotalVatAmount() != null)
+                    ? booking.getTotalVatAmount().divide(vatBase, 4, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            BigDecimal vat = base.add(fee).multiply(vatRate).setScale(2, RoundingMode.HALF_UP);
             roomFirstNight = base.add(fee).add(vat);
         }
         return roomFirstNight;
@@ -1137,7 +1159,10 @@ public class BookingServiceImpl implements BookingService {
                 continue;
             }
             for (BookingRoom room : detail.getBookingRooms()) {
-                totalPenalty = totalPenalty.add(calculateSingleRoomFirstNightPenalty(room, detail, booking));
+                BigDecimal firstNight = calculateSingleRoomFirstNightPenalty(room, detail, booking);
+                BigDecimal penalty = bookingPolicyResolverService.calculateSingleRoomNoShowPenalty(
+                        room, detail, booking, firstNight);
+                totalPenalty = totalPenalty.add(penalty);
             }
         }
         return totalPenalty;
@@ -1205,8 +1230,8 @@ public class BookingServiceImpl implements BookingService {
         if (firstRoom != null && penaltyAmount.compareTo(BigDecimal.ZERO) > 0) {
             BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
                     .chargeType(BookingChargeType.PENALTY)
-                    .itemName("Phí phạt No-Show (100% đêm đầu)")
-                    .description("Phí phạt khách vắng mặt không nhận phòng đêm đầu tiên: " + reason)
+                    .itemName(String.format("Phí phạt No-Show (%,.0f đ)", penaltyAmount))
+                    .description("Phí phạt khách vắng mặt không nhận phòng: " + reason)
                     .quantity(1)
                     .unitPrice(penaltyAmount)
                     .serviceFeeRate(BigDecimal.ZERO)
@@ -1333,15 +1358,17 @@ public class BookingServiceImpl implements BookingService {
 
         String username = SecurityUtils.getCurrentUsername().orElse("STAFF");
 
-        // 2. Tính tiền phạt đêm đầu cho riêng phòng này
-        BigDecimal penaltyAmount = calculateSingleRoomFirstNightPenalty(bookingRoom, detail, booking);
+        // 2. Tính tiền phạt No-Show cho riêng phòng này dựa trên chính sách snapshot
+        BigDecimal firstNightRate = calculateSingleRoomFirstNightPenalty(bookingRoom, detail, booking);
+        BigDecimal penaltyAmount = bookingPolicyResolverService.calculateSingleRoomNoShowPenalty(
+                bookingRoom, detail, booking, firstNightRate);
 
         // 3. Tạo BookingCharge (charge_type = PENALTY) cho phòng này
         if (penaltyAmount.compareTo(BigDecimal.ZERO) > 0) {
             String roomLabel = bookingRoom.getRoomInstance() != null ? bookingRoom.getRoomInstance().getRoomNumber() : detail.getRoomTypeName();
             BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
                     .chargeType(BookingChargeType.PENALTY)
-                    .itemName("Phí phạt No-Show phòng " + roomLabel + " (100% đêm đầu)")
+                    .itemName(String.format("Phí phạt No-Show phòng %s (%,.0f đ)", roomLabel, penaltyAmount))
                     .description("Phí phạt khách không đến nhận phòng " + roomLabel + ": " + request.getReason())
                     .quantity(1)
                     .unitPrice(penaltyAmount)
@@ -2089,6 +2116,9 @@ public class BookingServiceImpl implements BookingService {
                     .build();
             PriceBreakdownDto breakdown = priceEngine.calculatePrice(priceReq);
 
+            ResolvedBookingPolicies resolvedPolicies = bookingPolicyResolverService.resolvePolicyForBooking(
+                    hotel.getId(), roomType.getId(), bType);
+
             BookingDetail detail = BookingDetail.builder()
                     .booking(booking)
                     .hotelRoomType(roomType)
@@ -2096,6 +2126,10 @@ public class BookingServiceImpl implements BookingService {
                     .quantity((short) 1)
                     .checkInDate(request.getCheckInDate())
                     .checkOutDate(request.getCheckOutDate())
+                    .cancellationPolicy(resolvedPolicies != null ? resolvedPolicies.getCancellationPolicy() : null)
+                    .noShowPolicy(resolvedPolicies != null ? resolvedPolicies.getNoShowPolicy() : null)
+                    .cancellationPolicySnapshot(resolvedPolicies != null ? resolvedPolicies.getCancellationPolicySnapshotJson() : null)
+                    .noShowPolicySnapshot(resolvedPolicies != null ? resolvedPolicies.getNoShowPolicySnapshotJson() : null)
                     .build();
 
             short adultCount = rReq.getAdultCount() != null ? rReq.getAdultCount() : (short) 1;
@@ -2301,36 +2335,6 @@ public class BookingServiceImpl implements BookingService {
         return total;
     }
 
-    private BigDecimal calculateFitRoomCancellationPenaltyRate(LocalDate checkInDate, LocalDate cancelDate) {
-        if (checkInDate == null) {
-            return BigDecimal.ONE;
-        }
-        if (cancelDate == null) {
-            cancelDate = LocalDate.now();
-        }
-        long daysUntilCheckIn = ChronoUnit.DAYS.between(cancelDate, checkInDate);
-        if (daysUntilCheckIn >= 7) {
-            return BigDecimal.ZERO; // 0%
-        } else if (daysUntilCheckIn >= 4) {
-            return new BigDecimal("0.5"); // 50%
-        } else {
-            return BigDecimal.ONE; // 100%
-        }
-    }
-
-    private String getFitCancellationPolicyDescription(LocalDate checkInDate, LocalDate cancelDate) {
-        if (checkInDate == null) return "Chính sách hủy tiêu chuẩn FIT";
-        if (cancelDate == null) cancelDate = LocalDate.now();
-        long daysUntilCheckIn = ChronoUnit.DAYS.between(cancelDate, checkInDate);
-        if (daysUntilCheckIn >= 7) {
-            return String.format("Đơn khách lẻ FIT hủy trước ngày nhận phòng %d ngày (>= 7 ngày): Miễn phí phạt hủy (Phạt 0%%).", daysUntilCheckIn);
-        } else if (daysUntilCheckIn >= 4) {
-            return String.format("Đơn khách lẻ FIT hủy trước ngày nhận phòng %d ngày (4 đến dưới 7 ngày): Phạt 50%% tiền phòng.", daysUntilCheckIn);
-        } else {
-            return String.format("Đơn khách lẻ FIT hủy trước ngày nhận phòng %d ngày (< 4 ngày hoặc trong ngày): Phạt 100%% tiền phòng.", daysUntilCheckIn);
-        }
-    }
-
     @Override
     @Transactional(readOnly = true)
     public BookingCancelPreviewResponse previewCancelBooking(Long id) {
@@ -2363,20 +2367,30 @@ public class BookingServiceImpl implements BookingService {
                 .orElse(cancelDate);
 
         long daysUntilCheckIn = ChronoUnit.DAYS.between(cancelDate, earliestCheckIn);
-        BigDecimal penaltyRate = calculateFitRoomCancellationPenaltyRate(earliestCheckIn, cancelDate);
 
         BigDecimal roomAmountTotal = BigDecimal.ZERO;
+        BigDecimal cancellationPenalty = BigDecimal.ZERO;
+        String previewPolicyDescription = null;
+
         for (BookingDetail bd : booking.getBookingDetails()) {
             if (bd.getBookingRooms() != null) {
                 for (BookingRoom br : bd.getBookingRooms()) {
                     if (br.getStatus() == BookingRoomStatus.EXPECTED) {
-                        roomAmountTotal = roomAmountTotal.add(calculateSingleRoomTotalAmount(br, bd, booking));
+                        BigDecimal roomTotal = calculateSingleRoomTotalAmount(br, bd, booking);
+                        roomAmountTotal = roomAmountTotal.add(roomTotal);
+                        BigDecimal roomPenaltyRate = bookingPolicyResolverService.calculateRoomCancellationPenaltyRate(bd, cancelDate);
+                        cancellationPenalty = cancellationPenalty.add(roomTotal.multiply(roomPenaltyRate).setScale(2, RoundingMode.HALF_UP));
+                        if (previewPolicyDescription == null) {
+                            previewPolicyDescription = bookingPolicyResolverService.getCancellationPolicyDescription(bd, cancelDate);
+                        }
                     }
                 }
             }
         }
 
-        BigDecimal cancellationPenalty = roomAmountTotal.multiply(penaltyRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal penaltyRate = roomAmountTotal.compareTo(BigDecimal.ZERO) > 0
+                ? cancellationPenalty.divide(roomAmountTotal, 4, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
 
         // Preordered services
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
@@ -2424,7 +2438,7 @@ public class BookingServiceImpl implements BookingService {
 
         String refundRouting = "NO_REFUND";
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            refundRouting = refundAmount.compareTo(new BigDecimal("5000000.00")) <= 0 ? "AUTO_REFUND" : "WAITING_FINANCE_APPROVAL";
+            refundRouting = "WAITING_FINANCE_APPROVAL";
         }
 
         return BookingCancelPreviewResponse.builder()
@@ -2443,7 +2457,7 @@ public class BookingServiceImpl implements BookingService {
                 .totalPaid(totalPaid)
                 .refundAmount(refundAmount)
                 .refundRouting(refundRouting)
-                .policyDescription(getFitCancellationPolicyDescription(earliestCheckIn, cancelDate))
+                .policyDescription(previewPolicyDescription != null ? previewPolicyDescription : bookingPolicyResolverService.getCancellationPolicyDescription(null, cancelDate))
                 .isFullBookingCancellation(true)
                 .build();
     }
@@ -2465,7 +2479,7 @@ public class BookingServiceImpl implements BookingService {
         LocalDate cancelDate = LocalDate.now();
         LocalDate checkInDate = detail.getCheckInDate() != null ? detail.getCheckInDate() : cancelDate;
         long daysUntilCheckIn = ChronoUnit.DAYS.between(cancelDate, checkInDate);
-        BigDecimal penaltyRate = calculateFitRoomCancellationPenaltyRate(checkInDate, cancelDate);
+        BigDecimal penaltyRate = bookingPolicyResolverService.calculateRoomCancellationPenaltyRate(detail, cancelDate);
         BigDecimal roomAmount = calculateSingleRoomTotalAmount(bookingRoom, detail, booking);
         BigDecimal cancellationPenalty = roomAmount.multiply(penaltyRate).setScale(2, RoundingMode.HALF_UP);
 
@@ -2490,7 +2504,7 @@ public class BookingServiceImpl implements BookingService {
 
         String refundRouting = "NO_REFUND";
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            refundRouting = refundAmount.compareTo(new BigDecimal("5000000.00")) <= 0 ? "AUTO_REFUND" : "WAITING_FINANCE_APPROVAL";
+            refundRouting = "WAITING_FINANCE_APPROVAL";
         }
 
         String roomNumber = bookingRoom.getRoomInstance() != null ? bookingRoom.getRoomInstance().getRoomNumber() : "Chưa gán";
@@ -2514,7 +2528,7 @@ public class BookingServiceImpl implements BookingService {
                 .totalPaid(totalPaid)
                 .refundAmount(refundAmount)
                 .refundRouting(refundRouting)
-                .policyDescription(getFitCancellationPolicyDescription(checkInDate, cancelDate))
+                .policyDescription(bookingPolicyResolverService.getCancellationPolicyDescription(detail, cancelDate))
                 .isFullBookingCancellation(false)
                 .build();
     }
@@ -2586,7 +2600,7 @@ public class BookingServiceImpl implements BookingService {
             BookingDetail detail = room.getBookingDetail();
             LocalDate roomCheckIn = (detail != null && detail.getCheckInDate() != null) ? detail.getCheckInDate() : cancelDate;
             LocalDate roomCheckOut = (detail != null && detail.getCheckOutDate() != null) ? detail.getCheckOutDate() : cancelDate.plusDays(1);
-            BigDecimal penaltyRate = calculateFitRoomCancellationPenaltyRate(roomCheckIn, cancelDate);
+            BigDecimal penaltyRate = bookingPolicyResolverService.calculateRoomCancellationPenaltyRate(detail, cancelDate);
             BigDecimal roomAmount = calculateSingleRoomTotalAmount(room, detail, booking);
             BigDecimal roomPenalty = roomAmount.multiply(penaltyRate).setScale(2, RoundingMode.HALF_UP);
             totalPenaltyAmount = totalPenaltyAmount.add(roomPenalty);
@@ -2595,10 +2609,11 @@ public class BookingServiceImpl implements BookingService {
             if (roomPenalty.compareTo(BigDecimal.ZERO) > 0) {
                 String roomLabel = room.getRoomInstance() != null ? room.getRoomInstance().getRoomNumber() : (detail != null ? detail.getRoomTypeName() : "Phòng");
                 int pct = penaltyRate.multiply(BigDecimal.valueOf(100)).intValue();
+                String bookingTypeLabel = booking.getBookingType() != null ? booking.getBookingType().name() : "FIT";
                 BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
                         .chargeType(BookingChargeType.PENALTY)
                         .itemName("Phí phạt hủy phòng " + roomLabel + " (" + pct + "%)")
-                        .description("Phí phạt hủy đơn khách lẻ FIT: " + (request != null ? request.getReason() : "Hủy phòng"))
+                        .description("Phí phạt hủy đơn " + bookingTypeLabel + ": " + (request != null ? request.getReason() : "Hủy phòng"))
                         .quantity(1)
                         .unitPrice(roomPenalty)
                         .serviceFeeRate(BigDecimal.ZERO)
@@ -2690,8 +2705,7 @@ public class BookingServiceImpl implements BookingService {
         String refundRouting = "NO_REFUND";
         String refundRef = null;
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            boolean isAuto = refundAmount.compareTo(new BigDecimal("5000000.00")) <= 0;
-            refundRouting = isAuto ? "AUTO_GATEWAY_REFUND" : "WAITING_FINANCE_APPROVAL";
+            refundRouting = "WAITING_FINANCE_APPROVAL";
             refundRef = "REFUND-CANCEL-" + booking.getBookingNumber() + "-" + System.currentTimeMillis();
             Payment refundPayment = Payment.builder()
                     .booking(booking)
@@ -2701,7 +2715,7 @@ public class BookingServiceImpl implements BookingService {
                     .paymentProvider(refundRouting)
                     .status(PaymentStatus.PENDING)
                     .transactionReference(refundRef)
-                    .gatewayTxnId(isAuto ? "AUTO_GATEWAY_SETTLEMENT" : "PENDING_FINANCE_SETTLEMENT")
+                    .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
                     .rawCallbackPayload("{\"reason\": \"" + request.getReason() + "\", \"amount\": " + refundAmount + "}")
                     .build();
             paymentRepository.save(refundPayment);
@@ -2774,7 +2788,7 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = detail.getBooking();
         LocalDate cancelDate = LocalDate.now();
 
-        BigDecimal penaltyRate = calculateFitRoomCancellationPenaltyRate(detail.getCheckInDate(), cancelDate);
+        BigDecimal penaltyRate = bookingPolicyResolverService.calculateRoomCancellationPenaltyRate(detail, cancelDate);
         BigDecimal roomAmount = calculateSingleRoomTotalAmount(bookingRoom, detail, booking);
         BigDecimal penaltyAmount = roomAmount.multiply(penaltyRate).setScale(2, RoundingMode.HALF_UP);
 
@@ -2782,10 +2796,11 @@ public class BookingServiceImpl implements BookingService {
         if (penaltyAmount.compareTo(BigDecimal.ZERO) > 0) {
             String roomLabel = bookingRoom.getRoomInstance() != null ? bookingRoom.getRoomInstance().getRoomNumber() : detail.getRoomTypeName();
             int pct = penaltyRate.multiply(BigDecimal.valueOf(100)).intValue();
+            String bookingTypeLabel = booking.getBookingType() != null ? booking.getBookingType().name() : "FIT";
             BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
                     .chargeType(BookingChargeType.PENALTY)
                     .itemName("Phí phạt hủy phòng " + roomLabel + " (" + pct + "%)")
-                    .description("Phí phạt hủy phòng khách lẻ FIT: " + request.getReason())
+                    .description("Phí phạt hủy phòng " + bookingTypeLabel + ": " + request.getReason())
                     .quantity(1)
                     .unitPrice(penaltyAmount)
                     .serviceFeeRate(BigDecimal.ZERO)
@@ -2890,8 +2905,7 @@ public class BookingServiceImpl implements BookingService {
         String refundRouting = "NO_REFUND";
         String refundRef = null;
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            boolean isAuto = refundAmount.compareTo(new BigDecimal("5000000.00")) <= 0;
-            refundRouting = isAuto ? "AUTO_GATEWAY_REFUND" : "WAITING_FINANCE_APPROVAL";
+            refundRouting = "WAITING_FINANCE_APPROVAL";
             refundRef = "REFUND-ROOM-" + bookingRoomId + "-" + System.currentTimeMillis();
             Payment refundPayment = Payment.builder()
                     .booking(booking)
@@ -2901,7 +2915,7 @@ public class BookingServiceImpl implements BookingService {
                     .paymentProvider(refundRouting)
                     .status(PaymentStatus.PENDING)
                     .transactionReference(refundRef)
-                    .gatewayTxnId(isAuto ? "AUTO_GATEWAY_SETTLEMENT" : "PENDING_FINANCE_SETTLEMENT")
+                    .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
                     .rawCallbackPayload("{\"reason\": \"" + request.getReason() + "\", \"amount\": " + refundAmount + "}")
                     .build();
             paymentRepository.save(refundPayment);

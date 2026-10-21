@@ -74,4 +74,20 @@ public interface BookingLookupService {
      * @return Tổng doanh thu tiền phòng
      */
     java.math.BigDecimal getDailyRoomRevenue(Short hotelId, java.time.LocalDate date);
+
+    /**
+     * Kiểm tra xem có chi tiết đặt phòng nào đang tham chiếu tới chính sách hủy hay không
+     *
+     * @param cancellationPolicyId ID của chính sách hủy
+     * @return true nếu có ít nhất 1 chi tiết đặt phòng tham chiếu, ngược lại false
+     */
+    boolean existsBookingDetailByCancellationPolicyId(Integer cancellationPolicyId);
+
+    /**
+     * Kiểm tra xem có chi tiết đặt phòng nào đang tham chiếu tới chính sách vắng mặt hay không
+     *
+     * @param noShowPolicyId ID của chính sách vắng mặt
+     * @return true nếu có ít nhất 1 chi tiết đặt phòng tham chiếu, ngược lại false
+     */
+    boolean existsBookingDetailByNoShowPolicyId(Integer noShowPolicyId);
 }

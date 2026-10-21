@@ -13,6 +13,7 @@ import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingRoomService;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 
 @Slf4j
@@ -76,5 +77,16 @@ public class BookingRoomServiceImpl implements BookingRoomService {
             return List.of();
         }
         return bookingRoomRepository.findByRoomInstanceIdAndStatusIn(roomInstanceId, statuses);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingRoom> findActiveByRoomInstanceIdInWithDetails(
+            Collection<Integer> roomInstanceIds,
+            Collection<vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus> statuses) {
+        if (roomInstanceIds == null || roomInstanceIds.isEmpty() || statuses == null || statuses.isEmpty()) {
+            return List.of();
+        }
+        return bookingRoomRepository.findActiveByRoomInstanceIdInWithDetails(roomInstanceIds, statuses);
     }
 }

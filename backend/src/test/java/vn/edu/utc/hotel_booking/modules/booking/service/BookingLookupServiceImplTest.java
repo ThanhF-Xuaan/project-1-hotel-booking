@@ -27,13 +27,13 @@ class BookingLookupServiceImplTest {
     BookingRepository bookingRepository;
 
     @Mock
-    BookingRoomRepository bookingRoomRepository;
-
-    @Mock
-    vn.edu.utc.hotel_booking.modules.booking.repository.BookingDailyRateRepository bookingDailyRateRepository;
-
-    @Mock
     BookingRoomService bookingRoomService;
+
+    @Mock
+    vn.edu.utc.hotel_booking.modules.booking.service.BookingDetailService bookingDetailService;
+
+    @Mock
+    vn.edu.utc.hotel_booking.modules.booking.service.BookingDailyRateService bookingDailyRateService;
 
     @InjectMocks
     BookingLookupServiceImpl bookingLookupService;
@@ -146,7 +146,7 @@ class BookingLookupServiceImplTest {
     void getActiveOccupanciesByRoomInstanceIds_EmptyIds_ReturnsEmptyMap() {
         assertThat(bookingLookupService.getActiveOccupanciesByRoomInstanceIds(null)).isEmpty();
         assertThat(bookingLookupService.getActiveOccupanciesByRoomInstanceIds(java.util.List.of())).isEmpty();
-        verifyNoInteractions(bookingRoomRepository);
+        verifyNoInteractions(bookingRoomService);
     }
 
     @Test
@@ -175,7 +175,7 @@ class BookingLookupServiceImplTest {
                 .status(vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CHECKED_IN)
                 .build();
 
-        when(bookingRoomRepository.findActiveByRoomInstanceIdInWithDetails(
+        when(bookingRoomService.findActiveByRoomInstanceIdInWithDetails(
                 eq(java.util.List.of(55)),
                 eq(java.util.List.of(vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CHECKED_IN))
         )).thenReturn(java.util.List.of(activeRoom));
@@ -210,7 +210,7 @@ class BookingLookupServiceImplTest {
                 .status(vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus.CHECKED_IN)
                 .build();
 
-        when(bookingRoomRepository.findActiveByRoomInstanceIdInWithDetails(
+        when(bookingRoomService.findActiveByRoomInstanceIdInWithDetails(
                 eq(java.util.List.of(77)),
                 any()
         )).thenReturn(java.util.List.of(activeRoom));
@@ -227,29 +227,20 @@ class BookingLookupServiceImplTest {
     @DisplayName("getActiveOccupancyByRoomInstanceId - Trả về null khi id null")
     void getActiveOccupancyByRoomInstanceId_NullId_ReturnsNull() {
         assertThat(bookingLookupService.getActiveOccupancyByRoomInstanceId(null)).isNull();
-        verifyNoInteractions(bookingRoomRepository);
+        verifyNoInteractions(bookingRoomService);
     }
 
     @Test
     @DisplayName("getDailyRoomRevenue - Tính tổng doanh thu tiền phòng thành công")
     void getDailyRoomRevenue_Success() {
-        vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate rate1 =
-                vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate.builder()
-                        .netPrice(java.math.BigDecimal.valueOf(1500000))
-                        .build();
-        vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate rate2 =
-                vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate.builder()
-                        .netPrice(java.math.BigDecimal.valueOf(2500000))
-                        .build();
-
         java.time.LocalDate auditDate = java.time.LocalDate.of(2026, 6, 1);
-        when(bookingDailyRateRepository.findActiveDailyRatesForHotelAndDate((short) 1, auditDate))
-                .thenReturn(java.util.List.of(rate1, rate2));
+        when(bookingDailyRateService.calculateDailyRoomRevenue((short) 1, auditDate))
+                .thenReturn(java.math.BigDecimal.valueOf(4000000));
 
         java.math.BigDecimal total = bookingLookupService.getDailyRoomRevenue((short) 1, auditDate);
 
         assertThat(total).isEqualByComparingTo(java.math.BigDecimal.valueOf(4000000));
-        verify(bookingDailyRateRepository).findActiveDailyRatesForHotelAndDate((short) 1, auditDate);
+        verify(bookingDailyRateService).calculateDailyRoomRevenue((short) 1, auditDate);
     }
 
     @Test
@@ -257,7 +248,47 @@ class BookingLookupServiceImplTest {
     void getDailyRoomRevenue_NullArgs_ReturnsZero() {
         assertThat(bookingLookupService.getDailyRoomRevenue(null, java.time.LocalDate.now())).isEqualByComparingTo(java.math.BigDecimal.ZERO);
         assertThat(bookingLookupService.getDailyRoomRevenue((short) 1, null)).isEqualByComparingTo(java.math.BigDecimal.ZERO);
-        verifyNoInteractions(bookingDailyRateRepository);
+        verifyNoInteractions(bookingDailyRateService);
+    }
+
+    @Test
+    @DisplayName("existsBookingDetailByCancellationPolicyId - Trả về true khi có booking detail tham chiếu")
+    void existsBookingDetailByCancellationPolicyId_Success() {
+        when(bookingDetailService.existsByCancellationPolicyId(1)).thenReturn(true);
+
+        boolean exists = bookingLookupService.existsBookingDetailByCancellationPolicyId(1);
+
+        assertThat(exists).isTrue();
+        verify(bookingDetailService).existsByCancellationPolicyId(1);
+    }
+
+    @Test
+    @DisplayName("existsBookingDetailByCancellationPolicyId - Trả về false khi policyId là null")
+    void existsBookingDetailByCancellationPolicyId_NullId_ReturnsFalse() {
+        boolean exists = bookingLookupService.existsBookingDetailByCancellationPolicyId(null);
+
+        assertThat(exists).isFalse();
+        verifyNoInteractions(bookingDetailService);
+    }
+
+    @Test
+    @DisplayName("existsBookingDetailByNoShowPolicyId - Trả về true khi có booking detail tham chiếu")
+    void existsBookingDetailByNoShowPolicyId_Success() {
+        when(bookingDetailService.existsByNoShowPolicyId(2)).thenReturn(true);
+
+        boolean exists = bookingLookupService.existsBookingDetailByNoShowPolicyId(2);
+
+        assertThat(exists).isTrue();
+        verify(bookingDetailService).existsByNoShowPolicyId(2);
+    }
+
+    @Test
+    @DisplayName("existsBookingDetailByNoShowPolicyId - Trả về false khi policyId là null")
+    void existsBookingDetailByNoShowPolicyId_NullId_ReturnsFalse() {
+        boolean exists = bookingLookupService.existsBookingDetailByNoShowPolicyId(null);
+
+        assertThat(exists).isFalse();
+        verifyNoInteractions(bookingDetailService);
     }
 
     @Test

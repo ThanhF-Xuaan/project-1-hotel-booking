@@ -66,7 +66,7 @@ public class BookingCancelPreviewResponse {
     @Schema(description = "Số tiền hoàn lại cho khách (Refund = TotalPaid - NonRefundableTotal)", example = "2500000.00")
     BigDecimal refundAmount;
 
-    @Schema(description = "Phân luồng hoàn tiền: NO_REFUND, AUTO_REFUND (<= 5tr), WAITING_FINANCE_APPROVAL (> 5tr)", example = "AUTO_REFUND")
+    @Schema(description = "Phân luồng hoàn tiền: NO_REFUND (không hoàn), WAITING_FINANCE_APPROVAL (100% tiền hoàn chuyển kế toán đối soát & duyệt)", example = "WAITING_FINANCE_APPROVAL")
     String refundRouting;
 
     @Schema(description = "Diễn giải chi tiết chính sách phạt hủy theo SRS", example = "Đơn khách lẻ FIT hủy trước ngày nhận phòng >= 7 ngày: Miễn phí phạt hủy (Phạt 0%).")

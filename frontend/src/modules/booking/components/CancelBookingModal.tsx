@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Ban, CheckCircle, CreditCard } from 'lucide-react';
+import { AlertTriangle, Ban, CreditCard } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -19,6 +19,7 @@ export interface CancelBookingModalProps {
     bookingRoomId?: number;
     roomNumber?: string;
     roomTypeName?: string;
+    isPublic?: boolean;
   } | null;
   onSuccess: (response: BookingCancelResponse) => void;
 }
@@ -65,7 +66,9 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
       setSubmitError(null);
       try {
         let res;
-        if (target.bookingRoomId) {
+        if (target.isPublic) {
+          res = await bookingService.previewPublicCancelBooking(target.bookingNumber);
+        } else if (target.bookingRoomId) {
           res = await bookingService.previewCancelBookingRoom(target.bookingRoomId);
         } else {
           res = await bookingService.previewCancelBooking(target.bookingId);
@@ -124,7 +127,9 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
 
     try {
       let res;
-      if (target.bookingRoomId) {
+      if (target.isPublic) {
+        res = await bookingService.cancelPublicBooking(target.bookingNumber, payload);
+      } else if (target.bookingRoomId) {
         res = await bookingService.cancelBookingRoom(target.bookingRoomId, payload);
       } else {
         res = await bookingService.cancelBooking(target.bookingId, payload);
@@ -154,7 +159,7 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
         {isLoadingPreview && (
           <div className="p-8 text-center text-neutral-500">
             <div className="inline-block animate-spin w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full mb-2" />
-            <p className="text-xs">Đang đối chiếu chính sách hủy FIT và tính toán hoàn tiền...</p>
+            <p className="text-xs">Đang đối chiếu chính sách hủy phòng và tính toán hoàn tiền...</p>
           </div>
         )}
 
@@ -175,20 +180,27 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
             <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between pb-2 border-b border-neutral-200">
                 <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">
-                  Chính sách phạt hủy FIT:
+                  Chính sách phạt hủy áp dụng:
                 </span>
                 <span className="font-bold text-xs px-2.5 py-1 bg-red-100 text-red-800 rounded-md border border-red-200">
-                  Phạt {preview.penaltyRate}% ({preview.policyTier})
+                  Phạt {preview.penaltyRatePercentage}%
                 </span>
               </div>
+
+              {preview.policyDescription && (
+                <div className="text-xs text-neutral-700 bg-white p-2.5 rounded-lg border border-neutral-200">
+                  <span className="font-semibold text-neutral-900">Quy định áp dụng: </span>
+                  {preview.policyDescription}
+                </div>
+              )}
 
               {/* Scope notice */}
               <div className="text-xs text-neutral-600 flex items-center justify-between">
                 <span>Phạm vi tác động:</span>
                 <span className="font-semibold text-neutral-900">
-                  {preview.willCancelWholeBooking
+                  {preview.isFullBookingCancellation
                     ? `Hủy toàn bộ đơn (${preview.cancelledRoomsCount} phòng)`
-                    : `Hủy ${preview.cancelledRoomsCount} phòng (Còn lại ${preview.remainingRoomsCount} phòng tiếp tục lưu trú)`}
+                    : `Hủy phòng đơn lẻ (${preview.cancelledRoomsCount} phòng)`}
                 </span>
               </div>
 
@@ -196,7 +208,7 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
               <div className="space-y-1.5 pt-2 border-t border-neutral-200 text-xs">
                 <div className="flex justify-between items-center text-neutral-600">
                   <span>Tiền phòng gốc (Dự kiến):</span>
-                  <span className="font-medium text-neutral-800">{formatVND(preview.roomOriginalAmount)}</span>
+                  <span className="font-medium text-neutral-800">{formatVND(preview.roomAmount)}</span>
                 </div>
 
                 <div className="flex justify-between items-center text-neutral-600">
@@ -205,21 +217,21 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
                 </div>
 
                 <div className="flex justify-between items-center text-red-600 font-semibold">
-                  <span>Phí phạt hủy phòng ({preview.penaltyRate}%):</span>
+                  <span>Phí phạt hủy phòng ({preview.penaltyRatePercentage}%):</span>
                   <span>- {formatVND(preview.cancellationPenalty)}</span>
                 </div>
 
-                {preview.preorderedServicesAmount > 0 && (
+                {preview.preorderedServicesTotal > 0 && (
                   <div className="flex justify-between items-center text-amber-700">
-                    <span>Dịch vụ đặt trước không hoàn lại (SQ-03):</span>
-                    <span>- {formatVND(preview.preorderedServicesAmount)}</span>
+                    <span>Dịch vụ đặt trước không hoàn lại:</span>
+                    <span>- {formatVND(preview.preorderedServicesTotal)}</span>
                   </div>
                 )}
 
-                {preview.retainedAddonsAmount > 0 && (
+                {preview.addonChargesTotal > 0 && (
                   <div className="flex justify-between items-center text-neutral-600">
                     <span>Phụ thu / Gói tiện ích không hoàn lại:</span>
-                    <span>- {formatVND(preview.retainedAddonsAmount)}</span>
+                    <span>- {formatVND(preview.addonChargesTotal)}</span>
                   </div>
                 )}
 
@@ -231,39 +243,21 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
               </div>
 
               {/* Refund Method Banner */}
-              <div
-                className={`p-3 rounded-lg border text-xs flex items-center gap-2.5 ${
-                  preview.refundMethod === 'AUTO_GATEWAY_REFUND'
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : 'bg-amber-50 border-amber-200 text-amber-800'
-                }`}
-              >
-                {preview.refundMethod === 'AUTO_GATEWAY_REFUND' ? (
-                  <>
-                    <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div>
-                      <p className="font-semibold">Hoàn tiền tự động qua Cổng thanh toán (Auto-Refund)</p>
-                      <p className="text-[11px] text-emerald-700 mt-0.5">
-                        Số tiền hoàn ≤ 5.000.000 VNĐ. Tiền sẽ được hoàn trả tự động vào nguồn tiền gốc của khách hàng.
-                      </p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <p className="font-semibold">Chờ Bộ phận Kế toán duyệt hoàn tiền (Waiting Finance Approval)</p>
-                      <p className="text-[11px] text-amber-700 mt-0.5">
-                        Số tiền hoàn &gt; 5.000.000 VNĐ cần duyệt theo quy trình kế toán tài chính. Vui lòng cung cấp số tài khoản nhận tiền.
-                      </p>
-                    </div>
-                  </>
-                )}
-              </div>
+              {preview.refundAmount > 0 && (
+                <div className="p-3 rounded-lg border text-xs flex items-center gap-2.5 bg-amber-50 border-amber-200 text-amber-800">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Chờ Bộ phận Kế toán duyệt hoàn tiền (Waiting Finance Approval)</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Khoản tiền hoàn sẽ được bộ phận Kế toán đối soát hóa đơn chứng từ và xử lý chi trả cho khách hàng. Vui lòng cung cấp số tài khoản nhận tiền bên dưới.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Bank info form if waiting finance approval and refund > 0 */}
-            {preview.refundMethod === 'WAITING_FINANCE_APPROVAL' && preview.refundAmount > 0 && (
+            {preview.refundRouting === 'WAITING_FINANCE_APPROVAL' && preview.refundAmount > 0 && (
               <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-xl space-y-3">
                 <p className="text-xs font-semibold text-neutral-800 flex items-center gap-1.5">
                   <CreditCard className="w-4 h-4 text-blue-600" />

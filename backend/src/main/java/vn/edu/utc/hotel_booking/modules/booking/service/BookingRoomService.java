@@ -20,4 +20,9 @@ public interface BookingRoomService {
     java.util.Optional<BookingRoom> findByBookingIdAndRoomInstanceId(Long bookingId, Integer roomInstanceId);
 
     List<BookingRoom> findByRoomInstanceIdAndStatusIn(Integer roomInstanceId, java.util.Collection<vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus> statuses);
+
+    List<BookingRoom> findActiveByRoomInstanceIdInWithDetails(
+            java.util.Collection<Integer> roomInstanceIds,
+            java.util.Collection<vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus> statuses
+    );
 }

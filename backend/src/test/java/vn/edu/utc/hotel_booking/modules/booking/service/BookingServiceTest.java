@@ -20,6 +20,12 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCancelRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelPreviewResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.policy.ResolvedBookingPolicies;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingPolicyResolverService;
+import vn.edu.utc.hotel_booking.modules.booking.service.impl.BookingPolicyResolverServiceImpl;
+import vn.edu.utc.hotel_booking.modules.booking.service.CancellationPolicyService;
+import vn.edu.utc.hotel_booking.modules.booking.service.NoShowPolicyService;
+import vn.edu.utc.hotel_booking.modules.booking.service.PropertyPolicyOverrideService;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
 import vn.edu.utc.hotel_booking.modules.booking.mapper.BookingMapper;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
@@ -102,6 +108,7 @@ class BookingServiceTest {
     @Mock org.springframework.data.redis.core.StringRedisTemplate redisTemplate;
     @Mock org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
     @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    @Mock BookingPolicyResolverService bookingPolicyResolverService;
 
     @InjectMocks
     BookingServiceImpl bookingService;
@@ -149,6 +156,27 @@ class BookingServiceTest {
                 .totalAmount(BigDecimal.valueOf(2268000))
                 .bookingDetails(new ArrayList<>())
                 .build();
+
+        ResolvedBookingPolicies defaultPolicies = ResolvedBookingPolicies.builder()
+                .cancellationPolicy(CancellationPolicy.builder().policyCode("CANCEL_FIT_STANDARD").build())
+                .noShowPolicy(NoShowPolicy.builder().policyCode("NOSHOW_STANDARD").build())
+                .cancellationPolicySnapshotJson("{\"policyCode\":\"CANCEL_FIT_STANDARD\",\"feeType\":\"TIERED\"}")
+                .noShowPolicySnapshotJson("{\"policyCode\":\"NOSHOW_STANDARD\",\"penaltyType\":\"PERCENT_FIRST_NIGHT_RATE\",\"penaltyValue\":100}")
+                .build();
+        lenient().when(bookingPolicyResolverService.resolvePolicyForBooking(any(), any(), any())).thenReturn(defaultPolicies);
+
+        BookingPolicyResolverServiceImpl realResolver = new BookingPolicyResolverServiceImpl(
+                mock(CancellationPolicyService.class),
+                mock(NoShowPolicyService.class),
+                mock(PropertyPolicyOverrideService.class),
+                new com.fasterxml.jackson.databind.ObjectMapper()
+        );
+        lenient().when(bookingPolicyResolverService.calculateRoomCancellationPenaltyRate(any(), any()))
+                .thenAnswer(inv -> realResolver.calculateRoomCancellationPenaltyRate(inv.getArgument(0), inv.getArgument(1)));
+        lenient().when(bookingPolicyResolverService.getCancellationPolicyDescription(any(), any()))
+                .thenAnswer(inv -> realResolver.getCancellationPolicyDescription(inv.getArgument(0), inv.getArgument(1)));
+        lenient().when(bookingPolicyResolverService.calculateSingleRoomNoShowPenalty(any(), any(), any(), any()))
+                .thenAnswer(inv -> realResolver.calculateSingleRoomNoShowPenalty(inv.getArgument(0), inv.getArgument(1), inv.getArgument(2), inv.getArgument(3)));
     }
 
     @Test
@@ -565,6 +593,11 @@ class BookingServiceTest {
         when(guestService.getOrCreateGuest(eq("0912345678"), eq("Trần Thị B"), eq("guest@example.com"), eq("VN"))).thenReturn(testGuest);
         when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
         when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
+        when(bookingPolicyResolverService.resolvePolicyForBooking(eq((short) 1), eq(5), eq(BookingType.FIT)))
+                .thenReturn(ResolvedBookingPolicies.builder()
+                        .cancellationPolicySnapshotJson("{\"policyCode\":\"CANCEL_FIT\"}")
+                        .noShowPolicySnapshotJson("{\"policyCode\":\"NOSHOW_FIT\"}")
+                        .build());
 
         Booking savedBooking = Booking.builder()
                 .id(999L)
@@ -589,6 +622,8 @@ class BookingServiceTest {
         assertThat(response.getId()).isEqualTo(999L);
         assertThat(response.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
 
+        // Verify policy resolution and snapshot
+        verify(bookingPolicyResolverService).resolvePolicyForBooking(eq((short) 1), eq(5), eq(BookingType.FIT));
         // Verify committed holds
         verify(roomAvailabilityService, times(1)).commitHoldInventory(sessionId);
         // Verify Redis draft key deleted
@@ -2180,6 +2215,7 @@ class BookingServiceTest {
                 .checkInDate(LocalDate.now().plusDays(10))
                 .checkOutDate(LocalDate.now().plusDays(11))
                 .quantity((short) 1)
+                .cancellationPolicySnapshot("{\"cancellationFeeType\":\"TIERED\",\"tiers\":[{\"minDays\":7,\"penaltyPercent\":0},{\"minDays\":4,\"maxDays\":6,\"penaltyPercent\":50},{\"minDays\":0,\"maxDays\":3,\"penaltyPercent\":100}]}")
                 .bookingRooms(new ArrayList<>(List.of(room1)))
                 .build();
         room1.setBookingDetail(detail1);
@@ -2202,7 +2238,7 @@ class BookingServiceTest {
         assertThat(preview1.getPenaltyRatePercentage()).isEqualByComparingTo("0.0");
         assertThat(preview1.getCancellationPenalty()).isEqualByComparingTo("0.00");
         assertThat(preview1.getRefundAmount()).isEqualByComparingTo("1000000.00");
-        assertThat(preview1.getRefundRouting()).isEqualTo("AUTO_REFUND");
+        assertThat(preview1.getRefundRouting()).isEqualTo("WAITING_FINANCE_APPROVAL");
 
         // Case 2: 4 to < 7 days -> 50% penalty
         detail1.setCheckInDate(LocalDate.now().plusDays(5));

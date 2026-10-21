@@ -78,6 +78,12 @@ export const bookingService = {
 
   createWalkInBooking: (data: import('../types/booking.types').WalkInBookingRequest) =>
     apiClient.post<BookingResponse>(`${BASE_URL}/walk-in`, data),
+
+  previewPublicCancelBooking: (bookingNumber: string) =>
+    apiClient.get<BookingCancelPreviewResponse>(`/api/v1/public/bookings/${bookingNumber}/cancel-preview`),
+
+  cancelPublicBooking: (bookingNumber: string, data: BookingCancelRequest) =>
+    apiClient.post<BookingCancelResponse>(`/api/v1/public/bookings/${bookingNumber}/cancel`, data),
 };
 
 export default bookingService;

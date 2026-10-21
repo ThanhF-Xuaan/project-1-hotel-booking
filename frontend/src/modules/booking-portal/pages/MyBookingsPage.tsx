@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
-import { ConfirmModal } from '../../../core/components/ui/Modal';
+import { CancelBookingModal } from '../../booking/components/CancelBookingModal';
 import { bookingService } from '../../booking/services/booking.service';
 import type { BookingResponse } from '../../booking/types/booking.types';
 
@@ -26,7 +26,6 @@ export const MyBookingsPage: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState(false);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -52,21 +51,7 @@ export const MyBookingsPage: React.FC = () => {
     }
   };
 
-  const handleCancelBooking = async () => {
-    if (!booking) return;
 
-    setIsCancelling(true);
-    try {
-      await bookingService.updateStatus(booking.id, 'CANCELLED');
-      setBooking({ ...booking, status: 'CANCELLED' });
-      setIsCancelModalOpen(false);
-      setCancelSuccess(true);
-    } catch (err) {
-      console.error('Cancel booking failed:', err);
-    } finally {
-      setIsCancelling(false);
-    }
-  };
 
   const formatVND = (amount: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
@@ -198,12 +183,11 @@ export const MyBookingsPage: React.FC = () => {
               <div className="pt-2 flex justify-end">
                 <Button
                   variant="danger"
-                  disabled={isCancelling}
                   onClick={() => setIsCancelModalOpen(true)}
                   className="w-full text-xs py-2.5 flex items-center justify-center gap-1.5"
                 >
                   <XCircle className="w-4 h-4" />
-                  {isCancelling ? 'Đang hủy...' : 'Yêu Cầu Hủy Đặt Phòng'}
+                  Yêu Cầu Hủy Đặt Phòng
                 </Button>
               </div>
             )}
@@ -211,14 +195,23 @@ export const MyBookingsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Cancel Confirmation Modal */}
-      <ConfirmModal
-        isOpen={isCancelModalOpen}
-        onClose={() => setIsCancelModalOpen(false)}
-        onConfirm={handleCancelBooking}
-        title="Xác nhận hủy đặt phòng"
-        description="Bạn có chắc chắn muốn hủy đơn đặt phòng này không? Các phòng đã giữ sẽ được giải phóng cho khách hàng khác."
-      />
+      {/* Cancel Confirmation Modal with Dynamic Policy Preview & Settlement */}
+      {booking && (
+        <CancelBookingModal
+          isOpen={isCancelModalOpen}
+          onClose={() => setIsCancelModalOpen(false)}
+          target={{
+            bookingId: booking.id,
+            bookingNumber: booking.bookingNumber,
+            isPublic: true,
+          }}
+          onSuccess={() => {
+            setBooking({ ...booking, status: 'CANCELLED' });
+            setIsCancelModalOpen(false);
+            setCancelSuccess(true);
+          }}
+        />
+      )}
     </div>
   );
 };

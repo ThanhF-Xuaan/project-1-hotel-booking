@@ -114,6 +114,19 @@ public enum ErrorCode {
     STAY_GUEST_NOT_FOUND(9061, "Không tìm thấy thông tin khách lưu trú", HttpStatus.NOT_FOUND),
     LODGING_QUEUE_NOT_FOUND(9071, "Không tìm thấy bản ghi trong hàng chờ khai báo lưu trú", HttpStatus.NOT_FOUND),
     LODGING_EXPORT_EMPTY(9072, "Không có dữ liệu khách lưu trú phù hợp để xuất file khai báo", HttpStatus.BAD_REQUEST),
+
+    // Policy Module Errors (7100s)
+    CANCELLATION_POLICY_NOT_FOUND(7101, "Không tìm thấy chính sách hủy phòng", HttpStatus.NOT_FOUND),
+    CANCELLATION_POLICY_CODE_EXISTS(7102, "Mã chính sách hủy phòng đã tồn tại", HttpStatus.CONFLICT),
+    NO_SHOW_POLICY_NOT_FOUND(7111, "Không tìm thấy chính sách No-Show", HttpStatus.NOT_FOUND),
+    NO_SHOW_POLICY_CODE_EXISTS(7112, "Mã chính sách No-Show đã tồn tại", HttpStatus.CONFLICT),
+    PROPERTY_POLICY_OVERRIDE_NOT_FOUND(7121, "Không tìm thấy cấu hình ghi đè chính sách", HttpStatus.NOT_FOUND),
+    PROPERTY_POLICY_OVERRIDE_EXISTS(7122, "Cấu hình ghi đè chính sách đang kích hoạt đã tồn tại cho cơ sở/hạng phòng này", HttpStatus.CONFLICT),
+    INVALID_POLICY_TIERS(7131, "Cấu trúc bậc phạt (tiers) không hợp lệ, không liên tục hoặc chồng lấn", HttpStatus.BAD_REQUEST),
+    CANNOT_OVERRIDE_TIERED_POLICY_DAYS(7132, "Chính sách bậc thang (TIERED) sử dụng tiers JSON làm nguồn sự thật duy nhất, không cho phép gán free_cancellation_before_days_override", HttpStatus.BAD_REQUEST),
+    ROOM_TYPE_NOT_BELONG_TO_HOTEL(7133, "Hạng phòng không thuộc khách sạn đã chọn", HttpStatus.BAD_REQUEST),
+    POLICY_NOT_ACTIVE_OR_DELETED(7134, "Chính sách áp dụng không còn hiệu lực hoặc đã bị xóa", HttpStatus.BAD_REQUEST),
+    POLICY_IN_USE(7135, "Chính sách đang được tham chiếu bởi đơn đặt phòng hoặc cấu hình ghi đè, không thể xóa", HttpStatus.CONFLICT),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

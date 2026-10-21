@@ -366,20 +366,23 @@ export interface BookingCancelPreviewResponse {
   bookingId: number;
   bookingNumber: string;
   bookingRoomId?: number;
+  roomNumber?: string;
   roomTypeName?: string;
   cancelledRoomsCount: number;
-  remainingRoomsCount: number;
-  willCancelWholeBooking: boolean;
-  policyTier: string;
-  penaltyRate: number;
-  totalPaid: number;
-  roomOriginalAmount: number;
+  checkInDate: string;
+  cancelDate: string;
+  daysUntilCheckIn: number;
+  penaltyRatePercentage: number;
+  roomAmount: number;
   cancellationPenalty: number;
-  preorderedServicesAmount: number;
-  retainedAddonsAmount: number;
+  preorderedServicesTotal: number;
+  addonChargesTotal: number;
+  nonRefundableTotal: number;
+  totalPaid: number;
   refundAmount: number;
-  refundMethod: 'AUTO_GATEWAY_REFUND' | 'WAITING_FINANCE_APPROVAL';
-  message: string;
+  refundRouting: 'NO_REFUND' | 'AUTO_REFUND' | 'AUTO_GATEWAY_REFUND' | 'WAITING_FINANCE_APPROVAL';
+  policyDescription: string;
+  isFullBookingCancellation: boolean;
 }
 
 export interface BookingCancelRequest {
@@ -393,13 +396,15 @@ export interface BookingCancelResponse {
   bookingId: number;
   bookingNumber: string;
   bookingRoomId?: number;
-  bookingStatus: BookingStatus;
   cancelledRoomsCount: number;
-  remainingRoomsCount: number;
+  bookingStatus: string;
+  roomStatus?: string;
   cancellationPenalty: number;
   refundAmount: number;
-  refundMethod: 'AUTO_GATEWAY_REFUND' | 'WAITING_FINANCE_APPROVAL';
-  refundStatus: string;
+  refundPaymentReference?: string;
+  refundRouting: string;
+  cancelledBy: string;
+  cancelledAt: string;
   message: string;
 }
 
