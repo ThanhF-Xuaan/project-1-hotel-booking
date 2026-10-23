@@ -30,12 +30,12 @@
  ├── T-SP1-07 (M3: Tích hợp nút Quét ảnh CCCD vào Modal Check-in Lễ tân)
  ├── T-SP1-08 (M3: Xây dựng 6 Trang Quản trị IAM/Tổ chức, sạch lỗi 404 Sidebar)
  ├── T-SP1-09 (M4: Floating Chatbot AI Widget trên Portal)
- ├── T-SP1-10 (M2: Dịch vụ gửi Email tự động FR-NOT qua JavaMailSender)
+ ├── T-SP1-10 (M3: Dịch vụ gửi Email tự động FR-NOT qua JavaMailSender)
  ├── T-SP1-11 (M4: Validation chặn FIT >= 6 phòng chuyển hướng Inquiry đoàn)
  └── T-SP1-12 (M1: AI Guest Personalization Engine U14)
 
 [NGÀY 9 - 10: LÀN SÓNG 3 (P2: TÍCH HỢP & NGHIỆM THU)]
- ├── T-SP1-13 (M3: Audit Log AOP Interceptor tự động ghi vết)
+ ├── T-SP1-13 (M2: Audit Log AOP Interceptor tự động ghi vết)
  ├── T-SP1-14 (M1: AI Predictive Model công suất phòng 30 ngày)
  └── T-SP1-15 (M3 + M4: E2E Testing & Regression Check luồng FIT)
 ```
@@ -53,10 +53,10 @@
 | **T-SP1-07** | **P1** | **Tích hợp Quét ảnh CCCD vào Modal Check-in Lễ tân** | **Song song Ngày 3-6** (phụ thuộc API T-SP1-02). | Member 3 | 2.5d | Nút *"Tải ảnh CCCD"* trên `StayGuestsModal` & `WalkInBookingPage`, tự động điền form. |
 | **T-SP1-08** | **P1** | **Xây dựng 6 Trang Quản trị IAM & Tổ chức trên Frontend** | **Song song Ngày 3-7** (phụ thuộc API T-SP1-03). | Member 3 | 3.0d | 6 màn hình: Department, Staff, Role, Guest, Company, AuditLog; xóa sạch fallback Sidebar. |
 | **T-SP1-09** | **P1** | **Giao diện Chatbot AI Widget trên Portal** | **Song song Ngày 3-6** (phụ thuộc API T-SP1-04). | Member 4 | 3.0d | Floating Chat Widget góc Portal: Tin nhắn real-time, Card gợi ý phòng có nút *"Xem chi tiết"*. |
-| **T-SP1-10** | **P1** | **Dịch vụ Thông báo Email tự động (FR-NOT)** | **Làm song song độc lập Ngày 4-7.** Không bị ai block. | Member 2 | 2.5d | `JavaMailSender` + Template HTML gửi email xác nhận đặt phòng, mã tra cứu, hủy/hoàn tiền. |
+| **T-SP1-10** | **P1** | **Dịch vụ Thông báo Email tự động (FR-NOT)** | **Làm song song độc lập Ngày 4-7.** Không bị ai block. | Member 3 | 2.5d | `JavaMailSender` + Template HTML gửi email xác nhận đặt phòng, mã tra cứu, hủy/hoàn tiền. |
 | **T-SP1-11** | **P2** | **Validation Chặn FIT $\ge$ 6 Phòng trên Search Portal** | **Làm song song độc lập Ngày 5-7.** Không bị ai block. | Member 4 | 2.0d | Thanh tìm kiếm phát hiện $\ge 6$ phòng thì bật Modal điều hướng sang Inquiry Khách đoàn (FR-SRCH-05). |
 | **T-SP1-12** | **P2** | **AI Guest Personalization Engine (U14)** | **Làm song song độc lập Ngày 5-8.** Không bị ai block. | Member 1 | 2.5d | Logic phân tích lịch sử lưu trú, tự động gợi ý hạng phòng ưu thích cho khách cũ. |
-| **T-SP1-13** | **P2** | **AOP Audit Log Interceptor Tự Động Ghi Vết** | **Làm song song Ngày 7-9** (khi các action nhạy cảm đã hoàn thành). | Member 3 | 2.5d | AOP Aspect bắt các thao tác: Sửa giá, đổi phòng, hủy đơn, hoàn tiền $\rightarrow$ ghi vào `audit_logs`. |
+| **T-SP1-13** | **P2** | **AOP Audit Log Interceptor Tự Động Ghi Vết** | **Làm song song Ngày 7-9** (khi các action nhạy cảm đã hoàn thành). | Member 2 | 2.5d | AOP Aspect bắt các thao tác: Sửa giá, đổi phòng, hủy đơn, hoàn tiền $\rightarrow$ ghi vào `audit_logs`. |
 | **T-SP1-14** | **P2** | **AI Predictive Model Công Suất Phòng 30 Ngày (U22)** | **Làm song song độc lập Ngày 7-9.** Không bị ai block. | Member 1 | 2.5d | Thuật toán Machine Learning dự báo tỷ lệ lấp đầy phòng và bất thường điện/nước. |
 | **T-SP1-15** | **P1 (Chốt)** | **Kiểm thử E2E & Chống Hồi Quy Toàn Bộ Luồng FIT** | **Thực hiện Ngày 9-10.** Cần toàn bộ task Làn sóng 1 & 2 hoàn thành. | Member 3, Member 4 | 2.0d | Bộ Test Suite E2E kiểm tra toàn bộ luồng khách lẻ: Đặt $\rightarrow$ Check-in $\rightarrow$ Ở $\rightarrow$ Đổi $\rightarrow$ Trả. |
 
