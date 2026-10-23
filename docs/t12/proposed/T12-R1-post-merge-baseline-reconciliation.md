@@ -70,3 +70,33 @@ Four shared source files listed in `baseline-source-evidence.json` were modified
    - Full Backend Suite: 812 tests run, 0 failures, 0 errors, 5 skipped.
    - T12 Security & Recommendation Suite: 239 tests run, 0 failures, 0 errors.
    - Architecture Zero-Business-Write: 2 tests run, 0 failures, 0 errors.
+
+---
+
+## 5. Addendum — Integration of Merged PR #21 (Member 2 CORS & Retry-After Fix)
+
+### 5.1 Authorization & Context
+- **Date:** 2026-10-23
+- **Integrated PR:** Pull Request #21 (`feature/m2-cors-retry-after` -> `develop`)
+- **PR Title:** `fix(security): expose Retry-After and support configured CORS origins`
+- **Merge Commit into develop:** `36be1edb0069d35e18c0bc3c71e4e28cb6ee9bbc` (Merged by repository authority `NDTrung36`)
+- **T12 Merge Commit:** `a191f14` (`merge(develop): integrate PR 21 CORS fix into feature/T12-r1-review-fixes`)
+- **Owning Member:** Member 2 (Backend Infrastructure & Security Lead)
+
+### 5.2 Reconciled File & Hash Audit Matrix
+
+| # | File Path | Historical Hash (`0e6d379` / pre-PR #21) | Reconciled Hash on disk (`36be1ed` / `HEAD`) | Reconciled Unix LF Hash | Originating PR | Owner |
+|---|---|---|---|---|---|---|
+| 5 | `backend/src/main/java/vn/edu/utc/hotel_booking/common/config/SecurityConfig.java` | `8e62328594bc3ed31317db512a822f451205ac8d93dd4f5e1f255d56580d3609` | `aa55bde7f8ebcec77e0ab0be3f987541a8e15bd0ba20535d1bae3e73ceb48b1f` | `88d6258c602dcd769bc6176f8119c3506f038a822db3cfb62f02e980b5541dcb` | PR #21 | Member 2 |
+
+### 5.3 Technical Justification & Zero-Breakage Verification
+- **Upstream Change:** PR #21 updated `SecurityConfig.java` to:
+  1. Add `.exposedHeaders(List.of("Retry-After"))` to `CorsConfiguration`.
+  2. Support configurable frontend origins via `@Value("${app.cors.allowed-origins:http://localhost:5173}")`.
+- **T12 Impact:** **Zero negative impact / strictly enables GATE-02 closure and frontend integration**.
+  T12 rate-limiting middleware emits `429 Too Many Requests` with a `Retry-After` header. Exposing `Retry-After` in CORS headers allows frontend clients (Member 4 / GATE-03) to read the backoff duration cleanly. Configurable origins allow production/staging environments to connect without CORS errors.
+- **Contract & Governance Invariance:**
+  - Frozen OpenAPI (`openapi.json`): **UNTOUCHED**.
+  - Contract validator (`tools/t12/validate_r1_contracts.py`): **UNTOUCHED** (Status: `PASS`).
+  - Evaluation cases (`eval/t12/r1/v0.1.0-draft/cases.json`): **UNTOUCHED**.
+  - Decisions registry (`decisions-and-approvals.json`): **UNTOUCHED**.

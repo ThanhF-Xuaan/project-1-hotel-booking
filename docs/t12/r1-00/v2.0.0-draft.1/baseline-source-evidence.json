@@ -19,7 +19,11 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/config/SecurityConfig.java",
-      "sha256": "8e62328594bc3ed31317db512a822f451205ac8d93dd4f5e1f255d56580d3609",
+      "sha256": "aa55bde7f8ebcec77e0ab0be3f987541a8e15bd0ba20535d1bae3e73ceb48b1f",
+      "historicalSha256": "8e62328594bc3ed31317db512a822f451205ac8d93dd4f5e1f255d56580d3609",
+      "unixLfSha256": "88d6258c602dcd769bc6176f8119c3506f038a822db3cfb62f02e980b5541dcb",
+      "reconciledFromDevelopCommit": "36be1edb0069d35e18c0bc3c71e4e28cb6ee9bbc",
+      "reconciledFromPr": 21,
       "baselineUnmodified": true
     },
     {
