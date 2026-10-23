@@ -14,6 +14,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import org.springframework.beans.factory.annotation.Value;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -23,6 +26,9 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtBlacklistFilter jwtBlacklistFilter;
+
+    @Value("${cors.allowed-origins:${FRONTEND_URL:}}")
+    private String customAllowedOrigins;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -71,19 +77,33 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // CHỈ ĐỊNH ĐÍCH DANH CỔNG CỦA FRONTEND (Docker: 3000, Local Dev: 5173)
-        configuration.setAllowedOrigins(List.of(
+        // CHỈ ĐỊNH ĐÍCH DANH CỔNG CỦA FRONTEND (Docker: 3000, Local Dev: 5173 + Configured Deployment Origins)
+        List<String> allowedOrigins = new ArrayList<>(List.of(
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:5173"
         ));
+        if (customAllowedOrigins != null && !customAllowedOrigins.isBlank()) {
+            Arrays.stream(customAllowedOrigins.split(","))
+                    .map(String::trim)
+                    .filter(origin -> !origin.isEmpty())
+                    .forEach(origin -> {
+                        if (!allowedOrigins.contains(origin)) {
+                            allowedOrigins.add(origin);
+                        }
+                    });
+        }
+        configuration.setAllowedOrigins(allowedOrigins);
 
         // CÁC HÀNH ĐỘNG ĐƯỢC PHÉP
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
 
         // CÁC THÔNG TIN ĐƯỢC PHÉP KÈM THEO TRONG HEADER
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+
+        // CÁC HEADER ĐƯỢC PHÉP ĐỌC BỞI FRONTEND TRÊN TRÌNH DUYỆT (Bao gồm Retry-After cho HTTP 429 backoff)
+        configuration.setExposedHeaders(List.of("Authorization", "Link", "X-Total-Count", "Retry-After"));
 
         // Cho phép gửi kèm cookie hoặc thông tin xác thực nếu cần
         configuration.setAllowCredentials(true);
