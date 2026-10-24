@@ -55,6 +55,10 @@ public class Booking {
     @JoinColumn(name = "company_id")
     Company company;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "contract_id")
+    GroupContract groupContract;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "booking_type", nullable = false, length = 20)
     @Builder.Default

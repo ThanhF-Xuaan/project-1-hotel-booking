@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261025-140000-create-group-booking-schema" author="member2">
+        <comment>Tao schema khach doan GIT: group_contracts, contract_attachments, group_room_blocks, group_room_block_daily, master_folios, billing_routing_rules</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261025-140000-create-group-booking-schema.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>
