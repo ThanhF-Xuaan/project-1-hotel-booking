@@ -56,6 +56,9 @@ class StaffServiceTest {
     @Mock
     private KeycloakService keycloakService;
 
+    @Mock
+    private AuditLogService auditLogService;
+
     @InjectMocks
     private StaffServiceImpl staffService;
 
@@ -271,5 +274,64 @@ class StaffServiceTest {
 
         verify(staffRepository).softDeleteBatch(ids);
         verify(keycloakService).asyncDisableAndLogoutUsers(anyList());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái sang SUSPENDED: Vô hiệu hóa và đăng xuất Keycloak tức thì")
+    void updateStatus_ToSuspended_Success() {
+        vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest request =
+                vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest.builder()
+                        .status(vn.edu.utc.hotel_booking.modules.identity.entity.StaffStatus.SUSPENDED)
+                        .reason("Tạm nghỉ việc")
+                        .build();
+
+        when(staffRepository.findByIdWithDetails(1)).thenReturn(Optional.of(staff));
+        when(staffRepository.save(any(Staff.class))).thenReturn(staff);
+        when(staffMapper.toResponse(staff)).thenReturn(staffResponse);
+
+        StaffResponse response = staffService.updateStatus(1, request);
+
+        assertThat(response).isNotNull();
+        assertThat(staff.getStatus()).isEqualTo("SUSPENDED");
+        verify(keycloakService).disableUser(keycloakId);
+        verify(keycloakService).logoutUser(keycloakId);
+        verify(auditLogService).recordLog(isNull(), eq("STAFF_STATUS_UPDATE"), eq("Staff"), eq("1"), any(), any(), isNull(), isNull());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái sang ACTIVE: Kích hoạt lại trên Keycloak")
+    void updateStatus_ToActive_Success() {
+        staff.setStatus("SUSPENDED");
+        vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest request =
+                vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest.builder()
+                        .status(vn.edu.utc.hotel_booking.modules.identity.entity.StaffStatus.ACTIVE)
+                        .build();
+
+        when(staffRepository.findByIdWithDetails(1)).thenReturn(Optional.of(staff));
+        when(staffRepository.save(any(Staff.class))).thenReturn(staff);
+        when(staffMapper.toResponse(staff)).thenReturn(staffResponse);
+
+        StaffResponse response = staffService.updateStatus(1, request);
+
+        assertThat(response).isNotNull();
+        assertThat(staff.getStatus()).isEqualTo("ACTIVE");
+        verify(keycloakService).updateUser(eq(keycloakId), isNull(), isNull(), isNull(), isNull(), isNull(), eq(true));
+    }
+
+    @Test
+    @DisplayName("Đặt lại mật khẩu nhân viên: Đồng bộ mật khẩu mới và hủy phiên làm việc cũ")
+    void resetPassword_Success() {
+        vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffPasswordResetRequest request =
+                vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffPasswordResetRequest.builder()
+                        .newPassword("NewPass@123")
+                        .build();
+
+        when(staffRepository.findByIdWithDetails(1)).thenReturn(Optional.of(staff));
+
+        staffService.resetPassword(1, request);
+
+        verify(keycloakService).updateUser(eq(keycloakId), isNull(), isNull(), isNull(), isNull(), eq("NewPass@123"), isNull());
+        verify(keycloakService).logoutUser(keycloakId);
+        verify(auditLogService).recordLog(isNull(), eq("STAFF_PASSWORD_RESET"), eq("Staff"), eq("1"), isNull(), any(), isNull(), isNull());
     }
 }

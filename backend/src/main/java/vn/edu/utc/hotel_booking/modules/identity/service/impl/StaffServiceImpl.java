@@ -15,7 +15,9 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffCreateRequest;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffPasswordResetRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffSearchDto;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.StaffResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Role;
@@ -23,6 +25,7 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.StaffMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.RoleRepository;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
+import vn.edu.utc.hotel_booking.modules.identity.service.AuditLogService;
 import vn.edu.utc.hotel_booking.modules.identity.service.KeycloakService;
 import vn.edu.utc.hotel_booking.modules.identity.service.StaffService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Department;
@@ -47,6 +50,7 @@ public class StaffServiceImpl implements StaffService {
     private final HotelRepository hotelRepository;
     private final StaffMapper staffMapper;
     private final KeycloakService keycloakService;
+    private final AuditLogService auditLogService;
 
     @Override
     public PageResponse<StaffResponse> filter(StaffSearchDto searchDto) {
@@ -209,6 +213,79 @@ public class StaffServiceImpl implements StaffService {
         Staff updated = staffRepository.save(staff);
         log.info("Đã cập nhật nhân viên: id={}, username={}, keycloakId={}", updated.getId(), updated.getUsername(), updated.getKeycloakId());
         return staffMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public StaffResponse updateStatus(Integer id, StaffStatusUpdateRequest request) {
+        Staff staff = staffRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+
+        String oldStatus = staff.getStatus();
+        vn.edu.utc.hotel_booking.modules.identity.entity.StaffStatus newStatusEnum = request.getStatus();
+        String newStatus = newStatusEnum.name();
+
+        if (newStatus.equals(oldStatus)) {
+            return staffMapper.toResponse(staff);
+        }
+
+        staff.setStatus(newStatus);
+
+        if (newStatusEnum == vn.edu.utc.hotel_booking.modules.identity.entity.StaffStatus.SUSPENDED 
+                || newStatusEnum == vn.edu.utc.hotel_booking.modules.identity.entity.StaffStatus.RESIGNED) {
+            log.info("Vô hiệu hóa và đăng xuất tài khoản Keycloak cho nhân viên id={}, username={}, status={}", staff.getId(), staff.getUsername(), newStatus);
+            keycloakService.disableUser(staff.getKeycloakId());
+            keycloakService.logoutUser(staff.getKeycloakId());
+        } else if (newStatusEnum == vn.edu.utc.hotel_booking.modules.identity.entity.StaffStatus.ACTIVE) {
+            log.info("Kích hoạt lại tài khoản Keycloak cho nhân viên id={}, username={}", staff.getId(), staff.getUsername());
+            keycloakService.updateUser(staff.getKeycloakId(), null, null, null, null, null, true);
+        }
+
+        Staff updated = staffRepository.save(staff);
+        auditLogService.recordLog(
+                null,
+                "STAFF_STATUS_UPDATE",
+                "Staff",
+                staff.getId().toString(),
+                oldStatus,
+                newStatus + (StringUtils.hasText(request.getReason()) ? " (" + request.getReason().trim() + ")" : ""),
+                null,
+                null
+        );
+
+        log.info("Đã cập nhật trạng thái nhân viên: id={}, username={}, oldStatus={}, newStatus={}", updated.getId(), updated.getUsername(), oldStatus, newStatus);
+        return staffMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(Integer id, StaffPasswordResetRequest request) {
+        Staff staff = staffRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+
+        keycloakService.updateUser(
+                staff.getKeycloakId(),
+                null,
+                null,
+                null,
+                null,
+                request.getNewPassword(),
+                null
+        );
+        keycloakService.logoutUser(staff.getKeycloakId());
+
+        auditLogService.recordLog(
+                null,
+                "STAFF_PASSWORD_RESET",
+                "Staff",
+                staff.getId().toString(),
+                null,
+                "Mật khẩu đã được quản trị viên đặt lại",
+                null,
+                null
+        );
+
+        log.info("Đã đặt lại mật khẩu thành công cho nhân viên: id={}, username={}", staff.getId(), staff.getUsername());
     }
 
     @Override

@@ -19,15 +19,15 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.response.PermissionResponse
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.RoleResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Permission;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Role;
-import vn.edu.utc.hotel_booking.modules.identity.mapper.PermissionMapper;
+import vn.edu.utc.hotel_booking.modules.identity.entity.SystemRole;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.RoleMapper;
-import vn.edu.utc.hotel_booking.modules.identity.repository.PermissionRepository;
 import vn.edu.utc.hotel_booking.modules.identity.repository.RoleRepository;
+import vn.edu.utc.hotel_booking.modules.identity.service.PermissionService;
 import vn.edu.utc.hotel_booking.modules.identity.service.RoleService;
+import vn.edu.utc.hotel_booking.modules.identity.service.StaffLookupService;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -36,9 +36,9 @@ import java.util.Set;
 public class RoleServiceImpl implements RoleService {
 
     private final RoleRepository roleRepository;
-    private final PermissionRepository permissionRepository;
+    private final StaffLookupService staffLookupService;
+    private final PermissionService permissionService;
     private final RoleMapper roleMapper;
-    private final PermissionMapper permissionMapper;
 
     @Override
     public PageResponse<RoleResponse> filter(RoleSearchDto searchDto) {
@@ -64,7 +64,7 @@ public class RoleServiceImpl implements RoleService {
 
     @Override
     public List<PermissionResponse> getAllPermissions() {
-        return permissionMapper.toResponseList(permissionRepository.findAllByIsDeletedFalse());
+        return permissionService.getAllPermissions();
     }
 
     @Override
@@ -80,7 +80,7 @@ public class RoleServiceImpl implements RoleService {
         role.setName(request.getName().trim());
 
         if (request.getPermissionIds() != null && !request.getPermissionIds().isEmpty()) {
-            List<Permission> permissions = permissionRepository.findByIdInAndIsDeletedFalse(request.getPermissionIds());
+            List<Permission> permissions = permissionService.getEntitiesByIds(request.getPermissionIds());
             role.setPermissions(new HashSet<>(permissions));
         }
 
@@ -95,11 +95,15 @@ public class RoleServiceImpl implements RoleService {
         Role role = roleRepository.findByIdWithPermissions(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
+        String originalCode = role.getCode();
         roleMapper.updateEntity(role, request);
+        if (SystemRole.isSystemRole(originalCode)) {
+            role.setCode(originalCode); // Bảo vệ mã code của vai trò hệ thống
+        }
         role.setName(request.getName().trim());
 
         if (request.getPermissionIds() != null) {
-            List<Permission> permissions = permissionRepository.findByIdInAndIsDeletedFalse(request.getPermissionIds());
+            List<Permission> permissions = permissionService.getEntitiesByIds(request.getPermissionIds());
             role.setPermissions(new HashSet<>(permissions));
         }
 
@@ -114,6 +118,18 @@ public class RoleServiceImpl implements RoleService {
         if (ids == null || ids.isEmpty()) {
             return;
         }
+
+        List<Role> rolesToDelete = roleRepository.findAllById(ids);
+        for (Role r : rolesToDelete) {
+            if (SystemRole.isSystemRole(r.getCode())) {
+                throw new AppException(ErrorCode.CANNOT_DELETE_SYSTEM_ROLE, "Không thể xóa vai trò hệ thống mặc định: " + r.getCode());
+            }
+        }
+
+        if (staffLookupService.hasActiveStaffWithRoles(ids)) {
+            throw new AppException(ErrorCode.ROLE_IN_USE);
+        }
+
         int count = roleRepository.softDeleteBatch(ids);
         log.info("Đã xóa mềm {} vai trò với danh sách IDs: {}", count, ids);
     }

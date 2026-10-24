@@ -12,6 +12,7 @@ import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.identity.service.StaffLookupService;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.DepartmentCreateRequest;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.DepartmentSearchDto;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.DepartmentUpdateRequest;
@@ -30,6 +31,7 @@ import java.util.List;
 public class DepartmentServiceImpl implements DepartmentService {
 
     private final DepartmentRepository departmentRepository;
+    private final StaffLookupService staffLookupService;
     private final DepartmentMapper departmentMapper;
 
     @Override
@@ -92,10 +94,21 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 
     @Override
+    public List<DepartmentResponse> getAllActive() {
+        return departmentRepository.findAllByStatusAndIsDeletedFalse("ACTIVE")
+                .stream()
+                .map(departmentMapper::toResponse)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public void deleteBatch(List<Short> ids) {
         if (ids == null || ids.isEmpty()) {
             return;
+        }
+        if (staffLookupService.hasActiveStaffInDepartments(ids)) {
+            throw new AppException(ErrorCode.DEPARTMENT_IN_USE);
         }
         int count = departmentRepository.softDeleteBatch(ids);
         log.info("Đã xóa mềm {} phòng ban với danh sách IDs: {}", count, ids);

@@ -17,6 +17,8 @@ public interface DepartmentService {
     DepartmentResponse create(DepartmentCreateRequest request);
 
     DepartmentResponse update(Short id, DepartmentUpdateRequest request);
+ 
+    List<DepartmentResponse> getAllActive();
 
     void deleteBatch(List<Short> ids);
 }

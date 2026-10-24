@@ -98,4 +98,12 @@ public interface BookingLookupService {
      * @return true nếu có ít nhất 1 chi tiết đặt phòng tham chiếu, ngược lại false
      */
     boolean existsBookingDetailByNoShowPolicyId(Integer noShowPolicyId);
+
+    /**
+     * Tra cứu toàn bộ các đơn đặt phòng của một khách hàng (kèm thông tin khách sạn)
+     *
+     * @param guestId ID khách hàng
+     * @return Danh sách các đơn đặt phòng
+     */
+    java.util.List<Booking> getBookingsByGuestId(Long guestId);
 }

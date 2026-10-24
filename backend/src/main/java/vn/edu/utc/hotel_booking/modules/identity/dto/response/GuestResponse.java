@@ -21,6 +21,9 @@ public class GuestResponse {
     @Schema(description = "Mã định danh công khai UUID", example = "d3b07384-d113-46fb-9a4f-5f56476104bc")
     UUID publicId;
 
+    @Schema(description = "Họ và tên khách hàng", example = "Nguyễn Văn A")
+    String fullName;
+
     @Schema(description = "Ngày sinh", example = "1990-05-15")
     LocalDate birthDate;
 

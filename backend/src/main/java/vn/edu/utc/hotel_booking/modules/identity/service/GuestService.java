@@ -5,6 +5,7 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestResponse;
+import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestStayHistoryResponse;
 
 import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 
@@ -24,6 +25,10 @@ public interface GuestService {
     GuestResponse getByPublicId(UUID publicId);
 
     GuestResponse getByPhone(String phone);
+
+    GuestResponse getByIdentityNumber(String identityNumber);
+
+    GuestStayHistoryResponse getStayHistory(Long guestId);
 
     GuestResponse create(GuestCreateRequest request);
 

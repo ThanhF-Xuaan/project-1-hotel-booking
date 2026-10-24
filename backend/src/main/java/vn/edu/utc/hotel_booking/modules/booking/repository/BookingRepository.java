@@ -27,4 +27,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
             @Param("hotelId") Short hotelId,
             @Param("status") BookingStatus status
     );
+
+    @Query("SELECT b FROM Booking b LEFT JOIN FETCH b.hotel WHERE b.bookingGuest.id = :guestId ORDER BY b.createdAt DESC")
+    List<Booking> findByGuestIdWithHotel(@Param("guestId") Long guestId);
 }
