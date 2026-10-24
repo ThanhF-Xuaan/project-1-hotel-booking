@@ -45,6 +45,23 @@ def require(condition, message):
         raise ValueError(message)
 
 
+def verify_source_evidence_entry(entry, path_or_bytes):
+    """Verify that source file bytes match recorded sha256 or canonical LF hash for designated portable files."""
+    raw_bytes = path_or_bytes if isinstance(path_or_bytes, bytes) else path_or_bytes.read_bytes()
+    actual_sha = hashlib.sha256(raw_bytes).hexdigest()
+    if actual_sha == entry['sha256']:
+        return True
+    if 'windowsCrlfSha256' in entry and actual_sha == entry['windowsCrlfSha256']:
+        return True
+    canonical_lf = entry.get('unixLfSha256') or entry.get('canonicalSha256')
+    if canonical_lf:
+        normalized_bytes = raw_bytes.replace(b'\r\n', b'\n')
+        normalized_sha = hashlib.sha256(normalized_bytes).hexdigest()
+        if normalized_sha == canonical_lf:
+            return True
+    return False
+
+
 def pointer(value, fragment):
     if not fragment:
         return value
@@ -342,7 +359,7 @@ def main():
     for entry in evidence['files']:
         path = ROOT / entry['path']
         require(path.is_file() and entry['baselineUnmodified'] is True, 'Missing source evidence')
-        require(hashlib.sha256(path.read_bytes()).hexdigest() == entry['sha256'],
+        require(verify_source_evidence_entry(entry, path),
                 'Source changed after audit: ' + entry['path'])
         counters['source_evidence_hashes_checked'] += 1
 
