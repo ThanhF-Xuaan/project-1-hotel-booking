@@ -12,15 +12,21 @@ import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingStatus;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestResponse;
+import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestStayHistoryResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.GuestMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.BookingGuestRepository;
 import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,6 +37,7 @@ import java.util.UUID;
 public class GuestServiceImpl implements GuestService {
 
     private final BookingGuestRepository guestRepository;
+    private final BookingLookupService bookingLookupService;
     private final GuestMapper guestMapper;
 
     @Override
@@ -90,6 +97,49 @@ public class GuestServiceImpl implements GuestService {
         BookingGuest guest = guestRepository.findByPhoneAndIsDeletedFalse(phone.trim())
                 .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND));
         return guestMapper.toResponse(guest);
+    }
+
+    @Override
+    public GuestResponse getByIdentityNumber(String identityNumber) {
+        if (!StringUtils.hasText(identityNumber)) {
+            throw new AppException(ErrorCode.GUEST_NOT_FOUND, "Số giấy tờ tùy thân không được để trống");
+        }
+        BookingGuest guest = guestRepository.findByIdentityNumberAndIsDeletedFalse(identityNumber.trim())
+                .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND, "Không tìm thấy hồ sơ khách hàng với số giấy tờ: " + identityNumber));
+        return guestMapper.toResponse(guest);
+    }
+
+    @Override
+    public GuestStayHistoryResponse getStayHistory(Long guestId) {
+        BookingGuest guest = getEntityById(guestId);
+        List<Booking> bookings = bookingLookupService.getBookingsByGuestId(guestId);
+
+        BigDecimal totalSpent = BigDecimal.ZERO;
+        List<GuestStayHistoryResponse.GuestBookingSummaryDto> summaries = new ArrayList<>();
+
+        for (Booking b : bookings) {
+            BigDecimal price = b.getTotalAmount() != null ? b.getTotalAmount() : BigDecimal.ZERO;
+            if (b.getStatus() != BookingStatus.CANCELLED) {
+                totalSpent = totalSpent.add(price);
+            }
+            summaries.add(GuestStayHistoryResponse.GuestBookingSummaryDto.builder()
+                    .bookingId(b.getId())
+                    .bookingNumber(b.getBookingNumber())
+                    .hotelName(b.getHotel() != null ? b.getHotel().getName() : "")
+                    .status(b.getStatus() != null ? b.getStatus().name() : "")
+                    .totalPrice(price)
+                    .bookingDate(b.getCreatedAt() != null ? b.getCreatedAt().toLocalDate() : null)
+                    .build());
+        }
+
+        return GuestStayHistoryResponse.builder()
+                .guestId(guest.getId())
+                .fullName(guest.getFullName())
+                .phone(guest.getPhone())
+                .totalStays(bookings.size())
+                .totalSpent(totalSpent)
+                .bookings(summaries)
+                .build();
     }
 
     @Override

@@ -13,6 +13,7 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestResponse;
+import vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestStayHistoryResponse;
 import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
 
 import java.util.List;
@@ -67,6 +68,28 @@ public class GuestController {
                 .code(HttpStatus.OK.value())
                 .message("Tìm thấy hồ sơ khách hàng")
                 .result(guestService.getByPhone(phone))
+                .build();
+    }
+
+    @GetMapping("/identity/{identityNumber}")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
+    @Operation(summary = "Tìm nhanh khách hàng theo số CCCD/Hộ chiếu (Hỗ trợ Lễ tân check-in & OCR)")
+    public ApiResponse<GuestResponse> getByIdentityNumber(@PathVariable String identityNumber) {
+        return ApiResponse.<GuestResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Tìm thấy hồ sơ khách hàng")
+                .result(guestService.getByIdentityNumber(identityNumber))
+                .build();
+    }
+
+    @GetMapping("/{id}/history")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
+    @Operation(summary = "Lấy lịch sử lưu trú và chi tiêu của khách hàng (CRM Guest Profile)")
+    public ApiResponse<GuestStayHistoryResponse> getStayHistory(@PathVariable Long id) {
+        return ApiResponse.<GuestStayHistoryResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Lấy lịch sử khách hàng thành công")
+                .result(guestService.getStayHistory(id))
                 .build();
     }
 

@@ -20,6 +20,7 @@ public enum ErrorCode {
     REGION_CODE_ALREADY_EXISTS(2002, "Mã khu vực đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
     DEPARTMENT_NOT_FOUND(2011, "Không tìm thấy phòng ban yêu cầu", HttpStatus.NOT_FOUND),
     DEPARTMENT_CODE_ALREADY_EXISTS(2012, "Mã phòng ban đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
+    DEPARTMENT_IN_USE(2013, "Phòng ban đang có nhân viên trực thuộc, không thể xóa", HttpStatus.CONFLICT),
     HOTEL_NOT_FOUND(2021, "Không tìm thấy khách sạn cơ sở", HttpStatus.NOT_FOUND),
     HOTEL_NAME_ALREADY_EXISTS(2022, "Tên khách sạn đã tồn tại trong khu vực này", HttpStatus.CONFLICT),
     HOTEL_HAS_ACTIVE_ROOMS(2023, "Khách sạn đang có phòng hoạt động, không thể xóa", HttpStatus.CONFLICT),
@@ -27,6 +28,8 @@ public enum ErrorCode {
     // Identity & IAM Module Errors
     ROLE_NOT_FOUND(3001, "Không tìm thấy vai trò (Role)", HttpStatus.NOT_FOUND),
     ROLE_CODE_ALREADY_EXISTS(3002, "Mã vai trò đã tồn tại", HttpStatus.CONFLICT),
+    CANNOT_DELETE_SYSTEM_ROLE(3003, "Không thể xóa hoặc thay đổi mã định danh của vai trò hệ thống mặc định", HttpStatus.BAD_REQUEST),
+    ROLE_IN_USE(3004, "Vai trò đang được gán cho nhân viên hoạt động, không thể xóa", HttpStatus.CONFLICT),
     PERMISSION_NOT_FOUND(3011, "Không tìm thấy quyền hạn (Permission)", HttpStatus.NOT_FOUND),
     STAFF_NOT_FOUND(3021, "Không tìm thấy thông tin nhân viên", HttpStatus.NOT_FOUND),
     USERNAME_ALREADY_EXISTS(3022, "Tên tài khoản đã tồn tại", HttpStatus.CONFLICT),
@@ -41,6 +44,7 @@ public enum ErrorCode {
     GUEST_NOT_FOUND(3031, "Không tìm thấy thông tin khách hàng", HttpStatus.NOT_FOUND),
     COMPANY_NOT_FOUND(3041, "Không tìm thấy thông tin doanh nghiệp đối tác", HttpStatus.NOT_FOUND),
     TAX_CODE_ALREADY_EXISTS(3042, "Mã số thuế doanh nghiệp đã tồn tại", HttpStatus.CONFLICT),
+    AUDIT_LOG_NOT_FOUND(3051, "Không tìm thấy bản ghi nhật ký kiểm toán", HttpStatus.NOT_FOUND),
 
     // Concurrency & Locking
     OPTIMISTIC_LOCK_CONFLICT(4091, "Dữ liệu vừa được cập nhật bởi một phiên làm việc khác. Vui lòng thử lại.", HttpStatus.CONFLICT),

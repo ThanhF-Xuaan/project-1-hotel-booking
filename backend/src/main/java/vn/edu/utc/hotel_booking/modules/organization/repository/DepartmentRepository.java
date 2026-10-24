@@ -21,6 +21,8 @@ public interface DepartmentRepository extends JpaRepository<Department, Short> {
 
     boolean existsByCodeAndIdNotAndIsDeletedFalse(String code, Short id);
 
+    List<Department> findAllByStatusAndIsDeletedFalse(String status);
+
     @Query("SELECT d FROM Department d WHERE d.isDeleted = false " +
             "AND (:status IS NULL OR d.status = :status) " +
             "AND (:keyword IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

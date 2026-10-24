@@ -36,6 +36,17 @@ public class DepartmentController {
                 .build();
     }
 
+    @GetMapping("/active")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @Operation(summary = "Lấy danh sách tất cả phòng ban đang hoạt động (Dropdown options)")
+    public ApiResponse<List<DepartmentResponse>> getAllActive() {
+        return ApiResponse.<List<DepartmentResponse>>builder()
+                .code(HttpStatus.OK.value())
+                .message("Lấy danh sách phòng ban hoạt động thành công")
+                .result(departmentService.getAllActive())
+                .build();
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Lấy chi tiết phòng ban theo ID")

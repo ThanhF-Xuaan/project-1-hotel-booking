@@ -16,6 +16,10 @@ import java.time.LocalDate;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class GuestCreateRequest {
 
+    @Schema(description = "Họ và tên khách hàng", example = "Nguyễn Văn A")
+    @Size(max = 250, message = "Họ và tên tối đa 250 ký tự")
+    String fullName;
+
     @Schema(description = "Ngày sinh của khách", example = "1990-05-15")
     LocalDate birthDate;
 

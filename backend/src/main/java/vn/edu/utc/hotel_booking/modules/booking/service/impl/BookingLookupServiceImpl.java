@@ -167,4 +167,12 @@ public class BookingLookupServiceImpl implements BookingLookupService {
         }
         return bookingDetailService.existsByNoShowPolicyId(noShowPolicyId);
     }
+
+    @Override
+    public List<Booking> getBookingsByGuestId(Long guestId) {
+        if (guestId == null) {
+            return List.of();
+        }
+        return bookingRepository.findByGuestIdWithHotel(guestId);
+    }
 }

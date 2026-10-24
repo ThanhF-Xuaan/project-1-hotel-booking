@@ -2,7 +2,9 @@ package vn.edu.utc.hotel_booking.modules.identity.service;
 
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffCreateRequest;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffPasswordResetRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffSearchDto;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.StaffResponse;
 
@@ -20,6 +22,10 @@ public interface StaffService {
     StaffResponse create(StaffCreateRequest request);
 
     StaffResponse update(Integer id, StaffUpdateRequest request);
+
+    StaffResponse updateStatus(Integer id, StaffStatusUpdateRequest request);
+
+    void resetPassword(Integer id, StaffPasswordResetRequest request);
 
     void deleteBatch(List<Integer> ids);
 }

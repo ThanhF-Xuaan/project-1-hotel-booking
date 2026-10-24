@@ -22,6 +22,8 @@ public interface BookingGuestRepository extends JpaRepository<BookingGuest, Long
 
     Optional<BookingGuest> findByPhoneAndIsDeletedFalse(String phone);
 
+    Optional<BookingGuest> findByIdentityNumberAndIsDeletedFalse(String identityNumber);
+
     boolean existsByPhoneAndIsDeletedFalse(String phone);
 
     @Query("SELECT g FROM BookingGuest g WHERE g.isDeleted = false " +

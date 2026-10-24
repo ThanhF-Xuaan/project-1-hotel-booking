@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffCreateRequest;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffPasswordResetRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffSearchDto;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.StaffResponse;
 import vn.edu.utc.hotel_booking.modules.identity.service.StaffService;
@@ -80,6 +82,30 @@ public class StaffController {
                 .code(HttpStatus.OK.value())
                 .message("Cập nhật thông tin nhân viên thành công")
                 .result(staffService.update(id, request))
+                .build();
+    }
+
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @Operation(summary = "Cập nhật trạng thái vòng đời nhân sự (ACTIVE, SUSPENDED, RESIGNED) & thu hồi phiên làm việc")
+    public ApiResponse<StaffResponse> updateStatus(@PathVariable Integer id,
+                                                   @RequestBody @Valid vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffStatusUpdateRequest request) {
+        return ApiResponse.<StaffResponse>builder()
+                .code(HttpStatus.OK.value())
+                .message("Cập nhật trạng thái nhân viên thành công")
+                .result(staffService.updateStatus(id, request))
+                .build();
+    }
+
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @Operation(summary = "Đặt lại mật khẩu cho tài khoản nhân viên")
+    public ApiResponse<Void> resetPassword(@PathVariable Integer id,
+                                           @RequestBody @Valid vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffPasswordResetRequest request) {
+        staffService.resetPassword(id, request);
+        return ApiResponse.<Void>builder()
+                .code(HttpStatus.OK.value())
+                .message("Đặt lại mật khẩu nhân viên thành công")
                 .build();
     }
 

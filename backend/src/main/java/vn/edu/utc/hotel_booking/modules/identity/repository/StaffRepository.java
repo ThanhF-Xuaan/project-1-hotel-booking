@@ -66,4 +66,8 @@ public interface StaffRepository extends JpaRepository<Staff, Integer> {
     @Modifying
     @Query("UPDATE Staff s SET s.isDeleted = true, s.updatedAt = CURRENT_TIMESTAMP WHERE s.id IN :ids")
     int softDeleteBatch(@Param("ids") List<Integer> ids);
+
+    boolean existsByDepartmentIdInAndIsDeletedFalse(List<Short> departmentIds);
+
+    boolean existsByRoleIdInAndIsDeletedFalse(List<Short> roleIds);
 }
