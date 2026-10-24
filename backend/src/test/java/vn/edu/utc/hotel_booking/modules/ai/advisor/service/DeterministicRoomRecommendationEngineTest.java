@@ -398,4 +398,396 @@ class DeterministicRoomRecommendationEngineTest {
         assertThat(result.getCoverage().getStatus()).isEqualTo(CoverageStatus.PARTIAL);
         assertThat(result.getRecommendations()).isEmpty();
     }
+
+    @Test
+    @DisplayName("Should reject candidate when capacity fields are null")
+    void shouldRejectCandidateWhenCapacityIsNull() {
+        RoomCandidate nullCapacityCandidate = RoomCandidate.builder()
+                .hotelId(1)
+                .hotelName("Test Hotel")
+                .hotelRoomTypeId(9999)
+                .roomTypeCode("UNKNOWN_CAP")
+                .roomTypeName("Unknown Capacity Room")
+                .maxAdults(null) // null required capacity
+                .maxTotalGuests(null)
+                .status("ACTIVE")
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(1)
+                .roomsCount(1)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                List.of(nullCapacityCandidate),
+                availabilityMap,
+                quoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NO_MATCH);
+        assertThat(result.getRecommendations()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should evaluate budget directly using authoritative finalTotalAmount without VAT recalculation")
+    void shouldEvaluateBudgetUsingAuthoritativeFinalTotalAmountDirectly() {
+        // Candidate with preTax = 800000, vat = 10% (would be 880000), but finalTotalAmount = 950000 (with service fees and surcharges)
+        PriceQuoteDto quoteWithSurcharges = PriceQuoteDto.builder()
+                .hotelRoomTypeId(1026)
+                .source("BACKEND_PRICING")
+                .quoteId("quote-1026")
+                .observedAt(null)
+                .totalNights(2)
+                .currency("VND")
+                .preTaxAmount("800000")
+                .vatPercent("10")
+                .vatAmount("80000")
+                .finalTotalAmount("950000")
+                .chargeCoverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
+                .serviceFeeStatus(ServiceFeeStatus.INCLUDED)
+                .build();
+
+        Map<Integer, PriceQuoteDto> customQuoteMap = new HashMap<>(quoteMap);
+        customQuoteMap.put(1026, quoteWithSurcharges);
+
+        // Budget is 900,000 VND (less than 950,000, but greater than 880,000)
+        BudgetDto hardBudget = BudgetDto.builder()
+                .amount("900000")
+                .currency("VND")
+                .basis(BudgetBasis.STAY_TOTAL)
+                .coverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
+                .hard(true)
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .budget(hardBudget)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                candidateList,
+                availabilityMap,
+                customQuoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        // Room 1026 must be rejected because 950,000 > 900,000 (no recalculation to 880,000)
+        assertThat(result.getRecommendations()).noneMatch(r -> r.getRoom().getHotelRoomTypeId() == 1026);
+    }
+
+    @Test
+    @DisplayName("Should reject hard budget when quote currency is null (unverified)")
+    void shouldRejectHardBudgetWhenCurrencyIsNull() {
+        PriceQuoteDto quoteNullCurrency = PriceQuoteDto.builder()
+                .hotelRoomTypeId(1026)
+                .source("BACKEND_PRICING")
+                .quoteId("quote-1026")
+                .totalNights(2)
+                .currency(null) // Unverified currency
+                .finalTotalAmount("500000")
+                .chargeCoverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
+                .serviceFeeStatus(ServiceFeeStatus.INCLUDED)
+                .build();
+
+        Map<Integer, PriceQuoteDto> customQuoteMap = new HashMap<>(quoteMap);
+        customQuoteMap.put(1026, quoteNullCurrency);
+
+        BudgetDto hardBudget = BudgetDto.builder()
+                .amount("1000000")
+                .currency("VND")
+                .basis(BudgetBasis.STAY_TOTAL)
+                .coverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
+                .hard(true)
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .budget(hardBudget)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                candidateList,
+                availabilityMap,
+                customQuoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        // Room 1026 must be rejected because currency is null -> UNVERIFIABLE
+        assertThat(result.getRecommendations()).noneMatch(r -> r.getRoom().getHotelRoomTypeId() == 1026);
+    }
+
+    @Test
+    @DisplayName("Should mark EACH_NIGHT budget check as UNVERIFIABLE and reject under hard budget")
+    void shouldMarkEachNightBudgetAsUnverifiable() {
+        BudgetDto hardBudget = BudgetDto.builder()
+                .amount("1000000")
+                .currency("VND")
+                .basis(BudgetBasis.EACH_NIGHT) // EACH_NIGHT is unverifiable with single total
+                .coverage(BudgetCoverage.ALL_MANDATORY_CHARGES)
+                .hard(true)
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .budget(hardBudget)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                candidateList,
+                availabilityMap,
+                quoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NO_MATCH);
+        assertThat(result.getRecommendations()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Should return TEMP_UNAVAILABLE and PARTIAL coverage when empty candidates list has failed price quotes")
+    void shouldReturnTempUnavailableWhenEmptyCandidatesHasFailedQuotes() {
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                Collections.emptyList(), // empty candidates
+                Collections.emptyMap(),
+                Collections.emptyMap(),
+                true, // catalog was scanned
+                Set.of(101, 102), // but all failed detailed quote
+                List.of(CoverageReason.PRICE_FAILED),
+                2, // totalDiscoveredCount
+                0
+        );
+
+        assertThat(result.getStatus()).isEqualTo(AdvisorStatus.TEMP_UNAVAILABLE);
+        assertThat(result.getCoverage().getStatus()).isEqualTo(CoverageStatus.PARTIAL);
+        assertThat(result.getCoverage().isCatalogComplete()).isFalse();
+        assertThat(result.getCoverage().getFailedCount()).isEqualTo(2);
+        assertThat(result.getCoverage().getDiscoveredCount()).isEqualTo(2);
+        assertThat(result.getCoverage().getReasons()).contains(CoverageReason.PRICE_FAILED);
+    }
+
+    @Test
+    @DisplayName("Should prove that a 924,000 VND room fails a hard stay-total budget of 900,000 VND")
+    void shouldProve924000RoomFailsHardBudgetOf900000() {
+        BudgetDto hardBudget = BudgetDto.builder()
+                .amount("900000")
+                .currency("VND")
+                .basis(BudgetBasis.STAY_TOTAL)
+                .coverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
+                .hard(true)
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .locationKeyword("Synthetic City")
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .budget(hardBudget)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                candidateList,
+                availabilityMap,
+                quoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        // Room 1026 has finalTotalAmount = 924,000 > 900,000, so it must be rejected
+        assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NO_MATCH);
+        assertThat(result.getRecommendations()).isEmpty();
+        assertThat(result.getCoverage().getVerifiedMatchCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Should prove that a 924,000 VND room fails an average nightly hard budget of 450,000 VND over 2 nights")
+    void shouldProve924000RoomFailsAverageNightlyBudgetOf450000OverTwoNights() {
+        BudgetDto hardBudget = BudgetDto.builder()
+                .amount("450000")
+                .currency("VND")
+                .basis(BudgetBasis.AVERAGE_PER_NIGHT)
+                .coverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
+                .hard(true)
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .locationKeyword("Synthetic City")
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22)) // 2 nights
+                .adults(2)
+                .roomsCount(1)
+                .budget(hardBudget)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                candidateList,
+                availabilityMap,
+                quoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        // Room 1026 average per night = 924,000 / 2 = 462,000 > 450,000, so it must be rejected
+        assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NO_MATCH);
+        assertThat(result.getRecommendations()).isEmpty();
+        assertThat(result.getCoverage().getVerifiedMatchCount()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Should prove that a 924,000 VND room passes an exact stay-total budget of 924,000 VND")
+    void shouldProve924000RoomPassesExactStayTotalBudgetOf924000() {
+        BudgetDto exactBudget = BudgetDto.builder()
+                .amount("924000")
+                .currency("VND")
+                .basis(BudgetBasis.STAY_TOTAL)
+                .coverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
+                .hard(true)
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .locationKeyword("Synthetic City")
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .budget(exactBudget)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                candidateList,
+                availabilityMap,
+                quoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        // Room 1026 has finalTotalAmount = 924,000 == 924,000, passes exact boundary
+        assertThat(result.getStatus()).isEqualTo(AdvisorStatus.RESULTS);
+        assertThat(result.getRecommendations()).hasSize(1);
+        assertThat(result.getRecommendations().get(0).getRoom().getHotelRoomTypeId()).isEqualTo(1026);
+        assertThat(result.getRecommendations().get(0).getPrice().getBudgetCheck()).isEqualTo(BudgetCheck.PASS);
+        assertThat(result.getRecommendations().get(0).getPrice().getFinalTotalAmount()).isEqualTo("924000");
+    }
+
+    @Test
+    @DisplayName("Should prove that unverified charge coverage cannot produce a hard-budget PASS")
+    void shouldProveUnverifiedCoverageCannotProduceHardBudgetPass() {
+        PriceQuoteDto quoteUnverifiedCoverage = PriceQuoteDto.builder()
+                .hotelRoomTypeId(1026)
+                .source("BACKEND_PRICING")
+                .quoteId("quote-1026")
+                .totalNights(2)
+                .currency("VND")
+                .preTaxAmount("800000")
+                .finalTotalAmount("924000")
+                .chargeCoverage(null) // Unverified charge coverage
+                .serviceFeeStatus(ServiceFeeStatus.UNKNOWN)
+                .build();
+
+        Map<Integer, PriceQuoteDto> customQuoteMap = new HashMap<>(quoteMap);
+        customQuoteMap.put(1026, quoteUnverifiedCoverage);
+
+        BudgetDto hardBudget = BudgetDto.builder()
+                .amount("1000000")
+                .currency("VND")
+                .basis(BudgetBasis.STAY_TOTAL)
+                .coverage(BudgetCoverage.ALL_MANDATORY_CHARGES)
+                .hard(true)
+                .build();
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(2)
+                .roomsCount(1)
+                .budget(hardBudget)
+                .build();
+
+        AdvisorResultDto result = engine.evaluateAndRank(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                1L,
+                criteria,
+                Collections.emptyList(),
+                candidateList,
+                availabilityMap,
+                customQuoteMap,
+                true,
+                Collections.emptySet(),
+                Collections.emptyList()
+        );
+
+        // Room 1026 must be rejected because chargeCoverage is null -> UNVERIFIABLE
+        assertThat(result.getRecommendations()).noneMatch(r -> r.getRoom().getHotelRoomTypeId() == 1026);
+    }
 }

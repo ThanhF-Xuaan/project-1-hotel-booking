@@ -12,6 +12,7 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.llm.RoomAdvisorLlmPort;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.model.ValidationResult;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSession;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSessionStore;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionNotFoundException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionSecurityException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionVersionConflictException;
 
@@ -92,6 +93,7 @@ public class RoomAdvisorOrchestrationService {
                         + request.getExpectedSessionVersion() + " but was " + session.getSessionVersion());
             }
         }
+        long snapshotVersion = session.getSessionVersion();
 
         // 3. Extract criteria patch from natural language message
         CriteriaPatchDto extractedPatch = null;
@@ -130,7 +132,7 @@ public class RoomAdvisorOrchestrationService {
             RoomAdvisorSession updatedSession = sessionStore.updateSession(
                     session.getSessionId(),
                     ownerKey,
-                    null,
+                    snapshotVersion,
                     mergedCriteria,
                     session.getCriteriaProvenance(),
                     needInfoResult
@@ -162,7 +164,7 @@ public class RoomAdvisorOrchestrationService {
             RoomAdvisorSession updatedSession = sessionStore.updateSession(
                     session.getSessionId(),
                     ownerKey,
-                    null,
+                    snapshotVersion,
                     mergedCriteria,
                     session.getCriteriaProvenance(),
                     ambiguousResult
@@ -211,7 +213,7 @@ public class RoomAdvisorOrchestrationService {
         RoomAdvisorSession updatedSession = sessionStore.updateSession(
                 session.getSessionId(),
                 ownerKey,
-                null,
+                snapshotVersion,
                 mergedCriteria,
                 session.getCriteriaProvenance(),
                 engineResult
@@ -233,6 +235,7 @@ public class RoomAdvisorOrchestrationService {
                         + request.getExpectedSessionVersion() + " but was " + session.getSessionVersion());
             }
         }
+        long snapshotVersion = session.getSessionVersion();
 
         RoomSearchCriteriaDto criteria = request != null ? request.getCriteria() : null;
         ValidationResult valResult = criteriaValidationService.validateForSearch(
@@ -255,7 +258,7 @@ public class RoomAdvisorOrchestrationService {
             RoomAdvisorSession updatedSession = sessionStore.updateSession(
                     session.getSessionId(),
                     ownerKey,
-                    null,
+                    snapshotVersion,
                     criteria,
                     session.getCriteriaProvenance(),
                     needInfoResult
@@ -286,7 +289,7 @@ public class RoomAdvisorOrchestrationService {
             RoomAdvisorSession updatedSession = sessionStore.updateSession(
                     session.getSessionId(),
                     ownerKey,
-                    null,
+                    snapshotVersion,
                     criteria,
                     session.getCriteriaProvenance(),
                     ambiguousResult
@@ -325,7 +328,7 @@ public class RoomAdvisorOrchestrationService {
         RoomAdvisorSession updatedSession = sessionStore.updateSession(
                 session.getSessionId(),
                 ownerKey,
-                null,
+                snapshotVersion,
                 criteria,
                 session.getCriteriaProvenance(),
                 engineResult
@@ -341,7 +344,7 @@ public class RoomAdvisorOrchestrationService {
         }
 
         RoomAdvisorSession session = sessionStore.getSession(request.getSessionId(), ownerKey)
-                .orElseThrow(() -> new SessionSecurityException("Session not found or expired"));
+                .orElseThrow(() -> new SessionNotFoundException("Session not found or expired"));
 
         if (request.getExpectedSessionVersion() != null) {
             if (request.getExpectedSessionVersion() != session.getSessionVersion()) {

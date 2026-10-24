@@ -50,4 +50,17 @@ class HybridRoomAdvisorLlmServiceTest {
         assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 12, 18));
         assertThat(patch.getAdults()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("Should extract zero children when message specifies không trẻ em")
+    void shouldExtractZeroChildrenWhenNoChildrenSpecified() {
+        String msg = "Tìm 1 phòng cho 2 người lớn, không trẻ em tại Synthetic City, 20–22/11/2026, tổng tối đa 950000 VND theo tổng API";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getChildren()).isEqualTo(0);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Synthetic City");
+    }
 }

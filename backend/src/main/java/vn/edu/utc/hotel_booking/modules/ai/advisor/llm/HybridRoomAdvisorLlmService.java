@@ -39,8 +39,11 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
     private static final Pattern ADULTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:người\\s*lớn|nguoi\\s*lon|adults?)");
     private static final Pattern CHILDREN_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:trẻ\\s*em|tre\\s*em|children|child)");
+    private static final Pattern NO_CHILDREN_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:trẻ\\s*em|tre\\s*em|children|child)");
     private static final Pattern INFANTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:em\\s*bé|em\\s*be|trẻ\\s*sơ\\s*sinh|infants?|bab(?:y|ies))");
+    private static final Pattern NO_INFANTS_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:em\\s*bé|em\\s*be|trẻ\\s*sơ\\s*sinh|infants?|bab(?:y|ies))");
     private static final Pattern EXTRA_BEDS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:giường\\s*phụ|giuong\\s*phu|extra\\s*beds?)");
+    private static final Pattern NO_EXTRA_BEDS_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:giường\\s*phụ|giuong\\s*phu|extra\\s*beds?)");
     private static final Pattern ROOMS_COUNT_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:phòng|phong|rooms?)");
 
     private static final Pattern BUDGET_PATTERN_1 = Pattern.compile(
@@ -142,17 +145,26 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         if (mChildren.find()) {
             builder.children(Integer.parseInt(mChildren.group(1)));
             hasPatch = true;
+        } else if (NO_CHILDREN_PATTERN.matcher(message).find()) {
+            builder.children(0);
+            hasPatch = true;
         }
 
         Matcher mInfants = INFANTS_PATTERN.matcher(message);
         if (mInfants.find()) {
             builder.infants(Integer.parseInt(mInfants.group(1)));
             hasPatch = true;
+        } else if (NO_INFANTS_PATTERN.matcher(message).find()) {
+            builder.infants(0);
+            hasPatch = true;
         }
 
         Matcher mExtraBeds = EXTRA_BEDS_PATTERN.matcher(message);
         if (mExtraBeds.find()) {
             builder.extraBeds(Integer.parseInt(mExtraBeds.group(1)));
+            hasPatch = true;
+        } else if (NO_EXTRA_BEDS_PATTERN.matcher(message).find()) {
+            builder.extraBeds(0);
             hasPatch = true;
         }
 

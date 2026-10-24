@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.ai.advisor.session;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.CriteriaEvidenceDto;
@@ -9,8 +10,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Component
+@ConditionalOnProperty(prefix = "hotel.ai.advisor.session", name = "store-type", havingValue = "in-memory", matchIfMissing = true)
 public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
 
     private static final Duration SESSION_TTL = Duration.ofMinutes(30);
@@ -21,33 +24,40 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
     public RoomAdvisorSession getOrCreateSession(UUID sessionId, String ownerKey) {
         purgeExpired();
 
-        if (sessionId == null) {
-            UUID newId = UUID.randomUUID();
-            RoomAdvisorSession newSession = RoomAdvisorSession.builder()
-                    .sessionId(newId)
-                    .sessionVersion(1L)
-                    .ownerKey(ownerKey)
+        UUID targetId = (sessionId != null) ? sessionId : UUID.randomUUID();
+        AtomicReference<SessionSecurityException> securityEx = new AtomicReference<>();
+
+        RoomAdvisorSession session = store.compute(targetId, (key, existing) -> {
+            if (existing == null || isExpired(existing)) {
+                return RoomAdvisorSession.builder()
+                        .sessionId(targetId)
+                        .sessionVersion(1L)
+                        .ownerKey(ownerKey)
+                        .lastAccessedAt(Instant.now())
+                        .build();
+            }
+
+            if (existing.getOwnerKey() != null && ownerKey != null && !existing.getOwnerKey().equals(ownerKey)) {
+                securityEx.set(new SessionSecurityException("Access denied: session owner mismatch"));
+                return existing;
+            }
+
+            return RoomAdvisorSession.builder()
+                    .sessionId(existing.getSessionId())
+                    .sessionVersion(existing.getSessionVersion())
+                    .ownerKey(existing.getOwnerKey())
+                    .criteria(existing.getCriteria())
+                    .criteriaProvenance(existing.getCriteriaProvenance() != null ? new ArrayList<>(existing.getCriteriaProvenance()) : new ArrayList<>())
+                    .lastResult(existing.getLastResult())
                     .lastAccessedAt(Instant.now())
                     .build();
-            store.put(newId, newSession);
-            return newSession;
+        });
+
+        if (securityEx.get() != null) {
+            throw securityEx.get();
         }
 
-        RoomAdvisorSession existing = store.get(sessionId);
-        if (existing == null || isExpired(existing)) {
-            RoomAdvisorSession newSession = RoomAdvisorSession.builder()
-                    .sessionId(sessionId)
-                    .sessionVersion(1L)
-                    .ownerKey(ownerKey)
-                    .lastAccessedAt(Instant.now())
-                    .build();
-            store.put(sessionId, newSession);
-            return newSession;
-        }
-
-        validateOwner(existing, ownerKey);
-        existing.setLastAccessedAt(Instant.now());
-        return existing;
+        return session;
     }
 
     @Override
@@ -58,19 +68,19 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
             return Optional.empty();
         }
 
-        RoomAdvisorSession existing = store.get(sessionId);
-        if (existing == null) {
+        RoomAdvisorSession session = store.computeIfPresent(sessionId, (key, existing) -> {
+            if (isExpired(existing)) {
+                return null;
+            }
+            return existing;
+        });
+
+        if (session == null) {
             return Optional.empty();
         }
 
-        if (isExpired(existing)) {
-            store.remove(sessionId);
-            return Optional.empty();
-        }
-
-        validateOwner(existing, ownerKey);
-        existing.setLastAccessedAt(Instant.now());
-        return Optional.of(existing);
+        validateOwner(session, ownerKey);
+        return Optional.of(session);
     }
 
     @Override
@@ -84,28 +94,54 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
     ) {
         purgeExpired();
 
-        RoomAdvisorSession session = getSession(sessionId, ownerKey)
-                .orElseThrow(() -> new SessionSecurityException("Session not found or expired"));
-
-        if (expectedSessionVersion != null && expectedSessionVersion != session.getSessionVersion()) {
-            throw new SessionVersionConflictException(
-                    "Session version conflict: expected " + expectedSessionVersion + " but was " + session.getSessionVersion()
-            );
+        if (sessionId == null) {
+            throw new SessionNotFoundException("Session not found or expired");
         }
 
-        session.setSessionVersion(session.getSessionVersion() + 1);
-        if (criteria != null) {
-            session.setCriteria(criteria);
-        }
-        if (provenance != null) {
-            session.setCriteriaProvenance(new ArrayList<>(provenance));
-        }
-        if (lastResult != null) {
-            session.setLastResult(lastResult);
-        }
-        session.setLastAccessedAt(Instant.now());
+        AtomicReference<SessionSecurityException> securityEx = new AtomicReference<>();
+        AtomicReference<SessionVersionConflictException> conflictEx = new AtomicReference<>();
 
-        return session;
+        RoomAdvisorSession updated = store.compute(sessionId, (key, existing) -> {
+            if (existing == null || isExpired(existing)) {
+                return null;
+            }
+
+            if (existing.getOwnerKey() != null && ownerKey != null && !existing.getOwnerKey().equals(ownerKey)) {
+                securityEx.set(new SessionSecurityException("Access denied: session owner mismatch"));
+                return existing;
+            }
+
+            if (expectedSessionVersion != null && !expectedSessionVersion.equals(existing.getSessionVersion())) {
+                conflictEx.set(new SessionVersionConflictException(
+                        "Session version conflict: expected " + expectedSessionVersion + " but was " + existing.getSessionVersion()
+                ));
+                return existing;
+            }
+
+            long nextVersion = existing.getSessionVersion() + 1;
+            return RoomAdvisorSession.builder()
+                    .sessionId(existing.getSessionId())
+                    .sessionVersion(nextVersion)
+                    .ownerKey(existing.getOwnerKey())
+                    .criteria(criteria != null ? criteria : existing.getCriteria())
+                    .criteriaProvenance(provenance != null ? new ArrayList<>(provenance) :
+                            (existing.getCriteriaProvenance() != null ? new ArrayList<>(existing.getCriteriaProvenance()) : new ArrayList<>()))
+                    .lastResult(lastResult != null ? lastResult : existing.getLastResult())
+                    .lastAccessedAt(Instant.now())
+                    .build();
+        });
+
+        if (securityEx.get() != null) {
+            throw securityEx.get();
+        }
+        if (conflictEx.get() != null) {
+            throw conflictEx.get();
+        }
+        if (updated == null) {
+            throw new SessionNotFoundException("Session not found or expired");
+        }
+
+        return updated;
     }
 
     @Override

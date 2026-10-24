@@ -31,19 +31,6 @@
         ],
         "x-approval-status": "PENDING_M2_M4",
         "x-business-write": false,
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 200
-            },
-            "description": "Cơ chế CSRF dự kiến; Member 2 cần duyệt."
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -147,19 +134,6 @@
         ],
         "x-approval-status": "PENDING_M2_M4",
         "x-business-write": false,
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 200
-            },
-            "description": "Cơ chế CSRF dự kiến; Member 2 cần duyệt."
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -263,19 +237,6 @@
         ],
         "x-approval-status": "PENDING_M2_M4",
         "x-business-write": false,
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 1,
-              "maxLength": 200
-            },
-            "description": "Cơ chế CSRF dự kiến; Member 2 cần duyệt."
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {

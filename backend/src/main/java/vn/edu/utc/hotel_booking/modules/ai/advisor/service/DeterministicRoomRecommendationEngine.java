@@ -63,28 +63,54 @@ public class DeterministicRoomRecommendationEngine {
                 : new ArrayList<>();
 
         if (candidates == null || candidates.isEmpty()) {
+            int failed = failedRoomTypeIds != null ? failedRoomTypeIds.size() : 0;
+            int discovered = (totalDiscoveredCount != null) ? totalDiscoveredCount : failed;
+            CoverageStatus covStatus = (catalogComplete && failed == 0) ? CoverageStatus.COMPLETE : CoverageStatus.PARTIAL;
+
+            List<CoverageReason> reasons = coverageReasons != null ? new ArrayList<>(coverageReasons) : new ArrayList<>();
+            if (covStatus == CoverageStatus.PARTIAL && reasons.isEmpty()) {
+                if (failed > 0) {
+                    reasons.add(CoverageReason.PRICE_FAILED);
+                } else if (!catalogComplete) {
+                    reasons.add(CoverageReason.CATALOG_PAGE_FAILED);
+                }
+            }
+
             SearchCoverageDto coverage = SearchCoverageDto.builder()
-                    .status(catalogComplete ? CoverageStatus.COMPLETE : CoverageStatus.PARTIAL)
-                    .catalogComplete(catalogComplete)
-                    .discoveredCount(0)
+                    .status(covStatus)
+                    .catalogComplete(catalogComplete && failed == 0)
+                    .discoveredCount(discovered)
                     .evaluatedCount(0)
-                    .failedCount(failedRoomTypeIds != null ? failedRoomTypeIds.size() : 0)
+                    .failedCount(failed)
                     .remainingCount(0)
                     .verifiedMatchCount(0)
-                    .reasons(coverageReasons != null ? new ArrayList<>(coverageReasons) : new ArrayList<>())
+                    .reasons(reasons)
                     .build();
 
             List<String> warnings = buildDefaultWarnings(coverage.getStatus(), criteria, false);
+
+            AdvisorStatus status;
+            String reply;
+            if (covStatus == CoverageStatus.COMPLETE) {
+                status = AdvisorStatus.NO_MATCH;
+                reply = "Chưa tìm thấy phòng phù hợp trong phạm vi đã kiểm tra đầy đủ. Có thể điều chỉnh nhu cầu.";
+            } else if (failed > 0 && failed == discovered) {
+                status = AdvisorStatus.TEMP_UNAVAILABLE;
+                reply = "Chưa kiểm tra được đầy đủ các phương án. Cần thử lại để có thêm kết quả.";
+            } else {
+                status = catalogComplete && failed == 0 ? AdvisorStatus.NO_MATCH : AdvisorStatus.TEMP_UNAVAILABLE;
+                reply = (status == AdvisorStatus.NO_MATCH)
+                        ? "Chưa tìm thấy phòng phù hợp trong phạm vi đã kiểm tra đầy đủ. Có thể điều chỉnh nhu cầu."
+                        : "Chưa kiểm tra được đầy đủ các phương án. Cần thử lại để có thêm kết quả.";
+            }
 
             return AdvisorResultDto.builder()
                     .contractVersion("2.0")
                     .requestId(requestId)
                     .sessionId(sessionId)
                     .sessionVersion(sessionVersion)
-                    .status(catalogComplete ? AdvisorStatus.NO_MATCH : AdvisorStatus.TEMP_UNAVAILABLE)
-                    .reply(catalogComplete
-                            ? "Chưa tìm thấy phòng phù hợp trong phạm vi đã kiểm tra đầy đủ. Có thể điều chỉnh nhu cầu."
-                            : "Chưa kiểm tra được đầy đủ các phương án. Cần thử lại để có thêm kết quả.")
+                    .status(status)
+                    .reply(reply)
                     .criteria(criteria)
                     .missingFields(new ArrayList<>())
                     .recommendations(new ArrayList<>())
@@ -297,26 +323,38 @@ public class DeterministicRoomRecommendationEngine {
         int reqInfants = criteria.getInfants() != null ? criteria.getInfants() : 0;
         int reqExtraBeds = criteria.getExtraBeds() != null ? criteria.getExtraBeds() : 0;
 
-        int maxAdults = candidate.getMaxAdults() != null ? candidate.getMaxAdults() : 0;
-        int maxChildren = candidate.getMaxChildren() != null ? candidate.getMaxChildren() : 0;
-        int maxInfants = candidate.getMaxInfants() != null ? candidate.getMaxInfants() : Integer.MAX_VALUE;
-        int maxTotalGuests = candidate.getMaxTotalGuests() != null ? candidate.getMaxTotalGuests() : 0;
-        int extraBedsAllowed = candidate.getExtraBedsAllowed() != null ? candidate.getExtraBedsAllowed() : 0;
+        // Mandatory capacity fields: must not be null
+        if (candidate.getMaxAdults() == null || candidate.getMaxTotalGuests() == null) {
+            return false;
+        }
 
-        if (reqAdults > maxAdults) {
+        if (reqAdults > candidate.getMaxAdults()) {
             return false;
         }
-        if (reqChildren > maxChildren) {
+
+        if (reqChildren > 0) {
+            if (candidate.getMaxChildren() == null || reqChildren > candidate.getMaxChildren()) {
+                return false;
+            }
+        }
+
+        if (reqInfants > 0) {
+            if (candidate.getMaxInfants() == null || reqInfants > candidate.getMaxInfants()) {
+                return false;
+            }
+        }
+
+        if ((reqAdults + reqChildren + reqInfants) > candidate.getMaxTotalGuests()) {
             return false;
         }
-        if (reqInfants > maxInfants) {
-            return false;
-        }
-        if ((reqAdults + reqChildren + reqInfants) > maxTotalGuests) {
-            return false;
-        }
-        if (reqExtraBeds > extraBedsAllowed) {
-            return false;
+
+        if (reqExtraBeds > 0) {
+            Integer allowedBeds = candidate.getExtraBedsAllowed() != null
+                    ? candidate.getExtraBedsAllowed()
+                    : candidate.getExtraBeds();
+            if (allowedBeds == null || reqExtraBeds > allowedBeds) {
+                return false;
+            }
         }
 
         return true;
@@ -400,32 +438,44 @@ public class DeterministicRoomRecommendationEngine {
             return new BudgetCheckResult(BudgetCheck.NOT_REQUESTED, BigDecimal.ZERO);
         }
 
-        // Currency verification
-        if (quote.getCurrency() == null || !quote.getCurrency().equalsIgnoreCase(budget.getCurrency())) {
+        if (budget.getAmount() == null || quote.getFinalTotalAmount() == null) {
             return new BudgetCheckResult(BudgetCheck.UNVERIFIABLE, BigDecimal.ZERO);
         }
 
-        // Coverage verification: ALL_MANDATORY_CHARGES requires backend confirmation
+        // Currency verification: must be present and match
+        if (quote.getCurrency() == null || budget.getCurrency() == null || !quote.getCurrency().equalsIgnoreCase(budget.getCurrency())) {
+            return new BudgetCheckResult(BudgetCheck.UNVERIFIABLE, BigDecimal.ZERO);
+        }
+
+        // Coverage verification: hard budget with unverified charge coverage must never receive PASS
+        if (quote.getChargeCoverage() == null) {
+            return new BudgetCheckResult(BudgetCheck.UNVERIFIABLE, BigDecimal.ZERO);
+        }
         if (budget.getCoverage() == BudgetCoverage.ALL_MANDATORY_CHARGES) {
             if (quote.getChargeCoverage() != BudgetCoverage.ALL_MANDATORY_CHARGES ||
                     quote.getServiceFeeStatus() != ServiceFeeStatus.INCLUDED) {
                 return new BudgetCheckResult(BudgetCheck.UNVERIFIABLE, BigDecimal.ZERO);
             }
+        } else if (budget.getCoverage() == BudgetCoverage.BACKEND_QUOTED_TOTAL) {
+            if (quote.getChargeCoverage() != BudgetCoverage.BACKEND_QUOTED_TOTAL &&
+                    quote.getChargeCoverage() != BudgetCoverage.ALL_MANDATORY_CHARGES) {
+                return new BudgetCheckResult(BudgetCheck.UNVERIFIABLE, BigDecimal.ZERO);
+            }
         }
 
         BigDecimal quoteAmount;
-        if (budget.getCoverage() == BudgetCoverage.BACKEND_QUOTED_TOTAL) {
-            if (quote.getPreTaxAmount() != null) {
-                BigDecimal preTax = new BigDecimal(quote.getPreTaxAmount());
-                BigDecimal vatPct = (quote.getVatPercent() != null) ? new BigDecimal(quote.getVatPercent()) : BigDecimal.ZERO;
-                quoteAmount = preTax.add(preTax.multiply(vatPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
-            } else {
-                quoteAmount = new BigDecimal(quote.getFinalTotalAmount());
-            }
-        } else {
+        try {
             quoteAmount = new BigDecimal(quote.getFinalTotalAmount());
+        } catch (Exception e) {
+            return new BudgetCheckResult(BudgetCheck.UNVERIFIABLE, BigDecimal.ZERO);
         }
-        BigDecimal budgetAmount = new BigDecimal(budget.getAmount());
+
+        BigDecimal budgetAmount;
+        try {
+            budgetAmount = new BigDecimal(budget.getAmount());
+        } catch (Exception e) {
+            return new BudgetCheckResult(BudgetCheck.UNVERIFIABLE, BigDecimal.ZERO);
+        }
 
         BigDecimal applicableAmount;
         if (budget.getBasis() == BudgetBasis.STAY_TOTAL) {

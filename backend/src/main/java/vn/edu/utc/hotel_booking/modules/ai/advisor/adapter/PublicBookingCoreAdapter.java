@@ -158,6 +158,7 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
         List<AvailableRoomTypeResponse> rawRooms = new ArrayList<>();
         Map<Integer, Integer> hotelIdByHrt = new HashMap<>();
         Map<Integer, String> hotelNameByHrt = new HashMap<>();
+        Map<Integer, String> currencyByHrt = new HashMap<>();
 
         boolean catalogComplete = true;
         List<CoverageReason> coverageReasons = new ArrayList<>();
@@ -223,10 +224,14 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                                     rawRooms.add(r);
                                     hotelIdByHrt.put(r.getHotelRoomTypeId(), hotel.getHotelId());
                                     hotelNameByHrt.put(r.getHotelRoomTypeId(), hotel.getHotelName());
+                                    if (hotel.getCurrency() != null && !hotel.getCurrency().isBlank()) {
+                                        currencyByHrt.put(r.getHotelRoomTypeId(), hotel.getCurrency());
+                                    }
                                 }
                             }
                         } catch (Exception ex) {
                             log.warn("Failed to fetch rooms for hotelId {}: {}", hotel.getHotelId(), ex.getMessage());
+                            catalogComplete = false;
                             coverageReasons.add(CoverageReason.CATALOG_PAGE_FAILED);
                         }
                     }
@@ -274,16 +279,20 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                     RoomPriceQuoteResponse quoteResp = publicBookingSearchService.calculateRoomQuote(quoteReq);
                     if (quoteResp != null && quoteResp.getPriceBreakdown() != null) {
                         activePb = quoteResp.getPriceBreakdown();
+                    } else {
+                        activePb = null;
+                        failedRoomTypeIds.add(hrtId);
+                        coverageReasons.add(CoverageReason.PRICE_FAILED);
                     }
                 } catch (Exception e) {
                     log.warn("calculateRoomQuote failed for hrtId {}: {}", hrtId, e.getMessage());
                     failedRoomTypeIds.add(hrtId);
                     coverageReasons.add(CoverageReason.PRICE_FAILED);
-                    // fallback to standard priceBreakdown if available
+                    activePb = null;
                 }
             }
 
-            if (activePb == null) {
+            if (activePb == null || activePb.getFinalTotalAmount() == null) {
                 failedRoomTypeIds.add(hrtId);
                 continue;
             }
@@ -306,27 +315,28 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                 }
             }
 
-            // RoomCandidate
+            // RoomCandidate - do not fabricate capacity defaults
             RoomCandidate candidate = RoomCandidate.builder()
                     .hotelId(hotelId)
                     .hotelName(hotelName)
                     .hotelRoomTypeId(hrtId)
                     .roomTypeCode(r.getRoomTypeCode())
                     .roomTypeName(r.getRoomTypeName())
-                    .standardAdults(r.getStandardAdults() != null ? r.getStandardAdults().intValue() : 2)
-                    .standardChildren(r.getStandardChildren() != null ? r.getStandardChildren().intValue() : 0)
-                    .maxAdults(r.getMaxAdults() != null ? r.getMaxAdults().intValue() : 2)
-                    .maxChildren(r.getMaxChildren() != null ? r.getMaxChildren().intValue() : 1)
-                    .maxInfants(r.getMaxInfants() != null ? r.getMaxInfants().intValue() : 1)
-                    .maxTotalGuests(r.getMaxTotalGuests() != null ? r.getMaxTotalGuests().intValue() : 3)
-                    .extraBedsAllowed(r.getExtraBeds() != null ? r.getExtraBeds().intValue() : 0)
+                    .standardAdults(r.getStandardAdults() != null ? r.getStandardAdults().intValue() : null)
+                    .standardChildren(r.getStandardChildren() != null ? r.getStandardChildren().intValue() : null)
+                    .maxAdults(r.getMaxAdults() != null ? r.getMaxAdults().intValue() : null)
+                    .maxChildren(r.getMaxChildren() != null ? r.getMaxChildren().intValue() : null)
+                    .maxInfants(r.getMaxInfants() != null ? r.getMaxInfants().intValue() : null)
+                    .maxTotalGuests(r.getMaxTotalGuests() != null ? r.getMaxTotalGuests().intValue() : null)
+                    .extraBedsAllowed(r.getExtraBeds() != null ? r.getExtraBeds().intValue() : null)
+                    .extraBeds(r.getExtraBeds() != null ? r.getExtraBeds().intValue() : null)
                     .features(features)
                     .status("ACTIVE")
                     .build();
 
             candidateList.add(candidate);
 
-            // CandidateAvailability: continuous availableCount for all nights
+            // CandidateAvailability: continuous availableCount for all nights, breakdown unknown -> null
             int availableRooms = r.getAvailableRooms() != null ? r.getAvailableRooms() : 0;
             List<CandidateAvailability> avList = new ArrayList<>();
             LocalDate cur = criteria.getCheckInDate();
@@ -334,43 +344,55 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                 avList.add(CandidateAvailability.builder()
                         .hotelRoomTypeId(hrtId)
                         .availabilityDate(cur)
-                        .totalRooms(availableRooms)
-                        .bookedRooms(0)
-                        .lockedRooms(0)
-                        .oooRooms(0)
+                        .totalRooms(null)
+                        .bookedRooms(null)
+                        .lockedRooms(null)
+                        .oooRooms(null)
                         .availableCount(availableRooms)
                         .build());
                 cur = cur.plusDays(1);
             }
             availabilityMap.put(hrtId, avList);
 
-            // PriceQuoteDto mapping
+            // PriceQuoteDto mapping: authoritative fields, transparent displayLabel, BACKEND_QUOTED_TOTAL
+            String quoteCurrency = currencyByHrt.get(hrtId);
+
+            ServiceFeeStatus feeStatus = activePb.getTotalRoomServiceFee() != null
+                    ? ServiceFeeStatus.INCLUDED
+                    : ServiceFeeStatus.UNKNOWN;
+
+            String feeAmount = activePb.getTotalRoomServiceFee() != null
+                    ? activePb.getTotalRoomServiceFee().toPlainString()
+                    : null;
+
+            String preTax = activePb.getTotalRoomNetAmount() != null
+                    ? activePb.getTotalRoomNetAmount().toPlainString()
+                    : (activePb.getPreTaxAmount() != null ? activePb.getPreTaxAmount().toPlainString() : null);
+
+            String vatPercent = activePb.getVatPercent() != null
+                    ? activePb.getVatPercent().toPlainString()
+                    : null;
+
+            String vatAmount = activePb.getTotalRoomVat() != null
+                    ? activePb.getTotalRoomVat().toPlainString()
+                    : (activePb.getVatAmount() != null ? activePb.getVatAmount().toPlainString() : null);
+
             PriceQuoteDto quote = PriceQuoteDto.builder()
                     .hotelRoomTypeId(hrtId)
                     .source("BACKEND_PRICING")
                     .quoteId("quote-" + hrtId + "-" + System.currentTimeMillis())
                     .observedAt(OffsetDateTime.now())
                     .totalNights((int) totalNights)
-                    .currency("VND")
-                    .preTaxAmount(activePb.getTotalRoomNetAmount() != null
-                            ? activePb.getTotalRoomNetAmount().toPlainString()
-                            : (activePb.getPreTaxAmount() != null ? activePb.getPreTaxAmount().toPlainString() : "0"))
-                    .vatPercent(activePb.getVatPercent() != null
-                            ? activePb.getVatPercent().toPlainString()
-                            : "10")
-                    .vatAmount(activePb.getTotalRoomVat() != null
-                            ? activePb.getTotalRoomVat().toPlainString()
-                            : (activePb.getVatAmount() != null ? activePb.getVatAmount().toPlainString() : "0"))
-                    .finalTotalAmount(activePb.getFinalTotalAmount() != null
-                            ? activePb.getFinalTotalAmount().toPlainString()
-                            : "0")
-                    .serviceFeeStatus(ServiceFeeStatus.INCLUDED)
-                    .serviceFeeAmount(activePb.getTotalRoomServiceFee() != null
-                            ? activePb.getTotalRoomServiceFee().toPlainString()
-                            : "0")
-                    .chargeCoverage(BudgetCoverage.ALL_MANDATORY_CHARGES)
+                    .currency(quoteCurrency)
+                    .preTaxAmount(preTax)
+                    .vatPercent(vatPercent)
+                    .vatAmount(vatAmount)
+                    .finalTotalAmount(activePb.getFinalTotalAmount().toPlainString())
+                    .serviceFeeStatus(feeStatus)
+                    .serviceFeeAmount(feeAmount)
+                    .chargeCoverage(BudgetCoverage.BACKEND_QUOTED_TOTAL)
                     .budgetCheck(BudgetCheck.NOT_REQUESTED)
-                    .displayLabel("Tổng giá API đã gồm 5% phí dịch vụ và 10% VAT.")
+                    .displayLabel("Giá ước tính từ Core (gồm tiền phòng, thuế/phí theo báo giá; chưa bảo đảm toàn bộ phụ phí bắt buộc ngoài hệ thống).")
                     .build();
 
             quoteMap.put(hrtId, quote);
@@ -383,6 +405,7 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                 .catalogComplete(catalogComplete)
                 .failedRoomTypeIds(failedRoomTypeIds)
                 .coverageReasons(coverageReasons)
+                .totalDiscoveredCount(rawRooms.size())
                 .allFailed(false)
                 .build();
     }
@@ -393,8 +416,8 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
         int reqInfants = criteria.getInfants() != null ? criteria.getInfants() : 0;
         int reqExtraBeds = criteria.getExtraBeds() != null ? criteria.getExtraBeds() : 0;
 
-        int stdAdults = r.getStandardAdults() != null ? r.getStandardAdults() : 2;
-        int stdChildren = r.getStandardChildren() != null ? r.getStandardChildren() : 0;
+        int stdAdults = r.getStandardAdults() != null ? r.getStandardAdults().intValue() : 1;
+        int stdChildren = r.getStandardChildren() != null ? r.getStandardChildren().intValue() : 0;
 
         return reqAdults > stdAdults || reqChildren > stdChildren || reqInfants > 0 || reqExtraBeds > 0;
     }
