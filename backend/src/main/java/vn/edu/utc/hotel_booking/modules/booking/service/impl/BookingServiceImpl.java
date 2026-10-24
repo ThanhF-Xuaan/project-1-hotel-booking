@@ -18,9 +18,12 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCreateRequest
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchDto;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomSwapRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomSwapResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
 import vn.edu.utc.hotel_booking.modules.booking.mapper.BookingMapper;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
+import vn.edu.utc.hotel_booking.modules.booking.service.RoomSwapRecordService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingChargeService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingRoomService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
@@ -119,6 +122,7 @@ import java.util.Optional;
 public class BookingServiceImpl implements BookingService {
 
     BookingRepository bookingRepository;
+    RoomSwapRecordService roomSwapRecordService;
 
     BookingRoomService bookingRoomService;
     BookingChargeService bookingChargeService;
@@ -527,6 +531,191 @@ public class BookingServiceImpl implements BookingService {
 
         Booking booking = detail.getBooking();
         return bookingMapper.toResponse(booking);
+    }
+
+    @Override
+    @Transactional
+    public RoomSwapResponse swapRoom(Long bookingRoomId, RoomSwapRequest request) {
+        BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
+
+        // 1. Kiểm tra trạng thái BookingRoom
+        if (bookingRoom.getStatus() == BookingRoomStatus.CHECKED_OUT
+                || bookingRoom.getStatus() == BookingRoomStatus.CANCELLED
+                || bookingRoom.getStatus() == BookingRoomStatus.NO_SHOW) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Không thể đổi phòng cho lượt đặt phòng đang ở trạng thái: " + bookingRoom.getStatus());
+        }
+
+        RoomInstance currentRoom = bookingRoom.getRoomInstance();
+        if (currentRoom == null) {
+            throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
+                    "Phòng đặt ID " + bookingRoomId + " chưa được gán phòng vật lý ban đầu. Vui lòng xếp phòng trước.");
+        }
+
+        if (currentRoom.getId().equals(request.getTargetRoomInstanceId())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Phòng đích trùng với phòng hiện tại (" + currentRoom.getRoomNumber() + ")");
+        }
+
+        // 2. Kiểm tra phòng đích
+        RoomInstance targetRoom = roomInstanceService.getEntityById(request.getTargetRoomInstanceId());
+        BookingDetail detail = bookingRoom.getBookingDetail();
+        Booking booking = detail.getBooking();
+
+        if (!targetRoom.getHotel().getId().equals(booking.getHotel().getId())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Phòng đích không thuộc cùng khách sạn với đơn đặt phòng");
+        }
+
+        if ("DIRTY".equalsIgnoreCase(targetRoom.getCurrentStatus())
+                || "CLEANING".equalsIgnoreCase(targetRoom.getCurrentStatus())
+                || "MAINTENANCE".equalsIgnoreCase(targetRoom.getCurrentStatus())) {
+            throw new AppException(ErrorCode.ROOM_NOT_READY_FOR_CHECKIN,
+                    "Phòng đích " + targetRoom.getRoomNumber() + " đang ở trạng thái '" + targetRoom.getCurrentStatus() + "'. Không thể nhận khách.");
+        }
+
+        LocalDate effectiveDate = request.getEffectiveDate() != null ? request.getEffectiveDate() : LocalDate.now();
+        if (effectiveDate.isBefore(detail.getCheckInDate())) {
+            effectiveDate = detail.getCheckInDate();
+        }
+        if (!effectiveDate.isBefore(detail.getCheckOutDate())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Ngày hiệu lực đổi phòng (" + effectiveDate + ") phải trước ngày trả phòng (" + detail.getCheckOutDate() + ")");
+        }
+
+        // Kiểm tra xung đột lịch với các booking khác
+        List<BookingRoom> overlapping = bookingRoomService.findOverlappingAssignedRooms(
+                targetRoom.getId(), effectiveDate, detail.getCheckOutDate());
+        for (BookingRoom o : overlapping) {
+            if (!o.getId().equals(bookingRoom.getId())) {
+                throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                        "Phòng đích " + targetRoom.getRoomNumber() + " đã có khách đặt trong khoảng thời gian từ " + effectiveDate + " đến " + detail.getCheckOutDate());
+            }
+        }
+
+        // 3. Phân biệt nâng hạng / đổi hạng phòng
+        HotelRoomType currentRoomType = detail.getHotelRoomType();
+        HotelRoomType targetRoomType = targetRoom.getHotelRoomType();
+
+        boolean isSameType = currentRoomType.getId().equals(targetRoomType.getId());
+        boolean isUpgrade = !isSameType && targetRoomType.getBasePrice().compareTo(currentRoomType.getBasePrice()) > 0;
+        boolean isComplimentary = Boolean.TRUE.equals(request.getIsComplimentary());
+
+        BigDecimal priceDifference = BigDecimal.ZERO;
+
+        // Tính chênh lệch giá nếu đổi khác hạng và không phải complimentary
+        if (!isSameType && !isComplimentary) {
+            long remainingNights = ChronoUnit.DAYS.between(effectiveDate, detail.getCheckOutDate());
+            if (remainingNights > 0) {
+                BigDecimal diffPerNight = targetRoomType.getBasePrice().subtract(currentRoomType.getBasePrice());
+                priceDifference = diffPerNight.multiply(BigDecimal.valueOf(remainingNights));
+
+                if (priceDifference.compareTo(BigDecimal.ZERO) != 0) {
+                    BigDecimal subtotalDiff = priceDifference;
+                    BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
+                    BigDecimal serviceFeeDiff = subtotalDiff.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    BigDecimal taxableDiff = subtotalDiff.add(serviceFeeDiff);
+                    BigDecimal vatRate = BigDecimal.valueOf(10);
+                    BigDecimal vatDiff = taxableDiff.multiply(vatRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    String targetRoomTypeName = targetRoomType.getRoomType() != null ? targetRoomType.getRoomType().getName() : "Phòng";
+                    BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
+                            .chargeType(BookingChargeType.OTHER)
+                            .itemName("Chênh lệch nâng hạng phòng: " + targetRoomTypeName)
+                            .quantity(1)
+                            .unitPrice(subtotalDiff)
+                            .serviceFeeRate(serviceFeeRate)
+                            .vatRate(vatRate)
+                            .description("Đổi từ " + currentRoom.getRoomNumber() + " sang " + targetRoom.getRoomNumber() + " (" + remainingNights + " đêm)")
+                            .build();
+
+                    BookingCharge savedCharge = bookingChargeService.createCharge(bookingRoom, chargeReq);
+
+                    booking.setSubtotalAmount(booking.getSubtotalAmount().add(savedCharge.getSubtotal()));
+                    booking.setServiceFeeAmount(booking.getServiceFeeAmount().add(savedCharge.getServiceFeeAmount()));
+                    booking.setTotalVatAmount(booking.getTotalVatAmount().add(savedCharge.getVatAmount()));
+                    booking.setTotalAmount(booking.getTotalAmount().add(savedCharge.getTotalAmount()));
+                    bookingRepository.save(booking);
+                }
+            }
+        }
+
+        // 4. Cập nhật RoomSlot và RoomInstance Status
+        boolean isInHouse = (bookingRoom.getStatus() == BookingRoomStatus.CHECKED_IN);
+        roomSlotService.swapSlots(currentRoom.getId(), targetRoom, effectiveDate, detail.getCheckOutDate(), bookingRoom.getId(), isInHouse);
+
+        // Phòng cũ lập tức chuyển thành DIRTY
+        roomInstanceService.updateRoomStatusEntity(currentRoom.getId(), "DIRTY");
+
+        // Phòng mới chuyển thành OCCUPIED (nếu đang in-house)
+        if (isInHouse) {
+            roomInstanceService.updateRoomStatusEntity(targetRoom.getId(), "OCCUPIED");
+        }
+
+        // 5. Cập nhật BookingRoom & StayGuests
+        bookingRoom.setRoomInstance(targetRoom);
+        if (bookingRoom.getStayGuests() != null) {
+            for (StayGuest sg : bookingRoom.getStayGuests()) {
+                sg.setRoom(targetRoom);
+                sg.setRoomNumber(targetRoom.getRoomNumber());
+            }
+        }
+        bookingRoomService.save(bookingRoom);
+
+        // 6. Đồng bộ BCA LodgingQueue
+        stayGuestService.syncLodgingQueueForBookingRoom(bookingRoom.getId());
+
+        // 7. Lưu vết lịch sử RoomSwapRecord
+        String staffUsername = SecurityUtils.getCurrentUsername().orElse("RECEPTIONIST");
+        RoomSwapRecord swapRecord = RoomSwapRecord.builder()
+                .bookingRoom(bookingRoom)
+                .fromRoomInstance(currentRoom)
+                .toRoomInstance(targetRoom)
+                .fromHotelRoomType(currentRoomType)
+                .toHotelRoomType(targetRoomType)
+                .swapDate(LocalDate.now())
+                .effectiveDate(effectiveDate)
+                .reason(request.getReason())
+                .isUpgrade(isUpgrade)
+                .isComplimentary(isComplimentary)
+                .priceDifference(priceDifference)
+                .performedBy(staffUsername)
+                .build();
+
+        RoomSwapRecord savedRecord = roomSwapRecordService.save(swapRecord);
+
+        // 8. Ghi nhật ký Audit Log
+        auditLogService.recordLog(
+                null,
+                "BOOKING_ROOM_SWAP",
+                "BookingRoom",
+                bookingRoom.getId().toString(),
+                currentRoom.getRoomNumber(),
+                targetRoom.getRoomNumber() + " (Lý do: " + request.getReason() + ")",
+                null,
+                staffUsername
+        );
+
+        return RoomSwapResponse.builder()
+                .swapRecordId(savedRecord.getId())
+                .bookingId(booking.getId())
+                .bookingNumber(booking.getBookingNumber())
+                .bookingRoomId(bookingRoom.getId())
+                .previousRoomInstanceId(currentRoom.getId())
+                .previousRoomNumber(currentRoom.getRoomNumber())
+                .previousRoomTypeName(currentRoomType.getRoomType() != null ? currentRoomType.getRoomType().getName() : "Phòng")
+                .newRoomInstanceId(targetRoom.getId())
+                .newRoomNumber(targetRoom.getRoomNumber())
+                .newRoomTypeName(targetRoomType.getRoomType() != null ? targetRoomType.getRoomType().getName() : "Phòng")
+                .swapDate(savedRecord.getSwapDate())
+                .effectiveDate(savedRecord.getEffectiveDate())
+                .reason(savedRecord.getReason())
+                .isUpgrade(isUpgrade)
+                .isComplimentary(isComplimentary)
+                .priceDifference(priceDifference)
+                .roomStatus(bookingRoom.getStatus())
+                .swappedAt(savedRecord.getCreatedAt())
+                .performedBy(staffUsername)
+                .build();
     }
 
     @Override

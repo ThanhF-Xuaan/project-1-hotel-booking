@@ -14,6 +14,7 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.*;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomSwapResponse;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
 
 @RestController
@@ -131,6 +132,16 @@ public class BookingController {
     @Operation(summary = "Thực hiện Check-in nhận phòng")
     public ApiResponse<BookingResponse> checkIn(@PathVariable Long bookingRoomId) {
         return ApiResponse.success("Check-in nhận phòng thành công", bookingService.checkIn(bookingRoomId));
+    }
+
+    @PostMapping("/rooms/{bookingRoomId}/swap-room")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
+    @Operation(summary = "Đổi phòng cho khách lưu trú (Room Swap) kèm chuyển trạng thái buồng phòng và lưu vết lịch sử")
+    public ApiResponse<RoomSwapResponse> swapRoom(
+            @PathVariable Long bookingRoomId,
+            @Valid @RequestBody RoomSwapRequest request
+    ) {
+        return ApiResponse.success("Đổi phòng thành công", bookingService.swapRoom(bookingRoomId, request));
     }
 
     @GetMapping("/rooms/{bookingRoomId}/checkout-settlement")

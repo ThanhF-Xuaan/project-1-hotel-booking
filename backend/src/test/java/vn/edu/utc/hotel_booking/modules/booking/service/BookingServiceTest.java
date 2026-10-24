@@ -109,6 +109,7 @@ class BookingServiceTest {
     @Mock org.springframework.data.redis.core.ValueOperations<String, String> valueOperations;
     @Mock com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     @Mock BookingPolicyResolverService bookingPolicyResolverService;
+    @Mock vn.edu.utc.hotel_booking.modules.booking.service.RoomSwapRecordService roomSwapRecordService;
 
     @InjectMocks
     BookingServiceImpl bookingService;

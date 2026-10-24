@@ -47,6 +47,15 @@ public class BookingLookupServiceImpl implements BookingLookupService {
     }
 
     @Override
+    public Booking getBookingEntityByNumber(String bookingNumber) {
+        if (bookingNumber == null || bookingNumber.isBlank()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Mã đơn đặt phòng không được để trống");
+        }
+        return bookingRepository.findByBookingNumber(bookingNumber.trim())
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng với mã: " + bookingNumber));
+    }
+
+    @Override
     public BookingRoom getBookingRoomEntityById(Long id) {
         if (id == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID phòng đặt (BookingRoom) không được để trống");
