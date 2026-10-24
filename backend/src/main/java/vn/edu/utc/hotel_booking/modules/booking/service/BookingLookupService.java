@@ -16,6 +16,14 @@ public interface BookingLookupService {
     Booking getBookingEntityById(Long id);
 
     /**
+     * Tra cứu thực thể Booking theo mã đơn bookingNumber (ném ngoại lệ BOOKING_NOT_FOUND nếu không tìm thấy)
+     *
+     * @param bookingNumber Mã của đơn đặt phòng
+     * @return Thực thể Booking
+     */
+    Booking getBookingEntityByNumber(String bookingNumber);
+
+    /**
      * Tra cứu thực thể BookingRoom theo ID (ném ngoại lệ BOOKING_ROOM_NOT_FOUND nếu không tìm thấy)
      *
      * @param id ID của phòng đặt

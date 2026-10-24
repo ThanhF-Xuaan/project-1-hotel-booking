@@ -32,6 +32,11 @@ public interface BookingService {
 
     BookingResponse checkOut(Long bookingRoomId);
 
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomSwapResponse swapRoom(
+            Long bookingRoomId,
+            vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomSwapRequest request
+    );
+
     vn.edu.utc.hotel_booking.modules.booking.dto.response.CheckoutSettlementResponse getCheckoutSettlement(Long bookingRoomId);
 
     BookingResponse confirmOnlineBooking(String sessionId, Long paymentId);
