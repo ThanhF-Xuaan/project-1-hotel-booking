@@ -14,17 +14,26 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import type { CustomerSearchCriteria, AvailableRoomOffer } from '../types/portal.types';
+import { RoomAdvisorWidget } from '../components/RoomAdvisor/RoomAdvisorWidget';
+import type { AdvisorRecommendation } from '../types/roomAdvisor.types';
+
+const DEFAULT_CHECK_IN = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+const DEFAULT_CHECK_OUT = new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0];
+
+const INITIAL_CRITERIA: CustomerSearchCriteria = {
+  hotelId: 1,
+  checkInDate: DEFAULT_CHECK_IN,
+  checkOutDate: DEFAULT_CHECK_OUT,
+  adultCount: 2,
+  childCount: 0,
+};
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const [criteria, setCriteria] = useState<CustomerSearchCriteria>({
-    hotelId: 1,
-    checkInDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-    checkOutDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
-    adultCount: 2,
-    childCount: 0,
-  });
+  const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+
+  const [criteria, setCriteria] = useState<CustomerSearchCriteria>(INITIAL_CRITERIA);
 
   const [mockOffers] = useState<AvailableRoomOffer[]>([
     {
@@ -86,6 +95,23 @@ export const SearchPage: React.FC = () => {
     });
   };
 
+  const handleAdvisorViewDetails = (rec: AdvisorRecommendation) => {
+    if (rec.stay) {
+      setCriteria((prev) => ({
+        ...prev,
+        hotelId: rec.room.hotelId || prev.hotelId,
+        checkInDate: rec.stay.checkInDate || prev.checkInDate,
+        checkOutDate: rec.stay.checkOutDate || prev.checkOutDate,
+        adultCount: rec.room.maxAdults || prev.adultCount,
+        childCount: rec.room.maxChildren || prev.childCount,
+      }));
+    }
+    const element = document.getElementById('room-offers-list');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-neutral-50 pb-16">
       {/* Top Navigation */}
@@ -100,7 +126,14 @@ export const SearchPage: React.FC = () => {
               <span className="text-red-600 font-bold ml-1 text-xs uppercase tracking-widest">Portal</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAdvisorOpen(true)}
+              className="px-3.5 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors flex items-center gap-1.5 border border-red-200 shadow-2xs cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4 fill-red-500 text-red-600" />
+              Trợ lý AI Tìm Phòng
+            </button>
             <button
               onClick={() => navigate('/portal/my-bookings')}
               className="px-3.5 py-2 text-xs font-semibold text-neutral-700 hover:text-red-600 hover:bg-neutral-50 rounded-xl transition-colors flex items-center gap-1.5"
@@ -126,6 +159,16 @@ export const SearchPage: React.FC = () => {
             <p className="text-neutral-400 text-sm max-w-xl mx-auto">
               Trải nghiệm dịch vụ 5 sao đẳng cấp quốc tế với công nghệ giữ phòng tức thì và bóc tách giá minh bạch.
             </p>
+            <div className="pt-2 flex justify-center">
+              <button
+                onClick={() => setIsAdvisorOpen(true)}
+                className="px-4 py-2 bg-neutral-800/90 hover:bg-neutral-800 text-white text-xs font-bold rounded-2xl border border-neutral-700 flex items-center gap-2 transition-all hover:scale-105 shadow-sm cursor-pointer"
+              >
+                <Sparkles className="w-4 h-4 text-red-400 fill-red-400" />
+                Hỏi Trợ lý AI gợi ý phòng theo nhu cầu & ngân sách
+                <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
+              </button>
+            </div>
           </div>
 
           {/* Search Box */}
@@ -199,7 +242,7 @@ export const SearchPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div id="room-offers-list" className="space-y-4">
           {mockOffers.map((offer) => (
             <div
               key={offer.hotelRoomTypeId}
@@ -270,6 +313,13 @@ export const SearchPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Floating AI Room Advisor Widget */}
+      <RoomAdvisorWidget
+        isOpenExternal={isAdvisorOpen}
+        onCloseExternal={() => setIsAdvisorOpen(false)}
+        onViewRoomDetails={handleAdvisorViewDetails}
+      />
     </div>
   );
 };
