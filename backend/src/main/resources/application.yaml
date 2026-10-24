@@ -85,3 +85,17 @@ payment:
       url: ${MOMO_URL:https://test-payment.momo.vn/v2/gateway/api/create}
       ipn-url: ${MOMO_IPN_URL:http://localhost:8080/api/v1/public/payments/momo/callback}
       redirect-url: ${MOMO_REDIRECT_URL:http://localhost:3000/payment/result}
+
+# =============================================================================
+# CẤU HÌNH LƯU TRỮ TỆP TIN & HỢP ĐỒNG SỐ (GIT Subsystem)
+# =============================================================================
+hotel:
+  storage:
+    contracts:
+      base-path: ${CONTRACT_STORAGE_PATH:uploads/contracts}
+  ai:
+    advisor:
+      security:
+        anon-token-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET:9aB8cE7dF6gH5jK4mN3pQ2rT1vW0xYzA_bCdEfGhJkMnPqRtVwXyZ}
+        anon-token-secondary-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET:}
+
