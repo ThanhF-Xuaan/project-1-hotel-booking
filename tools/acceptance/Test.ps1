@@ -212,7 +212,7 @@ if ($SkipBrowser) {
     Write-Host "`n[5/5] Skipping Playwright Browser E2E tests as requested." -ForegroundColor DarkGray
     Record-Result "E2E Browser" "Playwright Browser Suite" "npm run test:e2e" "SKIPPED" 0 "Skipped via -SkipBrowser"
 } else {
-    Write-Host "`n[5/5] Running Playwright Browser E2E Tests (T12 Advisor, no-write state, Security & Concurrency)..." -ForegroundColor Yellow
+    Write-Host "`n[5/5] Running Playwright Browser E2E Tests (Login, T12 Advisor, no-write state, Security & Concurrency)..." -ForegroundColor Yellow
     Push-Location "$ProjectRoot/frontend"
     try {
         $swE2e = [System.Diagnostics.Stopwatch]::StartNew()
@@ -220,7 +220,7 @@ if ($SkipBrowser) {
         $swE2e.Stop()
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  -> Playwright Browser Suite: PASS ($($swE2e.Elapsed.TotalSeconds.ToString('F1'))s)" -ForegroundColor Green
-            Record-Result "E2E Browser" "Playwright Browser Suite" "npm run test:e2e" "PASS" $swE2e.Elapsed.TotalSeconds "4/4 tests passed (T12 conversational flow and no-write state check, session isolation, rate limiting)"
+            Record-Result "E2E Browser" "Playwright Browser Suite" "npm run test:e2e" "PASS" $swE2e.Elapsed.TotalSeconds "Browser tests passed (login validation/authentication, T12 conversational flow and no-write state check, session isolation, rate limiting)"
         } else {
             Write-Host "  -> Playwright Browser Suite: FAIL" -ForegroundColor Red
             Record-Result "E2E Browser" "Playwright Browser Suite" "npm run test:e2e" "FAIL" $swE2e.Elapsed.TotalSeconds "Playwright Browser test failures"
