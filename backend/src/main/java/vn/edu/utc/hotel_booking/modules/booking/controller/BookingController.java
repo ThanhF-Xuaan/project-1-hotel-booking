@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.*;
@@ -134,6 +135,12 @@ public class BookingController {
         return ApiResponse.success("Check-in nhận phòng thành công", bookingService.checkIn(bookingRoomId));
     }
 
+    @Auditable(
+            actionType = "BOOKING_ROOM_SWAP",
+            entityName = "BookingRoom",
+            entityId = "#bookingRoomId.toString()",
+            description = "'Đổi phòng ' + #request.fromRoomNumber + ' sang ' + #request.toRoomNumber + '. Lý do: ' + #request.reason"
+    )
     @PostMapping("/rooms/{bookingRoomId}/swap-room")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Đổi phòng cho khách lưu trú (Room Swap) kèm chuyển trạng thái buồng phòng và lưu vết lịch sử")
@@ -188,6 +195,12 @@ public class BookingController {
         return ApiResponse.success(bookingService.previewCancelBooking(id));
     }
 
+    @Auditable(
+            actionType = "BOOKING_CANCELLED",
+            entityName = "Booking",
+            entityId = "#id.toString()",
+            description = "'Hủy đơn đặt phòng. Lý do: ' + #request.reason"
+    )
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Lễ tân hủy các phòng còn lại của đơn đặt phòng (FIT <= 5 phòng)")
@@ -207,6 +220,12 @@ public class BookingController {
         return ApiResponse.success(bookingService.previewCancelBookingRoom(bookingRoomId));
     }
 
+    @Auditable(
+            actionType = "BOOKING_ROOM_CANCELLED",
+            entityName = "BookingRoom",
+            entityId = "#bookingRoomId.toString()",
+            description = "'Hủy phòng đơn lẻ. Lý do: ' + #request.reason"
+    )
     @PostMapping("/rooms/{bookingRoomId}/cancel")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Lễ tân hủy 1 phòng đơn lẻ trong đơn đặt phòng (Room-Level Cancel)")

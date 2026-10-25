@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
@@ -103,6 +104,12 @@ public class PaymentController {
         return request.getRemoteAddr();
     }
 
+    @Auditable(
+            actionType = "PAYMENT_REFUND",
+            entityName = "Payment",
+            entityId = "#id.toString()",
+            description = "'Hoàn tiền thanh toán ID ' + #id + ': ' + #refundAmount + ' đ. Lý do: ' + #reason"
+    )
     @PostMapping("/{id}/refund")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Hoàn trả tiền thanh toán (Refund)")
