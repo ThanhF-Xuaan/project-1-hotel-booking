@@ -17,4 +17,6 @@ public interface GroupInquiryRepository extends JpaRepository<GroupInquiry, Long
     boolean existsByInquiryNumber(String inquiryNumber);
 
     List<GroupInquiry> findByHotelIdAndStatus(Short hotelId, GroupInquiryStatus status);
+
+    Optional<GroupInquiry> findByConvertedContractId(Long contractId);
 }

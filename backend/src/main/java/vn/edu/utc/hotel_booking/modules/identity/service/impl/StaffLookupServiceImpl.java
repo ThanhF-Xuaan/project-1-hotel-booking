@@ -33,4 +33,13 @@ public class StaffLookupServiceImpl implements StaffLookupService {
         }
         return staffRepository.existsByRoleIdInAndIsDeletedFalse(roleIds);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public vn.edu.utc.hotel_booking.modules.identity.entity.Staff getStaffEntityById(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        return staffRepository.findByIdAndIsDeletedFalse(id).orElse(null);
+    }
 }
