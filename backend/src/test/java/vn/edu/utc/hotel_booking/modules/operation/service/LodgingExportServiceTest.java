@@ -6,10 +6,14 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -22,6 +26,7 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.LodgingExportRequest;
 import vn.edu.utc.hotel_booking.modules.operation.entity.LodgingQueue;
+import vn.edu.utc.hotel_booking.modules.operation.export.LodgingWorkbookWriter;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.DocumentType;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingGuestCategory;
@@ -36,6 +41,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,6 +57,9 @@ public class LodgingExportServiceTest {
 
     @Mock
     private StaffRepository staffRepository;
+
+    @Spy
+    private LodgingWorkbookWriter workbookWriter = new LodgingWorkbookWriter();
 
     @Mock
     private SecurityContext securityContext;
@@ -69,9 +78,73 @@ public class LodgingExportServiceTest {
         SecurityContextHolder.setContext(securityContext);
     }
 
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     private void mockChainAdminAuth() {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_CHAIN_ADMIN"))).when(authentication).getAuthorities();
         when(securityContext.getAuthentication()).thenReturn(authentication);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 24, 999})
+    void invalidCutoffHourIsRejectedBeforeQueueQuery(int hour) {
+        mockChainAdminAuth();
+        LodgingExportRequest request = LodgingExportRequest.builder().hotelId((short) 1)
+                .date(LocalDate.of(2026, 10, 25)).cutOffHour(hour).build();
+        AppException exception = assertThrows(AppException.class,
+                () -> lodgingExportService.exportBcaLodgingReport(request));
+        assertEquals(ErrorCode.INVALID_REQUEST_DATA, exception.getErrorCode());
+        verifyNoInteractions(lodgingQueueRepository);
+    }
+
+    @Test
+    void technicalWorkbookMapsAllColumnsWithStableLocaleAndVietnamOffset() throws IOException {
+        mockChainAdminAuth();
+        StayGuest guest = StayGuest.builder().id(99L).hotel(sampleHotel).fullName("minh test")
+                .dateOfBirth(LocalDate.of(1990, 1, 1)).gender(Gender.FEMALE).nationality("Vietnam")
+                .documentType(DocumentType.CCCD).documentNumber("001090000099")
+                .permanentAddress("Ha Noi").roomNumber("101").reasonForStay("Synthetic test")
+                .checkInTime(OffsetDateTime.parse("2026-10-24T18:30:00Z"))
+                .expectedCheckOutTime(OffsetDateTime.parse("2026-10-26T02:45:00Z")).build();
+        LodgingQueue queue = LodgingQueue.builder().id(99L).hotel(sampleHotel).stayGuest(guest)
+                .status(LodgingQueueStatus.PENDING).build();
+        when(lodgingQueueRepository.findPendingForExport(eq((short) 1), any(), eq(true)))
+                .thenReturn(List.of(queue));
+        LodgingExportRequest request = LodgingExportRequest.builder().hotelId((short) 1)
+                .date(LocalDate.of(2026, 10, 25)).cutOffHour(null).build();
+        Locale previousLocale = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            byte[] bytes = lodgingExportService.exportBcaLodgingReport(request);
+            try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+                Sheet sheet = workbook.getSheet("Thong_Bao_Luu_Tru_VN");
+                assertNotNull(sheet);
+                assertEquals(1, sheet.getLastRowNum());
+                String[] headers = {"STT", "Họ và tên", "Ngày tháng năm sinh", "Giới tính", "Quốc tịch",
+                        "Loại giấy tờ", "Số giấy tờ", "Nơi ĐKTT / Nơi cấp", "Chỗ ở hiện nay", "Ngày đến",
+                        "Ngày đi (dự kiến)", "Số phòng", "Lý do lưu trú"};
+                for (int index = 0; index < headers.length; index++) {
+                    assertEquals(headers[index], sheet.getRow(0).getCell(index).getStringCellValue());
+                }
+                assertEquals(1d, sheet.getRow(1).getCell(0).getNumericCellValue());
+                String[] fields = {"MINH TEST", "01/01/1990", "Nữ", "Vietnam", "CCCD", "001090000099",
+                        "Ha Noi", "", "25/10/2026 01:30", "26/10/2026 09:45", "101", "Synthetic test"};
+                for (int index = 0; index < fields.length; index++) {
+                    Cell cell = sheet.getRow(1).getCell(index + 1);
+                    assertEquals(CellType.STRING, cell.getCellType());
+                    assertEquals(fields[index], cell.getStringCellValue());
+                }
+            }
+        } finally {
+            Locale.setDefault(previousLocale);
+        }
+        assertEquals(LodgingQueueStatus.EXPORTED, queue.getStatus());
+        assertNotNull(queue.getExportedAt());
+        assertTrue(queue.getBatchReference().startsWith("BCA-2026-10-25-"));
+        verify(lodgingQueueRepository).saveAll(List.of(queue));
     }
 
     @Test

@@ -90,7 +90,7 @@ if ($SkipMaven) {
         $sw.Stop()
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  -> Backend Maven Tests: PASS ($($sw.Elapsed.TotalSeconds.ToString('F1'))s)" -ForegroundColor Green
-            Record-Result "Backend" "Maven Core Modules" "mvnw test (T04/T05/T12/U13/U14/RAG)" "PASS" $sw.Elapsed.TotalSeconds "338 tests executed, 0 failures, 4 skipped"
+            Record-Result "Backend" "Maven Core Modules" "mvnw test (T04/T05/T12/U13/U14/RAG)" "PASS" $sw.Elapsed.TotalSeconds "Maven command passed; actual test/skip counts are in Maven output and Surefire reports"
         } else {
             Write-Host "  -> Backend Maven Tests: FAIL" -ForegroundColor Red
             Record-Result "Backend" "Maven Core Modules" "mvnw test" "FAIL" $sw.Elapsed.TotalSeconds "Maven tests failed"
@@ -197,7 +197,7 @@ if ($SkipApi) {
         $swApi.Stop()
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  -> Playwright API Suite: PASS ($($swApi.Elapsed.TotalSeconds.ToString('F1'))s)" -ForegroundColor Green
-            Record-Result "Integration" "Playwright API Suite" "npm run test:api" "PASS" $swApi.Elapsed.TotalSeconds "11/11 tests passed across 6 roles, OCR, T04, T05, U14, RAG"
+            Record-Result "Integration" "Playwright API Suite" "npm run test:api" "PASS" $swApi.Elapsed.TotalSeconds "API tests passed (RBAC, OCR, T04, T05, synthetic U14, RAG); actual counts are in Playwright output"
         } else {
             Write-Host "  -> Playwright API Suite: FAIL" -ForegroundColor Red
             Record-Result "Integration" "Playwright API Suite" "npm run test:api" "FAIL" $swApi.Elapsed.TotalSeconds "Playwright API test failures"

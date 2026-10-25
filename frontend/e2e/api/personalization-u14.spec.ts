@@ -1,11 +1,24 @@
 import { test, expect } from '@playwright/test';
 import { getKeycloakToken, BACKEND_URL } from '../helpers/auth.helper';
 
-test.describe('U14 Privacy-Safe Personalization & Recommendation Engine', () => {
+test.describe('U14 synthetic admin evaluation', () => {
   let adminToken: string;
 
   test.beforeAll(async () => {
     adminToken = await getKeycloakToken('admin');
+  });
+
+  test('should reject non-admin callers even when they submit consent and another guest id', async ({ request }) => {
+    for (const username of ['manager_h1', 'reception_h1', 'test_customer']) {
+      const token = await getKeycloakToken(username);
+      for (const route of ['recommend', 'evaluate-baseline']) {
+        const res = await request.post(`${BACKEND_URL}/api/v1/ai/personalization/${route}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          data: { guestId: 999, consentGranted: true, stayHistory: [] },
+        });
+        expect(res.status(), `${username} must not access ${route}`).toBe(403);
+      }
+    }
   });
 
   test('should require explicit user consent before processing stay history', async ({ request }) => {

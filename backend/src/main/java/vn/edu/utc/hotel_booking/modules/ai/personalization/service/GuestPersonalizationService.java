@@ -64,7 +64,7 @@ public class GuestPersonalizationService {
 
         // 1. Kiểm tra sự đồng ý (Consent check)
         if (!request.isConsentGranted()) {
-            log.info("U14 Personalization: Khách hàng id={} chưa cấp quyền consent", request.getGuestId());
+            log.debug("U14 Personalization: consent required");
             return GuestPersonalizationResultDto.builder()
                     .guestId(request.getGuestId())
                     .status(PersonalizationStatus.CONSENT_REQUIRED)
@@ -80,7 +80,7 @@ public class GuestPersonalizationService {
         List<StayHistoryRecordDto> rawHistory = request.getStayHistory();
 
         if (rawHistory == null || rawHistory.isEmpty()) {
-            log.debug("U14 Personalization: Khách hàng id={} chưa có lịch sử (Cold Start)", request.getGuestId());
+            log.debug("U14 Personalization: cold start");
             return buildColdStartResult(request.getGuestId(), warnings, "COLD_START: Chưa có lịch sử lưu trú trước đó.");
         }
 
@@ -153,7 +153,7 @@ public class GuestPersonalizationService {
             if (!warnings.contains(rejectMsg)) {
                 warnings.add(rejectMsg);
             }
-            log.warn("U14 Personalization: Khách hàng id={} chỉ chứa thuộc tính nhạy cảm, từ chối phân tích sở thích", request.getGuestId());
+            log.warn("U14 Personalization: sensitive-only attributes rejected");
             return GuestPersonalizationResultDto.builder()
                     .guestId(request.getGuestId())
                     .status(PersonalizationStatus.SENSITIVE_INPUT_REJECTED)
@@ -180,8 +180,7 @@ public class GuestPersonalizationService {
         List<PersonalizedServiceSuggestionDto> serviceSuggestions = computeServiceSuggestions(
                 validRecords, referenceDate);
 
-        log.debug("U14 Personalization: Hoàn tất phân tích cho guestId={}, suggestionsCount={}, segment={}",
-                request.getGuestId(), roomSuggestions.size(), segment);
+        log.debug("U14 Personalization: analysis completed");
 
         return GuestPersonalizationResultDto.builder()
                 .guestId(request.getGuestId())

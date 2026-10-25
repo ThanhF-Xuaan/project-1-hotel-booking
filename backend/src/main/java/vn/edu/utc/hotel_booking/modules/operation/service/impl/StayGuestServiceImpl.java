@@ -354,10 +354,8 @@ public class StayGuestServiceImpl implements StayGuestService {
         }
 
         if (SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") || SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
-            Staff currentStaff = resolveCurrentStaff();
-            if ("PROPERTY".equalsIgnoreCase(currentStaff.getScopeType())
-                    && currentStaff.getScopeEntityId() != null
-                    && !currentStaff.getScopeEntityId().equals(hotelId.intValue())) {
+            Short staffHotelId = resolvePropertyHotelId();
+            if (!staffHotelId.equals(hotelId)) {
                 String roleTitle = SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") ? "Quản lý khách sạn" : "Lễ tân";
                 throw new AppException(ErrorCode.UNAUTHORIZED, roleTitle + " không có quyền thao tác trên khách sạn khác");
             }
@@ -373,20 +371,24 @@ public class StayGuestServiceImpl implements StayGuestService {
         }
 
         if (SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") || SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
-            Staff currentStaff = resolveCurrentStaff();
-            if ("PROPERTY".equalsIgnoreCase(currentStaff.getScopeType()) && currentStaff.getScopeEntityId() != null) {
-                Short staffHotelId = currentStaff.getScopeEntityId().shortValue();
-                if (requestedHotelId != null && !requestedHotelId.equals(staffHotelId)) {
-                    throw new AppException(ErrorCode.UNAUTHORIZED, "Không được phép truy vấn dữ liệu của khách sạn khác");
-                }
-                return staffHotelId;
+            Short staffHotelId = resolvePropertyHotelId();
+            if (requestedHotelId != null && !requestedHotelId.equals(staffHotelId)) {
+                throw new AppException(ErrorCode.UNAUTHORIZED, "Không được phép truy vấn dữ liệu của khách sạn khác");
             }
+            return staffHotelId;
         }
 
-        if (requestedHotelId != null) {
-            return requestedHotelId;
-        }
         throw new AppException(ErrorCode.UNAUTHORIZED, "Không xác định được phạm vi khách sạn được phép truy cập");
+    }
+
+    private Short resolvePropertyHotelId() {
+        Staff staff = resolveCurrentStaff();
+        Integer scopeId = staff.getScopeEntityId();
+        if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType())
+                || scopeId == null || scopeId <= 0 || scopeId > Short.MAX_VALUE) {
+            throw new AppException(ErrorCode.UNAUTHORIZED, "Không xác định được phạm vi khách sạn được phép truy cập");
+        }
+        return scopeId.shortValue();
     }
 
     private Staff resolveCurrentStaff() {

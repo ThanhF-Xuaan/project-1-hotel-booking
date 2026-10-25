@@ -133,8 +133,7 @@ public class PersonalizationBaselineEvaluator {
         double timeDecayedMrr = round4(totalMrrTimeDecayed / evaluatedSteps);
         double baselineMrr = round4(totalMrrBaseline / evaluatedSteps);
 
-        log.info("U14 Holdout Eval: guestId={}, evaluatedSteps={}, TD_Hit@{}={}, Base_Hit@{}={}, TD_MRR={}, Base_MRR={}",
-                request.getGuestId(), evaluatedSteps, evalK, timeDecayedHitRate, evalK, baselineHitRate, timeDecayedMrr, baselineMrr);
+        log.debug("U14 Holdout Eval completed");
 
         return PersonalizationEvalReportDto.builder()
                 .totalEvaluatedStays(evaluatedSteps)

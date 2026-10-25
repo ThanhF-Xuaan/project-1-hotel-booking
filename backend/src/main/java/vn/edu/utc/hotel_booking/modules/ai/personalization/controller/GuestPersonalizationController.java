@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.ai.personalization.controller;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -21,15 +22,17 @@ import vn.edu.utc.hotel_booking.modules.ai.personalization.service.GuestPersonal
 import vn.edu.utc.hotel_booking.modules.ai.personalization.service.PersonalizationBaselineEvaluator;
 
 /**
- * REST Controller cho tính năng phân tích sở thích và gợi ý cá nhân hoá khách hàng (U14).
+ * REST Controller đánh giá U14 bằng dữ liệu giả lập do admin cung cấp.
  *
  * <p><strong>Phân quyền RBAC:</strong>
- * Cho phép các vai trò: CHAIN_ADMIN, PROPERTY_MANAGER, RECEPTIONIST, SALES_GROUP, GUEST.
+ * Mặc định tắt. Chỉ CHAIN_ADMIN được gọi khi bật synthetic-evaluation-enabled.
+ * Consent/history trong request chưa phải dữ liệu nghiệp vụ được server xác minh.
  * </p>
  */
 @RestController
 @RequestMapping("/api/v1/ai/personalization")
-@PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'GUEST')")
+@ConditionalOnProperty(prefix = "hotel.ai.personalization", name = "synthetic-evaluation-enabled", havingValue = "true")
+@PreAuthorize("hasRole('CHAIN_ADMIN')")
 public class GuestPersonalizationController {
 
     private static final Logger log = LoggerFactory.getLogger(GuestPersonalizationController.class);
@@ -52,7 +55,7 @@ public class GuestPersonalizationController {
     public ResponseEntity<ApiResponse<GuestPersonalizationResultDto>> recommend(
             @Valid @RequestBody GuestPersonalizationRequestDto request
     ) {
-        log.info("U14 Controller: Yêu cầu gợi ý cá nhân hoá cho guestId={}", request.getGuestId());
+        log.debug("U14 synthetic recommendation requested");
         GuestPersonalizationResultDto result = personalizationService.personalize(request);
         return ResponseEntity.ok(ApiResponse.success("Phân tích sở thích khách hàng thành công", result));
     }
@@ -65,7 +68,7 @@ public class GuestPersonalizationController {
             @Valid @RequestBody GuestPersonalizationRequestDto request,
             @RequestParam(name = "k", defaultValue = "1") int k
     ) {
-        log.info("U14 Controller: Yêu cầu đánh giá baseline cho guestId={}, k={}", request.getGuestId(), k);
+        log.debug("U14 synthetic baseline evaluation requested");
         PersonalizationEvalReportDto report = baselineEvaluator.evaluateHoldout(request, k);
         return ResponseEntity.ok(ApiResponse.success("Đánh giá mô hình baseline thành công", report));
     }
@@ -76,7 +79,7 @@ public class GuestPersonalizationController {
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .findFirst()
                 .orElse("Validation failed");
-        log.warn("U14 Controller Validation Error: {}", message);
+        log.warn("U14 synthetic request failed validation");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.<Void>builder()
                         .code(400)
@@ -86,7 +89,7 @@ public class GuestPersonalizationController {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(IllegalArgumentException e) {
-        log.warn("U14 Controller Bad Request: {}", e.getMessage());
+        log.warn("U14 synthetic request rejected");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.<Void>builder()
                         .code(400)
