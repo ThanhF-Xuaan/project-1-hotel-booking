@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.StaffCreateRequest;
@@ -85,6 +86,12 @@ public class StaffController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "STAFF_STATUS_UPDATE",
+            entityName = "Staff",
+            entityId = "#id.toString()",
+            description = "'Cập nhật trạng thái nhân viên ID ' + #id + ' sang ' + #request.status"
+    )
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Cập nhật trạng thái vòng đời nhân sự (ACTIVE, SUSPENDED, RESIGNED) & thu hồi phiên làm việc")
@@ -97,6 +104,13 @@ public class StaffController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "STAFF_PASSWORD_RESET",
+            entityName = "Staff",
+            entityId = "#id.toString()",
+            description = "'Đặt lại mật khẩu cho nhân viên ID ' + #id",
+            maskFields = {"newPassword", "confirmPassword"}
+    )
     @PostMapping("/{id}/reset-password")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Đặt lại mật khẩu cho tài khoản nhân viên")
@@ -109,6 +123,12 @@ public class StaffController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "STAFF_DELETE_BATCH",
+            entityName = "Staff",
+            entityId = "#ids.toString()",
+            description = "'Xóa các nhân viên IDs: ' + #ids.toString()"
+    )
     @DeleteMapping("/delete")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER')")
     @Operation(summary = "Xóa mềm một hoặc nhiều nhân viên (Batch Delete)")

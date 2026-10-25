@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleCreateRequest;
@@ -29,6 +30,12 @@ public class PricingRuleController {
 
     PricingRuleService pricingRuleService;
 
+    @Auditable(
+            actionType = "PRICING_RULE_CREATE",
+            entityName = "PricingRule",
+            description = "'Tạo mới quy tắc giá: ' + #request.name",
+            captureResponse = true
+    )
     @PostMapping
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Tạo mới quy tắc giá")
@@ -38,6 +45,12 @@ public class PricingRuleController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
+    @Auditable(
+            actionType = "PRICING_RULE_UPDATE",
+            entityName = "PricingRule",
+            entityId = "#id.toString()",
+            description = "'Cập nhật quy tắc giá ID ' + #id + ': ' + #request.name"
+    )
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Cập nhật quy tắc giá")
@@ -65,6 +78,12 @@ public class PricingRuleController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @Auditable(
+            actionType = "PRICING_RULE_DELETE",
+            entityName = "PricingRule",
+            entityId = "#ids.toString()",
+            description = "'Xóa các quy tắc giá: ' + #ids.toString()"
+    )
     @DeleteMapping("/delete")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Xóa đơn lẻ hoặc xóa hàng loạt quy tắc giá (Soft Delete)")

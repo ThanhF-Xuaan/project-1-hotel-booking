@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261025-150000-protect-audit-logs-tamper-proof" author="member2">
+        <comment>Bao ve tinh bat bien cua audit_logs theo Luat Ke Toan 2015 Dieu 41: Chan UPDATE va DELETE</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261025-150000-protect-audit-logs-tamper-proof.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>
