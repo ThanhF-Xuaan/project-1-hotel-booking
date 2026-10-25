@@ -5,7 +5,9 @@ param(
     [switch]$SkipContract,
     [switch]$SkipLint,
     [switch]$SkipApi,
-    [switch]$SkipBrowser
+    [switch]$SkipBrowser,
+    [string]$ReportPath,
+    [string]$ResultPath
 )
 
 $ErrorActionPreference = 'Continue'
@@ -23,6 +25,26 @@ $env:BACKEND_URL = $BackendUrl
 $env:VITE_API_URL = $BackendUrl
 $env:VITE_BASE_URL = $FrontendUrl
 $env:KEYCLOAK_SERVER_URL = [string]$EnvConfig.KEYCLOAK_SERVER_URL
+
+# Reject reused evidence paths before any API tests can mutate the sandbox.
+$ReportDir = "$ProjectRoot/docs/member1/acceptance"
+if (-not (Test-Path -LiteralPath $ReportDir)) {
+    New-Item -ItemType Directory -Path $ReportDir -Force -ErrorAction Stop | Out-Null
+}
+if (-not $ReportPath) {
+    $ReportPath = Join-Path $ReportDir ("acceptance-test-report-{0}.md" -f (Get-Date).ToString('yyyyMMdd-HHmmss-fff'))
+}
+foreach ($OutputFile in @($ReportPath, $ResultPath)) {
+    if (-not $OutputFile) { continue }
+    if (Test-Path -LiteralPath $OutputFile) { throw "Không ghi đè evidence đã tồn tại: $OutputFile" }
+    $ParentDirectory = Split-Path -Parent $OutputFile
+    if ($ParentDirectory -and -not (Test-Path -LiteralPath $ParentDirectory -PathType Container)) {
+        throw "Thư mục evidence chưa tồn tại: $ParentDirectory"
+    }
+}
+if ($ResultPath -and [IO.Path]::GetFullPath($ResultPath) -eq [IO.Path]::GetFullPath($ReportPath)) {
+    throw 'ReportPath và ResultPath phải khác nhau.'
+}
 
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host "       STARTING LOCAL ACCEPTANCE TEST SUITES (SANDBOX)           " -ForegroundColor Cyan
@@ -260,12 +282,6 @@ $Results | Format-Table -Property Category, Suite, Status, Duration, Details -Au
 
 Write-Host "Total Suites: $TotalSuites | Executed: $ExecutedSuites | PASS: $TotalPassed | FAIL: $TotalFailed | SKIPPED: $TotalSkipped | Result: $AcceptanceStatus" -ForegroundColor $(if ($AcceptanceStatus -eq 'PASS') { 'Green' } elseif ($AcceptanceStatus -eq 'PARTIAL' -or $AcceptanceStatus -eq 'NOT RUN') { 'Yellow' } else { 'Red' })
 
-$ReportDir = "$ProjectRoot/docs/member1/acceptance"
-if (-not (Test-Path $ReportDir)) {
-    New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null
-}
-$ReportPath = "$ReportDir/acceptance-test-report.md"
-
 $ReportLines = @(
     "# Consolidated Acceptance Test Report",
     "",
@@ -298,7 +314,15 @@ $ReportLines += @(
     "- **Pass Rate (executed suites):** $PassRate%"
 )
 
-[System.IO.File]::WriteAllText($ReportPath, ($ReportLines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
+try {
+    [System.IO.File]::WriteAllText($ReportPath, ($ReportLines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
+    if ($ResultPath) {
+        [PSCustomObject]@{ status = $AcceptanceStatus; suites = @($Results.ToArray()) } |
+            ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ResultPath -Encoding UTF8 -ErrorAction Stop
+    }
+} catch {
+    throw "Không lưu được evidence; không kết luận PASS: $($_.Exception.Message)"
+}
 Write-Host "`n  -> Consolidated report saved to: $ReportPath" -ForegroundColor Green
 
 if ($AcceptanceStatus -ne 'PASS') {
