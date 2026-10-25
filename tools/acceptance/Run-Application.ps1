@@ -28,6 +28,9 @@ $env:KEYCLOAK_JWK_SET_URI = "$realmUrl/protocol/openid-connect/certs"
 $env:BACKEND_PORT = [string]$backendPort
 $env:CORS_ALLOWED_ORIGINS = "http://localhost:$frontendPort"
 $env:HOTEL_SCHEDULING_ENABLED = 'false'
+$env:HOTEL_AI_PERSONALIZATION_SYNTHETIC_EVALUATION_ENABLED = if (
+    [string]$runtime.HOTEL_AI_PERSONALIZATION_SYNTHETIC_EVALUATION_ENABLED -eq 'true'
+) { 'true' } else { 'false' }
 $env:SPRING_LIQUIBASE_ENABLED = 'false'
 $env:LIQUIBASE_CONTEXTS = 'master-data'
 $env:HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET = [string]$runtime.HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET

@@ -119,16 +119,12 @@ class GuestPersonalizationControllerTest {
     }
 
     @Test
-    @DisplayName("TC-23: Khai báo @PreAuthorize đầy đủ các quyền nghiệp vụ yêu cầu")
+    @DisplayName("TC-23: Synthetic evaluation chỉ cho phép CHAIN_ADMIN")
     void tc23_preAuthorizeAnnotationVerification() {
         PreAuthorize preAuth = GuestPersonalizationController.class.getAnnotation(PreAuthorize.class);
         assertThat(preAuth).isNotNull();
         String val = preAuth.value();
-        assertThat(val).contains("CHAIN_ADMIN");
-        assertThat(val).contains("PROPERTY_MANAGER");
-        assertThat(val).contains("RECEPTIONIST");
-        assertThat(val).contains("SALES_GROUP");
-        assertThat(val).contains("GUEST");
+        assertThat(val).isEqualTo("hasRole('CHAIN_ADMIN')");
     }
 
     @Test

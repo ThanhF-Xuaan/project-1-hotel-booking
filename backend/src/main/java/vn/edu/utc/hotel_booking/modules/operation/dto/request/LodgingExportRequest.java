@@ -2,6 +2,8 @@ package vn.edu.utc.hotel_booking.modules.operation.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingGuestCategory;
@@ -23,7 +25,9 @@ public class LodgingExportRequest {
     @Schema(description = "Ngày báo cáo", example = "2026-10-04")
     LocalDate date;
 
-    @Schema(description = "Giờ chốt dữ liệu (mặc định 23h00)", example = "23")
+    @Min(value = 0, message = "Giờ chốt dữ liệu phải từ 0 đến 23")
+    @Max(value = 23, message = "Giờ chốt dữ liệu phải từ 0 đến 23")
+    @Schema(description = "Chốt hết giờ được chọn theo UTC+7, từ 0 đến 23 (mặc định 23)", example = "23")
     @Builder.Default
     Integer cutOffHour = 23;
 

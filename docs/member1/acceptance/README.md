@@ -1,25 +1,33 @@
 # Member 1 Local Acceptance Dossier & Verification Report
 
+> **T05 concurrency/rollback và bàn giao nhánh (2026-10-25 20:58 +07:00): CONFIRMED — kiểm tra local PASS.** Đã tái hiện hai export cùng thành công trên một queue PENDING, rồi sửa bằng row lock/READ_COMMITTED. PostgreSQL xác nhận một winner, request còn lại export-empty; lỗi I/O và lỗi CHECK thật sau flush đều rollback và retry thành công. File spill thật được dọn ở cả success/failure. Kết quả cuối: Maven 943 test (0 lỗi, 1 skip; Redis 4/4, PostgreSQL 3/3 thực chạy), API 16/16, browser 6/6, lint/build/audit và T12 validators PASS. Template BCA chính thức và U14 dữ liệu thật vẫn chưa được nghiệm thu. Xem [bằng chứng và điều kiện tái hiện](t05-export-concurrency-rollback-2026-10-25.md).
+
+> **T05 technical hardening (2026-10-25 19:44 +07:00): CONFIRMED.** Đã sửa fail-open scope tại Export/Queue/StayGuest, chặn scope ID bị wrap sang Short, validate giờ chốt 0..23 và thống nhất giờ workbook theo UTC+7/uppercase ổn định. API đọc nội dung XLSX thật, metadata EXPORTED, export lặp và hai phía mốc cuối giờ. Maven toàn backend 938 test (0 lỗi, 1 skip, Redis 4/4), test mục tiêu 56/56, API 15/15, browser 6/6, lint và T12 validators đều PASS. Chưa xác nhận template chính thức hoặc concurrency/I/O fault của export. Xem [phạm vi, bằng chứng và giới hạn](t05-technical-hardening-2026-10-25.md).
+
+> **U14 privacy gate và T12 re-audit (2026-10-25 18:59 +07:00): CONFIRMED — kiểm tra kỹ thuật PASS.** U14 HTTP mặc định tắt, chỉ admin được dùng khi bật chế độ đánh giá giả lập; default trả 404 và non-admin bị 403. T12 source được đối soát có version, validator 184 instance và portability 11/11 PASS. Maven toàn backend 909 test (0 lỗi, 1 skip, Redis 4/4 thực chạy), lint/build, audit 0 lỗ hổng, API 12/12 và browser 6/6 PASS. T05 official schema và U14 consent/history thật vẫn chưa được nghiệm thu. Xem [quyết định, phạm vi và kết quả](privacy-audit-followup-2026-10-25.md) và [T12 re-audit](../../t12/re-audits/2026-10-25-lazy-routes-v1.md).
+
+> **Đối soát sau merge `develop` (2026-10-25 17:54 +07:00): PARTIAL.** Maven toàn backend 899 test, 0 lỗi, 1 test điều kiện hạ tầng bị skip; Redis integration 4/4, audit 0 lỗ hổng, lint/build, API 11/11 và browser 6/6 đều PASS. T12 contract validator bị chặn vì hash nguồn `frontend/src/App.tsx` khác baseline audit sau thay đổi tách bundle; portability 10/11, ca còn lại gọi lại validator và lỗi cùng nguyên nhân. T05 chỉ xác nhận kỹ thuật XLSX, chưa xác nhận schema chính thức; U14 chỉ dùng consent/history giả lập. Xem [báo cáo đối soát develop](develop-followup-acceptance-2026-10-25.md).
+
 > **Tách bundle theo route (2026-10-25 17:39 +07:00): CONFIRMED — build hết cảnh báo kích thước.** Chunk lớn nhất hiện là 246.80 KB, so với 878.71 KB trước khi tách. Lint, 6 test browser với backend thật và 1 test form trên production preview đều PASS. Xem [bằng chứng tối ưu bundle](frontend-bundle-splitting-2026-10-25.md). Cảnh báo bundle trong các report trước là kết quả lịch sử.
 
 > **Khắc phục dependency (2026-10-25 17:15 +07:00): CONFIRMED trên branch `codex/fix-frontend-audit`.** Từ baseline develop `25ac13f`, năm package bị audit đánh dấu đã được vá; cài lại bằng `npm ci` và chạy audit đầy đủ đạt 0 vulnerability. Lint/build, 11 test API và 6 test browser đều PASS. Xem [bằng chứng khắc phục dependency](dependency-audit-remediation-2026-10-25.md). Các kết quả merge bên dưới là hồ sơ lịch sử trước đợt vá này.
 
-> **Xác minh tích hợp develop (2026-10-25 17:03 +07:00): CONFIRMED — nghiệm thu chức năng local PASS.** Maven `clean test` đạt 899 test (0 lỗi, 5 skip); sáu suite còn lại đạt PASS. Hai migration mới của develop đã chạy trên sandbox; snapshot đã khôi phục và sandbox đã dừng. Runner chạy với `-SkipMaven` giữ kết quả `PARTIAL` vì Maven được xác minh riêng. Xem [bản đối soát merge](develop-merge-verification-2026-10-25.md) và [kết quả runner mới](develop-merge-runner-2026-10-25.md). Dependency audit còn 5 vấn đề mức high; đây là tồn đọng riêng, chưa được xử lý trong đợt merge.
+> **Xác minh tích hợp develop (2026-10-25 17:03 +07:00): CONFIRMED — nghiệm thu chức năng local tại thời điểm đó.** Maven `clean test` đạt 899 test (0 lỗi, 5 skip); sáu suite còn lại đạt PASS. Hai migration mới của develop đã chạy trên sandbox; snapshot đã khôi phục và sandbox đã dừng. Runner chạy với `-SkipMaven` giữ kết quả `PARTIAL` vì Maven được xác minh riêng. Xem [bản đối soát merge](develop-merge-verification-2026-10-25.md) và [kết quả runner mới](develop-merge-runner-2026-10-25.md). Khi đó dependency audit còn 5 vấn đề mức high; chúng được xử lý trong đợt sau.
 
 > **Revalidation (2026-10-25 13:29 +07:00): PASS.** The full local acceptance runner completed all 7 suites: Maven 338 tests (0 failures, 4 skipped), T12 contract validation (184 instances), portability validation (11/11), frontend lint (0 errors/warnings) and build, Playwright API (11/11), and browser E2E (4/4). The acceptance launcher removes inherited `GEMINI_API_KEY`, so advisor chat uses deterministic extraction without calling Gemini. The browser no-write check sent an actual advisor request and compared normalized PostgreSQL data dumps before and after; it verifies the exercised path's effect, not read-only DB credentials. Liquibase had no pending changesets. The database was restored from the pre-test snapshot (2 hotels, 5 room types, 305 availability rows, 5 staff), then application processes and containers were stopped with Docker volumes preserved. Full commands and timings are in [acceptance-test-report.md](acceptance-test-report.md). Run used branch `codex/m1-acceptance-stabilization` at base `a6b2088f55d2326a51e895ff2cfffbb4fe70831e`; at that time, changes were uncommitted.
 
-- **Status:** **ACCEPTED (100% PASS)**
+- **Status hiện tại:** **LOCAL TECHNICAL CHECKS PASS — T05/U14 real-data contracts BLOCKED**
 - **Environment:** Local Sandbox (`hotel-m1-acceptance`)
 **Evaluation Date:** 2026-10-25
-- **Worktree Base:** `a6b2088f55d2326a51e895ff2cfffbb4fe70831e` on branch `codex/m1-acceptance-stabilization`
+- **Historical Worktree Base (13:29 run):** `a6b2088f55d2326a51e895ff2cfffbb4fe70831e` on branch `codex/m1-acceptance-stabilization`
 
 ---
 
 ## 1. Executive Summary
 
-This dossier records the complete, evidence-grounded local acceptance of Member 1 features and modules (T04, T05, T12, U13, U14, and Scoped RAG) in a reproducible, fully isolated sandbox environment.
+This dossier records local technical checks and their limits for T04, T05, T12, U13, U14, and Scoped RAG. The latest results are in the dated notices above; T05 official export compatibility and U14 use of real consent/history remain unverified.
 
-All 7 acceptance test suites executed with **100% PASS** (338 Maven unit/integration tests, 184 contract validation instances, 11 portability tests, 0 ESLint errors/warnings, clean TypeScript 6 + Vite 8.2 bundle build, 11 Playwright API tests across 6 Keycloak roles, and 4 Playwright Browser E2E tests).
+The historical 13:29 run completed 7 suites (338 Maven unit/integration tests, 184 contract validation instances, 11 portability tests, 0 ESLint errors/warnings, TypeScript 6 + Vite 8.2 build, 11 Playwright API tests, and 4 browser tests). This does not establish the outstanding real-data contracts.
 
 ---
 
@@ -80,12 +88,16 @@ Detailed test execution report generated by `tools/acceptance/Test.ps1` (saved a
 - Anomaly detection verifies non-negative consumption and duplicate prevention.
 
 ### 4.4. T05 Lodging Reports & Payroll Import
-- BCA lodging export endpoint streams valid lodging records for property managers.
+- Lodging export streams a technical XLSX report for authorized staff. Compatibility with an official BCA template requires a supplied schema/sample and remains unverified.
+- Property managers/receptionists must resolve a valid PROPERTY hotel scope; wrong/missing/out-of-range scope fails closed before business queries or writes.
+- Current technical workbook uses 13 existing columns, preserves document numbers as text, renders times in UTC+7, and includes all instants before the end of the selected cutoff hour. EXPORTED means file creation completed, not delivery/approval by an external authority.
+- Pending export rows are locked through the READ_COMMITTED transaction: overlapping exports of the same pending row create one batch. Generation/DB failure rolls back metadata and permits retry. Manual queue retry can intentionally reopen an exported row; this is not a permanent idempotency key.
 - Synthetic payroll CSV import processes employee lodging deductions with complete row tracking.
 
 ### 4.5. U14 Privacy-Safe Personalization
-- Explicit guest consent check enforced: requests without consent are rejected (`400 Bad Request`).
-- When consent is granted, privacy-safe stay history generates deterministic room recommendations without mutating dynamic Core pricing.
+- The HTTP controller is disabled by default. Only `CHAIN_ADMIN` can call it when `hotel.ai.personalization.synthetic-evaluation-enabled=true`.
+- In this synthetic mode, `consentGranted=false` returns HTTP 200 with `CONSENT_REQUIRED`; `true` exercises the deterministic algorithm with supplied fake history. This client flag is not proof of actual consent or history ownership.
+- Pricing remains unchanged. A server-authoritative consent/history contract is required before enabling a real-data flow.
 
 ### 4.6. Scoped RAG Lifecycle
 - In-memory vector store with local hashing embeddings operates with tenant scoping (`hotelId`).
@@ -96,6 +108,10 @@ Detailed test execution report generated by `tools/acceptance/Test.ps1` (saved a
 ## 5. Deterministic Orchestration Runbook
 
 The acceptance lifecycle can be reproduced from scratch using the PowerShell tool suite in `tools/acceptance/`:
+
+`Prepare.ps1` explicitly enables synthetic U14 only for this sandbox. Existing runtime files that omit the flag keep U14 disabled; stop the sandbox and regenerate its runtime configuration before running the synthetic API suite. The flag does not determine whether an input is real or fake; use controlled synthetic fixtures only.
+
+The PostgreSQL export tests require a separate explicit `T05_EXPORT_IT` opt-in and exclusive sandbox DB confirmation. Run them with application processes stopped and credentials passed through the dedicated `T05_EXPORT_IT_DB_*` variables; do not inherit Compose's generic DB/Redis variables into Maven default-configuration tests. See the latest concurrency/rollback report for guards, commands and actual skips.
 
 ```powershell
 # 1. Preflight check: verify port availability and write the disposable local runtime configuration

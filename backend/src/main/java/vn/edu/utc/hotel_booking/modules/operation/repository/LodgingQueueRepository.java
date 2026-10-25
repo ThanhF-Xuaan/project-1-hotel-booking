@@ -1,8 +1,10 @@
 package vn.edu.utc.hotel_booking.modules.operation.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -29,15 +31,16 @@ public interface LodgingQueueRepository extends JpaRepository<LodgingQueue, Long
                               @Param("toDate") OffsetDateTime toDate,
                               Pageable pageable);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT q FROM LodgingQueue q " +
            "JOIN FETCH q.stayGuest g " +
            "WHERE q.isDeleted = false " +
            "AND q.hotel.id = :hotelId " +
            "AND q.status = vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingQueueStatus.PENDING " +
-           "AND g.checkInTime <= :cutoffTime " +
+           "AND g.checkInTime < :cutoffTime " +
            "AND (:isVietnamese = true AND (LOWER(g.nationality) = 'việt nam' OR LOWER(g.nationality) = 'viet nam' OR LOWER(g.nationality) = 'vietnam') " +
            "     OR :isVietnamese = false AND LOWER(g.nationality) != 'việt nam' AND LOWER(g.nationality) != 'viet nam' AND LOWER(g.nationality) != 'vietnam') " +
-           "ORDER BY g.checkInTime ASC")
+           "ORDER BY g.checkInTime ASC, q.id ASC")
     List<LodgingQueue> findPendingForExport(@Param("hotelId") Short hotelId,
                                             @Param("cutoffTime") OffsetDateTime cutoffTime,
                                             @Param("isVietnamese") boolean isVietnamese);

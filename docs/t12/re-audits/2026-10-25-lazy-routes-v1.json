@@ -1,0 +1,394 @@
+{
+  "version": "2026-10-25-lazy-routes-v1",
+  "status": "SOURCE_RECONCILED",
+  "acceptedDevelopCommit": "52dc842c4e361ce729f8dd742fca5236eebe535a",
+  "sourceChangeCommit": "8d5a34791013e03478163f476799f4f776b460a8",
+  "mergePullRequest": 27,
+  "comparisonCommit": "25ac13fc4db8087984a584e572c5ee639e03e9e1",
+  "path": "frontend/src/App.tsx",
+  "previousSourceEvidence": {
+    "path": "frontend/src/App.tsx",
+    "sha256": "542e550fd6ff44b4cb8f8077373bc052b07ed872ad9d8bbd2c5eed174980d2f6",
+    "historicalSha256": "1284c1e4eae2b6902431cf6737b7417c11f7cd3a92c4a259cc6906d012877351",
+    "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+    "baselineUnmodified": true,
+    "unixLfSha256": "4a237345bb0ed668861c3a56ca0495d0b34bcc11544e64478f81dd8bdc715325",
+    "windowsCrlfSha256": "542e550fd6ff44b4cb8f8077373bc052b07ed872ad9d8bbd2c5eed174980d2f6"
+  },
+  "currentHashes": {
+    "unixLfSha256": "59ee585d21004047316138394d4e3b6fe966ca40f7da1a986cae4becd3fe7b34",
+    "windowsCrlfSha256": "cd4e7b5eb8818a0a3d742e01a35f48da45580bbb7163d144be5c7b9207a3415d"
+  },
+  "routeCount": 39,
+  "routesUnchanged": true,
+  "routeTreeSha256": "fcd85102094c34f51623b6e82c2fbd54b6b8dc7fdbb73a34b87e3f997de8470b",
+  "routes": [
+    {
+      "depth": 0,
+      "attributes": "path=\"/login\" element={<LoginPage />}"
+    },
+    {
+      "depth": 0,
+      "attributes": "path=\"/payment/result\" element={<PaymentResultPage />}"
+    },
+    {
+      "depth": 0,
+      "attributes": "path=\"/\" element={<Navigate to=\"/portal/search\" replace />}"
+    },
+    {
+      "depth": 0,
+      "attributes": "path=\"/portal\""
+    },
+    {
+      "depth": 1,
+      "attributes": "index element={<Navigate to=\"/portal/search\" replace />}"
+    },
+    {
+      "depth": 1,
+      "attributes": "path=\"search\" element={<SearchPage />}"
+    },
+    {
+      "depth": 1,
+      "attributes": "path=\"checkout\" element={<CheckoutPage />}"
+    },
+    {
+      "depth": 1,
+      "attributes": "path=\"my-bookings\" element={<MyBookingsPage />}"
+    },
+    {
+      "depth": 1,
+      "attributes": "path=\"hotels/:hotelId/room-types/:hotelRoomTypeId\" element={<RoomDetailsPage />}"
+    },
+    {
+      "depth": 0,
+      "attributes": "element={<ProtectedRoute />}"
+    },
+    {
+      "depth": 1,
+      "attributes": "element={<AdminLayout />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "path=\"/dashboard\" element={<ManagementDashboard />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/booking/list\" element={<BookingListPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/booking/walk-in\" element={<WalkInBookingPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"booking/policies\" element={<PolicyManagementPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B', 'RECEPTIONIST']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/operation/menus\" element={<MenuListPage />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/operation/room-service\" element={<RoomServiceOrderPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/operation/housekeeping\" element={<HousekeepingPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/operation/night-audit\" element={<NightAuditPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/finance/folios\" element={<FolioPaymentPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/organization/regions\" element={<RegionListPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/organization/hotels\" element={<HotelListPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/inventory/room-types\" element={<RoomTypeListPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'ENGINEERING']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/inventory/rooms\" element={<RoomInstanceListPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/pricing/rules\" element={<PricingRuleListPage />}"
+    },
+    {
+      "depth": 3,
+      "attributes": "path=\"/pricing/campaigns\" element={<CampaignListPage />}"
+    },
+    {
+      "depth": 2,
+      "attributes": "path=\"*\" element={ <div className=\"flex flex-col items-center justify-center min-h-[50vh] text-center\"> <h3 className=\"text-xl font-bold text-neutral-800\">Mô-đun đang được phát triển</h3> <p className=\"text-sm text-neutral-500 mt-1\"> Tính năng này thuộc các giai đoạn tiếp theo trong lộ trình Modular Monolith. </p> </div> }"
+    }
+  ],
+  "lazyComponentCount": 22,
+  "lazyComponentImplementationsUnchanged": true,
+  "previousComponentImports": {
+    "AdminLayout": {
+      "path": "./core/components/layout/AdminLayout",
+      "export": "default"
+    },
+    "LoginPage": {
+      "path": "./modules/auth/pages/LoginPage",
+      "export": "default"
+    },
+    "RegionListPage": {
+      "path": "./modules/organization/pages/RegionListPage",
+      "export": "default"
+    },
+    "HotelListPage": {
+      "path": "./modules/organization/pages/HotelListPage",
+      "export": "default"
+    },
+    "RoomTypeListPage": {
+      "path": "./modules/inventory/pages/RoomTypeListPage",
+      "export": "default"
+    },
+    "RoomInstanceListPage": {
+      "path": "./modules/inventory/pages/RoomInstanceListPage",
+      "export": "default"
+    },
+    "PricingRuleListPage": {
+      "path": "./modules/pricing/pages/PricingRuleListPage",
+      "export": "default"
+    },
+    "CampaignListPage": {
+      "path": "./modules/pricing/pages/CampaignListPage",
+      "export": "default"
+    },
+    "BookingListPage": {
+      "path": "./modules/booking/pages/BookingListPage",
+      "export": "default"
+    },
+    "WalkInBookingPage": {
+      "path": "./modules/booking/pages/WalkInBookingPage",
+      "export": "default"
+    },
+    "PolicyManagementPage": {
+      "path": "./modules/booking/pages/PolicyManagementPage",
+      "export": "default"
+    },
+    "FolioPaymentPage": {
+      "path": "./modules/finance/pages/FolioPaymentPage",
+      "export": "default"
+    },
+    "PaymentResultPage": {
+      "path": "./modules/finance/pages/PaymentResultPage",
+      "export": "default"
+    },
+    "MenuListPage": {
+      "path": "./modules/operation/pages/MenuListPage",
+      "export": "MenuListPage"
+    },
+    "RoomServiceOrderPage": {
+      "path": "./modules/operation/pages/RoomServiceOrderPage",
+      "export": "RoomServiceOrderPage"
+    },
+    "HousekeepingPage": {
+      "path": "./modules/operation/pages/HousekeepingPage",
+      "export": "HousekeepingPage"
+    },
+    "NightAuditPage": {
+      "path": "./modules/operation/pages/NightAuditPage",
+      "export": "NightAuditPage"
+    },
+    "ManagementDashboard": {
+      "path": "./modules/dashboard/pages/ManagementDashboard",
+      "export": "ManagementDashboard"
+    },
+    "SearchPage": {
+      "path": "./modules/booking-portal/pages/SearchPage",
+      "export": "SearchPage"
+    },
+    "CheckoutPage": {
+      "path": "./modules/booking-portal/pages/CheckoutPage",
+      "export": "CheckoutPage"
+    },
+    "MyBookingsPage": {
+      "path": "./modules/booking-portal/pages/MyBookingsPage",
+      "export": "MyBookingsPage"
+    },
+    "RoomDetailsPage": {
+      "path": "./modules/booking-portal/pages/RoomDetailsPage",
+      "export": "RoomDetailsPage"
+    }
+  },
+  "equivalentExportAliases": [
+    {
+      "modulePath": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
+      "namedExport": "SearchPage",
+      "defaultAliases": "SearchPage",
+      "unixLfSha256": "c45db647bf9cd93929e602550ace257ce6117584cdf8058c0fad6ab28fd513f9"
+    },
+    {
+      "modulePath": "frontend/src/modules/booking-portal/pages/CheckoutPage.tsx",
+      "namedExport": "CheckoutPage",
+      "defaultAliases": "CheckoutPage",
+      "unixLfSha256": "735a047ebe817c50511264afbdf802bca63d317c666312930972df88547d9858"
+    },
+    {
+      "modulePath": "frontend/src/modules/booking-portal/pages/MyBookingsPage.tsx",
+      "namedExport": "MyBookingsPage",
+      "defaultAliases": "MyBookingsPage",
+      "unixLfSha256": "d7aecf9d057b8fcfd3cecf6f76c2dfec7f977ca73ef367df48c523ef7383fd9d"
+    },
+    {
+      "modulePath": "frontend/src/modules/booking-portal/pages/RoomDetailsPage.tsx",
+      "namedExport": "RoomDetailsPage",
+      "defaultAliases": "RoomDetailsPage",
+      "unixLfSha256": "645846ff088d8503710e4135b556c9fef76fec91d3b12bb54d5ae227d471c0bd"
+    }
+  ],
+  "lazyComponents": {
+    "AdminLayout": {
+      "path": "./core/components/layout/AdminLayout",
+      "export": "default"
+    },
+    "LoginPage": {
+      "path": "./modules/auth/pages/LoginPage",
+      "export": "default"
+    },
+    "RegionListPage": {
+      "path": "./modules/organization/pages/RegionListPage",
+      "export": "default"
+    },
+    "HotelListPage": {
+      "path": "./modules/organization/pages/HotelListPage",
+      "export": "default"
+    },
+    "RoomTypeListPage": {
+      "path": "./modules/inventory/pages/RoomTypeListPage",
+      "export": "default"
+    },
+    "RoomInstanceListPage": {
+      "path": "./modules/inventory/pages/RoomInstanceListPage",
+      "export": "default"
+    },
+    "PricingRuleListPage": {
+      "path": "./modules/pricing/pages/PricingRuleListPage",
+      "export": "default"
+    },
+    "CampaignListPage": {
+      "path": "./modules/pricing/pages/CampaignListPage",
+      "export": "default"
+    },
+    "BookingListPage": {
+      "path": "./modules/booking/pages/BookingListPage",
+      "export": "default"
+    },
+    "WalkInBookingPage": {
+      "path": "./modules/booking/pages/WalkInBookingPage",
+      "export": "default"
+    },
+    "PolicyManagementPage": {
+      "path": "./modules/booking/pages/PolicyManagementPage",
+      "export": "default"
+    },
+    "FolioPaymentPage": {
+      "path": "./modules/finance/pages/FolioPaymentPage",
+      "export": "default"
+    },
+    "PaymentResultPage": {
+      "path": "./modules/finance/pages/PaymentResultPage",
+      "export": "default"
+    },
+    "MenuListPage": {
+      "path": "./modules/operation/pages/MenuListPage",
+      "export": "MenuListPage"
+    },
+    "RoomServiceOrderPage": {
+      "path": "./modules/operation/pages/RoomServiceOrderPage",
+      "export": "RoomServiceOrderPage"
+    },
+    "HousekeepingPage": {
+      "path": "./modules/operation/pages/HousekeepingPage",
+      "export": "HousekeepingPage"
+    },
+    "NightAuditPage": {
+      "path": "./modules/operation/pages/NightAuditPage",
+      "export": "NightAuditPage"
+    },
+    "ManagementDashboard": {
+      "path": "./modules/dashboard/pages/ManagementDashboard",
+      "export": "ManagementDashboard"
+    },
+    "SearchPage": {
+      "path": "./modules/booking-portal/pages/SearchPage",
+      "export": "default"
+    },
+    "CheckoutPage": {
+      "path": "./modules/booking-portal/pages/CheckoutPage",
+      "export": "default"
+    },
+    "MyBookingsPage": {
+      "path": "./modules/booking-portal/pages/MyBookingsPage",
+      "export": "default"
+    },
+    "RoomDetailsPage": {
+      "path": "./modules/booking-portal/pages/RoomDetailsPage",
+      "export": "default"
+    }
+  },
+  "protectedRouteRemainsEager": true,
+  "validation": "TypeScript AST comparison; build and real browser evidence recorded separately",
+  "limitations": "Source reconciliation only; no gold, threshold, API schema or contract approval change"
+}

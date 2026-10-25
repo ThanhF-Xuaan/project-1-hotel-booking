@@ -29,8 +29,8 @@ public class LodgingExportController {
 
     @PostMapping("/download")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
-    @Operation(summary = "Xuất file Excel khai báo lưu trú BCA theo chuẩn Mẫu CT14 / Cổng BCA",
-            description = "Hỗ trợ tách 2 luồng (Công dân Việt Nam vs Khách nước ngoài), tự động chốt các bản ghi đã xuất sang trạng thái EXPORTED")
+    @Operation(summary = "Xuất file Excel lưu trú theo định dạng kỹ thuật hiện có",
+            description = "Chưa xác nhận tương thích template BCA chính thức. EXPORTED ghi nhận tạo file thành công, không xác nhận cổng đích đã nhận hoặc duyệt dữ liệu.")
     public ResponseEntity<ByteArrayResource> downloadBcaReport(@Valid @RequestBody LodgingExportRequest request) {
         byte[] excelBytes = lodgingExportService.exportBcaLodgingReport(request);
         ByteArrayResource resource = new ByteArrayResource(excelBytes);
