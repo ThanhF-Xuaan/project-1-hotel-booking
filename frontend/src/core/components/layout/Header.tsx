@@ -11,7 +11,7 @@ export const Header: React.FC = () => {
 
   const userProfile = useMemo(() => {
     return isAuthenticated ? getUserProfile() : null
-  }, [isAuthenticated, token])
+  }, [isAuthenticated])
 
   const handleLogout = async () => {
     try {

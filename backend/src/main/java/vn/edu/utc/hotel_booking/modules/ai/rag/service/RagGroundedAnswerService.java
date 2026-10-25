@@ -9,6 +9,7 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.governance.RagCorpusGovernanceVal
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeChunk;
 
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
@@ -28,6 +29,14 @@ public class RagGroundedAnswerService {
 
     private static final Pattern ENGLISH_QUESTION_PATTERN = Pattern.compile(
             "(?i)\\b(what\\s*time|when\\s*(can|is|does)|where\\s*is|how\\s*much|is\\s*there|check-?in\\s*time|check-?out\\s*time)\\b"
+    );
+
+    private static final Pattern EXPLICIT_CHECK_IN_TIME = Pattern.compile(
+            "(?iu)(?:nhận\\s+phòng|check[ -]?in)[^\\d\\r\\n]{0,40}((?:[01]?\\d|2[0-3]):[0-5]\\d)"
+    );
+
+    private static final Pattern EXPLICIT_CHECK_OUT_TIME = Pattern.compile(
+            "(?iu)(?:trả\\s+phòng|check[ -]?out)[^\\d\\r\\n]{0,40}((?:[01]?\\d|2[0-3]):[0-5]\\d)"
     );
 
     private final ScopedRagRetrievalService retrievalService;
@@ -145,15 +154,27 @@ public class RagGroundedAnswerService {
     }
 
     private String synthesizeEnglishAnswer(String question, String context) {
-        if (question.toLowerCase(Locale.ROOT).contains("check-in") || question.toLowerCase(Locale.ROOT).contains("what time")) {
-            List<String> times = new ArrayList<>();
-            java.util.regex.Matcher m = Pattern.compile("(\\d{1,2}:\\d{2})").matcher(context);
-            while (m.find()) {
-                times.add(m.group(1));
+        String normalizedQuestion = question.toLowerCase(Locale.ROOT);
+        List<String> explicitTimes = new ArrayList<>();
+
+        if (normalizedQuestion.contains("check-in") || normalizedQuestion.contains("check in")
+                || normalizedQuestion.contains("checkin") || normalizedQuestion.contains("nhận phòng")) {
+            Matcher checkInMatcher = EXPLICIT_CHECK_IN_TIME.matcher(context);
+            if (checkInMatcher.find()) {
+                explicitTimes.add("Check-in is from " + checkInMatcher.group(1));
             }
-            String checkInTime = !times.isEmpty() ? times.get(0) : "14:00";
-            String checkOutTime = times.size() > 1 ? times.get(1) : "12:00";
-            return String.format("Check-in time is from %s, and check-out time is until %s.", checkInTime, checkOutTime);
+        }
+
+        if (normalizedQuestion.contains("check-out") || normalizedQuestion.contains("check out")
+                || normalizedQuestion.contains("checkout") || normalizedQuestion.contains("trả phòng")) {
+            Matcher checkOutMatcher = EXPLICIT_CHECK_OUT_TIME.matcher(context);
+            if (checkOutMatcher.find()) {
+                explicitTimes.add("Check-out is before " + checkOutMatcher.group(1));
+            }
+        }
+
+        if (!explicitTimes.isEmpty()) {
+            return "According to our official policy: " + String.join("; ", explicitTimes) + ".";
         }
         return "According to our official policy:\n" + context;
     }

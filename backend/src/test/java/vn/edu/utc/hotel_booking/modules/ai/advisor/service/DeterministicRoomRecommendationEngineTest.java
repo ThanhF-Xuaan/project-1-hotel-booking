@@ -163,6 +163,10 @@ class DeterministicRoomRecommendationEngineTest {
         assertThat(recs.get(0).getAction().getPath()).isEqualTo("/portal/hotels/6/room-types/1026");
         assertThat(recs.get(0).getStay().getRoomsCount()).isEqualTo(1);
         assertThat(recs.get(0).getReasons()).anyMatch(r -> r.getCode() == ReasonCode.AVAILABLE_ALL_NIGHTS);
+        assertThat(recs.get(0).getReasons())
+                .filteredOn(reason -> reason.getCode() == ReasonCode.AVAILABLE_ALL_NIGHTS)
+                .extracting(RecommendationReasonDto::getText)
+                .containsExactly("Còn phòng trong mọi đêm lưu trú theo dữ liệu API.");
     }
 
     @Test

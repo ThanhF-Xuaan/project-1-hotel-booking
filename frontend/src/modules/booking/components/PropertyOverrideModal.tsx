@@ -78,55 +78,61 @@ export const PropertyOverrideModal: React.FC<PropertyOverrideModalProps> = ({
 
   // Load room types when hotel changes
   useEffect(() => {
-    if (!selectedHotelId) {
-      setRoomTypes([]);
-      return;
-    }
-
-    const loadRoomTypes = async () => {
-      try {
-        const res = await hotelRoomTypeService.filter({
-          hotelId: Number(selectedHotelId),
-          page: 0,
-          pageSize: 100,
-        });
-        if (res.result?.content) {
-          setRoomTypes(res.result.content);
-        }
-      } catch (err) {
-        console.error('Lỗi tải danh sách hạng phòng', err);
+    const timer = setTimeout(() => {
+      if (!selectedHotelId) {
+        setRoomTypes([]);
+        return;
       }
-    };
 
-    loadRoomTypes();
+      const loadRoomTypes = async () => {
+        try {
+          const res = await hotelRoomTypeService.filter({
+            hotelId: Number(selectedHotelId),
+            page: 0,
+            pageSize: 100,
+          });
+          if (res.result?.content) {
+            setRoomTypes(res.result.content);
+          }
+        } catch (err) {
+          console.error('Lỗi tải danh sách hạng phòng', err);
+        }
+      };
+
+      void loadRoomTypes();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [selectedHotelId]);
 
   // Sync form with edit target
   useEffect(() => {
-    if (override) {
-      setSelectedHotelId(override.hotelId);
-      setSelectedRoomTypeId(override.hotelRoomTypeId || '');
-      setSelectedCancelPolicyId(override.cancellationPolicyId || '');
-      setSelectedNoShowPolicyId(override.noShowPolicyId || '');
-      setFreeDaysOverride(
-        override.freeCancellationBeforeDaysOverride !== null && override.freeCancellationBeforeDaysOverride !== undefined
-          ? String(override.freeCancellationBeforeDaysOverride)
-          : ''
-      );
-      setReleaseTimeOverride(override.noShowReleaseTimeOverride ? override.noShowReleaseTimeOverride.substring(0, 5) : '');
-      setOverrideReason(override.overrideReason || '');
-      setIsActive(override.isActive);
-    } else {
-      setSelectedHotelId('');
-      setSelectedRoomTypeId('');
-      setSelectedCancelPolicyId('');
-      setSelectedNoShowPolicyId('');
-      setFreeDaysOverride('');
-      setReleaseTimeOverride('');
-      setOverrideReason('');
-      setIsActive(true);
-    }
-    setErrorMsg(null);
+    const timer = setTimeout(() => {
+      if (override) {
+        setSelectedHotelId(override.hotelId);
+        setSelectedRoomTypeId(override.hotelRoomTypeId || '');
+        setSelectedCancelPolicyId(override.cancellationPolicyId || '');
+        setSelectedNoShowPolicyId(override.noShowPolicyId || '');
+        setFreeDaysOverride(
+          override.freeCancellationBeforeDaysOverride !== null && override.freeCancellationBeforeDaysOverride !== undefined
+            ? String(override.freeCancellationBeforeDaysOverride)
+            : ''
+        );
+        setReleaseTimeOverride(override.noShowReleaseTimeOverride ? override.noShowReleaseTimeOverride.substring(0, 5) : '');
+        setOverrideReason(override.overrideReason || '');
+        setIsActive(override.isActive);
+      } else {
+        setSelectedHotelId('');
+        setSelectedRoomTypeId('');
+        setSelectedCancelPolicyId('');
+        setSelectedNoShowPolicyId('');
+        setFreeDaysOverride('');
+        setReleaseTimeOverride('');
+        setOverrideReason('');
+        setIsActive(true);
+      }
+      setErrorMsg(null);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [override, isOpen]);
 
   // Selected cancellation policy inspection

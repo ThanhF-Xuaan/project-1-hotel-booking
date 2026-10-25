@@ -58,16 +58,19 @@ export const RoomInstanceListPage: React.FC = () => {
 
   // Load Hotel Room Types when hotel selected in Form
   useEffect(() => {
-    if (formHotelId) {
-      hotelRoomTypeService
-        .filter({ hotelId: Number(formHotelId), pageSize: 50, status: 'ACTIVE' })
-        .then((res) => {
-          if (res.result) setHotelRoomTypes(res.result.content || [])
-        })
-        .catch((err) => console.error('Lỗi tải danh mục loại phòng khách sạn:', err))
-    } else {
-      setHotelRoomTypes([])
-    }
+    const timer = setTimeout(() => {
+      if (formHotelId) {
+        hotelRoomTypeService
+          .filter({ hotelId: Number(formHotelId), pageSize: 50, status: 'ACTIVE' })
+          .then((res) => {
+            if (res.result) setHotelRoomTypes(res.result.content || [])
+          })
+          .catch((err) => console.error('Lỗi tải danh mục loại phòng khách sạn:', err))
+      } else {
+        setHotelRoomTypes([])
+      }
+    }, 0)
+    return () => clearTimeout(timer)
   }, [formHotelId])
 
   const loadData = useCallback(async () => {
@@ -93,7 +96,10 @@ export const RoomInstanceListPage: React.FC = () => {
   }, [page, pageSize, selectedHotelId, roomNumber, currentStatus])
 
   useEffect(() => {
-    loadData()
+    const timer = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadData])
 
   const handleSearch = (e: React.FormEvent) => {

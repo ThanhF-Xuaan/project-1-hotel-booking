@@ -52,14 +52,15 @@ export const LoginPage: React.FC = () => {
         if (res.result.refresh_token) {
           localStorage.setItem('auth_refresh_token', res.result.refresh_token)
         }
-        const from = (location.state as any)?.from?.pathname || '/dashboard'
+        const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/dashboard'
         navigate(from, { replace: true })
       } else {
         setErrorMsg(res.message || 'Đăng nhập thất bại')
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error)
-      setErrorMsg(error?.response?.data?.message || 'Có lỗi xảy ra khi kết nối đến máy chủ')
+      const err = error as { response?: { data?: { message?: string } } }
+      setErrorMsg(err?.response?.data?.message || 'Có lỗi xảy ra khi kết nối đến máy chủ')
     }
   }
 

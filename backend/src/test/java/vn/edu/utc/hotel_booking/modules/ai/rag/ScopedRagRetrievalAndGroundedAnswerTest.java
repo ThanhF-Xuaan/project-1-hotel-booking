@@ -121,7 +121,7 @@ class ScopedRagRetrievalAndGroundedAnswerTest {
         RagQueryResultDto resEn = answerService.answerQuestion(
                 RagQueryRequestDto.builder()
                         .hotelId(1)
-                        .question("What time is check-in?")
+                        .question("What time are check-in and check-out?")
                         .language("en")
                         .asOfDate(LocalDate.of(2026, 3, 1))
                         .build()
@@ -129,8 +129,19 @@ class ScopedRagRetrievalAndGroundedAnswerTest {
 
         assertThat(resEn.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
         assertThat(resEn.getAnswer()).contains("14:00").contains("12:00");
-        assertThat(resEn.getAnswer()).containsIgnoringCase("check-in");
+        assertThat(resEn.getAnswer()).contains("Check-in is from 14:00")
+                .contains("Check-out is before 12:00");
         assertThat(resEn.getCitations().get(0).getSourceId()).isEqualTo("POLICY-CHECKIN");
+
+        RagQueryResultDto poolResEn = answerService.answerQuestion(
+                RagQueryRequestDto.builder()
+                        .hotelId(1)
+                        .question("What time does the pool close?")
+                        .language("en")
+                        .asOfDate(LocalDate.of(2026, 3, 1))
+                        .build()
+        );
+        assertThat(poolResEn.getAnswer()).contains("21:00").doesNotContain("Check-in is from");
     }
 
     @Test

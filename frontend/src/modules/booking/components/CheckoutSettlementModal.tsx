@@ -66,12 +66,15 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
   }, [bookingRoomId]);
 
   useEffect(() => {
-    if (isOpen && bookingRoomId) {
-      fetchSettlement();
-      setPaymentSuccessMsg(null);
-    } else {
-      setSettlement(null);
-    }
+    const timer = setTimeout(() => {
+      if (isOpen && bookingRoomId) {
+        void fetchSettlement();
+        setPaymentSuccessMsg(null);
+      } else {
+        setSettlement(null);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isOpen, bookingRoomId, fetchSettlement]);
 
   const formatVND = (val?: number) =>

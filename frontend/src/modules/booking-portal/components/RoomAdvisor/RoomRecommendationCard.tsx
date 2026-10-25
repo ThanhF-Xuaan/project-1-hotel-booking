@@ -113,7 +113,12 @@ export const RoomRecommendationCard: React.FC<RoomRecommendationCardProps> = ({
       {/* Pricing & Call-to-Action */}
       <div className="border-t border-neutral-100 pt-3 flex items-end justify-between gap-3 mt-1">
         <div className="space-y-0.5">
-          <div className="text-[11px] text-neutral-500">Tổng giá trọn gói</div>
+          <div className="text-[11px] text-neutral-500 font-medium">Giá ước tính từ Core</div>
+          <div className="text-[10px] text-neutral-500 leading-tight">
+            {price.chargeCoverage === 'ALL_MANDATORY_CHARGES'
+              ? 'Đã bao gồm thuế và phí cơ bản'
+              : 'Chưa gồm một số phụ phí'}
+          </div>
           <div className="text-lg md:text-xl font-extrabold text-red-600 leading-tight">
             {formatCurrency(price.finalTotalAmount, price.currency)}
           </div>

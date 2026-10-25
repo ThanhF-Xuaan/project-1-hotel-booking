@@ -39,32 +39,35 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
   const [tiers, setTiers] = useState<CancellationTierDto[]>([]);
 
   useEffect(() => {
-    if (policy) {
-      setPolicyCode(policy.policyCode);
-      setName(policy.name);
-      setBookingType(policy.bookingType);
-      setCancellationFeeType(policy.cancellationFeeType);
-      setFreeCancellationBeforeDays(policy.freeCancellationBeforeDays);
-      setDefaultPenaltyPercent(policy.defaultPenaltyPercent);
-      setDescription(policy.description || '');
-      setIsActive(policy.isActive);
-      setTiers(policy.tiers && policy.tiers.length > 0 ? [...policy.tiers] : []);
-    } else {
-      setPolicyCode('');
-      setName('');
-      setBookingType('FIT');
-      setCancellationFeeType('TIERED');
-      setFreeCancellationBeforeDays(7);
-      setDefaultPenaltyPercent(100);
-      setDescription('');
-      setIsActive(true);
-      setTiers([
-        { minDays: 7, maxDays: null, penaltyPercent: 0, description: 'Miễn phí hủy trước 7 ngày' },
-        { minDays: 4, maxDays: 6, penaltyPercent: 50, description: 'Phạt 50% tiền phòng' },
-        { minDays: 0, maxDays: 3, penaltyPercent: 100, description: 'Phạt 100% trong vòng 3 ngày' },
-      ]);
-    }
-    setErrorMsg(null);
+    const timer = setTimeout(() => {
+      if (policy) {
+        setPolicyCode(policy.policyCode);
+        setName(policy.name);
+        setBookingType(policy.bookingType);
+        setCancellationFeeType(policy.cancellationFeeType);
+        setFreeCancellationBeforeDays(policy.freeCancellationBeforeDays);
+        setDefaultPenaltyPercent(policy.defaultPenaltyPercent);
+        setDescription(policy.description || '');
+        setIsActive(policy.isActive);
+        setTiers(policy.tiers && policy.tiers.length > 0 ? [...policy.tiers] : []);
+      } else {
+        setPolicyCode('');
+        setName('');
+        setBookingType('FIT');
+        setCancellationFeeType('TIERED');
+        setFreeCancellationBeforeDays(7);
+        setDefaultPenaltyPercent(100);
+        setDescription('');
+        setIsActive(true);
+        setTiers([
+          { minDays: 7, maxDays: null, penaltyPercent: 0, description: 'Miễn phí hủy trước 7 ngày' },
+          { minDays: 4, maxDays: 6, penaltyPercent: 50, description: 'Phạt 50% tiền phòng' },
+          { minDays: 0, maxDays: 3, penaltyPercent: 100, description: 'Phạt 100% trong vòng 3 ngày' },
+        ]);
+      }
+      setErrorMsg(null);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [policy, isOpen]);
 
   const handleAddTier = () => {

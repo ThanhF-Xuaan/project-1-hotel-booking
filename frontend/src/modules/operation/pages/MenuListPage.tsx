@@ -87,7 +87,10 @@ export const MenuListPage: React.FC = () => {
   }, [searchName, searchType, searchStatus, page, pageSize]);
 
   useEffect(() => {
-    fetchMenus();
+    const timer = setTimeout(() => {
+      void fetchMenus();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchMenus]);
 
   const handleOpenAddModal = () => {

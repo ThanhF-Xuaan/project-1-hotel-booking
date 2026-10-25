@@ -35,7 +35,10 @@ export const HousekeepingPage: React.FC = () => {
   }, [hotelId, selectedStatusTab]);
 
   useEffect(() => {
-    fetchRooms();
+    const timer = setTimeout(() => {
+      void fetchRooms();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchRooms]);
 
   const handleUpdateStatus = async (roomInstanceId: number, newStatus: string) => {

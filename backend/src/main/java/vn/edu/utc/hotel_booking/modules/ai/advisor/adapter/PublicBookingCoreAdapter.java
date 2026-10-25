@@ -187,23 +187,44 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                     }
                 }
             } else if (regionId != null && regionId > 0) {
-                BookingSearchRequest hReq = new BookingSearchRequest();
-                hReq.setRegionId(regionId);
-                hReq.setCheckInDate(criteria.getCheckInDate());
-                hReq.setCheckOutDate(criteria.getCheckOutDate());
-                hReq.setRoomsCount(1);
-                hReq.setPage(0);
-                hReq.setPageSize(20);
-                hReq.normalize();
+                int maxHotelsToScan = limit;
+                int maxHotelPages = (int) Math.ceil(maxHotelsToScan / 20.0);
+                int hotelsScanned = 0;
+                int pageNumber = 0;
+                boolean hasMoreHotelPages = true;
 
-                PageResponse<AvailableHotelResponse> hotelPage = publicBookingSearchService.searchHotels(hReq);
-                if (hotelPage != null && hotelPage.getContent() != null) {
+                while (hasMoreHotelPages && pageNumber < maxHotelPages
+                        && hotelsScanned < maxHotelsToScan && rawRooms.size() < limit) {
+                    BookingSearchRequest hReq = new BookingSearchRequest();
+                    hReq.setRegionId(regionId);
+                    hReq.setCheckInDate(criteria.getCheckInDate());
+                    hReq.setCheckOutDate(criteria.getCheckOutDate());
+                    hReq.setRoomsCount(1);
+                    hReq.setPage(pageNumber);
+                    // Core computes the offset as page * pageSize. Keep the page size stable
+                    // across pages so a smaller final budget cannot shift the next page backward.
+                    hReq.setPageSize(20);
+                    hReq.normalize();
+
+                    PageResponse<AvailableHotelResponse> hotelPage = publicBookingSearchService.searchHotels(hReq);
+                    if (hotelPage == null || hotelPage.getContent() == null) {
+                        catalogComplete = false;
+                        coverageReasons.add(CoverageReason.CATALOG_PAGE_FAILED);
+                        break;
+                    }
+
                     for (AvailableHotelResponse hotel : hotelPage.getContent()) {
+                        if (hotelsScanned >= maxHotelsToScan) {
+                            catalogComplete = false;
+                            coverageReasons.add(CoverageReason.EVALUATION_LIMIT);
+                            break;
+                        }
                         if (rawRooms.size() >= limit) {
                             catalogComplete = false;
                             coverageReasons.add(CoverageReason.EVALUATION_LIMIT);
                             break;
                         }
+                        hotelsScanned++;
 
                         try {
                             BookingSearchRequest rReq = new BookingSearchRequest();
@@ -235,6 +256,19 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                             coverageReasons.add(CoverageReason.CATALOG_PAGE_FAILED);
                         }
                     }
+
+                    hasMoreHotelPages = !hotelPage.isLast();
+                    if (hasMoreHotelPages && (hotelsScanned >= maxHotelsToScan || rawRooms.size() >= limit)) {
+                        catalogComplete = false;
+                        coverageReasons.add(CoverageReason.EVALUATION_LIMIT);
+                        break;
+                    }
+                    pageNumber++;
+                }
+
+                if (hasMoreHotelPages && (hotelsScanned >= maxHotelsToScan || pageNumber >= maxHotelPages)) {
+                    catalogComplete = false;
+                    coverageReasons.add(CoverageReason.EVALUATION_LIMIT);
                 }
             }
         } catch (Exception e) {

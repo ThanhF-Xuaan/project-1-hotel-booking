@@ -17,12 +17,13 @@ import { RoomRecommendationCard } from './RoomRecommendationCard';
 import type {
   AdvisorResultDto,
   AdvisorRecommendation,
+  AdvisorSearchCriteria,
   ChatMessage,
   AdvisorClientError,
 } from '../../types/roomAdvisor.types';
 
 interface RoomAdvisorWidgetProps {
-  onViewRoomDetails?: (recommendation: AdvisorRecommendation) => void;
+  onViewRoomDetails?: (recommendation: AdvisorRecommendation, criteria: AdvisorSearchCriteria) => void;
   isOpenExternal?: boolean;
   onCloseExternal?: () => void;
 }
@@ -120,7 +121,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
         contractVersion: '2.0',
         message: text,
         sessionId,
-        sessionVersion,
+        expectedSessionVersion: sessionVersion,
       });
 
       if (result.sessionId) {
@@ -161,6 +162,30 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
         setSessionId(undefined);
         setSessionVersion(undefined);
       }
+
+      if (clientErr.isSessionConflict && sessionId) {
+        try {
+          const resynced = await sendAdvisorRefresh({
+            contractVersion: '2.0',
+            sessionId,
+          });
+          if (typeof resynced.sessionVersion === 'number') {
+            setSessionVersion(resynced.sessionVersion);
+          }
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: createMessageId('resync'),
+              sender: 'system',
+              text: 'Đã tự động đồng bộ lại phiên tư vấn. Vui lòng gửi lại yêu cầu của bạn.',
+              timestamp: new Date(),
+            },
+          ]);
+        } catch {
+          setSessionId(undefined);
+          setSessionVersion(undefined);
+        }
+      }
     } finally {
       setIsLoading(false);
     }
@@ -189,7 +214,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
       const result = await sendAdvisorRefresh({
         contractVersion: '2.0',
         sessionId,
-        sessionVersion,
+        expectedSessionVersion: sessionVersion,
       });
 
       if (typeof result.sessionVersion === 'number') {
@@ -351,7 +376,9 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                             key={rec.recommendationId}
                             recommendation={rec}
                             onViewDetails={(r) => {
-                              onViewRoomDetails?.(r);
+                              if (msg.result?.criteria) {
+                                onViewRoomDetails?.(r, msg.result.criteria);
+                              }
                               handleClose();
                             }}
                           />

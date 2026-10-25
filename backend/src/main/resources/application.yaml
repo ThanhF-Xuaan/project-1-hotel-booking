@@ -68,6 +68,10 @@ logging:
 # CẤU HÌNH CỔNG THANH TOÁN (Giai đoạn A — T06 Payment Gateway)
 # Mọi secret lấy từ env — mặc định rỗng để app vẫn chạy dev khi chưa có key
 # =============================================================================
+hotel:
+  scheduling:
+    enabled: ${HOTEL_SCHEDULING_ENABLED:true}
+
 payment:
   gateway:
     vnpay:

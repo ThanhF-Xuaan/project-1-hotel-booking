@@ -114,7 +114,7 @@ export async function sendAdvisorChat(
           contractVersion: '2.0',
           message: requestOrMessage,
           ...(sessionId ? { sessionId } : {}),
-          ...(typeof sessionVersion === 'number' ? { sessionVersion } : {}),
+          ...(typeof sessionVersion === 'number' ? { expectedSessionVersion: sessionVersion } : {}),
         }
       : requestOrMessage;
 
@@ -141,7 +141,7 @@ export async function sendAdvisorRefresh(
       ? {
           contractVersion: '2.0',
           sessionId: requestOrSessionId,
-          ...(typeof sessionVersion === 'number' ? { sessionVersion } : {}),
+          ...(typeof sessionVersion === 'number' ? { expectedSessionVersion: sessionVersion } : {}),
         }
       : requestOrSessionId;
 

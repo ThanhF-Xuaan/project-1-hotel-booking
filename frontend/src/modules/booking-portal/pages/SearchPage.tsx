@@ -15,7 +15,7 @@ import {
 import Button from '../../../core/components/ui/Button';
 import type { CustomerSearchCriteria, AvailableRoomOffer } from '../types/portal.types';
 import { RoomAdvisorWidget } from '../components/RoomAdvisor/RoomAdvisorWidget';
-import type { AdvisorRecommendation } from '../types/roomAdvisor.types';
+import type { AdvisorRecommendation, AdvisorSearchCriteria } from '../types/roomAdvisor.types';
 
 const DEFAULT_CHECK_IN = new Date(Date.now() + 86400000).toISOString().split('T')[0];
 const DEFAULT_CHECK_OUT = new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0];
@@ -95,21 +95,29 @@ export const SearchPage: React.FC = () => {
     });
   };
 
-  const handleAdvisorViewDetails = (rec: AdvisorRecommendation) => {
-    if (rec.stay) {
-      setCriteria((prev) => ({
-        ...prev,
-        hotelId: rec.room.hotelId || prev.hotelId,
-        checkInDate: rec.stay.checkInDate || prev.checkInDate,
-        checkOutDate: rec.stay.checkOutDate || prev.checkOutDate,
-        adultCount: rec.room.maxAdults || prev.adultCount,
-        childCount: rec.room.maxChildren || prev.childCount,
-      }));
-    }
-    const element = document.getElementById('room-offers-list');
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
+  const handleAdvisorViewDetails = (rec: AdvisorRecommendation, advisorCriteria: AdvisorSearchCriteria) => {
+    if (advisorCriteria.adults == null || advisorCriteria.adults < 1) return;
+
+    const hotelId = rec.room.hotelId;
+    const hotelRoomTypeId = rec.room.hotelRoomTypeId;
+    const checkIn = rec.stay.checkInDate;
+    const checkOut = rec.stay.checkOutDate;
+    const adults = advisorCriteria.adults;
+    const children = advisorCriteria.children ?? 0;
+    const infants = advisorCriteria.infants ?? 0;
+    const extraBeds = advisorCriteria.extraBeds ?? 0;
+    const roomsCount = rec.stay.roomsCount;
+    const query = new URLSearchParams({
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      adults: String(adults),
+      children: String(children),
+      infants: String(infants),
+      extraBeds: String(extraBeds),
+      roomsCount: String(roomsCount),
+    });
+
+    navigate(`/portal/hotels/${hotelId}/room-types/${hotelRoomTypeId}?${query.toString()}`);
   };
 
   return (

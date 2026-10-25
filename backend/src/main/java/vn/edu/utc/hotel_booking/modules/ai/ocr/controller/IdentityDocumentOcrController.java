@@ -20,6 +20,7 @@ import vn.edu.utc.hotel_booking.modules.ai.ocr.enums.OcrExtractionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.port.OcrVisionPort;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.validator.OcrUploadValidator;
 
+import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -62,6 +63,10 @@ public class IdentityDocumentOcrController {
     @PostMapping("/extract")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extract(
             @Valid @RequestBody OcrDocumentExtractRequestDto request) {
+        if (request.getFileName() != null && (request.getFileName().contains("..")
+                || request.getFileName().contains("/") || request.getFileName().contains("\\"))) {
+            throw new IllegalArgumentException("Tên file chứa ký tự không hợp lệ (path traversal)");
+        }
         log.debug("U13 OCR /extract request received");
         OcrStayGuestDraftDto draft = ocrVisionPort.extract(request);
         return ResponseEntity.ok(ApiResponse.success(draft));
@@ -91,16 +96,24 @@ public class IdentityDocumentOcrController {
                             .code(400).message(validation.getReason()).result(invalid).build());
         }
 
+        log.debug("U13 OCR /extract-file: sizeBytes={}", file.getSize());
+
+        if (rawOcrText == null || rawOcrText.isBlank()) {
+            OcrStayGuestDraftDto unreadable = new OcrStayGuestDraftDto();
+            unreadable.setStatus(OcrExtractionStatus.UNREADABLE_DOCUMENT);
+            unreadable.setOverallConfidence(0.0);
+            unreadable.setMissingOrLowConfidenceFields(List.of("rawOcrText"));
+            unreadable.setWarnings(List.of(
+                    "Không nhận được văn bản OCR từ client scanner; endpoint này không tự nhận dạng nội dung ảnh."));
+            return ResponseEntity.ok(ApiResponse.success(unreadable));
+        }
+
         // Xây dựng request từ file + rawOcrText
         OcrDocumentExtractRequestDto request = new OcrDocumentExtractRequestDto();
         request.setFileName(file.getOriginalFilename() != null ? file.getOriginalFilename() : "upload");
         request.setContentType(file.getContentType() != null ? file.getContentType() : "");
         request.setFileSizeBytes(file.getSize());
-        // rawOcrText: client cung cấp hoặc dùng tên file làm hint
-        String textToProcess = (rawOcrText != null && !rawOcrText.isBlank())
-                ? rawOcrText
-                : "(file upload - no rawOcrText provided)";
-        request.setRawOcrText(textToProcess);
+        request.setRawOcrText(rawOcrText);
 
         try {
             byte[] bytes = file.getBytes();
@@ -112,7 +125,6 @@ public class IdentityDocumentOcrController {
             log.warn("U13 OCR: không đọc được header bytes");
         }
 
-        log.debug("U13 OCR /extract-file: sizeBytes={}", file.getSize());
         OcrStayGuestDraftDto draft = ocrVisionPort.extract(request);
         return ResponseEntity.ok(ApiResponse.success(draft));
     }

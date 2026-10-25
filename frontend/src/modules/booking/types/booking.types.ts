@@ -218,7 +218,16 @@ export interface CheckoutSettlementResponse {
   netOverpaymentAmount?: number;
   canCheckOut: boolean;
   lineItems: SettlementLineItemDto[];
-  paymentHistory: any[];
+  paymentHistory: SettlementPaymentHistoryDto[];
+}
+
+export interface SettlementPaymentHistoryDto {
+  id?: number;
+  paymentMethod?: string;
+  paymentPurpose?: string;
+  transactionReference?: string;
+  paidAt?: string;
+  totalAmount?: number;
 }
 
 export interface ItemizedSurchargeDto {
@@ -258,7 +267,7 @@ export interface WalkInQuoteRoomItemResponse {
   childCount: number;
   infantCount: number;
   extraBeds: number;
-  dailyRates?: any[];
+  dailyRates?: unknown[];
   netPrice: number;
   vatAmount: number;
   serviceFeeAmount: number;

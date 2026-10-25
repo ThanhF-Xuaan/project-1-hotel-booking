@@ -213,7 +213,7 @@ const navGroups: NavGroup[] = [
 ]
 
 export const Sidebar: React.FC = () => {
-  const token = localStorage.getItem('auth_token')
+
 
   const filteredGroups = useMemo(() => {
     return navGroups
@@ -222,7 +222,7 @@ export const Sidebar: React.FC = () => {
         items: group.items.filter((item) => hasAnyRole(item.roles)),
       }))
       .filter((group) => group.items.length > 0)
-  }, [token])
+  }, [])
 
   return (
     <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col shrink-0 min-h-[calc(100vh-4rem)]">

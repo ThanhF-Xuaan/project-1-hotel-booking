@@ -30,9 +30,13 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
-      "sha256": "b6c113e6dca4514cf335132168d9889e5dc187e421858ff624f88a807ed41f98",
+      "sha256": "e08f2eadeb1b82295a2edd758b97e893774f8b7c5778e077672f7cafa5984b88",
       "historicalSha256": "407fb57045db44baadd3665d8b25ee81cb8972439a2480af4b1f7a34a8708a9f",
-      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
+      "previousReconciledSha256": "b6c113e6dca4514cf335132168d9889e5dc187e421858ff624f88a807ed41f98",
+      "previousReconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
+      "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+      "reconciledSourceCommit": "023933e38092ce27e42635148276d4bacffd5326",
+      "reconciledFromPr": 24,
       "baselineUnmodified": true
     },
     {
@@ -176,15 +180,28 @@
     },
     {
       "path": "frontend/src/App.tsx",
-      "sha256": "1284c1e4eae2b6902431cf6737b7417c11f7cd3a92c4a259cc6906d012877351",
-      "historicalSha256": "74548b3331c764736f311d0d3810ec67fd3381f376f9f506b7748e29aa36f2d3",
-      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
-      "baselineUnmodified": true
+      "sha256": "542e550fd6ff44b4cb8f8077373bc052b07ed872ad9d8bbd2c5eed174980d2f6",
+      "historicalSha256": "1284c1e4eae2b6902431cf6737b7417c11f7cd3a92c4a259cc6906d012877351",
+      "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+      "baselineUnmodified": true,
+      "unixLfSha256": "4a237345bb0ed668861c3a56ca0495d0b34bcc11544e64478f81dd8bdc715325",
+      "windowsCrlfSha256": "542e550fd6ff44b4cb8f8077373bc052b07ed872ad9d8bbd2c5eed174980d2f6"
     },
     {
       "path": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
-      "sha256": "83d5b3ece20ed6a0175be4893ec2f240d90dc038a0437b8686e2007de46bd0a0",
-      "baselineUnmodified": true
+      "sha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019",
+      "historicalSha256": "6f01ed80cffefe014a1561c2aa379153fed6dcfbc2c9f75fe8427c173c2587df",
+      "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+      "reconciledSourceCommit": "98527869021646dc3f198946158457a58a5ec0d2",
+      "reconciledFromPr": 23,
+      "baselineUnmodified": true,
+      "unixLfSha256": "c45db647bf9cd93929e602550ace257ce6117584cdf8058c0fad6ab28fd513f9",
+      "windowsCrlfSha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019",
+      "previousReconciledSha256": "8dd370acbc42a3e43d4a360679d817c88e65644e4d793f518bd6f26cfea01b3b",
+      "workingTreeReconciliation": {
+        "reason": "Carry confirmed advisor guest criteria (including infants and extra beds) into room-detail navigation.",
+        "verifiedWith": ["npm run build", "npm run test:e2e"]
+      }
     }
   ]
 }

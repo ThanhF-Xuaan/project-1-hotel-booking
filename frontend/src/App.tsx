@@ -21,6 +21,7 @@ import { ManagementDashboard } from './modules/dashboard/pages/ManagementDashboa
 import { SearchPage } from './modules/booking-portal/pages/SearchPage'
 import { CheckoutPage } from './modules/booking-portal/pages/CheckoutPage'
 import { MyBookingsPage } from './modules/booking-portal/pages/MyBookingsPage'
+import { RoomDetailsPage } from './modules/booking-portal/pages/RoomDetailsPage'
 
 export function App() {
   return (
@@ -39,6 +40,7 @@ export function App() {
           <Route path="search" element={<SearchPage />} />
           <Route path="checkout" element={<CheckoutPage />} />
           <Route path="my-bookings" element={<MyBookingsPage />} />
+          <Route path="hotels/:hotelId/room-types/:hotelRoomTypeId" element={<RoomDetailsPage />} />
         </Route>
 
         {/* Internal Hotel Staff & Executive Admin Console (bắt buộc đăng nhập) */}
