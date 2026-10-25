@@ -26,4 +26,12 @@ public interface StaffLookupService {
      * @return true nếu còn ít nhất 1 nhân viên, ngược lại false
      */
     boolean hasActiveStaffWithRoles(List<Short> roleIds);
+
+    /**
+     * Lấy entity Staff theo ID phục vụ liên kết khóa ngoại nội bộ giữa các aggregate root.
+     *
+     * @param id ID của nhân viên
+     * @return Staff entity hoặc null nếu không tồn tại
+     */
+    vn.edu.utc.hotel_booking.modules.identity.entity.Staff getStaffEntityById(Integer id);
 }

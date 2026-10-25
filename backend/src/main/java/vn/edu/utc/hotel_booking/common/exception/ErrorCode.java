@@ -131,6 +131,17 @@ public enum ErrorCode {
     ROOM_TYPE_NOT_BELONG_TO_HOTEL(7133, "Hạng phòng không thuộc khách sạn đã chọn", HttpStatus.BAD_REQUEST),
     POLICY_NOT_ACTIVE_OR_DELETED(7134, "Chính sách áp dụng không còn hiệu lực hoặc đã bị xóa", HttpStatus.BAD_REQUEST),
     POLICY_IN_USE(7135, "Chính sách đang được tham chiếu bởi đơn đặt phòng hoặc cấu hình ghi đè, không thể xóa", HttpStatus.CONFLICT),
+
+    // Group Booking & Contract Module Errors (7200s)
+    GROUP_INQUIRY_NOT_FOUND(7201, "Không tìm thấy yêu cầu đặt phòng đoàn", HttpStatus.NOT_FOUND),
+    GROUP_INQUIRY_ALREADY_PROCESSED(7202, "Yêu cầu đặt phòng đoàn này đã được xử lý (báo giá/hủy/chuyển hợp đồng)", HttpStatus.BAD_REQUEST),
+    GROUP_INQUIRY_MIN_ROOMS_INVALID(7203, "Yêu cầu đặt phòng đoàn phải có tối thiểu 6 phòng", HttpStatus.BAD_REQUEST),
+    GROUP_CONTRACT_NOT_FOUND(7211, "Không tìm thấy hợp đồng đặt phòng đoàn", HttpStatus.NOT_FOUND),
+    GROUP_CONTRACT_INVALID_STATUS(7212, "Trạng thái hợp đồng đoàn không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
+    GROUP_CONTRACT_DEPOSIT_EXPIRED(7213, "Hợp đồng đã quá hạn đặt cọc (Quá thời hạn giữ chỗ 3 ngày), phòng đã được giải phóng", HttpStatus.BAD_REQUEST),
+    GROUP_CONTRACT_DEPOSIT_INSUFFICIENT(7214, "Số tiền đặt cọc không đủ mức tối thiểu 50% theo Điều 328 BLDS 2015 và thỏa thuận hợp đồng", HttpStatus.BAD_REQUEST),
+    GROUP_CONTRACT_ALREADY_DEPOSITED(7215, "Hợp đồng này đã được xác nhận đặt cọc trước đó", HttpStatus.BAD_REQUEST),
+    GROUP_ROOM_BLOCK_INSUFFICIENT_INVENTORY(7216, "Không đủ phòng trống để tạo block phòng đoàn trong khoảng thời gian yêu cầu", HttpStatus.CONFLICT),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
