@@ -22,9 +22,9 @@ public interface RegionRepository extends JpaRepository<Region, Short> {
     boolean existsByCodeAndIdNotAndIsDeletedFalse(String code, Short id);
 
     @Query("SELECT r FROM Region r WHERE r.isDeleted = false " +
-            "AND (:status IS NULL OR r.status = :status) " +
-            "AND (:keyword IS NULL OR LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR LOWER(r.code) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+            "AND (CAST(:status AS string) IS NULL OR r.status = :status) " +
+            "AND (CAST(:keyword AS string) IS NULL OR LOWER(r.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR LOWER(r.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<Region> searchRegions(@Param("keyword") String keyword,
                                @Param("status") String status,
                                Pageable pageable);

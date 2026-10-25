@@ -27,6 +27,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -174,6 +176,27 @@ class IdentityDocumentOcrControllerTest {
                 .andExpect(jsonPath("$.code").value(200));
     }
 
+    @Test
+    @DisplayName("/extract-file thiếu rawOcrText trả UNREADABLE_DOCUMENT, không giả lập OCR")
+    void extractFile_missingRawOcrText_returnsUnreadableWithoutCallingExtractor() throws Exception {
+        when(uploadValidator.validate(any()))
+                .thenReturn(OcrUploadValidator.ValidationResult.ok());
+
+        byte[] jpegHeader = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0,
+                0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01};
+        MockMultipartFile file = new MockMultipartFile("file", "doc.jpg", "image/jpeg", jpegHeader);
+
+        mockMvc.perform(multipart("/api/v1/ai/ocr/extract-file").file(file))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.status").value("UNREADABLE_DOCUMENT"))
+                .andExpect(jsonPath("$.result.overallConfidence").value(0.0))
+                .andExpect(jsonPath("$.result.missingOrLowConfidenceFields[0]").value("rawOcrText"))
+                .andExpect(jsonPath("$.result.warnings[0]").value(
+                        org.hamcrest.Matchers.containsString("không tự nhận dạng nội dung ảnh")));
+
+        verify(ocrVisionPort, never()).extract(any());
+    }
+
     // =====================================================================
     // TC-25: PreAuthorize xác nhận – Controller dùng đúng annotation
     // =====================================================================
@@ -262,7 +285,6 @@ class IdentityDocumentOcrControllerTest {
 
         try {
             when(uploadValidator.validate(any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
-            when(ocrVisionPort.extract(any())).thenReturn(buildSuccessDraft());
 
             String sensitiveFileName = "PASSPORT_B9876543_JOHN_TEST.jpg";
             byte[] jpegHeader = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0,

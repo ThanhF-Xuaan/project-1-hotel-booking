@@ -17,13 +17,13 @@ public interface UtilityMeterRepository extends JpaRepository<UtilityMeter, Inte
            "AND (:hotelId IS NULL OR h.id = :hotelId) " +
            "AND (:regionId IS NULL OR h.region.id = :regionId) " +
            "AND (:meterType IS NULL OR m.meterType = :meterType) " +
-           "AND (:keyword IS NULL OR LOWER(m.meterCode) LIKE LOWER(CONCAT('%', :keyword, '%')))",
+           "AND (CAST(:keyword AS string) IS NULL OR LOWER(m.meterCode) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))",
            countQuery = "SELECT count(m) FROM UtilityMeter m " +
                         "WHERE m.isDeleted = false " +
                         "AND (:hotelId IS NULL OR m.hotel.id = :hotelId) " +
                         "AND (:regionId IS NULL OR m.hotel.region.id = :regionId) " +
                         "AND (:meterType IS NULL OR m.meterType = :meterType) " +
-                        "AND (:keyword IS NULL OR LOWER(m.meterCode) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+                        "AND (CAST(:keyword AS string) IS NULL OR LOWER(m.meterCode) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<UtilityMeter> search(@Param("hotelId") Short hotelId, 
                               @Param("regionId") Short regionId,
                               @Param("meterType") MeterType meterType, 

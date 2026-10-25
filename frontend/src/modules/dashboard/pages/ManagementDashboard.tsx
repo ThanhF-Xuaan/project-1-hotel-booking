@@ -49,7 +49,10 @@ export const ManagementDashboard: React.FC = () => {
   }, [hotelId, targetDate]);
 
   useEffect(() => {
-    fetchDashboardData();
+    const timer = setTimeout(() => {
+      void fetchDashboardData();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchDashboardData]);
 
   const formatVND = (amount: number) =>

@@ -37,26 +37,29 @@ export const NoShowPolicyModal: React.FC<NoShowPolicyModalProps> = ({
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
-    if (policy) {
-      setPolicyCode(policy.policyCode);
-      setName(policy.name);
-      setBookingType(policy.bookingType);
-      setReleaseRoomTime(policy.releaseRoomTime ? policy.releaseRoomTime.substring(0, 5) : '23:59');
-      setPenaltyType(policy.penaltyType);
-      setPenaltyValue(policy.penaltyValue);
-      setDescription(policy.description || '');
-      setIsActive(policy.isActive);
-    } else {
-      setPolicyCode('');
-      setName('');
-      setBookingType('ALL');
-      setReleaseRoomTime('23:59');
-      setPenaltyType('PERCENT_FIRST_NIGHT_RATE');
-      setPenaltyValue(100);
-      setDescription('');
-      setIsActive(true);
-    }
-    setErrorMsg(null);
+    const timer = setTimeout(() => {
+      if (policy) {
+        setPolicyCode(policy.policyCode);
+        setName(policy.name);
+        setBookingType(policy.bookingType);
+        setReleaseRoomTime(policy.releaseRoomTime ? policy.releaseRoomTime.substring(0, 5) : '23:59');
+        setPenaltyType(policy.penaltyType);
+        setPenaltyValue(policy.penaltyValue);
+        setDescription(policy.description || '');
+        setIsActive(policy.isActive);
+      } else {
+        setPolicyCode('');
+        setName('');
+        setBookingType('ALL');
+        setReleaseRoomTime('23:59');
+        setPenaltyType('PERCENT_FIRST_NIGHT_RATE');
+        setPenaltyValue(100);
+        setDescription('');
+        setIsActive(true);
+      }
+      setErrorMsg(null);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [policy, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {

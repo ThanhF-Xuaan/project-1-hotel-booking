@@ -1,5 +1,11 @@
 # Release 1 evaluation — 0.1.0-draft
 
+## Bổ sung trạng thái chạy harness local — 2026-10-24
+
+`T12Release1EvaluationSuiteTest` đã chạy trên `develop` baseline `a6b2088f55d2326a51e895ff2cfffbb4fe70831e` với `GEMINI_API_KEY` để trống: **74/74 case PASS**, không lỗi hoặc bỏ qua. Đây là kết quả harness synthetic qua deterministic application path, không phải Gemini live, đánh giá chất lượng model, human approval hay release sign-off. Dataset không đổi; SHA-256 vẫn là `8b8f086d5da5f08679f63053e9d17dbc1cbaa510b68a8c16c68e2da680c6bf5c`.
+
+Kết quả harness được giữ tách biệt với trạng thái duyệt gold assertions bên dưới. Không dùng lần chạy này để thay đổi `PENDING` thành approved hoặc kết luận về độ chính xác, latency, token hay cost của provider.
+
 ## Trạng thái và thực thi
 
 74 cases trong `cases.json`, contract artifact `2.0.0-draft.1`; **tất cả PENDING human approval**, execution `NOT_RUN_NO_ENGINE`. Không có live Gemini run hoặc kết quả accuracy/latency/token/cost. Validator R1-00 chỉ xác minh dataset structure, case IDs, request schemas, fixture references, patch targets và safety oracle metadata.

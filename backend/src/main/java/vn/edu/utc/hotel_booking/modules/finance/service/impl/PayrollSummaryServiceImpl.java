@@ -54,7 +54,7 @@ public class PayrollSummaryServiceImpl implements PayrollSummaryService {
                 ? currentStaff.getScopeEntityId()
                 : null;
 
-        if (!isChainAdmin && allowedHotelId == null && currentStaff != null) {
+        if (!isChainAdmin && allowedHotelId == null) {
             errors.add(new ErrorRowDto(0, "Không xác định được phạm vi khách sạn được phép import bảng lương"));
             return errors;
         }

@@ -53,14 +53,15 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !target) {
-      setPreview(null);
-      setPreviewError(null);
-      setSubmitError(null);
-      return;
-    }
+    const timer = setTimeout(() => {
+      if (!isOpen || !target) {
+        setPreview(null);
+        setPreviewError(null);
+        setSubmitError(null);
+        return;
+      }
 
-    const fetchPreview = async () => {
+      const fetchPreview = async () => {
       setIsLoadingPreview(true);
       setPreviewError(null);
       setSubmitError(null);
@@ -89,7 +90,9 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
       }
     };
 
-    fetchPreview();
+    void fetchPreview();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isOpen, target]);
 
   if (!target) return null;

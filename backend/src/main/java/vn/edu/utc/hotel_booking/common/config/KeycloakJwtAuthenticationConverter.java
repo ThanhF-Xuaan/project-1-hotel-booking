@@ -51,12 +51,15 @@ public class KeycloakJwtAuthenticationConverter implements Converter<Jwt, Abstra
 
         // 2. Chuyển đổi thành Spring Security GrantedAuthority với prefix "ROLE_"
         return realmRoles.stream()
-                .map(role -> {
+                .flatMap(role -> {
                     String roleName = role.toUpperCase();
                     if (!roleName.startsWith("ROLE_")) {
                         roleName = "ROLE_" + roleName;
                     }
-                    return new SimpleGrantedAuthority(roleName);
+                    return Stream.of(
+                            new SimpleGrantedAuthority(roleName),
+                            new SimpleGrantedAuthority("ROLE_" + roleName)
+                    );
                 })
                 .collect(Collectors.toSet());
     }

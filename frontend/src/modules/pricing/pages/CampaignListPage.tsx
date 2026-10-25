@@ -77,7 +77,10 @@ export const CampaignListPage: React.FC = () => {
   }, [page, pageSize, selectedHotelId, name, status])
 
   useEffect(() => {
-    loadData()
+    const timer = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadData])
 
   const handleSearch = (e: React.FormEvent) => {

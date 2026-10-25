@@ -544,7 +544,7 @@ public class DeterministicRoomRecommendationEngine {
         List<RecommendationReasonDto> reasons = new ArrayList<>();
         reasons.add(RecommendationReasonDto.builder()
                 .code(ReasonCode.AVAILABLE_ALL_NIGHTS)
-                .text("Còn phòng trong cả hai đêm theo API.")
+                .text("Còn phòng trong mọi đêm lưu trú theo dữ liệu API.")
                 .evidenceFields(List.of("availability.availableCount"))
                 .build());
 

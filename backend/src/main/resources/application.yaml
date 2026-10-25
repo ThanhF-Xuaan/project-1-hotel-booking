@@ -90,6 +90,8 @@ payment:
 # CẤU HÌNH LƯU TRỮ TỆP TIN & HỢP ĐỒNG SỐ (GIT Subsystem)
 # =============================================================================
 hotel:
+  scheduling:
+    enabled: ${HOTEL_SCHEDULING_ENABLED:true}
   storage:
     contracts:
       base-path: ${CONTRACT_STORAGE_PATH:uploads/contracts}

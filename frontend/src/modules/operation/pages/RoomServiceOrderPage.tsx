@@ -81,8 +81,11 @@ export const RoomServiceOrderPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchMenuItems();
-    fetchRecentOrders();
+    const timer = setTimeout(() => {
+      void fetchMenuItems();
+      void fetchRecentOrders();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchMenuItems, fetchRecentOrders]);
 
   const addToCart = (item: MenuResponse) => {
@@ -151,8 +154,8 @@ export const RoomServiceOrderPage: React.FC = () => {
       setCart([]);
       fetchRecentOrders();
       fetchMenuItems(); // Refresh stock
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Có lỗi xảy ra khi tạo đơn dịch vụ';
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Có lỗi xảy ra khi tạo đơn dịch vụ';
       setOrderErrorMessage(msg);
     } finally {
       setIsPlacingOrder(false);

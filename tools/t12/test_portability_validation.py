@@ -10,7 +10,7 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/t12'))
 
-from validate_r1_contracts import verify_source_evidence_entry
+from validate_r1_contracts import verify_protected_file_entry, verify_source_evidence_entry
 
 
 class TestPortabilityValidation(unittest.TestCase):
@@ -33,6 +33,14 @@ class TestPortabilityValidation(unittest.TestCase):
         error_disk = (ROOT / cls.error_entry['path']).read_bytes()
         cls.error_crlf = error_disk if b'\r\n' in error_disk else error_disk.replace(b'\n', b'\r\n')
         cls.error_lf = error_disk.replace(b'\r\n', b'\n')
+
+        protected_path = '.agents/rules/00-INDEX.template.md'
+        protected_doc = json.loads((ROOT / 'docs/t12/r1-00/v2.0.0-draft.1/protected-user-files.json')
+                                  .read_text(encoding='utf-8'))
+        cls.protected_entry = next(e for e in protected_doc['files'] if e['path'] == protected_path)
+        protected_disk = (ROOT / protected_path).read_bytes()
+        cls.protected_crlf = protected_disk if b'\r\n' in protected_disk else protected_disk.replace(b'\n', b'\r\n')
+        cls.protected_lf = protected_disk.replace(b'\r\n', b'\n')
 
     def test_security_config_crlf_passes(self):
         """Legitimate Windows CRLF bytes for SecurityConfig.java must pass."""
@@ -72,6 +80,15 @@ class TestPortabilityValidation(unittest.TestCase):
         """Unaffected file without designated canonical LF hash fails if converted to LF (strictness proof)."""
         # ErrorCode.java does NOT designate unixLfSha256 / canonicalSha256, so strict byte hash applies
         self.assertFalse(verify_source_evidence_entry(self.error_entry, self.error_lf))
+
+    def test_protected_file_accepts_canonical_lf_and_windows_crlf(self):
+        """Protected files retain content checks while tolerating Git's Windows line-ending conversion."""
+        self.assertTrue(verify_protected_file_entry(self.protected_entry, self.protected_lf))
+        self.assertTrue(verify_protected_file_entry(self.protected_entry, self.protected_crlf))
+
+    def test_protected_file_content_tampering_fails_after_line_ending_normalization(self):
+        tampered = self.protected_crlf.replace(b'template', b'tampered', 1)
+        self.assertFalse(verify_protected_file_entry(self.protected_entry, tampered))
 
     def test_full_contract_validator_execution(self):
         """The full offline validator command must execute and report PASS."""

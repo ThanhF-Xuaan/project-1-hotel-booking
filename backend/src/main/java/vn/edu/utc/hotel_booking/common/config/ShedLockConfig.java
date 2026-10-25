@@ -10,6 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import javax.sql.DataSource;
 
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "hotel.scheduling.enabled", havingValue = "true", matchIfMissing = true)
 @EnableSchedulerLock(defaultLockAtMostFor = "15m")
 public class ShedLockConfig {
 

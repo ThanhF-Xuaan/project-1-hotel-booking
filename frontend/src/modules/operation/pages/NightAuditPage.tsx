@@ -42,7 +42,10 @@ export const NightAuditPage: React.FC = () => {
   }, [hotelId, auditDate]);
 
   useEffect(() => {
-    fetchSummary();
+    const timer = setTimeout(() => {
+      void fetchSummary();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchSummary]);
 
   const handleExecuteNightAudit = async () => {

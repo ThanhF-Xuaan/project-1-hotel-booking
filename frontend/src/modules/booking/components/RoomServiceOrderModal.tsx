@@ -74,13 +74,16 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
   }, [isOpen, hotelId, searchKeyword, categoryFilter]);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchMenuItems();
-      setCart([]);
-      setPaymentMethod('POST_TO_ROOM');
-      setErrorMessage('');
-      setSuccessMessage('');
-    }
+    const timer = setTimeout(() => {
+      if (isOpen) {
+        void fetchMenuItems();
+        setCart([]);
+        setPaymentMethod('POST_TO_ROOM');
+        setErrorMessage('');
+        setSuccessMessage('');
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isOpen, fetchMenuItems]);
 
   const addToCart = (item: MenuResponse) => {

@@ -2,6 +2,7 @@ package vn.edu.utc.hotel_booking.modules.ai.rag.corpus;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagActivationRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestRequestDto;
@@ -19,14 +20,17 @@ public class DefaultPublicHotelCorpusInitializer {
 
     private final RagKnowledgeLifecycleService lifecycleService;
     private final RagVectorStorePort vectorStore;
+    private final boolean demoCorpusEnabled;
     private final AtomicBoolean seeded = new AtomicBoolean(false);
 
     public DefaultPublicHotelCorpusInitializer(
             RagKnowledgeLifecycleService lifecycleService,
-            RagVectorStorePort vectorStore
+            RagVectorStorePort vectorStore,
+            @Value("${hotel.ai.rag.demo-corpus.enabled:false}") boolean demoCorpusEnabled
     ) {
         this.lifecycleService = lifecycleService;
         this.vectorStore = vectorStore;
+        this.demoCorpusEnabled = demoCorpusEnabled;
     }
 
     @PostConstruct
@@ -35,11 +39,15 @@ public class DefaultPublicHotelCorpusInitializer {
     }
 
     public synchronized void seedDefaultCorpus() {
+        if (!demoCorpusEnabled) {
+            log.info("Synthetic RAG demo corpus is disabled.");
+            return;
+        }
         if (seeded.get()) {
             return;
         }
 
-        log.info("Seeding default approved public hotel corpus for RAG Release 2...");
+        log.info("Seeding synthetic public hotel corpus for local RAG demonstrations...");
 
         // 1. POLICY-CHECKIN (HN-01, hotelId = 1)
         ingestAndActivate(

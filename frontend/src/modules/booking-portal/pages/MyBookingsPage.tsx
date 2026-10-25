@@ -44,7 +44,7 @@ export const MyBookingsPage: React.FC = () => {
       } else {
         setSearchError('Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.');
       }
-    } catch (err: any) {
+    } catch {
       setSearchError('Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.');
     } finally {
       setIsSearching(false);

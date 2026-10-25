@@ -76,12 +76,15 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
   }, [bookingRoomId]);
 
   useEffect(() => {
-    if (isOpen && bookingRoomId) {
-      loadGuests();
-      setShowAddForm(false);
-      setSuccessMessage(null);
-      setErrorMessage(null);
-    }
+    const timer = setTimeout(() => {
+      if (isOpen && bookingRoomId) {
+        void loadGuests();
+        setShowAddForm(false);
+        setSuccessMessage(null);
+        setErrorMessage(null);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isOpen, bookingRoomId, loadGuests]);
 
   const resetForm = () => {

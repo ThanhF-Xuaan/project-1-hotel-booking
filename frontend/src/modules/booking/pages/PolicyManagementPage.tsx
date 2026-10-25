@@ -120,7 +120,10 @@ export const PolicyManagementPage: React.FC = () => {
   }, [activeTab, keyword, bookingTypeFilter, statusFilter, page, pageSize]);
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => {
+      void loadData();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [loadData]);
 
   const handleTabChange = (tab: ActiveTab) => {

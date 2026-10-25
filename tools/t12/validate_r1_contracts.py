@@ -62,6 +62,19 @@ def verify_source_evidence_entry(entry, path_or_bytes):
     return False
 
 
+def verify_protected_file_entry(entry, path_or_bytes):
+    """Verify protected content by exact bytes or its recorded canonical LF representation."""
+    raw_bytes = path_or_bytes if isinstance(path_or_bytes, bytes) else path_or_bytes.read_bytes()
+    expected_sha = entry['sha256'].lower()
+    if hashlib.sha256(raw_bytes).hexdigest() == expected_sha:
+        return True
+
+    normalized_bytes = raw_bytes.replace(b'\r\n', b'\n')
+    if b'\r' in normalized_bytes:
+        return False
+    return hashlib.sha256(normalized_bytes).hexdigest() == expected_sha
+
+
 def pointer(value, fragment):
     if not fragment:
         return value
@@ -351,8 +364,8 @@ def main():
     counters['governance_requirements_mapped'] = len(mapped_ids)
     protected = documents[DOC / 'protected-user-files.json']
     for entry in protected['files']:
-        require(hashlib.sha256((ROOT / entry['path']).read_bytes()).hexdigest().upper() ==
-                entry['sha256'], 'Protected user file changed: ' + entry['path'])
+        require(verify_protected_file_entry(entry, ROOT / entry['path']),
+                'Protected user file changed: ' + entry['path'])
         counters['protected_user_hashes_checked'] += 1
     evidence = documents[DOC / 'baseline-source-evidence.json']
     require(evidence['gitSha'] == decisions['baselineCommit'], 'Source baseline version mismatch')

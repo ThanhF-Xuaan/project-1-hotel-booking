@@ -63,6 +63,15 @@ public class CriteriaValidationService {
                 recordEvidence(evidenceMap, "hotelId", CriteriaOrigin.USER_PROVIDED, CriteriaConfirmation.CONFIRMED);
             }
             if (patch.getLocationKeyword() != null) {
+                String currentLocation = criteria.getLocationKeyword();
+                String requestedLocation = patch.getLocationKeyword();
+                boolean locationChanged = !Objects.equals(
+                        currentLocation == null ? null : currentLocation.trim().toLowerCase(Locale.ROOT),
+                        requestedLocation.trim().toLowerCase(Locale.ROOT));
+                if (locationChanged && patch.getHotelId() == null) {
+                    criteria.setHotelId(null);
+                    evidenceMap.remove("hotelId");
+                }
                 criteria.setLocationKeyword(patch.getLocationKeyword());
                 recordEvidence(evidenceMap, "locationKeyword", CriteriaOrigin.USER_PROVIDED, CriteriaConfirmation.CONFIRMED);
             }

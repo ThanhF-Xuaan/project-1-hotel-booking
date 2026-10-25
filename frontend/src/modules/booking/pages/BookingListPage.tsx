@@ -163,7 +163,10 @@ export const BookingListPage: React.FC = () => {
   }, [page, pageSize, searchBookingNumber, searchStatus, assignedTab]);
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => {
+      void loadData();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [loadData]);
 
   // Load available physical rooms when assigning

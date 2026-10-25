@@ -1,3 +1,9 @@
+const DEFAULT_TODAY = new Date().toISOString().split('T')[0];
+const DEFAULT_TOMORROW = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+const getCurrentLocalTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
 import React, { useState, useEffect, useId } from 'react';
 import {
   BedDouble,
@@ -84,13 +90,9 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   const [readyRooms, setReadyRooms] = useState<RoomInstanceDto[]>([]);
 
   // Ngày lưu trú
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const [checkInDate, setCheckInDate] = useState(today);
-  const [checkOutDate, setCheckOutDate] = useState(tomorrow);
-  const [actualCheckInTime, setActualCheckInTime] = useState(
-    new Date().toTimeString().slice(0, 5)
-  );
+  const [checkInDate, setCheckInDate] = useState(DEFAULT_TODAY);
+  const [checkOutDate, setCheckOutDate] = useState(DEFAULT_TOMORROW);
+  const [actualCheckInTime, setActualCheckInTime] = useState(getCurrentLocalTime);
 
   // Cấu hình phòng (Tối đa 5 phòng)
   const [rooms, setRooms] = useState<RoomConfig[]>([
@@ -124,8 +126,16 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   const [taxCode, setTaxCode] = useState('');
   const [companyAddress, setCompanyAddress] = useState('');
   const [companyContactName, setCompanyContactName] = useState('');
+  interface CompanySuggestionItem {
+    id: number;
+    name: string;
+    taxCode?: string;
+    address?: string;
+    contactName?: string;
+    contactPhone?: string;
+  }
   const [companyContactPhone, setCompanyContactPhone] = useState('');
-  const [companySuggestions, setCompanySuggestions] = useState<any[]>([]);
+  const [companySuggestions, setCompanySuggestions] = useState<CompanySuggestionItem[]>([]);
   const [isSearchingCompany, setIsSearchingCompany] = useState(false);
 
   // Người đặt / Đại diện thanh toán (BookingGuest)
@@ -166,6 +176,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   const checkInDateId = useId();
   const checkOutDateId = useId();
   const checkInTimeId = useId();
+
+  useEffect(() => {
+    if (isOpen) {
+      const timeoutId = window.setTimeout(() => setActualCheckInTime(getCurrentLocalTime()), 0);
+      return () => window.clearTimeout(timeoutId);
+    }
+  }, [isOpen]);
 
   // Load Hotels
   useEffect(() => {
@@ -242,7 +259,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     setRooms(rooms.filter((_, idx) => idx !== index));
   };
 
-  const updateRoomField = (index: number, field: keyof RoomConfig, value: any) => {
+  const updateRoomField = (index: number, field: keyof RoomConfig, value: RoomConfig[keyof RoomConfig]) => {
     const updated = [...rooms];
     updated[index] = { ...updated[index], [field]: value };
     // Nếu đổi hạng phòng thì reset roomInstanceId đã chọn
@@ -258,10 +275,21 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     setIsSearchingGuest(true);
     setGuestFoundMessage(null);
     try {
-      const res = await apiClient.get<any>(`/api/v1/guests/phone/${guestPhone.trim()}`);
+      interface GuestSearchResult {
+        id?: number;
+        fullName?: string;
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        identityNumber?: string;
+        identityType?: string;
+        nationality?: string;
+      }
+      const res = await apiClient.get<GuestSearchResult>(`/api/v1/guests/phone/${guestPhone.trim()}`);
       if (res.result) {
         setSelectedGuestId(res.result.id);
-        setGuestFullName(res.result.fullName || `${res.result.lastName || ''} ${res.result.firstName || ''}`.trim());
+        const name = res.result.fullName || `${res.result.lastName || ''} ${res.result.firstName || ''}`.trim();
+        if (name) setGuestFullName(name);
         if (res.result.email) setGuestEmail(res.result.email);
         if (res.result.identityNumber) setGuestIdentityNumber(res.result.identityNumber);
         if (res.result.identityType) setGuestIdentityType(res.result.identityType);
@@ -286,12 +314,20 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     }
     setIsSearchingCompany(true);
     try {
-      const res = await apiClient.post<any>('/api/v1/companies/filter', {
+      const res = await apiClient.post<{ content?: Array<{ id: number; name?: string; taxCode?: string; address?: string; contactName?: string; contactPhone?: string }> }>('/api/v1/companies/filter', {
         keyword: query.trim(),
         pageSize: 5,
       });
       if (res.result?.content) {
-        setCompanySuggestions(res.result.content);
+        const mapped: CompanySuggestionItem[] = res.result.content.map((item) => ({
+          id: item.id,
+          name: item.name || '',
+          taxCode: item.taxCode,
+          address: item.address,
+          contactName: item.contactName,
+          contactPhone: item.contactPhone,
+        }));
+        setCompanySuggestions(mapped);
       }
     } catch {
       setCompanySuggestions([]);
@@ -300,7 +336,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     }
   };
 
-  const handleSelectCompany = (comp: any) => {
+  const handleSelectCompany = (comp: CompanySuggestionItem) => {
     setSelectedCompanyId(comp.id);
     setCompanyName(comp.name || '');
     setTaxCode(comp.taxCode || '');
@@ -360,7 +396,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     roomIndex: number,
     guestIndex: number,
     field: keyof WalkInStayGuestRequest,
-    value: any
+    value: WalkInStayGuestRequest[keyof WalkInStayGuestRequest]
   ) => {
     const updated = [...rooms];
     const guests = [...updated[roomIndex].stayGuests];
@@ -448,8 +484,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         setConfirmedCharges(detectedCharges);
         setStep(3);
       }
-    } catch (err: any) {
-      setFormError(err?.response?.data?.message || 'Lỗi tính báo giá phòng và phụ thu.');
+    } catch (err: unknown) {
+      setFormError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Lỗi tính báo giá phòng và phụ thu.');
     } finally {
       setIsLoadingQuote(false);
     }
@@ -469,18 +505,21 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
   // Khi sang Bước 5, tự động tính số tiền thanh toán
   useEffect(() => {
-    if (step === 5) {
-      if (isSmallOrFit) {
-        setPaymentPurpose('FULL_PAYMENT');
-        setCustomPaidAmount(grandTotal);
-      } else {
-        if (paymentPurpose === 'FULL_PAYMENT') {
+    const timer = setTimeout(() => {
+      if (step === 5) {
+        if (isSmallOrFit) {
+          setPaymentPurpose('FULL_PAYMENT');
           setCustomPaidAmount(grandTotal);
         } else {
-          setCustomPaidAmount(Math.round(grandTotal * 0.5));
+          if (paymentPurpose === 'FULL_PAYMENT') {
+            setCustomPaidAmount(grandTotal);
+          } else {
+            setCustomPaidAmount(Math.round(grandTotal * 0.5));
+          }
         }
       }
-    }
+    }, 0);
+    return () => clearTimeout(timer);
   }, [step, grandTotal, isSmallOrFit, paymentPurpose]);
 
   // Xử lý tạo đơn Walk-In và Check-in ngay
@@ -562,8 +601,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         onSuccess(res.result.bookingNumber);
         onClose();
       }
-    } catch (err: any) {
-      setFormError(err?.response?.data?.message || 'Có lỗi xảy ra khi hoàn tất nhận khách vãng lai.');
+    } catch (err: unknown) {
+      setFormError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Có lỗi xảy ra khi hoàn tất nhận khách vãng lai.');
     } finally {
       setIsSubmitting(false);
     }
@@ -649,7 +688,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   id={checkInDateId}
                   type="date"
                   value={checkInDate}
-                  min={today}
+                  min={DEFAULT_TODAY}
                   onChange={(e) => setCheckInDate(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600"
                 />
@@ -660,7 +699,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   id={checkOutDateId}
                   type="date"
                   value={checkOutDate}
-                  min={checkInDate || today}
+                  min={checkInDate || DEFAULT_TODAY}
                   onChange={(e) => setCheckOutDate(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600"
                 />
@@ -1496,7 +1535,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">Hình thức thanh toán</label>
                   <select
                     value={paymentMethod}
-                    onChange={(e: any) => setPaymentMethod(e.target.value)}
+                    onChange={(e) => setPaymentMethod(e.target.value as 'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD')}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm font-semibold"
                   >
                     <option value="CASH">Tiền mặt tại quầy (CASH)</option>

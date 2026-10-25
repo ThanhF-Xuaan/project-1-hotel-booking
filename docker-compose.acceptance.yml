@@ -1,0 +1,79 @@
+services:
+  # ==========================================
+  # 1. ACCEPTANCE DATABASE (POSTGRESQL)
+  # ==========================================
+  acceptance_postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-hotel_acceptance_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-AcceptanceSecret123!}
+    ports:
+      - "127.0.0.1:${DB_PORT:-15432}:5432"
+    volumes:
+      - acceptance_pg_data:/var/lib/postgresql/data
+    networks:
+      - hotel_acceptance_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-hotel_acceptance_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ==========================================
+  # 2. ACCEPTANCE CACHE (REDIS)
+  # ==========================================
+  acceptance_redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-16379}:6379"
+    volumes:
+      - acceptance_redis_data:/data
+    networks:
+      - hotel_acceptance_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ==========================================
+  # 3. ACCEPTANCE IAM (KEYCLOAK)
+  # ==========================================
+  acceptance_keycloak:
+    image: quay.io/keycloak/keycloak:24.0.4
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_URL: http://localhost:${KEYCLOAK_PORT:-18081}
+      KC_HOSTNAME_ADMIN_URL: http://localhost:${KEYCLOAK_PORT:-18081}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-18081}:8080"
+    volumes:
+      - ./tools/acceptance/keycloak/realm-acceptance.json:/opt/keycloak/data/import/realm-acceptance.json:ro
+      - acceptance_kc_data:/opt/keycloak/data
+    networks:
+      - hotel_acceptance_net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3;grep \"HTTP/1.1 200 OK\" <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 20s
+
+networks:
+  hotel_acceptance_net:
+    driver: bridge
+
+volumes:
+  acceptance_pg_data:
+  acceptance_redis_data:
+  acceptance_kc_data:

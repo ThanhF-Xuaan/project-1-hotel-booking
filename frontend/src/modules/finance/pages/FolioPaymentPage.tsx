@@ -153,7 +153,10 @@ export const FolioPaymentPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchBookingList();
+    const timer = setTimeout(() => {
+      void fetchBookingList();
+    }, 0);
+    return () => clearTimeout(timer);
   }, [fetchBookingList]);
 
   /** Click 1 dòng trong danh sách → nạp thẳng Folio của đơn đó */

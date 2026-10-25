@@ -9,6 +9,7 @@ export interface AdvisorSearchCriteria {
   checkOutDate?: string;
   adults?: number;
   children?: number;
+  infants?: number;
   extraBeds?: number;
   roomsCount?: number;
   budget?: {
@@ -102,7 +103,7 @@ export interface AdvisorResultDto {
   requestId: string;
   sessionId?: string;
   sessionVersion?: number;
-  status: 'RESULTS' | 'NEED_INFO' | 'NO_MATCH' | 'OUT_OF_SCOPE';
+  status: 'RESULTS' | 'NEED_INFO' | 'NO_MATCH' | 'INCOMPLETE_SEARCH' | 'TEMP_UNAVAILABLE' | 'OUT_OF_SCOPE';
   reply: string;
   criteria?: AdvisorSearchCriteria;
   missingFields?: string[];
@@ -115,13 +116,13 @@ export interface AdvisorChatRequestDto {
   contractVersion: '2.0';
   message: string;
   sessionId?: string;
-  sessionVersion?: number;
+  expectedSessionVersion?: number;
 }
 
 export interface AdvisorRefreshRequestDto {
   contractVersion: '2.0';
   sessionId: string;
-  sessionVersion?: number;
+  expectedSessionVersion?: number;
 }
 
 export interface AdvisorClientError {

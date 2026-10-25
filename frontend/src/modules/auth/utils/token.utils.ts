@@ -20,7 +20,20 @@ const ROLE_LABELS: Record<string, string> = {
   ROLE_CUSTOMER: 'Khách Hàng',
 }
 
-export function parseJwt(token: string): Record<string, any> | null {
+export interface JwtPayload {
+  name?: string
+  given_name?: string
+  family_name?: string
+  preferred_username?: string
+  sub?: string
+  email?: string
+  realm_access?: {
+    roles?: string[]
+  }
+  [key: string]: unknown
+}
+
+export function parseJwt(token: string): JwtPayload | null {
   try {
     const parts = token.split('.')
     if (parts.length < 2) return null

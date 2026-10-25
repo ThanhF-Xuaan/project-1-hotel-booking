@@ -22,6 +22,7 @@ import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PriceBreakdownDto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -248,6 +249,9 @@ class PublicBookingCoreAdapterTest {
                 .pageSize(20)
                 .totalElements(1L)
                 .totalPages(1)
+                .first(true)
+                .last(true)
+                .empty(false)
                 .build();
 
         when(publicBookingSearchService.searchHotels(any(BookingSearchRequest.class)))
@@ -280,6 +284,79 @@ class PublicBookingCoreAdapterTest {
 
         assertThat(result.getCandidates()).hasSize(1);
         assertThat(result.getQuoteByRoomTypeId().get(301).getCurrency()).isEqualTo("VND");
+    }
+
+    @Test
+    @DisplayName("Should keep region pagination stable and stop at the hotel evaluation limit")
+    void shouldKeepRegionPaginationStableAtEvaluationLimit() {
+        List<BookingSearchRequest> hotelRequests = new ArrayList<>();
+        List<Integer> evaluatedHotelIds = new ArrayList<>();
+        int totalHotels = 55;
+
+        when(publicBookingSearchService.searchHotels(any(BookingSearchRequest.class))).thenAnswer(invocation -> {
+            BookingSearchRequest request = invocation.getArgument(0);
+            hotelRequests.add(request);
+            int pageSize = request.getPageSize();
+            int start = request.getPage() * pageSize;
+            int end = Math.min(totalHotels, start + pageSize);
+            List<AvailableHotelResponse> hotels = new ArrayList<>();
+            for (int i = start; i < end; i++) {
+                hotels.add(AvailableHotelResponse.builder()
+                        .hotelId(i + 1)
+                        .hotelName("Acceptance Hotel " + (i + 1))
+                        .currency("VND")
+                        .build());
+            }
+            return PageResponse.<AvailableHotelResponse>builder()
+                    .content(hotels)
+                    .pageNumber(request.getPage())
+                    .pageSize(pageSize)
+                    .totalElements((long) totalHotels)
+                    .totalPages((int) Math.ceil((double) totalHotels / pageSize))
+                    .first(request.getPage() == 0)
+                    .last(end >= totalHotels)
+                    .empty(hotels.isEmpty())
+                    .build();
+        });
+
+        when(publicBookingSearchService.searchRooms(any(BookingSearchRequest.class))).thenAnswer(invocation -> {
+            BookingSearchRequest request = invocation.getArgument(0);
+            int hotelId = request.getHotelId();
+            evaluatedHotelIds.add(hotelId);
+            PriceBreakdownDto price = PriceBreakdownDto.builder()
+                    .hotelRoomTypeId(hotelId)
+                    .totalNights(1)
+                    .finalTotalAmount(new BigDecimal("900000"))
+                    .build();
+            return List.of(AvailableRoomTypeResponse.builder()
+                    .hotelRoomTypeId(hotelId)
+                    .roomTypeCode("STANDARD")
+                    .roomTypeName("Standard " + hotelId)
+                    .standardAdults((short) 1)
+                    .maxAdults((short) 2)
+                    .maxTotalGuests((short) 2)
+                    .availableRooms(2)
+                    .priceBreakdown(price)
+                    .build());
+        });
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .locationKeyword("North")
+                .checkInDate(LocalDate.of(2026, 11, 20))
+                .checkOutDate(LocalDate.of(2026, 11, 21))
+                .adults(1)
+                .roomsCount(1)
+                .build();
+
+        CoreCandidateDiscoveryResult result = adapter.discoverAndQuoteCandidates(criteria, (short) 5, 50);
+
+        assertThat(hotelRequests).extracting(BookingSearchRequest::getPage).containsExactly(0, 1, 2);
+        assertThat(hotelRequests).extracting(BookingSearchRequest::getPageSize).containsOnly(20);
+        assertThat(evaluatedHotelIds).hasSize(50).doesNotHaveDuplicates().containsExactlyElementsOf(
+                java.util.stream.IntStream.rangeClosed(1, 50).boxed().toList());
+        assertThat(result.getCandidates()).hasSize(50);
+        assertThat(result.isCatalogComplete()).isFalse();
+        assertThat(result.getCoverageReasons()).contains(CoverageReason.EVALUATION_LIMIT);
     }
 
     @Test
