@@ -202,6 +202,51 @@ SELECT setval(
     (SELECT GREATEST(COALESCE(MAX(id), 1), 1) FROM booking_guests)
 );
 
+-- 13.1. U14 local synthetic profiles and account bindings (no consent is pre-granted)
+INSERT INTO booking_guests (public_id, full_name, phone, email, nationality, status)
+SELECT '30000000-0000-0000-0000-000000000002', 'U14 Synthetic Customer B', '0900000014',
+       'u14-customer-b@acceptance.local', 'Synthetic', 'ACTIVE'
+WHERE NOT EXISTS (
+    SELECT 1 FROM booking_guests
+    WHERE public_id = '30000000-0000-0000-0000-000000000002'
+);
+
+WITH u14_fixture_bindings (issuer, subject, guest_public_id) AS (
+    VALUES
+        ('http://localhost:18081/realms/hotel-acceptance',
+         '20000000-0000-0000-0000-000000000006',
+         '30000000-0000-0000-0000-000000000001'),
+        ('http://localhost:18081/realms/hotel-acceptance',
+         '20000000-0000-0000-0000-000000000007',
+         '30000000-0000-0000-0000-000000000002')
+)
+INSERT INTO personalization_account_bindings (issuer, subject, guest_id, binding_version, source, status)
+SELECT fixture.issuer, fixture.subject, guest.id, 1, 'SYNTHETIC_FIXTURE', 'ACTIVE'
+FROM u14_fixture_bindings fixture
+JOIN booking_guests guest ON guest.public_id = fixture.guest_public_id::UUID
+ON CONFLICT (issuer, subject, binding_version) DO NOTHING;
+
+DO $$
+BEGIN
+    IF (
+        SELECT COUNT(*)
+        FROM personalization_account_bindings binding
+        JOIN booking_guests guest ON guest.id = binding.guest_id
+        WHERE binding.issuer = 'http://localhost:18081/realms/hotel-acceptance'
+          AND binding.status = 'ACTIVE'
+          AND binding.source = 'SYNTHETIC_FIXTURE'
+          AND (
+              (binding.subject = '20000000-0000-0000-0000-000000000006'
+               AND guest.public_id = '30000000-0000-0000-0000-000000000001')
+              OR
+              (binding.subject = '20000000-0000-0000-0000-000000000007'
+               AND guest.public_id = '30000000-0000-0000-0000-000000000002')
+          )
+    ) <> 2 THEN
+        RAISE EXCEPTION 'U14 synthetic account binding fixtures are missing or do not match the expected subjects';
+    END IF;
+END $$;
+
 INSERT INTO bookings (id, hotel_id, guest_id, booking_type, booking_number, subtotal_amount, total_amount, status)
 OVERRIDING SYSTEM VALUE
 VALUES
