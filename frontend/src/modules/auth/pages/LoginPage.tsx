@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, type To } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -52,8 +52,13 @@ export const LoginPage: React.FC = () => {
         if (res.result.refresh_token) {
           localStorage.setItem('auth_refresh_token', res.result.refresh_token)
         }
-        const from = (location.state as { from?: { pathname?: string } })?.from?.pathname || '/dashboard'
-        navigate(from, { replace: true })
+        const from = (location.state as { from?: To } | null)?.from
+        const destination: To = typeof from === 'string'
+          ? from
+          : from?.pathname
+            ? { pathname: from.pathname, search: from.search, hash: from.hash }
+            : '/dashboard'
+        navigate(destination, { replace: true })
       } else {
         setErrorMsg(res.message || 'Đăng nhập thất bại')
       }

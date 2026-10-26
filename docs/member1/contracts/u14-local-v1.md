@@ -1,6 +1,6 @@
 # Hợp đồng U14 local v1 — consent và gợi ý hạng phòng
 
-- Trạng thái: **PROPOSED — API/UI chưa triển khai; schema và fixture I01 đã viết, kiểm tra trên PostgreSQL tạm; chưa áp dụng vào volume acceptance**.
+- Trạng thái: **PROPOSED contract**; mục 7 ghi trạng thái triển khai local synthetic. Hợp đồng này không phê duyệt sử dụng dữ liệu khách thật.
 - Baseline: **develop@627887bc235d5eb0b59835a8d47744e605430aa8**.
 - Ngày: 2026-10-26; múi giờ Asia/Ho_Chi_Minh.
 - Đích: acceptance sandbox riêng, PostgreSQL/Keycloak và dữ liệu giả lập.
@@ -242,4 +242,6 @@ Dùng dữ liệu khách thật bị BLOCKED cho tới khi có identity verifica
 | D5: API/error detail | PROPOSED tại tài liệu này; chưa có implementation. Schema additive I01 đã có trên nhánh implementation |
 | D6: dữ liệu khách thật | BLOCKED bởi verification, privacy policy và retention chưa chốt |
 
-API/UI runtime: **NOT RUN**. Schema migration đã chạy trên PostgreSQL 16 tạm; chưa áp dụng vào volume acceptance. Contract không xác nhận model quality, consent khách thật hoặc production readiness.
+Tại thời điểm chốt thiết kế ban đầu, API/UI runtime: **NOT RUN**; schema migration khi đó mới được kiểm tra trên PostgreSQL 16 tạm.
+
+Cập nhật triển khai local ngày 2026-10-26, run `20261026-183941-474-ddccfd77`: I01–I06 đã được triển khai trên nhánh `codex/u14-local-v1-binding-storage`; `tools/acceptance/Verify.ps1` **PASS** với Maven 1.047/0 skip, API 23/23, browser 14/14, source audits, lint/build và snapshot restore. Bằng chứng chi tiết nằm trong [ma trận nghiệm thu](u14-local-v1.acceptance.md) và [báo cáo run](../acceptance/runs/acceptance-20261026-183941-474-ddccfd77.md). Đây chỉ là nghiệm thu synthetic local; không xác nhận quyền sở hữu hồ sơ khách thật, hiệu quả nghiệp vụ hoặc production readiness.

@@ -1,11 +1,11 @@
 package vn.edu.utc.hotel_booking;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-@Disabled("Requires running PostgreSQL and Keycloak containers")
+@EnabledIfSystemProperty(named = "acceptance.integration", matches = "true")
 class HotelBookingApplicationTests {
 
 	@Test

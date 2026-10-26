@@ -15,7 +15,7 @@ export const RequireAuth: React.FC = () => {
       <Navigate
         to="/login"
         replace
-        state={{ from: location.pathname + location.search }}
+        state={{ from: location }}
       />
     )
   }

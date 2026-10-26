@@ -2,12 +2,17 @@
 [CmdletBinding()]
 param(
     [switch]$InfrastructureOnly,
-    [switch]$ApplicationsOnly
+    [switch]$ApplicationsOnly,
+    [switch]$ServicesOnly
 )
 
 $ErrorActionPreference = 'Stop'
-if ($InfrastructureOnly -and $ApplicationsOnly) {
-    throw 'Chọn InfrastructureOnly hoặc ApplicationsOnly, không dùng cả hai.'
+$SelectedModes = @()
+if ($InfrastructureOnly) { $SelectedModes += 'InfrastructureOnly' }
+if ($ApplicationsOnly) { $SelectedModes += 'ApplicationsOnly' }
+if ($ServicesOnly) { $SelectedModes += 'ServicesOnly' }
+if ($SelectedModes.Count -gt 1) {
+    throw 'Chỉ chọn một trong InfrastructureOnly, ApplicationsOnly hoặc ServicesOnly.'
 }
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RuntimeDir = Join-Path $ScriptDir '.runtime'
@@ -56,6 +61,182 @@ function Test-LocalPortOpen {
     } finally {
         $client.Close()
     }
+}
+
+function Ensure-U14AcceptanceCustomer {
+    param([Parameter(Mandatory = $true)][string]$Realm, [Parameter(Mandatory = $true)][string]$ServerUrl)
+
+    $Root = $ServerUrl.TrimEnd('/')
+    $AdminTokenResponse = Invoke-RestMethod -Uri "$Root/realms/master/protocol/openid-connect/token" `
+        -Method Post -ContentType 'application/x-www-form-urlencoded' -Body @{
+            grant_type = 'password'
+            client_id = 'admin-cli'
+            username = [string]$env:KEYCLOAK_ADMIN
+            password = [string]$env:KEYCLOAK_ADMIN_PASSWORD
+        } -TimeoutSec 20
+    if (-not $AdminTokenResponse.access_token) { throw 'Không lấy được token quản trị Keycloak sandbox.' }
+    $Headers = @{ Authorization = "Bearer $($AdminTokenResponse.access_token)" }
+    $UsersUri = "$Root/admin/realms/$Realm/users?username=test_customer_b&exact=true"
+    $UsersResponse = Invoke-WebRequest -Uri $UsersUri -Headers $Headers -TimeoutSec 20 -UseBasicParsing
+    $Users = ConvertFrom-Json -InputObject $UsersResponse.Content -NoEnumerate
+    $Created = $false
+
+    if ($Users.Count -eq 0) {
+        $UserBody = @{
+            username = 'test_customer_b'
+            email = 'u14-customer-b@acceptance.local'
+            firstName = 'U14 Synthetic'
+            lastName = 'Customer B'
+            emailVerified = $true
+            enabled = $true
+            requiredActions = @()
+        } | ConvertTo-Json -Depth 4
+        $CreateResponse = Invoke-WebRequest -Uri "$Root/admin/realms/$Realm/users" -Method Post `
+            -Headers $Headers -ContentType 'application/json' -Body $UserBody -TimeoutSec 20 -UseBasicParsing
+        if ([int]$CreateResponse.StatusCode -ne 201) { throw 'Không tạo được CUSTOMER fixture U14 trong Keycloak sandbox.' }
+        $UsersResponse = Invoke-WebRequest -Uri $UsersUri -Headers $Headers -TimeoutSec 20 -UseBasicParsing
+        $Users = ConvertFrom-Json -InputObject $UsersResponse.Content -NoEnumerate
+        $Created = $true
+    }
+    if ($Users.Count -ne 1 -or -not $Users[0].id) {
+        throw 'Không thể phân giải duy nhất tài khoản test_customer_b trong Keycloak sandbox.'
+    }
+
+    $Customer = $Users[0]
+    $ProfileBody = @{
+        email = 'u14-customer-b@acceptance.local'
+        firstName = 'U14 Synthetic'
+        lastName = 'Customer B'
+        emailVerified = $true
+        enabled = $true
+        requiredActions = @()
+    } | ConvertTo-Json -Depth 4
+    $null = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)" -Method Put `
+        -Headers $Headers -ContentType 'application/json' -Body $ProfileBody -TimeoutSec 20
+
+    $Role = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/roles/CUSTOMER" -Headers $Headers -TimeoutSec 20
+    $MappedRoles = @(Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)/role-mappings/realm" `
+        -Headers $Headers -TimeoutSec 20)
+    if ($MappedRoles.name -notcontains 'CUSTOMER') {
+        $RoleBody = ConvertTo-Json -InputObject @($Role) -Depth 5
+        $null = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)/role-mappings/realm" `
+            -Method Post -Headers $Headers -ContentType 'application/json' -Body $RoleBody -TimeoutSec 20
+    }
+
+    try {
+        $CustomerTokenResponse = Invoke-RestMethod -Uri "$Root/realms/$Realm/protocol/openid-connect/token" `
+            -Method Post -ContentType 'application/x-www-form-urlencoded' -Body @{
+                grant_type = 'password'
+                client_id = 'hotel-frontend'
+                username = 'test_customer_b'
+                password = 'Password123!'
+            } -TimeoutSec 20
+    } catch {
+        $PasswordBody = @{
+            type = 'password'
+            value = 'Password123!'
+            temporary = $false
+        } | ConvertTo-Json -Depth 4
+        $null = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)/reset-password" `
+            -Method Put -Headers $Headers -ContentType 'application/json' -Body $PasswordBody -TimeoutSec 20
+        $CustomerTokenResponse = Invoke-RestMethod -Uri "$Root/realms/$Realm/protocol/openid-connect/token" `
+            -Method Post -ContentType 'application/x-www-form-urlencoded' -Body @{
+                grant_type = 'password'
+                client_id = 'hotel-frontend'
+                username = 'test_customer_b'
+                password = 'Password123!'
+            } -TimeoutSec 20
+    }
+    if (-not $CustomerTokenResponse.access_token) {
+        throw 'CUSTOMER fixture test_customer_b không lấy được token với thông tin acceptance.'
+    }
+
+    $Subject = [string]$Customer.id
+    if ($Subject -notmatch '^[0-9a-fA-F-]{36}$') { throw 'Subject CUSTOMER fixture U14 không phải UUID hợp lệ.' }
+    Write-Host '  CUSTOMER fixture test_customer_b sẵn sàng trong Keycloak sandbox.' -ForegroundColor Green
+    return $Subject
+}
+
+function Ensure-U14UnlinkedAcceptanceCustomer {
+    param([Parameter(Mandatory = $true)][string]$Realm, [Parameter(Mandatory = $true)][string]$ServerUrl)
+
+    $Root = $ServerUrl.TrimEnd('/')
+    $AdminTokenResponse = Invoke-RestMethod -Uri "$Root/realms/master/protocol/openid-connect/token" `
+        -Method Post -ContentType 'application/x-www-form-urlencoded' -Body @{
+            grant_type = 'password'
+            client_id = 'admin-cli'
+            username = [string]$env:KEYCLOAK_ADMIN
+            password = [string]$env:KEYCLOAK_ADMIN_PASSWORD
+        } -TimeoutSec 20
+    if (-not $AdminTokenResponse.access_token) { throw 'Không lấy được token quản trị Keycloak sandbox.' }
+    $Headers = @{ Authorization = "Bearer $($AdminTokenResponse.access_token)" }
+    $UsersUri = "$Root/admin/realms/$Realm/users?username=test_customer_unlinked&exact=true"
+    $UsersResponse = Invoke-WebRequest -Uri $UsersUri -Headers $Headers -TimeoutSec 20 -UseBasicParsing
+    $Users = ConvertFrom-Json -InputObject $UsersResponse.Content -NoEnumerate
+
+    if ($Users.Count -eq 0) {
+        $UserBody = @{
+            username = 'test_customer_unlinked'
+            email = 'u14-unlinked-customer@acceptance.local'
+            firstName = 'U14 Synthetic'
+            lastName = 'Unlinked Customer'
+            emailVerified = $true
+            enabled = $true
+            requiredActions = @()
+        } | ConvertTo-Json -Depth 4
+        $CreateResponse = Invoke-WebRequest -Uri "$Root/admin/realms/$Realm/users" -Method Post `
+            -Headers $Headers -ContentType 'application/json' -Body $UserBody -TimeoutSec 20 -UseBasicParsing
+        if ([int]$CreateResponse.StatusCode -ne 201) { throw 'Không tạo được CUSTOMER fixture U14 chưa liên kết.' }
+        $UsersResponse = Invoke-WebRequest -Uri $UsersUri -Headers $Headers -TimeoutSec 20 -UseBasicParsing
+        $Users = ConvertFrom-Json -InputObject $UsersResponse.Content -NoEnumerate
+    }
+    if ($Users.Count -ne 1 -or -not $Users[0].id) {
+        throw 'Không thể phân giải duy nhất tài khoản test_customer_unlinked trong Keycloak sandbox.'
+    }
+
+    $Customer = $Users[0]
+    $ProfileBody = @{
+        email = 'u14-unlinked-customer@acceptance.local'
+        firstName = 'U14 Synthetic'
+        lastName = 'Unlinked Customer'
+        emailVerified = $true
+        enabled = $true
+        requiredActions = @()
+    } | ConvertTo-Json -Depth 4
+    $null = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)" -Method Put `
+        -Headers $Headers -ContentType 'application/json' -Body $ProfileBody -TimeoutSec 20
+
+    $Role = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/roles/CUSTOMER" -Headers $Headers -TimeoutSec 20
+    $MappedRoles = @(Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)/role-mappings/realm" `
+        -Headers $Headers -TimeoutSec 20)
+    if ($MappedRoles.name -notcontains 'CUSTOMER') {
+        $RoleBody = ConvertTo-Json -InputObject @($Role) -Depth 5
+        $null = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)/role-mappings/realm" `
+            -Method Post -Headers $Headers -ContentType 'application/json' -Body $RoleBody -TimeoutSec 20
+    }
+
+    $PasswordBody = @{
+        type = 'password'
+        value = 'Password123!'
+        temporary = $false
+    } | ConvertTo-Json -Depth 4
+    $null = Invoke-RestMethod -Uri "$Root/admin/realms/$Realm/users/$($Customer.id)/reset-password" `
+        -Method Put -Headers $Headers -ContentType 'application/json' -Body $PasswordBody -TimeoutSec 20
+    $CustomerTokenResponse = Invoke-RestMethod -Uri "$Root/realms/$Realm/protocol/openid-connect/token" `
+        -Method Post -ContentType 'application/x-www-form-urlencoded' -Body @{
+            grant_type = 'password'
+            client_id = 'hotel-frontend'
+            username = 'test_customer_unlinked'
+            password = 'Password123!'
+        } -TimeoutSec 20
+    if (-not $CustomerTokenResponse.access_token) {
+        throw 'CUSTOMER fixture test_customer_unlinked không lấy được token acceptance.'
+    }
+
+    $Subject = [string]$Customer.id
+    if ($Subject -notmatch '^[0-9a-fA-F-]{36}$') { throw 'Subject CUSTOMER chưa liên kết không phải UUID hợp lệ.' }
+    Write-Host '  CUSTOMER fixture test_customer_unlinked sẵn sàng, không có binding nghiệp vụ.' -ForegroundColor Green
+    return $Subject
 }
 
 foreach ($applicationPort in @([int]$EnvConfig.BACKEND_PORT, [int]$EnvConfig.FRONTEND_PORT)) {
@@ -108,6 +289,20 @@ if ($Elapsed -ge $MaxWaitSeconds) {
     throw "Quá thời gian chờ container healthy ($MaxWaitSeconds s)."
 }
 
+if ($ServicesOnly) {
+    Write-Host 'Dịch vụ sandbox đã sẵn sàng; chưa chạy migration hoặc nạp fixture.' -ForegroundColor Green
+    return
+}
+
+$U14CustomerBSubject = $null
+$U14UnlinkedCustomerSubject = $null
+if (-not $ApplicationsOnly) {
+    $U14CustomerBSubject = Ensure-U14AcceptanceCustomer -Realm ([string]$EnvConfig.KEYCLOAK_REALM) `
+        -ServerUrl ([string]$EnvConfig.KEYCLOAK_SERVER_URL)
+    $U14UnlinkedCustomerSubject = Ensure-U14UnlinkedAcceptanceCustomer -Realm ([string]$EnvConfig.KEYCLOAK_REALM) `
+        -ServerUrl ([string]$EnvConfig.KEYCLOAK_SERVER_URL)
+}
+
 Write-Host "=== [3/6] Chạy Liquibase migration (context: master-data) ===" -ForegroundColor Cyan
 $NetworkName = 'hotel-m1-acceptance_hotel_acceptance_net'
 $DbChangelogPath = Join-Path $ProjectRoot 'backend/src/main/resources/db'
@@ -141,9 +336,22 @@ if ($LASTEXITCODE -ne 0) {
     throw 'Không chép được fixture SQL vào container PostgreSQL.'
 }
 
-docker exec $PgContainerId psql -v ON_ERROR_STOP=1 -U $($EnvConfig.DB_USER) -d $($EnvConfig.DB_NAME) -f /tmp/acceptance-fixtures.sql
+docker exec $PgContainerId psql -v ON_ERROR_STOP=1 -v "u14_customer_b_subject=$U14CustomerBSubject" `
+    -U $($EnvConfig.DB_USER) -d $($EnvConfig.DB_NAME) -f /tmp/acceptance-fixtures.sql
 if ($LASTEXITCODE -ne 0) {
     throw "Nạp fixture SQL thất bại (exit code $LASTEXITCODE)."
+}
+
+$U14BindingVerificationSql = "SELECT COUNT(*) FROM personalization_account_bindings binding JOIN booking_guests guest ON guest.id = binding.guest_id WHERE binding.issuer = 'http://localhost:18081/realms/hotel-acceptance' AND binding.status = 'ACTIVE' AND binding.source = 'SYNTHETIC_FIXTURE' AND ((binding.subject = '20000000-0000-0000-0000-000000000006' AND guest.public_id = '30000000-0000-0000-0000-000000000001') OR (binding.subject = '$U14CustomerBSubject' AND guest.public_id = '30000000-0000-0000-0000-000000000002'));"
+$U14BindingCount = docker exec $PgContainerId psql -v ON_ERROR_STOP=1 -U $($EnvConfig.DB_USER) `
+    -d $($EnvConfig.DB_NAME) -Atc "$U14BindingVerificationSql"
+if ($LASTEXITCODE -ne 0 -or [string]$U14BindingCount -ne '2') {
+    throw 'Hai CUSTOMER fixture U14 không được bind đúng Keycloak subject.'
+}
+$U14UnlinkedBindingCount = docker exec $PgContainerId psql -v ON_ERROR_STOP=1 -U $($EnvConfig.DB_USER) `
+    -d $($EnvConfig.DB_NAME) -Atc "SELECT COUNT(*) FROM personalization_account_bindings WHERE issuer = 'http://localhost:18081/realms/hotel-acceptance' AND subject = '$U14UnlinkedCustomerSubject' AND status = 'ACTIVE';"
+if ($LASTEXITCODE -ne 0 -or [string]$U14UnlinkedBindingCount -ne '0') {
+    throw 'CUSTOMER fixture chưa liên kết không được có active binding.'
 }
 
 $VerificationSql = "SELECT 'hotels' AS tbl, count(*) FROM hotels UNION ALL SELECT 'hotel_room_types', count(*) FROM hotel_room_types UNION ALL SELECT 'room_availability', count(*) FROM room_availability UNION ALL SELECT 'staffs', count(*) FROM staffs;"

@@ -89,6 +89,11 @@ public class HotelServiceImpl implements HotelService {
     }
 
     @Override
+    public boolean isActiveHotel(Short id) {
+        return id != null && hotelRepository.existsByIdAndStatusAndIsDeletedFalse(id, "ACTIVE");
+    }
+
+    @Override
     @Transactional
     public HotelResponse create(HotelCreateRequest request) {
         Region region = regionRepository.findByIdAndIsDeletedFalse(request.getRegionId())

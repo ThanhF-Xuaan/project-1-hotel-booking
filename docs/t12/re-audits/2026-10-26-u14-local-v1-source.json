@@ -1,0 +1,100 @@
+{
+  "version": "2026-10-26-u14-local-v1-source-v1",
+  "status": "WORKING_TREE_SOURCE_RECONCILED",
+  "comparisonCommit": "a683712ae430eeafe492bf4a01b64ef8580751df",
+  "implementationBaseCommit": "bdf8267cd0279ebaded67d79af5e5ae49d7749fa",
+  "manifestPath": "docs/t12/r1-00/v2.0.0-draft.1/baseline-source-evidence.json",
+  "manifestGitSha": "0e6d379eba8ab6ac7cf3573728d92d97f3e659e6",
+  "files": [
+    {
+      "path": "backend/pom.xml",
+      "previousSourceEvidence": {
+        "path": "backend/pom.xml",
+        "sha256": "1eaa80c0bb6458a2c550f19378a22818649ada190f5c23e2aed44d64e1850f0c",
+        "historicalSha256": "a9cdaf257a014858242c2844453503b59714258e793b94367ae04e217410d3cc",
+        "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
+        "baselineUnmodified": true
+      },
+      "baseHashes": {
+        "unixLfSha256": "54f581f80dabd0d7e4f0e7f64abfb5dbccd5a0c7d8c97f0eb97182c53174ca20",
+        "windowsCrlfSha256": "1eaa80c0bb6458a2c550f19378a22818649ada190f5c23e2aed44d64e1850f0c"
+      },
+      "currentHashes": {
+        "unixLfSha256": "3540a91bb8d548707ffc8c87d9881188e2c0ab266ce067e612a01df1b0b5cc02",
+        "windowsCrlfSha256": "2b2ff2303c71731407c9ec386c1d458562fe3c93d4d1dca4c819c3818510fa46"
+      },
+      "patchSha256": "7201574f36458a95870bcd86f8e95a1e9945afd27cf8b08ab3914493560f6765",
+      "review": "Replace only the direct Liquibase dependency with the Spring Boot 4 Liquibase starter so Boot manages Liquibase auto-configuration for the additive U14 migration. No SQL or migration content changes."
+    },
+    {
+      "path": "frontend/src/App.tsx",
+      "previousSourceEvidence": {
+        "path": "frontend/src/App.tsx",
+        "sha256": "cd4e7b5eb8818a0a3d742e01a35f48da45580bbb7163d144be5c7b9207a3415d",
+        "historicalSha256": "1284c1e4eae2b6902431cf6737b7417c11f7cd3a92c4a259cc6906d012877351",
+        "reconciledFromDevelopCommit": "52dc842c4e361ce729f8dd742fca5236eebe535a",
+        "baselineUnmodified": true,
+        "unixLfSha256": "59ee585d21004047316138394d4e3b6fe966ca40f7da1a986cae4becd3fe7b34",
+        "windowsCrlfSha256": "cd4e7b5eb8818a0a3d742e01a35f48da45580bbb7163d144be5c7b9207a3415d",
+        "previousReconciledSha256": "542e550fd6ff44b4cb8f8077373bc052b07ed872ad9d8bbd2c5eed174980d2f6",
+        "previousReconciledUnixLfSha256": "4a237345bb0ed668861c3a56ca0495d0b34bcc11544e64478f81dd8bdc715325",
+        "previousReconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+        "reconciledSourceCommit": "8d5a34791013e03478163f476799f4f776b460a8",
+        "reconciledFromPr": 27,
+        "reconciliationEvidence": "docs/t12/re-audits/2026-10-25-lazy-routes-v1.json"
+      },
+      "baseHashes": {
+        "unixLfSha256": "59ee585d21004047316138394d4e3b6fe966ca40f7da1a986cae4becd3fe7b34",
+        "windowsCrlfSha256": "cd4e7b5eb8818a0a3d742e01a35f48da45580bbb7163d144be5c7b9207a3415d"
+      },
+      "currentHashes": {
+        "unixLfSha256": "46f35957fe89cc803b0f7756b4ff5860ad93cb2ed36208515c536e3dcf308f3e",
+        "windowsCrlfSha256": "e0bc958bac423a91226cf875647c3b7ec9cefa3f1287846e88be82910652be0f"
+      },
+      "patchSha256": "f1f5f807a5cecdb59d3a0524742cb4f578d06035f5094afd0329ce56db08547c",
+      "review": "Add the exact lazy public PrivacyPage route for the U14 consent disclosure. The prior T12 and CUSTOMER-guarded personalization route tree is unchanged after removing both exact U14 route additions."
+    },
+    {
+      "path": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
+      "previousSourceEvidence": {
+        "path": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
+        "sha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019",
+        "historicalSha256": "6f01ed80cffefe014a1561c2aa379153fed6dcfbc2c9f75fe8427c173c2587df",
+        "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+        "reconciledSourceCommit": "98527869021646dc3f198946158457a58a5ec0d2",
+        "reconciledFromPr": 23,
+        "baselineUnmodified": true,
+        "unixLfSha256": "c45db647bf9cd93929e602550ace257ce6117584cdf8058c0fad6ab28fd513f9",
+        "windowsCrlfSha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019",
+        "previousReconciledSha256": "8dd370acbc42a3e43d4a360679d817c88e65644e4d793f518bd6f26cfea01b3b",
+        "workingTreeReconciliation": {
+          "reason": "Carry confirmed advisor guest criteria (including infants and extra beds) into room-detail navigation.",
+          "verifiedWith": [
+            "npm run build",
+            "npm run test:e2e"
+          ]
+        }
+      },
+      "baseHashes": {
+        "unixLfSha256": "c45db647bf9cd93929e602550ace257ce6117584cdf8058c0fad6ab28fd513f9",
+        "windowsCrlfSha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019"
+      },
+      "currentHashes": {
+        "unixLfSha256": "2ff3b0b90905689d3e6a1a01824619d6fad412894add13d1c62b25117d4305b8",
+        "windowsCrlfSha256": "a6e06e4392929fc477ce415b6c270ac17c980b0d9f677d032c6cbe91ec80aac7"
+      },
+      "patchSha256": "fe90031b50affbe5e1d37abffe46ea3c87f401e3f30fefb9109df05ab7772ea4",
+      "review": "Add one entry link that passes the selected hotelId to the U14 consent page. Existing SearchPage logic remains unchanged after removing this exact button."
+    }
+  ],
+  "verification": [
+    "Exact source additions, base/current hashes, and Git patch digests are checked by the read-only provenance verifiers.",
+    "npm run lint -- --max-warnings=0: PASS.",
+    "npm run build: PASS.",
+    "Focused Playwright return-to URL test: PASS (1/1).",
+    "Verify.ps1 run 20261026-153528-558-84ef82d3: PASS; Maven 1,047 tests with 0 skips, Playwright API 20/20, browser 13/13, dependency audit PASS, snapshot restored (SHA-256 712E9413B0EB9D94D217577C7ADED844CFC877D560329E9B80B8EA56550F3650).",
+    "T12 contract validator: 184 instances and 74 eval cases PASS; portability 12/12; Core source audit tests 11/11.",
+    "Privacy route source additions are exact, lazy-loaded and public only on /portal/privacy; the CUSTOMER personalization route remains guarded. Focused Playwright privacy navigation/content: PASS 7/7 full U14 browser file.",
+    "Verify.ps1 run 20261026-183941-474-ddccfd77: PASS; Maven 1,047/0 skips, API 23/23, browser 14/14, lint/build and all source audits PASS; snapshot restored (SHA-256 E5FDF369CC7E390784C55048B51BDE240B8F12874E3C752CD1D6C5E0B9796275)."
+  ]
+}

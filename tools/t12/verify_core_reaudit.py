@@ -10,8 +10,14 @@ BASE = "368f6e466cacfd5f7836e9d24b0908b9e1c1a132"
 ACCEPTED = "96d7815b4e5d13f5052ca0fa6a6c414c8297ea1e"
 AUDIT = "docs/t12/re-audits/2026-10-26-core-integration-v1.json"
 MANIFEST = "docs/t12/r1-00/v2.0.0-draft.1/baseline-source-evidence.json"
+U14_AUDIT = "docs/t12/re-audits/2026-10-26-u14-local-v1-source.json"
 ERRORS = "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java"
 AVAILABILITY = "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java"
+U14_SOURCE_PATHS = {
+    "backend/pom.xml",
+    "frontend/src/App.tsx",
+    "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
+}
 DEPENDENCIES = {
     "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/response/RoomAvailabilityResponse.java": True,
     "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/request/RoomAvailabilitySearchDto.java": True,
@@ -60,6 +66,51 @@ def verify_existing_errors(before, current):
     return len(new.keys() - old.keys())
 
 
+def verify_u14_source_entries(manifest, current_entries, read_working):
+    audit = json.loads((ROOT / U14_AUDIT).read_text(encoding="utf-8-sig"))
+    require(audit["status"] == "WORKING_TREE_SOURCE_RECONCILED" and
+            audit["manifestPath"] == MANIFEST and audit["manifestGitSha"] == manifest["gitSha"],
+            "U14 source provenance does not match the historical manifest")
+    require(audit["comparisonCommit"] == "a683712ae430eeafe492bf4a01b64ef8580751df" and
+            audit["implementationBaseCommit"] == "bdf8267cd0279ebaded67d79af5e5ae49d7749fa",
+            "Unreviewed U14 source comparison/base")
+    files = {entry["path"]: entry for entry in audit["files"]}
+    require(set(files) == U14_SOURCE_PATHS, "Unexpected U14 provenance scope")
+
+    for path, item in files.items():
+        base = lf(git("show", f'{audit["comparisonCommit"]}:{path}'))
+        implementation_base = lf(git("show", f'{audit["implementationBaseCommit"]}:{path}'))
+        working = read_working(path)
+        current = lf(working)
+        require(base == implementation_base, f"U14 base source drift: {path}")
+        require(sha(base) == item["baseHashes"]["unixLfSha256"],
+                f"U14 base LF hash mismatch: {path}")
+        require(sha(base.replace(b"\n", b"\r\n")) == item["baseHashes"]["windowsCrlfSha256"],
+                f"U14 base CRLF hash mismatch: {path}")
+        require(sha(current) == item["currentHashes"]["unixLfSha256"] and
+                sha(current.replace(b"\n", b"\r\n")) == item["currentHashes"]["windowsCrlfSha256"],
+                f"U14 current source hash mismatch: {path}")
+        patch = git("diff", "--no-ext-diff", "--binary", audit["comparisonCommit"], "--", path)
+        require(sha(patch) == item["patchSha256"], f"U14 source patch changed: {path}")
+
+        prior = item["previousSourceEvidence"]
+        require(prior["path"] == path, f"U14 previous source path mismatch: {path}")
+        previous_hashes = {prior.get(key) for key in ("sha256", "unixLfSha256", "windowsCrlfSha256")}
+        require(sha(base) in previous_hashes or sha(base.replace(b"\n", b"\r\n")) in previous_hashes,
+                f"U14 previous source hash is not anchored to its audited base: {path}")
+        entry = current_entries.get(path)
+        require(entry is not None and entry["sha256"] == item["currentHashes"]["windowsCrlfSha256"] and
+                entry.get("unixLfSha256") == item["currentHashes"]["unixLfSha256"] and
+                entry.get("windowsCrlfSha256") == item["currentHashes"]["windowsCrlfSha256"] and
+                entry.get("previousReconciledSha256") == prior["sha256"] and
+                entry.get("previousReconciledFromDevelopCommit") == prior.get("reconciledFromDevelopCommit") and
+                entry.get("historicalSha256") == prior.get("historicalSha256") and
+                entry.get("reconciledFromDevelopCommit") == audit["comparisonCommit"] and
+                entry.get("reconciliationEvidence") == U14_AUDIT and
+                entry.get("baselineUnmodified") is True,
+                f"U14 manifest entry does not match reviewed provenance: {path}")
+
+
 def verify_audit(audit=None, manifest=None, read_working=None):
     if audit is None:
         audit = json.loads((ROOT / AUDIT).read_text(encoding="utf-8-sig"))
@@ -80,8 +131,10 @@ def verify_audit(audit=None, manifest=None, read_working=None):
     require(set(current) == set(previous) and len(current) == len(manifest["files"]), "Source manifest path drift")
     require({k: v for k, v in manifest.items() if k != "files"} ==
             {k: v for k, v in old_manifest.items() if k != "files"}, "Historical manifest metadata changed")
+    verify_u14_source_entries(manifest, current, read_working)
     for path in set(previous) - set(paths):
-        require(current[path] == previous[path], f"Unrelated manifest entry changed: {path}")
+        if path not in U14_SOURCE_PATHS:
+            require(current[path] == previous[path], f"Unrelated manifest entry changed: {path}")
     new_errors = 0
     for entry in entries:
         path = entry["path"]

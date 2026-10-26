@@ -17,6 +17,8 @@ public interface HotelService {
 
     Hotel getEntityById(Short id);
 
+    boolean isActiveHotel(Short id);
+
     HotelResponse create(HotelCreateRequest request);
 
     HotelResponse update(Short id, HotelUpdateRequest request);

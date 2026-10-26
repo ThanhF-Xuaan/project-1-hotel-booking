@@ -38,11 +38,34 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $SnapshotFile)) {
 $Size = (Get-Item $SnapshotFile).Length
 Write-Host "  Đã lưu snapshot thành công ($Size bytes) vào: $SnapshotFile" -ForegroundColor Green
 
+$ExpectedTables = [ordered]@{}
+foreach ($Table in @('hotels', 'hotel_room_types', 'room_availability', 'staffs')) {
+    $ExistsOutput = docker exec $PgContainerId psql -U $($EnvConfig.DB_USER) -d $($EnvConfig.DB_NAME) -Atc `
+        "SELECT to_regclass('public.$Table') IS NOT NULL;"
+    if ($LASTEXITCODE -ne 0) { throw "Không thể xác nhận bảng $Table trước snapshot." }
+    $Exists = ([string]$ExistsOutput).Trim()
+    if ($Exists -eq 't') {
+        $CountOutput = docker exec $PgContainerId psql -U $($EnvConfig.DB_USER) -d $($EnvConfig.DB_NAME) -Atc `
+            "SELECT count(*) FROM public.$Table;"
+        if ($LASTEXITCODE -ne 0) { throw "Không thể đếm bảng $Table trước snapshot." }
+        [long]$Count = 0
+        if (-not [long]::TryParse(([string]$CountOutput).Trim(), [ref]$Count)) {
+            throw "Số dòng bảng $Table không hợp lệ trước snapshot."
+        }
+        $ExpectedTables[$Table] = $Count
+    } elseif ($Exists -eq 'f') {
+        $ExpectedTables[$Table] = $null
+    } else {
+        throw "Kết quả kiểm tra bảng $Table không hợp lệ trước snapshot."
+    }
+}
+
 $SnapshotMeta = @{
     createdAt = (Get-Date).ToString("yyyy-MM-ddTHH:mm:sszzz")
     snapshotFile = $SnapshotFile
     fileSize = $Size
     database = $EnvConfig.DB_NAME
+    expectedTables = $ExpectedTables
 }
 
 $MetadataFile = if ($CustomSnapshot) { [IO.Path]::ChangeExtension($SnapshotFile, 'metadata.json') } else { "$RuntimeDir/snapshot-metadata.json" }

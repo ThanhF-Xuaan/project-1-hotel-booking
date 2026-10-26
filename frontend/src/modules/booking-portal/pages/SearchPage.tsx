@@ -136,6 +136,14 @@ export const SearchPage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={() => navigate(`/portal/personalization?hotelId=${criteria.hotelId}`)}
+              className="px-3.5 py-2 text-xs font-semibold text-neutral-700 hover:text-red-600 hover:bg-neutral-50 rounded-xl transition-colors flex items-center gap-1.5"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Consent & gợi ý cá nhân hóa
+            </button>
+            <button
               onClick={() => setIsAdvisorOpen(true)}
               className="px-3.5 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors flex items-center gap-1.5 border border-red-200 shadow-2xs cursor-pointer"
             >

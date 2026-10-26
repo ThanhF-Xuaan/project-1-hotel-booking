@@ -177,10 +177,22 @@
     },
     {
       "path": "backend/pom.xml",
-      "sha256": "1eaa80c0bb6458a2c550f19378a22818649ada190f5c23e2aed44d64e1850f0c",
+      "sha256": "2b2ff2303c71731407c9ec386c1d458562fe3c93d4d1dca4c819c3818510fa46",
       "historicalSha256": "a9cdaf257a014858242c2844453503b59714258e793b94367ae04e217410d3cc",
-      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
-      "baselineUnmodified": true
+      "previousReconciledSha256": "1eaa80c0bb6458a2c550f19378a22818649ada190f5c23e2aed44d64e1850f0c",
+      "previousReconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
+      "reconciledFromDevelopCommit": "a683712ae430eeafe492bf4a01b64ef8580751df",
+      "baselineUnmodified": true,
+      "unixLfSha256": "3540a91bb8d548707ffc8c87d9881188e2c0ab266ce067e612a01df1b0b5cc02",
+      "windowsCrlfSha256": "2b2ff2303c71731407c9ec386c1d458562fe3c93d4d1dca4c819c3818510fa46",
+      "reconciliationEvidence": "docs/t12/re-audits/2026-10-26-u14-local-v1-source.json",
+      "workingTreeReconciliation": {
+        "reason": "Use Spring Boot 4 Liquibase starter so the acceptance application auto-configures Liquibase for additive U14 migrations.",
+        "verifiedWith": [
+          "Liquibase migration and fixture stages in the local acceptance runner",
+          "Full Maven suite in the local acceptance runner"
+        ]
+      }
     },
     {
       "path": "docker-compose.yml",
@@ -189,35 +201,42 @@
     },
     {
       "path": "frontend/src/App.tsx",
-      "sha256": "cd4e7b5eb8818a0a3d742e01a35f48da45580bbb7163d144be5c7b9207a3415d",
+      "sha256": "e0bc958bac423a91226cf875647c3b7ec9cefa3f1287846e88be82910652be0f",
       "historicalSha256": "1284c1e4eae2b6902431cf6737b7417c11f7cd3a92c4a259cc6906d012877351",
-      "reconciledFromDevelopCommit": "52dc842c4e361ce729f8dd742fca5236eebe535a",
+      "previousReconciledSha256": "cd4e7b5eb8818a0a3d742e01a35f48da45580bbb7163d144be5c7b9207a3415d",
+      "previousReconciledUnixLfSha256": "59ee585d21004047316138394d4e3b6fe966ca40f7da1a986cae4becd3fe7b34",
+      "previousReconciledFromDevelopCommit": "52dc842c4e361ce729f8dd742fca5236eebe535a",
+      "reconciledFromDevelopCommit": "a683712ae430eeafe492bf4a01b64ef8580751df",
       "baselineUnmodified": true,
-      "unixLfSha256": "59ee585d21004047316138394d4e3b6fe966ca40f7da1a986cae4becd3fe7b34",
-      "windowsCrlfSha256": "cd4e7b5eb8818a0a3d742e01a35f48da45580bbb7163d144be5c7b9207a3415d",
-      "previousReconciledSha256": "542e550fd6ff44b4cb8f8077373bc052b07ed872ad9d8bbd2c5eed174980d2f6",
-      "previousReconciledUnixLfSha256": "4a237345bb0ed668861c3a56ca0495d0b34bcc11544e64478f81dd8bdc715325",
-      "previousReconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
-      "reconciledSourceCommit": "8d5a34791013e03478163f476799f4f776b460a8",
-      "reconciledFromPr": 27,
-      "reconciliationEvidence": "docs/t12/re-audits/2026-10-25-lazy-routes-v1.json"
+      "unixLfSha256": "46f35957fe89cc803b0f7756b4ff5860ad93cb2ed36208515c536e3dcf308f3e",
+      "windowsCrlfSha256": "e0bc958bac423a91226cf875647c3b7ec9cefa3f1287846e88be82910652be0f",
+      "reconciliationEvidence": "docs/t12/re-audits/2026-10-26-u14-local-v1-source.json",
+      "workingTreeReconciliation": {
+        "reason": "Add the exact lazy CUSTOMER-guarded U14 personalization route and public privacy route; existing T12 route tree and imports remain unchanged after removing these routes.",
+        "verifiedWith": [
+          "tools/t12/verify_lazy_route_reaudit.cjs",
+          "tools/t12/verify_u14_source_reaudit.cjs",
+          "frontend/e2e/browser/u14-personalization.spec.ts"
+        ]
+      }
     },
     {
       "path": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
-      "sha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019",
+      "sha256": "a6e06e4392929fc477ce415b6c270ac17c980b0d9f677d032c6cbe91ec80aac7",
       "historicalSha256": "6f01ed80cffefe014a1561c2aa379153fed6dcfbc2c9f75fe8427c173c2587df",
-      "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
-      "reconciledSourceCommit": "98527869021646dc3f198946158457a58a5ec0d2",
-      "reconciledFromPr": 23,
+      "previousReconciledSha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019",
+      "previousReconciledUnixLfSha256": "c45db647bf9cd93929e602550ace257ce6117584cdf8058c0fad6ab28fd513f9",
+      "previousReconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+      "reconciledFromDevelopCommit": "a683712ae430eeafe492bf4a01b64ef8580751df",
       "baselineUnmodified": true,
-      "unixLfSha256": "c45db647bf9cd93929e602550ace257ce6117584cdf8058c0fad6ab28fd513f9",
-      "windowsCrlfSha256": "c13fdc4d76d2f77a9b5c06f491adb4ffc7b342cdb186e3b90072eac9374e9019",
-      "previousReconciledSha256": "8dd370acbc42a3e43d4a360679d817c88e65644e4d793f518bd6f26cfea01b3b",
+      "unixLfSha256": "2ff3b0b90905689d3e6a1a01824619d6fad412894add13d1c62b25117d4305b8",
+      "windowsCrlfSha256": "a6e06e4392929fc477ce415b6c270ac17c980b0d9f677d032c6cbe91ec80aac7",
+      "reconciliationEvidence": "docs/t12/re-audits/2026-10-26-u14-local-v1-source.json",
       "workingTreeReconciliation": {
-        "reason": "Carry confirmed advisor guest criteria (including infants and extra beds) into room-detail navigation.",
+        "reason": "Add only the U14 consent entry link; the existing T12 guest-criteria changes remain documented in the previous source evidence.",
         "verifiedWith": [
-          "npm run build",
-          "npm run test:e2e"
+          "tools/t12/verify_lazy_route_reaudit.cjs",
+          "tools/t12/verify_u14_source_reaudit.cjs"
         ]
       }
     }
