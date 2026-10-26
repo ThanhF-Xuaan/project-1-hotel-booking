@@ -27,4 +27,7 @@ public class FolioLineItemDto {
     BigDecimal vatAmount;
     BigDecimal totalAmount;
     String roomNumber;
+    @Builder.Default
+    Boolean coveredByMasterFolio = false;
+    String routingTarget; // 'MASTER' hoặc 'SUB_FOLIO'
 }

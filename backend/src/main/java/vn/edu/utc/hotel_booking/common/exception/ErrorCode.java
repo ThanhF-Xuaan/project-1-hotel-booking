@@ -143,6 +143,10 @@ public enum ErrorCode {
     GROUP_CONTRACT_ALREADY_DEPOSITED(7215, "Hợp đồng này đã được xác nhận đặt cọc trước đó", HttpStatus.BAD_REQUEST),
     GROUP_ROOM_BLOCK_INSUFFICIENT_INVENTORY(7216, "Không đủ phòng trống để tạo block phòng đoàn trong khoảng thời gian yêu cầu", HttpStatus.CONFLICT),
     GROUP_ROOM_BLOCK_NOT_FOUND(7217, "Không tìm thấy thông tin block phòng đoàn", HttpStatus.NOT_FOUND),
+    MASTER_FOLIO_NOT_FOUND(7218, "Không tìm thấy Sổ cái Master Folio đoàn", HttpStatus.NOT_FOUND),
+    BILLING_ROUTING_RULE_NOT_FOUND(7219, "Không tìm thấy quy tắc định tuyến chi phí", HttpStatus.NOT_FOUND),
+    MASTER_FOLIO_ALREADY_CLOSED(7220, "Master Folio đã đóng, không thể chỉnh sửa thêm", HttpStatus.BAD_REQUEST),
+    INVALID_ROUTING_ADJUSTMENT(7221, "Dữ liệu điều chuyển chi phí không hợp lệ", HttpStatus.BAD_REQUEST),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

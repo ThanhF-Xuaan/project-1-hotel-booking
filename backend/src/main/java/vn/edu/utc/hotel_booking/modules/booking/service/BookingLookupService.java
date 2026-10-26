@@ -106,4 +106,12 @@ public interface BookingLookupService {
      * @return Danh sách các đơn đặt phòng
      */
     java.util.List<Booking> getBookingsByGuestId(Long guestId);
+
+    /**
+     * Tra cứu toàn bộ các đơn đặt phòng thuộc một hợp đồng đoàn
+     *
+     * @param contractId ID hợp đồng đoàn
+     * @return Danh sách các đơn đặt phòng
+     */
+    java.util.List<Booking> getBookingsByContractId(Long contractId);
 }

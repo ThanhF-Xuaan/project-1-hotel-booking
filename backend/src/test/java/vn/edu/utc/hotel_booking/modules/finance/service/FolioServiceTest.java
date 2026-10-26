@@ -43,6 +43,15 @@ class FolioServiceTest {
     @Mock
     private ServiceOrderService serviceOrderService;
 
+    @Mock
+    private vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioRepository masterFolioRepository;
+
+    @Mock
+    private vn.edu.utc.hotel_booking.modules.finance.repository.BillingRoutingRuleRepository billingRoutingRuleRepository;
+
+    @Mock
+    private vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioItemAdjustmentRepository masterFolioItemAdjustmentRepository;
+
     @InjectMocks
     private FolioServiceImpl folioService;
 

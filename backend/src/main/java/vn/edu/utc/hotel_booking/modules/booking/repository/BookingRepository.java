@@ -30,4 +30,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
 
     @Query("SELECT b FROM Booking b LEFT JOIN FETCH b.hotel WHERE b.bookingGuest.id = :guestId ORDER BY b.createdAt DESC")
     List<Booking> findByGuestIdWithHotel(@Param("guestId") Long guestId);
+
+    List<Booking> findByGroupContractId(Long contractId);
 }
