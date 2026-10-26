@@ -183,4 +183,13 @@ public class BookingLookupServiceImpl implements BookingLookupService {
         }
         return bookingRepository.findByGroupContractId(contractId);
     }
+
+    @Override
+    public List<vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate> getActiveDailyRatesForHotelsAndDateRange(
+            List<Short> hotelIds,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        return bookingDailyRateService.findActiveDailyRatesForHotelsAndDateRange(hotelIds, startDate, endDate);
+    }
 }

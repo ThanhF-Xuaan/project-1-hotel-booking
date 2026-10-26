@@ -28,4 +28,8 @@ public interface HotelRepository extends JpaRepository<Hotel, Short>, JpaSpecifi
     @Modifying
     @Query("UPDATE Hotel h SET h.isDeleted = true, h.updatedAt = CURRENT_TIMESTAMP WHERE h.id IN :ids")
     int softDeleteBatch(@Param("ids") List<Short> ids);
+
+    List<Hotel> findByRegionIdAndIsDeletedFalse(Short regionId);
+
+    List<Hotel> findByIsDeletedFalse();
 }

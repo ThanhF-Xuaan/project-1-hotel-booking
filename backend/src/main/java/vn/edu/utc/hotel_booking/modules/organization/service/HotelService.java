@@ -22,4 +22,8 @@ public interface HotelService {
     HotelResponse update(Short id, HotelUpdateRequest request);
 
     void deleteBatch(List<Short> ids);
+
+    List<Hotel> getAllActiveHotels();
+
+    List<Hotel> getHotelsByRegionId(Short regionId);
 }

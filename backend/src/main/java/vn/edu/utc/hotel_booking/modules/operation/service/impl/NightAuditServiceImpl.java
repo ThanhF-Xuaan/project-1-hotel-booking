@@ -140,4 +140,12 @@ public class NightAuditServiceImpl implements NightAuditService {
                 .status("PREVIEW")
                 .build();
     }
+
+    @Override
+    public boolean isNightAuditCompleted(Short hotelId, LocalDate auditDate) {
+        if (hotelId == null || auditDate == null) {
+            return false;
+        }
+        return nightAuditRepository.existsByHotelIdAndAuditDate(hotelId, auditDate);
+    }
 }

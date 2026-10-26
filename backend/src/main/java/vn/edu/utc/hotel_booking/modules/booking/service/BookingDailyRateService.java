@@ -33,4 +33,14 @@ public interface BookingDailyRateService {
      * @return Tổng doanh thu tiền phòng (tổng netPrice)
      */
     BigDecimal calculateDailyRoomRevenue(Short hotelId, LocalDate date);
+
+    /**
+     * Tìm các bản ghi giá ngày hoạt động cho danh sách khách sạn trong khoảng ngày (phục vụ báo cáo BI cấp cao)
+     *
+     * @param hotelIds Danh sách ID khách sạn
+     * @param startDate Ngày bắt đầu
+     * @param endDate Ngày kết thúc
+     * @return Danh sách BookingDailyRate
+     */
+    List<BookingDailyRate> findActiveDailyRatesForHotelsAndDateRange(List<Short> hotelIds, LocalDate startDate, LocalDate endDate);
 }

@@ -31,4 +31,6 @@ public interface RoomInstanceService {
     int countOccupiedRooms(Short hotelId);
 
     void deleteRoomInstances(List<Integer> ids);
+
+    List<RoomInstance> getActiveRoomsByHotelIds(List<Short> hotelIds);
 }

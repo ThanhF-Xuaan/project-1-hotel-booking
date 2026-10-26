@@ -49,4 +49,12 @@ public class BookingDailyRateServiceImpl implements BookingDailyRateService {
                 .map(BookingDailyRate::getNetPrice)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
+
+    @Override
+    public List<BookingDailyRate> findActiveDailyRatesForHotelsAndDateRange(List<Short> hotelIds, LocalDate startDate, LocalDate endDate) {
+        if (hotelIds == null || hotelIds.isEmpty() || startDate == null || endDate == null) {
+            return List.of();
+        }
+        return bookingDailyRateRepository.findActiveDailyRatesForHotelsAndDateRange(hotelIds, startDate, endDate);
+    }
 }

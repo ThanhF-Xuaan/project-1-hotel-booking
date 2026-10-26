@@ -148,4 +148,17 @@ public class HotelServiceImpl implements HotelService {
         int count = hotelRepository.softDeleteBatch(ids);
         log.info("Đã xóa mềm {} khách sạn với danh sách IDs: {}", count, ids);
     }
+
+    @Override
+    public List<Hotel> getAllActiveHotels() {
+        return hotelRepository.findByIsDeletedFalse();
+    }
+
+    @Override
+    public List<Hotel> getHotelsByRegionId(Short regionId) {
+        if (regionId == null) {
+            return java.util.Collections.emptyList();
+        }
+        return hotelRepository.findByRegionIdAndIsDeletedFalse(regionId);
+    }
 }

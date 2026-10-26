@@ -63,4 +63,6 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
     @Modifying
     @Query("UPDATE RoomInstance r SET r.isDeleted = true WHERE r.id IN :ids")
     int softDeleteByIds(@Param("ids") List<Integer> ids);
+
+    List<RoomInstance> findByHotelIdInAndIsDeletedFalse(List<Short> hotelIds);
 }

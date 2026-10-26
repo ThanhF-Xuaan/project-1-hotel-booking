@@ -177,4 +177,12 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
             roomInstanceRepository.softDeleteByIds(ids);
         }
     }
+
+    @Override
+    public List<RoomInstance> getActiveRoomsByHotelIds(List<Short> hotelIds) {
+        if (hotelIds == null || hotelIds.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        return roomInstanceRepository.findByHotelIdInAndIsDeletedFalse(hotelIds);
+    }
 }

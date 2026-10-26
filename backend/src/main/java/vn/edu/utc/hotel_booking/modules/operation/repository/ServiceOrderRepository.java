@@ -42,4 +42,16 @@ public interface ServiceOrderRepository extends JpaRepository<ServiceOrder, Long
             @Param("startOfDay") OffsetDateTime startOfDay,
             @Param("endOfDay") OffsetDateTime endOfDay
     );
+
+    @Query("SELECT DISTINCT so FROM ServiceOrder so " +
+            "LEFT JOIN FETCH so.details d " +
+            "WHERE so.hotel.id IN :hotelIds " +
+            "AND so.isDeleted = false " +
+            "AND so.status NOT IN ('CANCELLED') " +
+            "AND so.issuedAt >= :startDateTime AND so.issuedAt <= :endDateTime")
+    List<ServiceOrder> findActiveOrdersForHotelsAndDateRange(
+            @Param("hotelIds") List<Short> hotelIds,
+            @Param("startDateTime") OffsetDateTime startDateTime,
+            @Param("endDateTime") OffsetDateTime endDateTime
+    );
 }

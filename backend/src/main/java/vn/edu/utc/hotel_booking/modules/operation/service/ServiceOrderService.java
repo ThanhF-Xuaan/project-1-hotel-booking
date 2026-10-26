@@ -35,5 +35,19 @@ public interface ServiceOrderService {
      * @param bookingId ID đơn đặt phòng
      */
     void markOrdersPaidForBooking(Long bookingId);
+
+    /**
+     * Tìm danh sách đơn dịch vụ hoạt động cho các khách sạn trong khoảng thời gian (cho báo cáo BI cấp cao)
+     *
+     * @param hotelIds Danh sách ID khách sạn
+     * @param startDateTime Thời điểm bắt đầu
+     * @param endDateTime Thời điểm kết thúc
+     * @return Danh sách ServiceOrder kèm details
+     */
+    java.util.List<vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder> getActiveOrdersForHotelsAndDateRange(
+            java.util.List<Short> hotelIds,
+            java.time.OffsetDateTime startDateTime,
+            java.time.OffsetDateTime endDateTime
+    );
 }
 

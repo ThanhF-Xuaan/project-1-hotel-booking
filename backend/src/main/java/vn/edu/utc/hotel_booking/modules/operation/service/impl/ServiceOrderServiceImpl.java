@@ -343,5 +343,13 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             }
         }
     }
+
+    @Override
+    public List<ServiceOrder> getActiveOrdersForHotelsAndDateRange(List<Short> hotelIds, OffsetDateTime startDateTime, OffsetDateTime endDateTime) {
+        if (hotelIds == null || hotelIds.isEmpty() || startDateTime == null || endDateTime == null) {
+            return List.of();
+        }
+        return serviceOrderRepository.findActiveOrdersForHotelsAndDateRange(hotelIds, startDateTime, endDateTime);
+    }
 }
 
