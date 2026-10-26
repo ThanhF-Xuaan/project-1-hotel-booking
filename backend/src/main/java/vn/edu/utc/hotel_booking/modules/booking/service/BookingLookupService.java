@@ -114,4 +114,18 @@ public interface BookingLookupService {
      * @return Danh sách các đơn đặt phòng
      */
     java.util.List<Booking> getBookingsByContractId(Long contractId);
+
+    /**
+     * Tra cứu giá phòng hoạt động theo danh sách khách sạn và khoảng ngày (cho báo cáo BI cấp cao)
+     *
+     * @param hotelIds Danh sách ID khách sạn
+     * @param startDate Ngày bắt đầu
+     * @param endDate Ngày kết thúc
+     * @return Danh sách BookingDailyRate
+     */
+    java.util.List<vn.edu.utc.hotel_booking.modules.booking.entity.BookingDailyRate> getActiveDailyRatesForHotelsAndDateRange(
+            java.util.List<Short> hotelIds,
+            java.time.LocalDate startDate,
+            java.time.LocalDate endDate
+    );
 }

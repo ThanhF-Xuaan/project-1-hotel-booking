@@ -19,4 +19,6 @@ public interface RegionService {
     RegionResponse update(Short id, RegionUpdateRequest request);
 
     void deleteBatch(List<Short> ids);
+
+    vn.edu.utc.hotel_booking.modules.organization.entity.Region getEntityById(Short id);
 }

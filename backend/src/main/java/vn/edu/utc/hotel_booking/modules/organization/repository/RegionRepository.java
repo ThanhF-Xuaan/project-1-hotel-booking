@@ -32,4 +32,6 @@ public interface RegionRepository extends JpaRepository<Region, Short> {
     @Modifying
     @Query("UPDATE Region r SET r.isDeleted = true, r.updatedAt = CURRENT_TIMESTAMP WHERE r.id IN :ids")
     int softDeleteBatch(@Param("ids") List<Short> ids);
+
+    List<Region> findByIsDeletedFalse();
 }

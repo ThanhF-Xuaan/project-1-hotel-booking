@@ -106,4 +106,13 @@ public class RegionServiceImpl implements RegionService {
         int count = regionRepository.softDeleteBatch(ids);
         log.info("Đã xóa mềm {} khu vực với danh sách IDs: {}", count, ids);
     }
+
+    @Override
+    public Region getEntityById(Short id) {
+        if (id == null) {
+            return null;
+        }
+        return regionRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.REGION_NOT_FOUND, "Không tìm thấy Vùng ID: " + id));
+    }
 }

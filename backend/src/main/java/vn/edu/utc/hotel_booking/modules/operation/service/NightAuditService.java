@@ -10,4 +10,6 @@ public interface NightAuditService {
     NightAuditResponse executeNightAudit(NightAuditRequest request);
 
     NightAuditResponse getAuditSummary(Short hotelId, LocalDate auditDate);
+
+    boolean isNightAuditCompleted(Short hotelId, LocalDate auditDate);
 }
