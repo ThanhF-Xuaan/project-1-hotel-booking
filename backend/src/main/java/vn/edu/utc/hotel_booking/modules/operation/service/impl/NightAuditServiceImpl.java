@@ -10,6 +10,7 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityGenerationService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.NightAuditRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.NightAuditResponse;
@@ -21,10 +22,12 @@ import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 
 import java.math.BigDecimal;
+import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -36,6 +39,7 @@ public class NightAuditServiceImpl implements NightAuditService {
     BookingLookupService bookingLookupService;
     RoomInstanceService roomInstanceService;
     ServiceOrderService serviceOrderService;
+    RoomAvailabilityGenerationService roomAvailabilityGenerationService;
     NightAuditRepository nightAuditRepository;
 
     @Override
@@ -86,6 +90,13 @@ public class NightAuditServiceImpl implements NightAuditService {
                 .build();
 
         NightAudit savedAudit = nightAuditRepository.save(audit);
+
+        // 10. Tự động cuộn và đảm bảo chân trời tồn kho 365 ngày cho khách sạn
+        try {
+            roomAvailabilityGenerationService.rollHorizonForHotel(hotelId, 365);
+        } catch (Exception ex) {
+            log.warn("Không thể cuộn chân trời tồn kho sau đối soát ca đêm cho khách sạn {}: {}", hotelId, ex.getMessage());
+        }
 
         return NightAuditResponse.builder()
                 .hotelId(hotelId)

@@ -3,6 +3,9 @@ package vn.edu.utc.hotel_booking.modules.inventory.service.impl;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
@@ -22,21 +25,20 @@ import vn.edu.utc.hotel_booking.modules.inventory.mapper.RoomAvailabilityMapper;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomAvailabilityRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.service.BlockedInventoryProvider;
 import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityGenerationService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInventoryHoldService;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
-
 @Slf4j
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor(onConstructor_ = {@Autowired})
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Transactional(readOnly = true)
 public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
@@ -46,6 +48,7 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
     RoomInventoryHoldService roomInventoryHoldService;
     RoomAvailabilityMapper roomAvailabilityMapper;
     Optional<BlockedInventoryProvider> blockedInventoryProvider;
+    RoomAvailabilityGenerationService roomAvailabilityGenerationService;
 
     private int getGroupBlockedRooms(Integer hotelRoomTypeId, LocalDate date) {
         if (blockedInventoryProvider == null) {
@@ -54,6 +57,24 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
         return blockedInventoryProvider
                 .map(provider -> provider.getActiveBlockedRooms(hotelRoomTypeId, date))
                 .orElse(0);
+    }
+
+    private RoomAvailability getOrGenerateAvailabilityWithLock(Integer hotelRoomTypeId, LocalDate date) {
+        Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(hotelRoomTypeId, date);
+        if (opt.isPresent()) {
+            return opt.get();
+        }
+
+        // Self-healing: Nếu chưa có trong DB (ví dụ hạng phòng mới tạo hoặc query ngoài chân trời), sinh bù
+        if (roomAvailabilityGenerationService != null) {
+            roomAvailabilityGenerationService.generateForRoomType(hotelRoomTypeId, date, 365);
+            return roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(hotelRoomTypeId, date)
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_DATE_OUT_OF_HORIZON,
+                            "Ngày lưu trú " + date + " nằm ngoài chân trời mở bán của khách sạn"));
+        }
+
+        throw new AppException(ErrorCode.BOOKING_DATE_OUT_OF_HORIZON,
+                "Ngày lưu trú " + date + " nằm ngoài chân trời mở bán của khách sạn");
     }
 
     @Override
@@ -66,6 +87,20 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
                 searchDto.getEndDate()
         );
 
+        long expectedDays = ChronoUnit.DAYS.between(searchDto.getStartDate(), searchDto.getEndDate()) + 1;
+        if (existingList.size() < expectedDays && roomAvailabilityGenerationService != null) {
+            roomAvailabilityGenerationService.generateForRoomType(
+                    searchDto.getHotelRoomTypeId(),
+                    searchDto.getStartDate(),
+                    (int) expectedDays
+            );
+            existingList = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(
+                    searchDto.getHotelRoomTypeId(),
+                    searchDto.getStartDate(),
+                    searchDto.getEndDate()
+            );
+        }
+
         Map<LocalDate, RoomAvailability> map = existingList.stream()
                 .collect(Collectors.toMap(RoomAvailability::getDate, Function.identity()));
 
@@ -75,7 +110,6 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
             RoomAvailability row = map.get(cur);
             int groupBlocked = getGroupBlockedRooms(searchDto.getHotelRoomTypeId(), cur);
             if (row != null) {
-                // If availableCount is null (e.g. before DB persist trigger), compute it
                 int avail = (row.getAvailableCount() != null)
                         ? (row.getAvailableCount() - groupBlocked)
                         : (row.getTotalRooms() - row.getBookedRooms() - row.getLockedRooms() - row.getOooRooms() - groupBlocked);
@@ -83,7 +117,6 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
                 res.setAvailableCount(Math.max(0, avail));
                 results.add(res);
             } else {
-                // Sparse model: default available = totalQuantity - groupBlocked
                 int avail = hotelRoomType.getTotalQuantity() - groupBlocked;
                 results.add(RoomAvailabilityResponse.builder()
                         .hotelRoomTypeId(hotelRoomType.getId())
@@ -109,51 +142,28 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ngày check-out phải sau ngày check-in");
         }
 
-        HotelRoomType hotelRoomType = hotelRoomTypeService.getEntityById(request.getHotelRoomTypeId());
         OffsetDateTime lockExpires = OffsetDateTime.now().plusMinutes(request.getHoldMinutes());
 
         LocalDate cur = request.getCheckInDate();
         while (cur.isBefore(request.getCheckOutDate())) {
             int groupBlocked = getGroupBlockedRooms(request.getHotelRoomTypeId(), cur);
-            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(
-                    request.getHotelRoomTypeId(), cur);
+            RoomAvailability availability = getOrGenerateAvailabilityWithLock(request.getHotelRoomTypeId(), cur);
 
-            RoomAvailability availability;
-            if (opt.isPresent()) {
-                availability = opt.get();
-                int currentAvailable = availability.getTotalRooms()
-                        - availability.getBookedRooms()
-                        - availability.getLockedRooms()
-                        - availability.getOooRooms()
-                        - groupBlocked;
+            int currentAvailable = availability.getTotalRooms()
+                    - availability.getBookedRooms()
+                    - availability.getLockedRooms()
+                    - availability.getOooRooms()
+                    - groupBlocked;
 
-                if (currentAvailable < request.getRoomsCount()) {
-                    throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE,
-                            "Không đủ phòng trống ngày " + cur + ". Còn lại: " + Math.max(0, currentAvailable));
-                }
-
-                availability.setLockedRooms(availability.getLockedRooms() + request.getRoomsCount());
-                availability.setLockedUntil(lockExpires);
-            } else {
-                int totalRooms = hotelRoomType.getTotalQuantity();
-                int currentAvailable = totalRooms - groupBlocked;
-                if (currentAvailable < request.getRoomsCount()) {
-                    throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE,
-                            "Không đủ phòng trống ngày " + cur + ". Còn lại: " + Math.max(0, currentAvailable));
-                }
-
-                availability = RoomAvailability.builder()
-                        .hotelRoomType(hotelRoomType)
-                        .date(cur)
-                        .totalRooms(totalRooms)
-                        .bookedRooms(0)
-                        .lockedRooms(request.getRoomsCount())
-                        .oooRooms(0)
-                        .lockedUntil(lockExpires)
-                        .build();
+            if (currentAvailable < request.getRoomsCount()) {
+                throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE,
+                        "Không đủ phòng trống ngày " + cur + ". Còn lại: " + Math.max(0, currentAvailable));
             }
 
+            availability.setLockedRooms(availability.getLockedRooms() + request.getRoomsCount());
+            availability.setLockedUntil(lockExpires);
             roomAvailabilityRepository.save(availability);
+
             cur = cur.plusDays(1);
         }
     }
@@ -163,7 +173,7 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
     public void releaseInventory(ReleaseInventoryRequest request) {
         LocalDate cur = request.getCheckInDate();
         while (cur.isBefore(request.getCheckOutDate())) {
-            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(
+            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(
                     request.getHotelRoomTypeId(), cur);
 
             if (opt.isPresent()) {
@@ -205,44 +215,21 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
             LocalDate cur = request.getCheckInDate();
             while (cur.isBefore(request.getCheckOutDate())) {
                 int groupBlocked = getGroupBlockedRooms(item.getHotelRoomTypeId(), cur);
-                Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(
-                        item.getHotelRoomTypeId(), cur);
+                RoomAvailability availability = getOrGenerateAvailabilityWithLock(item.getHotelRoomTypeId(), cur);
 
-                RoomAvailability availability;
-                if (opt.isPresent()) {
-                    availability = opt.get();
-                    int currentAvailable = availability.getTotalRooms()
-                            - availability.getBookedRooms()
-                            - availability.getLockedRooms()
-                            - availability.getOooRooms()
-                            - groupBlocked;
+                int currentAvailable = availability.getTotalRooms()
+                        - availability.getBookedRooms()
+                        - availability.getLockedRooms()
+                        - availability.getOooRooms()
+                        - groupBlocked;
 
-                    if (currentAvailable < item.getRoomsCount()) {
-                        throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE,
-                                "Không đủ phòng trống ngày " + cur + ". Còn lại: " + Math.max(0, currentAvailable));
-                    }
-
-                    availability.setLockedRooms(availability.getLockedRooms() + item.getRoomsCount());
-                    availability.setLockedUntil(lockExpires);
-                } else {
-                    int totalRooms = hotelRoomType.getTotalQuantity();
-                    int currentAvailable = totalRooms - groupBlocked;
-                    if (currentAvailable < item.getRoomsCount()) {
-                        throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE,
-                                "Không đủ phòng trống ngày " + cur + ". Còn lại: " + Math.max(0, currentAvailable));
-                    }
-
-                    availability = RoomAvailability.builder()
-                            .hotelRoomType(hotelRoomType)
-                            .date(cur)
-                            .totalRooms(totalRooms)
-                            .bookedRooms(0)
-                            .lockedRooms(item.getRoomsCount())
-                            .oooRooms(0)
-                            .lockedUntil(lockExpires)
-                            .build();
+                if (currentAvailable < item.getRoomsCount()) {
+                    throw new AppException(ErrorCode.ROOM_NOT_AVAILABLE,
+                            "Không đủ phòng trống ngày " + cur + ". Còn lại: " + Math.max(0, currentAvailable));
                 }
 
+                availability.setLockedRooms(availability.getLockedRooms() + item.getRoomsCount());
+                availability.setLockedUntil(lockExpires);
                 roomAvailabilityRepository.save(availability);
 
                 // Lưu vết hold chi tiết theo từng session
@@ -281,7 +268,7 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
             HoldReleaseReason reason = request.getReleaseReason() != null ? request.getReleaseReason() : HoldReleaseReason.USER_CANCELLED;
 
             for (RoomInventoryHold hold : activeHolds) {
-                Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(
+                Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(
                         hold.getHotelRoomType().getId(), hold.getHoldDate());
                 if (opt.isPresent()) {
                     RoomAvailability availability = opt.get();
@@ -328,7 +315,7 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
         }
 
         for (RoomInventoryHold hold : activeHolds) {
-            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(
+            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(
                     hold.getHotelRoomType().getId(), hold.getHoldDate());
             if (opt.isPresent()) {
                 RoomAvailability availability = opt.get();
@@ -349,7 +336,7 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
         }
 
         for (RoomInventoryHold hold : expiredHolds) {
-            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(
+            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(
                     hold.getHotelRoomType().getId(), hold.getHoldDate());
             if (opt.isPresent()) {
                 RoomAvailability availability = opt.get();
@@ -365,28 +352,11 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
     @Override
     @Transactional
     public void confirmBookingInventory(Integer hotelRoomTypeId, LocalDate startDate, LocalDate endDate, Integer roomsCount) {
-        HotelRoomType hotelRoomType = hotelRoomTypeService.getEntityById(hotelRoomTypeId);
-
         LocalDate cur = startDate;
         while (cur.isBefore(endDate)) {
-            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(hotelRoomTypeId, cur);
-
-            RoomAvailability availability;
-            if (opt.isPresent()) {
-                availability = opt.get();
-                availability.setLockedRooms(Math.max(0, availability.getLockedRooms() - roomsCount));
-                availability.setBookedRooms(availability.getBookedRooms() + roomsCount);
-            } else {
-                availability = RoomAvailability.builder()
-                        .hotelRoomType(hotelRoomType)
-                        .date(cur)
-                        .totalRooms(hotelRoomType.getTotalQuantity())
-                        .bookedRooms(roomsCount)
-                        .lockedRooms(0)
-                        .oooRooms(0)
-                        .build();
-            }
-
+            RoomAvailability availability = getOrGenerateAvailabilityWithLock(hotelRoomTypeId, cur);
+            availability.setLockedRooms(Math.max(0, availability.getLockedRooms() - roomsCount));
+            availability.setBookedRooms(availability.getBookedRooms() + roomsCount);
             roomAvailabilityRepository.save(availability);
             cur = cur.plusDays(1);
         }
@@ -400,7 +370,7 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
         }
         LocalDate cur = startDate;
         while (cur.isBefore(endDate)) {
-            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(hotelRoomTypeId, cur);
+            Optional<RoomAvailability> opt = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(hotelRoomTypeId, cur);
             if (opt.isPresent()) {
                 RoomAvailability availability = opt.get();
                 availability.setBookedRooms(Math.max(0, availability.getBookedRooms() - roomsCount));

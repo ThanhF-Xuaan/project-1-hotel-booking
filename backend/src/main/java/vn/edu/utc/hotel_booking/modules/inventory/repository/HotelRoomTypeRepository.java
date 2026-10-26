@@ -25,6 +25,10 @@ public interface HotelRoomTypeRepository extends JpaRepository<HotelRoomType, In
 
     Optional<HotelRoomType> findByIdAndIsDeletedFalse(Integer id);
 
+    List<HotelRoomType> findByHotelIdAndIsDeletedFalse(Short hotelId);
+
+    List<HotelRoomType> findByIsDeletedFalseAndStatus(String status);
+
     boolean existsByHotelIdAndRoomTypeIdAndIsDeletedFalse(Short hotelId, Short roomTypeId);
 
     boolean existsByHotelIdAndRoomTypeIdAndIdNotAndIsDeletedFalse(Short hotelId, Short roomTypeId, Integer id);

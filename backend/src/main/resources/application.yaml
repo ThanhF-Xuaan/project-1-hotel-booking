@@ -101,3 +101,20 @@ hotel:
         anon-token-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET:9aB8cE7dF6gH5jK4mN3pQ2rT1vW0xYzA_bCdEfGhJkMnPqRtVwXyZ}
         anon-token-secondary-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET:}
 
+# =============================================================================
+# CẤU HÌNH TÀI LIỆU API SPRINGDOC OPENAPI & SWAGGER UI
+# =============================================================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operationsSorter: method
+    tagsSorter: alpha
+    persistAuthorization: true
+    displayRequestDuration: true
+    tryItOutEnabled: true
+
+

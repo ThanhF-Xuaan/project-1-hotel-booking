@@ -1,4 +1,4 @@
-# 🏨 Hệ Thống Quản Lý & Đặt Phòng Khách Sạn (Hotel Booking System)
+# 🏨 Smart Hotel Booking Management System (Hệ Thống Quản Trị & Đặt Phòng Khách Sạn Chuỗi)
 
 ![Java](https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0.7-brightgreen?style=for-the-badge&logo=springboot)
@@ -11,361 +11,390 @@
 ![Redis](https://img.shields.io/badge/Redis-7-red?style=for-the-badge&logo=redis)
 ![Keycloak](https://img.shields.io/badge/Keycloak-24.0.4-cyan?style=for-the-badge&logo=keycloak)
 ![Docker](https://img.shields.io/badge/Docker-Containerized-2496ed?style=for-the-badge&logo=docker)
+![ShedLock](https://img.shields.io/badge/ShedLock-6.2.0-yellow?style=for-the-badge)
 
-Hệ thống Quản lý và Đặt phòng Khách sạn (Hotel Booking System) là một giải pháp Enterprise Full-stack hiện đại, hỗ trợ quản lý danh mục phòng, đặt phòng, tính giá linh hoạt (Pricing Engine), xác thực người dùng tập trung (IAM với Keycloak), bộ nhớ đệm hiệu năng cao (Redis Cache) và quản lý phiên bản cơ sở dữ liệu tự động (Liquibase Database Migration).
+**Smart Hotel Booking Management System** là giải pháp nền tảng công nghệ toàn diện cấp Doanh nghiệp (Enterprise-grade Full-stack Platform) phục vụ quản trị, vận hành và kinh doanh chuỗi khách sạn quy mô đa chi nhánh. Hệ thống giải quyết triệt để các bài toán vận hành thực tế khắt khe: quản lý tồn kho buồng phòng đồng thời cao (High-Concurrency Anti-Overbooking), kinh doanh khách đoàn (Group Booking & Corporate Contracts), định tuyến tài chính hóa đơn (Master Folio & Sub-Folio Routing), báo cáo phân tích quản trị BI thời gian thực (RevPAR, ADR, Occupancy Rate), và tích hợp hệ sinh thái Trợ lý AI (Room Advisor, OCR Check-in, RAG Knowledge Assistant).
 
 ---
 
 ## 📌 Mục Lục
-- [Tổng Quan Công Nghệ](#-tổng-quan-công-nghệ)
-- [Cấu Trúc Thư Mục Dự Án](#-cấu-trúc-thư-mục-dự-án)
-- [Yêu Cầu Tiền Đề (Prerequisites)](#-yêu-cầu-tiền-đề-prerequisites)
-- [Hướng Dẫn Setup Chi Tiết](#-hướng-dẫn-setup-chi-tiết)
-  - [Bước 1: Clone Repository](#bước-1-clone-repository)
-  - [Bước 2: Cấu hình Môi Trường (.env)](#bước-2-cấu-hình-môi-trường-env)
-  - [Bước 3: Khởi Chạy Dự Án](#bước-3-khởi-chạy-dự-án)
-    - [Cách 1: Khởi chạy toàn bộ bằng Docker Compose (Khuyên dùng)](#cách-1-khởi-chạy-toàn-bộ-bằng-docker-compose-khuyên-dùng)
-    - [Cách 2: Chạy Môi Trường Cục Bộ (Local Development)](#cách-2-chạy-môi-trường-cục-bộ-local-development)
-- [Danh Sách Cổng & Dịch Vụ](#-danh-sách-cổng--dịch-vụ)
-- [Quản Lý & Migration Cơ Sở Dữ Liệu (Liquibase)](#-quản-lý--migration-cơ-sở-dữ-liệu-liquibase)
-- [Định Danh & Phân Quyền (Keycloak IAM)](#-định-danh--phân-quyền-keycloak-iam)
-- [Lưu Ý & Khắc Phục Lỗi Thường Gặp](#-lưu-ý--khắc-phục-lỗi-thường-gặp)
+
+1. [Sáu Trụ Cột Nghiệp Vụ Doanh Nghiệp (Enterprise Pillars)](#-1-sáu-trụ-cột-nghiệp-vụ-doanh-nghiệp-enterprise-pillars)
+2. [Tổng Quan Công Nghệ (Technology Stack)](#-2-tổng-quan-công-nghệ-technology-stack)
+3. [Kiến Trúc Hệ Thống (System Architecture)](#-3-kiến-trúc-hệ-thống-system-architecture)
+4. [Cấu Trúc Thư Mục Dự Án (Directory Structure)](#-4-cấu-trúc-thư-mục-dự-án-directory-structure)
+5. [Yêu Cầu Tiền Đề (Prerequisites)](#-5-yêu-cầu-tiền-đề-prerequisites)
+6. [Hướng Dẫn Khởi Chạy Nhanh (Quickstart Guide)](#-6-hướng-dẫn-khởi-chạy-nhanh-quickstart-guide)
+   - [Cách 1: Khởi chạy toàn bộ bằng Docker Compose (Khuyên dùng)](#cách-1-khởi-chạy-toàn-bộ-bằng-docker-compose-khuyên-dùng)
+   - [Cách 2: Chạy Môi Trường Cục Bộ (Hybrid Local Development)](#cách-2-chạy-môi-trường-cục-bộ-hybrid-local-development)
+7. [Danh Mục Cổng & Tài Nguyên (Port Mapping & Endpoints)](#-7-danh-mục-cổng--tài-nguyên-port-mapping--endpoints)
+8. [Tài Liệu Swagger UI & Đăng Nhập Tự Động (Bearer Token)](#-8-tài-liệu-swagger-ui--đăng-nhập-tự-động-bearer-token)
+9. [Định Danh & Phân Quyền (Keycloak IAM Matrix)](#-9-định-danh--phân-quyền-keycloak-iam-matrix)
+10. [Quản Lý & Migration Cơ Sở Dữ Liệu (Liquibase)](#-10-quản-lý--migration-cơ-sở-dữ-liệu-liquibase)
+11. [Kiểm Thử & Đảm Bảo Chất Lượng (QA & Testing Suites)](#-11-kiểm-thử--đảm-bảo-chất-lượng-qa--testing-suites)
+12. [Xử Lý Sự Cố Thường Gặp (Troubleshooting & FAQs)](#-12-xử-lý-sự-cố-thường-gặp-troubleshooting--faqs)
 
 ---
 
-## 🚀 Tổng Quan Công Nghệ
+## 🏛 1. Sáu Trụ Cột Nghiệp Vụ Doanh Nghiệp (Enterprise Pillars)
 
-### 🛠 Backend
-* **Java 21**: Ngôn ngữ lập trình chính, tận dụng các tính năng mới của JDK 21.
-* **Spring Boot 4.0.7**: Framework phát triển ứng dụng Java Backend.
-* **Liquibase 4.x**: Quản lý phiên bản cơ sở dữ liệu tự động (Schema Versioning, ChangeSet Tracking, Context Isolation).
-* **Spring Data JPA / Hibernate**: Quản lý truy vấn và đối soát schema tự động với `ddl-auto: validate`.
-* **Spring Security & OAuth2 Resource Server**: Bảo mật ứng dụng, xác thực JWT Token được phát hành bởi Keycloak.
-* **Keycloak Admin Client**: Quản lý tài khoản, phân quyền và kết nối Keycloak IAM Server.
-* **SpringDoc OpenAPI 3 / Swagger UI**: Tự động sinh tài liệu API tương tác.
-* **Lombok & MapStruct**: Tối ưu mã nguồn, tự động ánh xạ giữa Entity và DTO.
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                   SMART HOTEL BOOKING ENTERPRISE ARCHITECTURE                          │
+├──────────────────┬──────────────────┬──────────────────┬───────────────────────────────┤
+│ 1. INVENTORY     │ 2. GROUP BOOKING │ 3. FINANCE &     │ 4. EXECUTIVE BI               │
+│    ENGINE        │    & CONTRACTS   │    MASTER FOLIO  │    ANALYTICS                  │
+│ • Sinh sẵn 365d  │ • Inquiry ➔ Quote│ • Master Folio   │ • RevPAR / ADR Realtime       │
+│ • Lock 2 lớp     │ • Cọc 50% pháp lý│   (Công ty)      │ • Tỷ lệ lấp đầy (Occupancy)   │
+│ • Capacity roll  │ • Quỹ phòng riêng│ • Sub-Folio      │ • Tách Doanh thu Phòng vs F&B │
+│ • Trigger APIs   │ • Scheduler Cut-off (Cá nhân)       │ • Phân tách Chuỗi vs Vùng     │
+├──────────────────┴──────────────────┴──────────────────┴───────────────────────────────┤
+│ 5. IAM & MULTI-PROPERTY                      │ 6. AI INTELLIGENCE SUBSYSTEM            │
+│ • Keycloak 24 RBAC (6 Roles phân quyền)      │ • AI Room Advisor (Khuyến nghị phòng)   │
+│ • Chuỗi ➔ Vùng ➔ Khách sạn ➔ Buồng phòng     │ • OCR Check-in (Căn cước / Hộ chiếu)    │
+│ • Cổng thanh toán VNPay Sandbox & MoMo       │ • RAG Assistant (Hỏi đáp chính sách)    │
+└──────────────────────────────────────────────┴─────────────────────────────────────────┘
+```
 
-### 🎨 Frontend
-* **React 19**: Library xây dựng giao diện người dùng reactive.
-* **TypeScript 6.0**: Đảm bảo type-safety và nâng cao trải nghiệm phát triển.
-* **Vite 8.2**: Build tool siêu nhanh hỗ trợ HMR (Hot Module Replacement).
-* **Tailwind CSS v4**: Utility-first CSS framework cho giao diện hiện đại, responsive.
+### 1.1. Động cơ Tồn kho & Khóa Chống Đặt Trùng (High-Concurrency Inventory Engine)
+- **Chiến lược Sinh sẵn Tồn kho (Pre-generation):** Tự động sinh sẵn 365 ngày mở bán liên tục cho mọi hạng phòng; tự động cuộn thêm ngày vào chân trời tương lai lúc `00:05` hằng ngày qua `RoomAvailabilityScheduler` (kết hợp `ShedLock` phân tán).
+- **Cơ chế Khóa 2 Lớp (Dual-locking Protection):**
+  - **Lớp 1 (Pessimistic Lock):** `SELECT ... FOR UPDATE` khi giữ chỗ (`holdInventory`), đảm bảo tuần tự hóa các giao dịch tranh chấp cùng một hạng phòng trong mili-giây.
+  - **Lớp 2 (Optimistic Lock):** Trường `@Version` trên thực thể `RoomAvailability` bảo vệ toàn vẹn dữ liệu khi có nhiều luồng đồng thời cập nhật.
+- **Cơ chế Tự Phục Hồi (Self-Healing):** Nếu truy vấn vào ngày chưa có bản ghi (ví dụ hạng phòng mới tạo chưa kịp chạy cronjob), hệ thống tự động sinh bù dữ liệu mà không làm gián đoạn luồng đặt phòng.
+- **Lan Truyền Công Suất & Bảo Trì Buồng Phòng (OOO Sync):** Tự động đồng bộ số lượng phòng vật lý và trừ phòng hỏng/bảo trì (`RoomMaintenanceBlock`) vào tồn kho khả dụng.
+- **Bộ API Trigger Thủ Công:** Hỗ trợ Developer và QA kích hoạt sinh tồn kho tức thì theo Hạng phòng (`/trigger/room-type/{id}`), Khách sạn (`/trigger/hotel/{id}`) hoặc Toàn chuỗi (`/trigger/chain`).
 
-### 🗄 Cơ Sở Dữ Liệu & Cache
-* **PostgreSQL 16**: Cơ sở dữ liệu quan hệ lưu trữ toàn bộ nghiệp vụ, tích hợp extension `btree_gist`, trigger tự động hóa và exclusion constraints.
-* **Redis 7**: Bộ nhớ đệm (In-memory caching) giúp tăng tốc độ truy vấn danh mục phòng và giá.
+### 1.2. Phân Hệ Đặt Phòng Khách Đoàn & Hợp Đồng Cọc (Group Booking & Contracts)
+- **Chu trình Đặt đoàn Chuẩn Khách sạn Quốc tế:**
+  $$\text{Inquiry (Hỏi phòng)} \longrightarrow \text{Quotation (Báo giá)} \longrightarrow \text{Contract (Hợp đồng)} \longrightarrow \text{Deposit 50\% (Đặt cọc)} \longrightarrow \text{Definite (Chốt đoàn)}$$
+- **Quy tắc Cọc 50% Bắt Buộc:** Tuân thủ pháp luật hợp đồng Việt Nam (Bộ luật Dân sự 2015), bắt buộc ghi nhận thanh toán cọc tối thiểu 50% giá trị hợp đồng mới chuyển trạng thái giữ phòng chính thức (`DEFINITE`).
+- **Quỹ Phòng Riêng (Room Block Allocation):** Trừ trực tiếp vào tồn kho công cộng để giữ số lượng phòng riêng cho đoàn, hỗ trợ phân bổ từng ngày (`GroupRoomBlockDaily`).
+- **Scheduler Tự Động Thu Hồi Phòng Khi Đến Hạn (Cut-off Date Scheduler):** Tự động kiểm tra và giải phóng các phòng chưa được thành viên trong đoàn nhận (`unpicked-up rooms`) trở lại Public Inventory khi chạm mốc Cut-off Date.
 
-### 🔐 Định Danh & Bảo Mật (IAM)
-* **Keycloak 24.0.4**: Giải pháp quản lý định danh và truy cập tập trung (Single Sign-On / OIDC / OAuth2).
+### 1.3. Tài Chính Doanh Nghiệp & Master Folio (Finance & Cost Routing)
+- **Cơ chế Định tuyến Chi phí Tự động (Automated Billing Routing):**
+  - **Master Folio:** Hóa đơn tổng công ty, tự động gom toàn bộ tiền phòng theo hợp đồng và tiệc chiêu đãi.
+  - **Sub-Folio:** Hóa đơn cá nhân từng khách đoàn, định tuyến tự động các chi phí phát sinh riêng (minibar, giặt là, ăn uống cá nhân tại nhà hàng).
+- **Cổng Thanh Toán Trực Tuyến (Payment Gateways):** Tích hợp hoàn chỉnh cổng VNPay Sandbox và MoMo với mã hóa chữ ký số SHA-512, URL Callback và IPN xử lý bất đồng bộ.
+- **Đối Soát Ca Đêm Tự Động (Night Audit Engine):** Tự động quét đối soát doanh thu phòng, cập nhật trạng thái No-Show, chốt ngày kế toán và cuộn tồn kho buồng phòng.
+- **Báo Cáo Khai Báo Tạm Trú BCA:** Tự động kết xuất danh sách lưu trú theo định dạng chuẩn của Bộ Công an.
 
-### 🐳 Containerization & Orchestration
-* **Docker & Docker Compose**: Đóng gói toàn bộ ứng dụng thành các dịch vụ độc lập, giúp đồng bộ môi trường phát triển và triển khai.
+### 1.4. Báo Cáo Quản Trị BI Cấp Cao (Executive BI Reporting)
+- Tự động tính toán theo thời gian thực các chỉ số tài chính khách sạn chuẩn quốc tế:
+  - **ADR (Average Daily Rate):** Doanh thu phòng trung bình trên mỗi phòng có khách ở.
+  - **RevPAR (Revenue Per Available Room):** Doanh thu phòng trung bình trên tổng số phòng khả dụng.
+  - **Occupancy Rate (%):** Tỷ lệ lấp đầy phòng thực tế.
+  - **Doanh thu Phòng vs F&B vs Dịch vụ khác:** Phân tách chi tiết nguồn thu.
+- Hỗ trợ cắt lớp đa chiều: Theo cấp Chuỗi toàn quốc (`CHAIN`), Cụm vùng miền (`REGION`), hoặc Khách sạn cơ sở (`HOTEL`).
+
+### 1.5. Phân Hệ Trí Tuệ Nhân Tạo (Smart AI Subsystem)
+- **AI Room Advisor:** Trợ lý tư vấn buồng phòng thông minh, trích xuất nhu cầu ngôn ngữ tự nhiên thành bộ tiêu chí truy vấn, đối soát giá và tình trạng phòng khả dụng thực tế.
+- **OCR Identity Document:** Trích xuất tự động thông tin Căn cước công dân (CCCD) và Hộ chiếu phục vụ quy trình Check-in không chạm (Touchless Check-in).
+- **RAG Knowledge Assistant:** Hệ thống truy hồi tri thức (Retrieval-Augmented Generation) tra cứu chính sách khách sạn, tiện ích, nội quy từ kho tri thức đã qua kiểm duyệt.
 
 ---
 
-## 📂 Cấu Trúc Thư Mục Dự Án
+## 🛠 2. Tổng Quan Công Nghệ (Technology Stack)
+
+| Tầng kiến trúc | Công nghệ sử dụng | Phiên bản | Vai trò & Đặc điểm kỹ thuật |
+| :--- | :--- | :--- | :--- |
+| **Backend Core** | Java | `21 (LTS)` | Virtual Threads, Pattern Matching, Record patterns |
+| **Backend Framework** | Spring Boot | `4.0.7` | Framework ứng dụng doanh nghiệp chuẩn |
+| **Security & IAM** | Keycloak / OAuth2 Resource Server | `24.0.4` | Single Sign-On, JWT Bearer Token, Phân quyền RBAC |
+| **Database** | PostgreSQL | `16-alpine` | Cơ sở dữ liệu quan hệ, `btree_gist`, PL/pgSQL Triggers |
+| **Database Migration** | Liquibase Runner | `4.31-alpine` | Quản lý phiên bản CSDL 3 tầng, Context Isolation |
+| **Distributed Cache** | Redis | `7-alpine` | Lưu trữ bộ nhớ đệm hiệu năng cao |
+| **Distributed Lock** | ShedLock | `6.2.0` | Đảm bảo scheduler chỉ chạy trên 1 node duy nhất |
+| **API Documentation** | SpringDoc OpenAPI / Swagger UI | `3.0.2` | Sinh tài liệu OpenAPI 3.0, tích hợp Bearer Auth |
+| **Frontend Core** | React | `19.x` | Giao diện người dùng Reactive |
+| **Frontend Language** | TypeScript | `6.0.x` | Đảm bảo Type-safety toàn diện |
+| **Frontend Build Tool** | Vite | `8.2.x` | Build tool siêu tốc với Hot Module Replacement |
+| **Styling & Design** | Tailwind CSS | `v4.x` | Hệ thống thiết kế doanh nghiệp tương phản cao |
+| **Containerization** | Docker & Docker Compose | `v2+` | Đóng gói và điều phối 6 dịch vụ độc lập |
+
+---
+
+## 🏗 3. Kiến Trúc Hệ Thống (System Architecture)
+
+```text
+                               ┌────────────────────────────────┐
+                               │   Client: Browser / Postman    │
+                               └───────────────┬────────────────┘
+                                               │
+                                       (HTTP / REST / JWT)
+                                               │
+                                               ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                            SPRING BOOT APPLICATION BACKEND                                  │
+│                                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                              SECURITY & FILTER CHAIN                                  │  │
+│  │  • CorsFilter ➔ JwtBlacklistFilter ➔ BearerTokenAuthenticationFilter ➔ RBAC Converter │  │
+│  └───────────────────────────────────────────┬───────────────────────────────────────────┘  │
+│                                              ▼                                              │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                                  CONTROLLER LAYER                                     │  │
+│  │  • AvailabilityController • BookingController • MasterFolioController • ReportController│  │
+│  └───────────────────────────────────────────┬───────────────────────────────────────────┘  │
+│                                              ▼                                              │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │                                   SERVICE LAYER                                       │  │
+│  │  • RoomAvailabilityGenerationService • GroupContractService • ExecutiveReportService  │  │
+│  │  • NightAuditService • MasterFolioService • RoomInventoryHoldService                  │  │
+│  └──────────────────────┬─────────────────────────────────────────┬──────────────────────┘  │
+│                         ▼                                         ▼                         │
+│  ┌───────────────────────────────────────────────┐ ┌─────────────────────────────────────┐  │
+│  │             PERSISTENCE LAYER                 │ │             SCHEDULERS              │  │
+│  │  • Spring Data JPA Repositories (Pessimistic) │ │  • RoomAvailabilityScheduler (00:05)│  │
+│  │  • Optimistic Lock Version Control            │ │  • GroupCutoffScheduler (Mỗi giờ)   │  │
+│  └──────────────────────┬────────────────────────┘ └──────────────────┬──────────────────┘  │
+└─────────────────────────┼─────────────────────────────────────────────┼─────────────────────┘
+                          │                                             │
+            ┌─────────────┴─────────────┐                         ┌─────┴─────┐
+            ▼                           ▼                         ▼           ▼
+┌───────────────────────┐   ┌───────────────────────┐   ┌───────────────────────┐
+│     POSTGRESQL 16     │   │        REDIS 7        │   │      KEYCLOAK 24      │
+│  • 48 Bảng nghiệp vụ  │   │  • Cache danh mục     │   │  • OIDC Identity      │
+│  • Triggers / Indexes │   │  • Blacklist JWT      │   │  • JWT Token Issuer   │
+└───────────────────────┘   └───────────────────────┘   └───────────────────────┘
+```
+
+---
+
+## 📂 4. Cấu Trúc Thư Mục Dự Án (Directory Structure)
 
 ```text
 hotel-booking-repo/
-├── backend/                  # Mã nguồn Spring Boot Backend (Java 21)
-│   ├── src/main/java/        # Controllers, Services, Repositories, Entities
+├── backend/                               # Mã nguồn Spring Boot Backend (Java 21)
+│   ├── src/main/java/vn/edu/utc/hotel_booking/
+│   │   ├── common/                        # Hạ tầng dùng chung (Config, DTO, Exception, Mapper)
+│   │   │   ├── config/                    # SecurityConfig, OpenApiConfig, RedisConfig, ShedLockConfig
+│   │   │   ├── dto/                       # Chuẩn hóa ApiResponse<T>
+│   │   │   └── exception/                 # AppException, GlobalExceptionHandler, ErrorCode
+│   │   └── modules/                       # Phân rã nghiệp vụ theo Domain-Driven Design (DDD)
+│   │       ├── ai/                        # Advisor, OCR, RAG Knowledge Lifecycle, Personalization
+│   │       ├── booking/                   # Booking, Group Booking, Group Contract, Room Block
+│   │       ├── dashboard/                 # Executive BI Reporting (RevPAR, ADR, Occupancy)
+│   │       ├── finance/                   # Master Folio, Billing Routing, Payment, Lodging Export
+│   │       ├── identity/                  # Keycloak Auth, Staff, Role-Based Access Control
+│   │       ├── inventory/                 # Availability, Pre-generation, Pricing, Maintenance Block
+│   │       └── organization/              # Chain, Region, Hotel, RoomType, Physical Room
 │   ├── src/main/resources/
-│   │   ├── application.yaml  # Cấu hình Spring Boot & Liquibase
-│   │   └── db/               # Kiến trúc Liquibase Migration 3 tầng
-│   │       ├── db-changelog-root.xml        # Master Changelog điều phối
-│   │       ├── changelogs/                  # ChangeSet XMLs (Context, runOnChange, splitStatements)
-│   │       │   ├── 01-db-init-schema.xml    # Baseline 44 bảng DDL
-│   │       │   ├── 02-db-functions-and-triggers.xml
-│   │       │   ├── 03-db-indexes.xml
-│   │       │   ├── 04-db-master-data.xml    # context="master-data"
-│   │       │   ├── 05-db-dev-seed.xml       # context="dev-seed"
-│   │       │   └── incremental/             # ChangeSets phát sinh trong tương lai
-│   │       └── sqlFile/                     # File mã nguồn SQL thuần
-│   │           ├── 01-init-schema.sql
-│   │           ├── 02-functions-and-triggers.sql
-│   │           ├── 03-indexes.sql
-│   │           ├── 04-master-data.sql
-│   │           ├── 05-dev-seed.sql
-│   │           └── incremental/             # SQL scripts phục vụ incremental
-│   ├── Dockerfile            # Cấu hình đóng gói Docker image cho Backend
-│   └── pom.xml               # Quản lý dependencies Maven
-├── frontend/                 # Mã nguồn React Frontend (TypeScript + Vite)
-│   ├── src/                  # React components, pages, hooks, styles
-│   ├── Dockerfile            # Cấu hình đóng gói Docker image cho Frontend
-│   └── package.json          # Quản lý npm packages
-├── .env-example              # Mẫu tệp biến môi trường hệ thống
-├── docker-compose.yml        # Định nghĩa các dịch vụ Docker (DB, Redis, Keycloak, Backend, Frontend)
-└── README.md                 # Tài liệu hướng dẫn dự án
+│   │   ├── application.yaml               # Cấu hình Spring Boot, SpringDoc, Datasource
+│   │   └── db/                            # Kiến trúc Liquibase Database Migration 3 tầng
+│   │       ├── db-changelog-root.xml      # Master Changelog điều phối
+│   │       ├── changelogs/                # ChangeSet XMLs (quản lý ID, contexts, runOnChange)
+│   │       └── sqlFile/                   # Mã nguồn SQL thuần túy (DDL, Triggers, Seed Data)
+│   ├── src/test/java/                     # Hệ thống Unit Test, Integration Test, Concurrency Test
+│   ├── Dockerfile                         # Container đóng gói ứng dụng Backend
+│   └── pom.xml                            # Quản lý dependencies Maven
+├── frontend/                              # Mã nguồn React Frontend (TypeScript + Vite)
+│   ├── src/                               # Components, Pages, Services (Axios Interceptor), Hooks
+│   ├── Dockerfile                         # Container đóng gói ứng dụng Frontend
+│   └── package.json                       # Quản lý thư viện npm
+├── keycloak/
+│   └── realm-export.json                  # Cấu hình Realm, Clients và 6 tài khoản mẫu tự động import
+├── document/                              # Tài liệu phân tích yêu cầu (SRS, hướng dẫn Docker)
+├── .env.docker                            # Biến môi trường chạy qua Docker
+├── .env-example                           # Biến môi trường mẫu chạy cục bộ (Local)
+├── docker-compose.yml                     # File điều phối toàn bộ 6 dịch vụ Docker
+└── README.md                              # Tài liệu tổng quan dự án
 ```
 
 ---
 
-## 📋 Yêu Cầu Tiền Đề (Prerequisites)
+## 📋 5. Yêu Cầu Tiền Đề (Prerequisites)
 
-Trước khi khởi chạy dự án, hãy đảm bảo máy tính của bạn đã cài đặt:
-
-1. **Git**: Quản lý mã nguồn.
-2. **Docker & Docker Desktop** (Bao gồm Docker Compose v2+): *(Khuyên dùng để khởi chạy toàn bộ hệ thống nhanh nhất)*.
-3. **JDK 21** và **Maven 3.8+**: *(Cần thiết khi chạy/debug Backend cục bộ)*.
-4. **Node.js (v20.19+ hoặc v22 LTS)** và **npm (v9+)**: *(Cần thiết khi chạy Frontend cục bộ)*.
+| Công cụ | Phiên bản tối thiểu | Mục đích sử dụng |
+| :--- | :--- | :--- |
+| **Git** | `2.40+` | Quản lý mã nguồn |
+| **Docker & Docker Compose** | `Docker 25+ / Compose v2.20+` | **Khuyên dùng** để khởi chạy toàn bộ hệ thống |
+| **JDK (Java Development Kit)** | `OpenJDK 21 (LTS)` | Biên dịch & chạy Backend cục bộ |
+| **Maven** | `3.9+` (hoặc dùng `mvnw` đi kèm) | Quản lý dependencies Java |
+| **Node.js & npm** | `Node 20.19+ / 22 LTS`, `npm 10+` | Biên dịch & chạy Frontend React cục bộ |
 
 ---
 
-## ⚙️ Hướng Dẫn Setup Chi Tiết
+## 🚀 6. Hướng Dẫn Khởi Chạy Nhanh (Quickstart Guide)
 
-### Bước 1: Clone Repository
-Mở Terminal / PowerShell và chạy lệnh:
+### Cách 1: Khởi chạy toàn bộ bằng Docker Compose (Khuyên dùng)
+
+Cách này sẽ tự động tải, cấu hình và khởi chạy đồng bộ cả 6 dịch vụ trên môi trường Docker khép kín:
+
 ```bash
+# 1. Clone repository về máy
 git clone https://github.com/ThanhF-Xuaan/project-1-hotel-booking.git
 cd hotel-booking-repo
+
+# 2. Khởi chạy toàn bộ hệ thống (Background daemon)
+docker compose up -d --build
+
+# 3. Theo dõi tiến trình khởi chạy
+docker compose ps
+
+# 4. Xem log chi tiết của ứng dụng Backend
+docker compose logs -f backend
+```
+
+> **Thứ tự khởi động tự động của Docker Compose:**
+> 1. `hotel_postgres` (CSDL) ➔ Healthcheck `pg_isready` OK.
+> 2. `hotel_redis` (Cache) ➔ Healthcheck `redis-cli ping` OK.
+> 3. `hotel_keycloak` (IAM) ➔ Healthcheck `/health/ready` OK, tự động nạp `realm-export.json`.
+> 4. `hotel_liquibase` (Migration Runner) ➔ Tự động cập nhật toàn bộ DDL & Seed Data rồi thoát mã `0`.
+> 5. `hotel_backend` (Spring Boot) ➔ Kết nối DB, xác thực Keycloak và khởi chạy API.
+> 6. `hotel_frontend` (React + Vite) ➔ Lắng nghe cổng 3000 phục vụ người dùng.
+
+Để dừng toàn bộ hệ thống:
+```bash
+docker compose down
 ```
 
 ---
 
-### Bước 2: Cấu hình Môi Trường (.env)
+### Cách 2: Chạy Môi Trường Cục Bộ (Hybrid Local Development)
 
-#### 1. Cấu hình biến môi trường gốc (Root `.env`):
-Tạo file `.env` từ file mẫu `.env-example` ở thư mục gốc:
+Dành cho lập trình viên cần debug mã nguồn Java hoặc Hot-reload React:
 
-- **Linux / macOS:**
-  ```bash
-  cp .env-example .env
-  ```
-- **Windows (PowerShell):**
-  ```powershell
-  Copy-Item .env-example .env
-  ```
-- **Windows (CMD):**
-  ```cmd
-  copy .env-example .env
-  ```
-
-*Nội dung cấu hình biến môi trường chuẩn:*
-```properties
-# Cơ sở dữ liệu PostgreSQL 16
-DB_HOST=localhost
-DB_PORT=5433
-DB_NAME=hotel_booking_db
-DB_USER=postgres
-DB_PASSWORD=123456
-
-# Liquibase Database Migration
-SPRING_LIQUIBASE_ENABLED=true
-LIQUIBASE_CONTEXTS=master-data,dev-seed
-
-# Redis Cache 7
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# Keycloak IAM 24
-KEYCLOAK_PORT=8081
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=admin
-KEYCLOAK_REALM=hotel-realm
-KEYCLOAK_CLIENT_ID=hotel-frontend
-KEYCLOAK_ISSUER_URI=http://localhost:8081/realms/hotel-realm
-KEYCLOAK_JWK_SET_URI=http://localhost:8081/realms/hotel-realm/protocol/openid-connect/certs
-
-# Application Ports
-BACKEND_PORT=8080
-FRONTEND_PORT=3000
-
-# Frontend React / Vite
-VITE_API_BASE_URL=http://localhost:8080/api
-VITE_KEYCLOAK_URL=http://localhost:8081
-VITE_KEYCLOAK_REALM=hotel-realm
-VITE_KEYCLOAK_CLIENT_ID=hotel-frontend
-```
-
-#### 2. Cấu hình biến môi trường Frontend (`frontend/.env`):
-Tạo file `.env` cho thư mục `frontend`:
-
-- **Linux / macOS:**
-  ```bash
-  cp frontend/.env-example frontend/.env
-  ```
-- **Windows (PowerShell / CMD):**
-  ```powershell
-  Copy-Item frontend\.env-example frontend\.env
-  ```
-
----
-
-### Bước 3: Khởi Chạy Dự Án
-
-Bạn có thể lựa chọn 1 trong 2 cách triển khai bên dưới:
-
----
-
-#### Cách 1: Khởi chạy toàn bộ bằng Docker Compose (Khuyên dùng)
-
-Cách này sẽ tự động tải, build và khởi chạy tất cả 5 dịch vụ (PostgreSQL, Redis, Keycloak, Backend, Frontend) trong các Docker Containers. Spring Boot Backend sẽ tự động chạy Liquibase Migration khi kết nối tới PostgreSQL.
-
-1. **Khởi chạy hệ thống:**
-   ```bash
-   docker compose up -d --build
-   ```
-   *(Lần đầu tiên chạy có thể mất vài phút để tải Docker Images và build Backend/Frontend).*
-
-2. **Kiểm tra trạng thái các container:**
-   ```bash
-   docker compose ps
-   ```
-
-3. **Xem logs của ứng dụng:**
-   * Xem log tất cả dịch vụ:
-     ```bash
-     docker compose logs -f
-     ```
-   * Xem log chi tiết của Backend (quá trình Liquibase migration):
-     ```bash
-     docker compose logs -f backend
-     ```
-
-4. **Dừng toàn bộ hệ thống:**
-   ```bash
-   docker compose down
-   ```
-
----
-
-#### Cách 2: Chạy Môi Trường Cục Bộ (Local Development)
-
-Dành cho nhà phát triển muốn code và debug trực tiếp trên máy cục bộ (Hot-reload Frontend & Live-debug Backend).
-
-##### 🔹 3.1. Khởi chạy Dịch vụ Cơ sở hạ tầng (Database, Cache, Keycloak) qua Docker
+#### 🔹 Bước 2.1: Khởi chạy hạ tầng cơ bản (DB, Redis, Keycloak) qua Docker
 ```bash
 docker compose up -d postgres_db redis keycloak
 ```
 
-##### 🔹 3.2. Khởi chạy Backend (Spring Boot)
-1. Di chuyển vào thư mục `backend`:
-   ```bash
-   cd backend
-   ```
-2. Khởi chạy ứng dụng:
-   * **Windows:**
-     ```powershell
-     .\mvnw.cmd spring-boot:run
-     ```
-   * **Linux / macOS:**
-     ```bash
-     ./mvnw spring-boot:run
-     ```
-   *(Khi Backend khởi động, Liquibase sẽ tự động áp dụng các ChangeSets vào database `hotel_booking_db`)*.
-
-##### 🔹 3.3. Khởi chạy Frontend (React + Vite)
-1. Di chuyển vào thư mục `frontend` (từ thư mục gốc):
-   ```bash
-   cd frontend
-   ```
-2. Cài đặt thư viện dependencies:
-   ```bash
-   npm install
-   ```
-3. Chạy môi trường Development:
-   ```bash
-   npm run dev
-   ```
-   *(Frontend Local Dev sẽ chạy tại `http://localhost:5173`)*.
-
----
-
-## 🌐 Danh Sách Cổng & Dịch Vụ
-
-Sau khi khởi chạy thành công, các dịch vụ sẽ hoạt động tại các địa chỉ sau:
-
-| Dịch vụ | Địa chỉ Web / Endpoint | Tài khoản mặc định / Ghi chú |
-| :--- | :--- | :--- |
-| **Frontend Web App** | `http://localhost:3000` (Docker) / `http://localhost:5173` (Local Dev) | Giao diện cho khách hàng & Quản trị viên |
-| **Backend REST API** | `http://localhost:8080/api` | Spring Boot API Service |
-| **Swagger UI (API Docs)** | `http://localhost:8080/swagger-ui.html` | Tài liệu API tương tác SpringDoc |
-| **Keycloak Admin Console** | `http://localhost:8081` | **User:** `admin` \| **Pass:** `admin` |
-| **PostgreSQL Database** | `localhost:5433` | **DB Name:** `hotel_booking_db` \| **User:** `postgres` \| **Pass:** `123456` |
-| **Redis Cache** | `localhost:6379` | In-memory Data Store |
-| **Liquibase Runner** | Container `hotel_liquibase` | Tự động chạy migration khi khởi động rồi kết thúc (`exit 0`) |
-
----
-
-## 🗃 Quản Lý & Migration Cơ Sở Dữ Liệu (Liquibase)
-
-Hệ thống sử dụng **Liquibase 4.x chạy qua Docker Container độc lập** (`liquibase/liquibase:4.31-alpine`) để quản lý phiên bản cơ sở dữ liệu tự động trước khi Backend khởi chạy, loại bỏ hoàn toàn rủi ro Schema Drift.
-
-### 1. Kiến trúc 3 tầng quản lý:
-* **Root Entrypoint ([`db-changelog-root.xml`](file:///backend/src/main/resources/db/db-changelog-root.xml)):** Điều phối thứ tự nạp các ChangeSet và tự động quét các migration mới qua `<includeAll path="db/changelogs/incremental" />`.
-* **ChangeSet XMLs ([`changelogs/`](file:///backend/src/main/resources/db/changelogs/)):** Quản lý phiên bản, Contexts, điều khiển `runOnChange="true"` cho functions/triggers và `splitStatements="false"` cho khối lệnh PL/pgSQL.
-* **Raw SQL Scripts ([`sqlFile/`](file:///backend/src/main/resources/db/sqlFile/)):** Chứa toàn bộ câu lệnh DDL, Functions, Indexes và Data Scripts thuần túy.
-
-### 2. Phân tách Liquibase Contexts:
-* `master-data`: Dữ liệu bắt buộc hệ thống (Roles, Permissions, Thuế, Tiền tệ...) — được kích hoạt trên **mọi môi trường** (Dev, Staging, Production).
-* `dev-seed`: Dữ liệu mẫu (Khách sạn mẫu, phòng mẫu, menu món ăn...) — **chỉ kích hoạt trên môi trường Dev / Local**.
-
-### 3. Thực thi Lệnh Liquibase CLI qua Docker (Ad-hoc Commands):
-Bạn có thể thực hiện mọi thao tác quản trị database bằng Liquibase trực tiếp qua Docker mà **không cần cài đặt Liquibase trên máy trạm**:
-* **Kiểm tra trạng thái migration:**
-  ```powershell
-  docker compose run --rm liquibase status
-  ```
-* **Xem lịch sử các ChangeSet đã chạy:**
-  ```powershell
-  docker compose run --rm liquibase history
-  ```
-* **Chạy cập nhật migration mới:**
-  ```powershell
-  docker compose run --rm liquibase update
-  ```
-
-### 4. Quy trình thêm Migration mới (Incremental Migration):
-Khi phát triển tính năng mới cần thay đổi DB:
-1. Tạo file XML trong `backend/src/main/resources/db/changelogs/incremental/<YYYY>/YYYYMMDD-HHmmss-<mo_ta>.xml`.
-2. Tạo file SQL tương ứng trong `backend/src/main/resources/db/sqlFile/incremental/<YYYY>/YYYYMMDD-HHmmss-<mo_ta>.sql`.
-3. Khởi động lại hệ thống — Container Liquibase sẽ tự động phát hiện, áp dụng và ghi nhận vào bảng `databasechangelog`.
-
----
-
-## 🔐 Định Danh & Phân Quyền (Keycloak IAM)
-
-Hệ thống sử dụng **Keycloak 24.0.4 chạy thuần Docker** để quản lý định danh và phân quyền tập trung (RBAC).
-
-### 1. Cơ chế Declarative Auto-Import:
-* Khi khởi động, Keycloak tự động nạp cấu hình Realm `hotel-realm`, Clients (`hotel-frontend`, `hotel-backend`), Roles và Users mẫu từ tệp [`keycloak/realm-export.json`](file:///keycloak/realm-export.json).
-* Dữ liệu runtime được lưu trữ an toàn trong Docker Volume `keycloak_data`.
-
-### 2. Danh sách Tài khoản & Mật khẩu Mặc định:
-> **Mật khẩu chung cho tất cả tài khoản mẫu:** `123456`
-
-| Username | Email | Họ & Tên | Role (Quyền hạn) | Chức năng chính |
-| :--- | :--- | :--- | :--- | :--- |
-| **`admin`** | `admin@hotel.utc.edu.vn` | System Admin | `CHAIN_ADMIN` | Quản trị toàn chuỗi khách sạn |
-| **`manager_hn`** | `manager.hn@hotel.utc.edu.vn` | Manager Hà Nội | `PROPERTY_MANAGER` | Quản trị khách sạn cơ sở |
-| **`reception_hn`** | `reception.hn@hotel.utc.edu.vn` | Lễ Tân Hà Nội | `RECEPTIONIST` | Tiếp nhận đặt phòng, check-in |
-| **`housekeeping_hn`** | `housekeeping.hn@hotel.utc.edu.vn` | Buồng Phòng Hà Nội | `HOUSEKEEPING` | Cập nhật tình trạng phòng |
-| **`customer1`** | `customer1@gmail.com` | Nguyễn Văn An | `CUSTOMER` | Khách hàng đặt phòng |
-
-### 3. Hướng dẫn Force Re-import Cấu hình Keycloak:
-Khi bạn cập nhật file `keycloak/realm-export.json` (thêm Role hoặc Client mới), hãy chạy lệnh sau để ép Keycloak nạp lại cấu hình:
+#### 🔹 Bước 2.2: Cấu hình biến môi trường cục bộ
+Tạo tệp `.env` từ `.env-example` ở thư mục gốc:
 ```powershell
-docker compose rm -s -v -f keycloak
-docker volume rm hotel-booking-repo_keycloak_data
-docker compose up -d keycloak
+# Trên Windows PowerShell:
+Copy-Item .env-example .env
+```
+
+#### 🔹 Bước 2.3: Khởi chạy Spring Boot Backend
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
+```
+*(Backend sẽ tự động kết nối PostgreSQL qua cổng `localhost:5433` và chạy Liquibase migration).*
+
+#### 🔹 Bước 2.4: Khởi chạy React Frontend
+```powershell
+cd ../frontend
+npm install
+npm run dev
+```
+*(Frontend chạy tại `http://localhost:5173` và tự động kết nối Backend tại `http://localhost:8080/api`).*
+
+---
+
+## 🌐 7. Danh Mục Cổng & Tài Nguyên (Port Mapping & Endpoints)
+
+| Tên Dịch Vụ | Tên Container | Cổng Host | URL Truy Cập Trình Duyệt | Chức Năng Chính |
+| :--- | :--- | :--- | :--- | :--- |
+| **Frontend Web App** | `hotel_frontend` | **`3000`** *(Docker)*<br>**`5173`** *(Local)* | `http://localhost:3000`<br>`http://localhost:5173` | Giao diện người dùng & Bảng điều khiển quản trị |
+| **Backend REST API** | `hotel_backend` | **`8080`** | `http://localhost:8080/api` | API Gateway & Nghiệp vụ hệ thống |
+| **Swagger UI Docs** | `hotel_backend` | **`8080`** | **`http://localhost:8080/swagger-ui.html`** | Tài liệu API tương tác, hỗ trợ nút Authorize 🔓 |
+| **OpenAPI Specification**| `hotel_backend` | **`8080`** | `http://localhost:8080/v3/api-docs` | Định dạng JSON OpenAPI v3.0 |
+| **Keycloak IAM Server** | `hotel_keycloak` | **`8081`** | `http://localhost:8081/admin` | Quản trị Định danh & Phân quyền (`admin` / `admin`) |
+| **PostgreSQL Database** | `hotel_postgres` | **`5433`** | `localhost:5433` | CSDL: `hotel_booking_db` \| User: `postgres` \| Pass: `123456` |
+| **Redis Cache** | `hotel_redis` | **`6379`** | `localhost:6379` | In-memory Cache & Token Blacklist |
+| **Liquibase Runner** | `hotel_liquibase` | *-* | Container độc lập | Tự động migrate schema & kết thúc với mã `0` |
+
+---
+
+## 🔑 8. Tài Liệu Swagger UI & Đăng Nhập Tự Động (Bearer Token)
+
+Giao diện **Swagger UI** của hệ thống đã được tích hợp chuẩn **OpenAPI 3.0 Security Scheme (Bearer JWT)** kèm tính năng **Persist Authorization** (tự động ghi nhớ token trong `localStorage` khi F5).
+
+### Các bước test nhanh API trên Swagger UI:
+1. Mở trình duyệt truy cập: **`http://localhost:8080/swagger-ui.html`**.
+2. Nhấn vào nút **Authorize 🔓** màu xanh ở góc trên bên phải trang.
+3. Lấy nhanh JWT Token của tài khoản Quản trị viên (`admin`) bằng lệnh PowerShell một chạm:
+   ```powershell
+   $res = Invoke-RestMethod -Uri "http://localhost:8081/realms/hotel-realm/protocol/openid-connect/token" `
+       -Method Post -Body @{ client_id="hotel-frontend"; grant_type="password"; username="admin"; password="123456" }
+   $res.access_token | Set-Clipboard
+   Write-Host "✔ Đã copy JWT Token vào Clipboard!" -ForegroundColor Green
+   ```
+4. Dán chuỗi token vừa copy vào ô **Value** trong modal (không cần gõ thêm chữ `Bearer `) ➔ Bấm **Authorize** ➔ **Close**.
+5. Biểu tượng ổ khóa chuyển thành **đóng 🔒**. Mọi thao tác nhấn **Try it out** ➔ **Execute** trên các API yêu cầu quyền hạn đều sẽ được tự động đính kèm header `Authorization: Bearer <token>`.
+
+---
+
+## 👥 9. Định Danh & Phân Quyền (Keycloak IAM Matrix)
+
+Toàn bộ tài khoản mẫu được tự động nạp sẵn vào hệ thống thông qua file [`keycloak/realm-export.json`](file:///keycloak/realm-export.json).
+
+> 🔑 **Mật khẩu dùng chung cho tất cả các tài khoản thử nghiệm:** **`123456`**
+
+| Username | Email | Quyền Hạn (System Role) | Phạm Vi Quyền Hạn & Nghiệp Vụ |
+| :--- | :--- | :--- | :--- |
+| **`admin`** | `admin@hotel.utc.edu.vn` | `ROLE_CHAIN_ADMIN` | Toàn quyền quản trị hệ thống, quản lý chuỗi, xem báo cáo BI toàn quốc, trigger sinh tồn kho toàn chuỗi. |
+| **`manager_hn`** | `manager.hn@hotel.utc.edu.vn` | `ROLE_PROPERTY_MANAGER` | Quản trị điều hành khách sạn cơ sở Hà Nội, duyệt hợp đồng đoàn, trigger tồn kho chi nhánh. |
+| **`sales_group`**| `sales@hotel.utc.edu.vn` | `ROLE_SALES_GROUP` | Chuyên viên khách đoàn: Tạo báo giá, lập hợp đồng khách đoàn, quản lý quỹ phòng riêng (Room Block). |
+| **`reception_hn`**| `reception.hn@hotel.utc.edu.vn` | `ROLE_RECEPTIONIST` | Lễ tân khách sạn: Tiếp nhận check-in/out, tra cứu tồn phòng, xử lý đặt phòng cá nhân, quản lý Sub-Folio. |
+| **`housekeeping_hn`**| `housekeeping.hn@hotel.utc.edu.vn` | `ROLE_HOUSEKEEPING` | Buồng phòng: Cập nhật tình trạng dọn dẹp, báo hỏng hóc bảo trì phòng (OOO Block). |
+| **`customer1`** | `customer1@gmail.com` | `ROLE_CUSTOMER` | Khách hàng trực tuyến: Tra cứu phòng, đặt phòng công khai, thanh toán qua VNPay/MoMo. |
+
+---
+
+## 🗃 10. Quản Lý & Migration Cơ Sở Dữ Liệu (Liquibase)
+
+Hệ thống tuân thủ nghiêm ngặt nguyên tắc **Không bao giờ chạy DDL thủ công**. Toàn bộ thay đổi cơ sở dữ liệu được quản lý qua Liquibase Database Migration với kiến trúc 3 tầng:
+
+1. **Root Master Changelog ([`db-changelog-root.xml`](file:///backend/src/main/resources/db/db-changelog-root.xml)):** Điều phối toàn cục và tự động quét các migration mới qua thẻ `<includeAll path="db/changelogs/incremental" />`.
+2. **ChangeSet XML ([`changelogs/`](file:///backend/src/main/resources/db/changelogs/)):** Quản lý metadata, contexts, `runOnChange="true"` cho functions/triggers và `splitStatements="false"` cho khối lệnh PL/pgSQL.
+3. **Raw SQL Scripts ([`sqlFile/`](file:///backend/src/main/resources/db/sqlFile/)):** Chứa toàn bộ câu lệnh SQL thuần túy tách biệt.
+
+### Các lệnh Liquibase CLI qua Docker (Không cần cài Liquibase trên máy):
+```powershell
+# Kiểm tra trạng thái các ChangeSets:
+docker compose run --rm liquibase status
+
+# Xem lịch sử các phiên bản đã nạp:
+docker compose run --rm liquibase history
+
+# Chạy cập nhật migration mới:
+docker compose run --rm liquibase update
 ```
 
 ---
 
-## 💡 Lưu Ý & Khắc Phục Lỗi Thường Gặp
+## 🧪 11. Kiểm Thử & Đảm Bảo Chất Lượng (QA & Testing Suites)
 
-1. **Xung đột cổng (Port In Use):**
-   * Đảm bảo các cổng `3000`, `5433`, `6379`, `8080`, `8081` trên máy bạn chưa bị chiếm dụng bởi ứng dụng khác.
-2. **Backend báo lỗi ddl-auto validate mismatch:**
-   * Hãy chắc chắn rằng bạn đã định nghĩa đúng kiểu dữ liệu trong Java Entity khớp với cột trong bảng DB tương ứng.
-3. **Reset hoàn toàn Hệ thống (Clean Reset):**
-   * Nếu bạn muốn xóa toàn bộ dữ liệu (PostgreSQL, Redis, Keycloak) và khởi tạo lại sạch sẽ từ đầu:
-     ```bash
-     docker compose down -v
-     docker compose up -d --build
-     ```
-     *(Cờ `-v` sẽ xóa sạch toàn bộ Docker Volumes `pg_data`, `redis_data` và `keycloak_data`)*.
+Dự án áp dụng quy chuẩn kiểm thử nghiêm ngặt bao phủ Unit Test, Integration Test và Concurrency Stress-test với hơn 100+ test cases.
+
+### Lệnh chạy kiểm thử Backend qua Maven Wrapper:
+
+```powershell
+# 1. Chạy toàn bộ test suites của module Tồn kho (Bao gồm Concurrency Test)
+cmd /c "set JAVA_HOME=D:\TOOL-CONFIG\jdk-21.0.11&& .\mvnw.cmd test -Dtest=RoomAvailability*Test"
+
+# 2. Kiểm thử chống đặt trùng phòng đồng thời (Concurrency Anti-Overbooking)
+cmd /c "set JAVA_HOME=D:\TOOL-CONFIG\jdk-21.0.11&& .\mvnw.cmd test -Dtest=RoomAvailabilityConcurrencyTest"
+
+# 3. Kiểm thử phân hệ Khách đoàn & Room Block
+cmd /c "set JAVA_HOME=D:\TOOL-CONFIG\jdk-21.0.11&& .\mvnw.cmd test -Dtest=GroupRoomBlock*Test,GroupContract*Test"
+
+# 4. Kiểm thử Báo cáo Quản trị BI & Master Folio
+cmd /c "set JAVA_HOME=D:\TOOL-CONFIG\jdk-21.0.11&& .\mvnw.cmd test -Dtest=ExecutiveReport*Test,MasterFolio*Test"
+
+# 5. Chạy hồi quy toàn diện cross-module (Regression Testing)
+cmd /c "set JAVA_HOME=D:\TOOL-CONFIG\jdk-21.0.11&& .\mvnw.cmd test -Dtest=RoomAvailability*Test,HotelRoomTypeServiceTest,NightAuditServiceTest,BookingServiceTest,PublicBookingSearchServiceTest"
+```
 
 ---
 
-Chúc bạn có trải nghiệm phát triển tuyệt vời với **Hotel Booking System**! 🚀
+## 💡 12. Xử Lý Sự Cố Thường Gặp (Troubleshooting & FAQs)
+
+| Vấn đề gặp phải | Nguyên nhân | Cách khắc phục |
+| :--- | :--- | :--- |
+| **Cổng bị chiếm dụng (Port already in use)** | Một ứng dụng khác đang chiếm cổng `3000`, `5433`, `6379`, `8080`, hoặc `8081`. | Chạy lệnh `Get-Process -Id (Get-NetTCPConnection -LocalPort <CỔNG>).OwningProcess \| Stop-Process -Force` để giải phóng cổng. |
+| **Lỗi kết nối Keycloak (`Connection Refused`)** | Keycloak đang trong giai đoạn khởi động và nạp realm (mất ~25 giây). | Chờ container `hotel_keycloak` chuyển sang trạng thái `healthy` trước khi gọi API đăng nhập. |
+| **Gọi API trên Swagger bị lỗi `401 Unauthorized`** | Chưa nhấn nút Authorize hoặc token đã hết hạn (Access Token có hạn 15 phút). | Lấy token mới bằng lệnh PowerShell (Mục 8) và dán lại vào nút **Authorize 🔓**. |
+| **Cần Reset hoàn toàn CSDL và Hệ thống từ đầu** | Muốn xóa toàn bộ dữ liệu demo cũ để chạy lại môi trường sạch sẽ. | Chạy lệnh: `docker compose down -v` rồi khởi động lại: `docker compose up -d --build`. Cờ `-v` sẽ xóa sạch các volume dữ liệu. |
+
+---
+
+<p align="center">
+  Phát triển với ❤️ bởi <b>UTC Hotel Engineering Team</b><br>
+  <i>Smart Hotel Booking System — Enterprise Architecture Platform</i>
+</p>
