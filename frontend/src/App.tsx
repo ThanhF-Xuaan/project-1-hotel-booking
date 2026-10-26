@@ -29,6 +29,8 @@ const SearchPage = lazy(() => import('./modules/booking-portal/pages/SearchPage'
 const CheckoutPage = lazy(() => import('./modules/booking-portal/pages/CheckoutPage'))
 const MyBookingsPage = lazy(() => import('./modules/booking-portal/pages/MyBookingsPage'))
 const RoomDetailsPage = lazy(() => import('./modules/booking-portal/pages/RoomDetailsPage'))
+const PersonalizationPage = lazy(() => import('./modules/booking-portal/pages/PersonalizationPage'))
+const PrivacyPage = lazy(() => import('./modules/booking-portal/pages/PrivacyPage'))
 
 export function App() {
   return (
@@ -53,6 +55,10 @@ export function App() {
             <Route path="checkout" element={<CheckoutPage />} />
             <Route path="my-bookings" element={<MyBookingsPage />} />
             <Route path="hotels/:hotelId/room-types/:hotelRoomTypeId" element={<RoomDetailsPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
+            <Route element={<ProtectedRoute roles={['CUSTOMER']} />}>
+              <Route path="personalization" element={<PersonalizationPage />} />
+            </Route>
           </Route>
 
           {/* Internal Hotel Staff & Executive Admin Console (bắt buộc đăng nhập) */}

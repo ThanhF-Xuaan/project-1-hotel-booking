@@ -203,6 +203,15 @@ SELECT setval(
 );
 
 -- 13.1. U14 local synthetic profiles and account bindings (no consent is pre-granted)
+UPDATE personalization_account_bindings binding
+SET status = 'REVOKED', revoked_at = CURRENT_TIMESTAMP
+FROM booking_guests guest
+WHERE binding.guest_id = guest.id
+  AND guest.public_id = '30000000-0000-0000-0000-000000000002'
+  AND binding.source = 'SYNTHETIC_FIXTURE'
+  AND binding.status = 'ACTIVE'
+  AND binding.subject <> :'u14_customer_b_subject';
+
 INSERT INTO booking_guests (public_id, full_name, phone, email, nationality, status)
 SELECT '30000000-0000-0000-0000-000000000002', 'U14 Synthetic Customer B', '0900000014',
        'u14-customer-b@acceptance.local', 'Synthetic', 'ACTIVE'
@@ -211,13 +220,18 @@ WHERE NOT EXISTS (
     WHERE public_id = '30000000-0000-0000-0000-000000000002'
 );
 
+SELECT setval(
+    pg_get_serial_sequence('booking_guests', 'id'),
+    (SELECT GREATEST(COALESCE(MAX(id), 1), 1) FROM booking_guests)
+);
+
 WITH u14_fixture_bindings (issuer, subject, guest_public_id) AS (
     VALUES
         ('http://localhost:18081/realms/hotel-acceptance',
          '20000000-0000-0000-0000-000000000006',
          '30000000-0000-0000-0000-000000000001'),
         ('http://localhost:18081/realms/hotel-acceptance',
-         '20000000-0000-0000-0000-000000000007',
+         :'u14_customer_b_subject',
          '30000000-0000-0000-0000-000000000002')
 )
 INSERT INTO personalization_account_bindings (issuer, subject, guest_id, binding_version, source, status)
@@ -225,27 +239,6 @@ SELECT fixture.issuer, fixture.subject, guest.id, 1, 'SYNTHETIC_FIXTURE', 'ACTIV
 FROM u14_fixture_bindings fixture
 JOIN booking_guests guest ON guest.public_id = fixture.guest_public_id::UUID
 ON CONFLICT (issuer, subject, binding_version) DO NOTHING;
-
-DO $$
-BEGIN
-    IF (
-        SELECT COUNT(*)
-        FROM personalization_account_bindings binding
-        JOIN booking_guests guest ON guest.id = binding.guest_id
-        WHERE binding.issuer = 'http://localhost:18081/realms/hotel-acceptance'
-          AND binding.status = 'ACTIVE'
-          AND binding.source = 'SYNTHETIC_FIXTURE'
-          AND (
-              (binding.subject = '20000000-0000-0000-0000-000000000006'
-               AND guest.public_id = '30000000-0000-0000-0000-000000000001')
-              OR
-              (binding.subject = '20000000-0000-0000-0000-000000000007'
-               AND guest.public_id = '30000000-0000-0000-0000-000000000002')
-          )
-    ) <> 2 THEN
-        RAISE EXCEPTION 'U14 synthetic account binding fixtures are missing or do not match the expected subjects';
-    END IF;
-END $$;
 
 INSERT INTO bookings (id, hotel_id, guest_id, booking_type, booking_number, subtotal_amount, total_amount, status)
 OVERRIDING SYSTEM VALUE
@@ -267,6 +260,40 @@ INSERT INTO booking_rooms (id, booking_detail_id, room_instance_id, adult_count,
 OVERRIDING SYSTEM VALUE
 VALUES
     (1, 1, (SELECT id FROM room_instances WHERE hotel_id = 1 AND room_number = '101' LIMIT 1), 2, 0, 2, 'CHECKED_IN')
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('booking_rooms_id_seq', (SELECT GREATEST(MAX(id), 1) FROM booking_rooms));
+
+-- U14 synthetic completed FIT stay for CUSTOMER B exercises the real personalized path.
+INSERT INTO bookings (id, hotel_id, guest_id, booking_type, booking_number, subtotal_amount, total_amount, status)
+OVERRIDING SYSTEM VALUE
+VALUES (
+    2, 1,
+    (SELECT id FROM booking_guests WHERE public_id = '30000000-0000-0000-0000-000000000002'),
+    'FIT', 'BK-U14-SYNTHETIC-B-001', 4000000.00, 4200000.00, 'CONFIRMED'
+)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('bookings_id_seq', (SELECT GREATEST(MAX(id), 1) FROM bookings));
+
+INSERT INTO booking_details (id, booking_id, hotel_room_type_id, room_type_name, quantity, check_in_date, check_out_date)
+OVERRIDING SYSTEM VALUE
+VALUES (2, 2, 2, 'Deluxe Room (Synthetic U14)', 1, CURRENT_DATE - 40, CURRENT_DATE - 37)
+ON CONFLICT (id) DO NOTHING;
+
+SELECT setval('booking_details_id_seq', (SELECT GREATEST(MAX(id), 1) FROM booking_details));
+
+INSERT INTO booking_rooms (
+    id, booking_detail_id, room_instance_id, adult_count, child_count, guest_count, status,
+    actual_check_in_at, actual_check_out_at
+)
+OVERRIDING SYSTEM VALUE
+VALUES (
+    2, 2, (SELECT id FROM room_instances WHERE hotel_id = 1 AND room_number = '201' LIMIT 1),
+    2, 0, 2, 'CHECKED_OUT',
+    ((CURRENT_DATE - 40)::timestamp + TIME '14:00') AT TIME ZONE 'Asia/Ho_Chi_Minh',
+    ((CURRENT_DATE - 37)::timestamp + TIME '12:00') AT TIME ZONE 'Asia/Ho_Chi_Minh'
+)
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('booking_rooms_id_seq', (SELECT GREATEST(MAX(id), 1) FROM booking_rooms));

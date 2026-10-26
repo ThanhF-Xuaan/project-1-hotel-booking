@@ -13,13 +13,16 @@ $Results = [System.Collections.Generic.List[object]]::new()
 $Problems = [System.Collections.Generic.List[string]]::new()
 $OwnedInfrastructure = $false
 $SnapshotReady = $false
+$SnapshotHash = $null
+$SnapshotBytes = $null
 $Restored = $false
 $RunLock = $null
 $Backend = $null
 $UiResults = $null
 $EnvironmentBefore = @{}
 foreach ($Name in @('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_PORT', 'REDIS_PORT',
-    'KEYCLOAK_ADMIN', 'KEYCLOAK_ADMIN_PASSWORD', 'KEYCLOAK_PORT', 'CI')) {
+    'KEYCLOAK_ADMIN', 'KEYCLOAK_ADMIN_PASSWORD', 'KEYCLOAK_PORT',
+    'HOTEL_AI_PERSONALIZATION_LOCAL_DEMO_ENABLED', 'CI')) {
     $EnvironmentBefore[$Name] = [Environment]::GetEnvironmentVariable($Name, 'Process')
 }
 
@@ -86,8 +89,9 @@ try {
         $Config.KEYCLOAK_PORT -ne 18081 -or $Config.KEYCLOAK_REALM -ne 'hotel-acceptance' -or
         $Config.KEYCLOAK_SERVER_URL -ne 'http://localhost:18081' -or
         $Config.BACKEND_PORT -ne 18080 -or $Config.FRONTEND_PORT -ne 13000 -or
-        $Config.HOTEL_AI_PERSONALIZATION_SYNTHETIC_EVALUATION_ENABLED -ne 'true') {
-        throw 'Runtime phải là sandbox acceptance cố định, bật U14 synthetic; không tự sửa cấu hình.'
+        $Config.HOTEL_AI_PERSONALIZATION_SYNTHETIC_EVALUATION_ENABLED -ne 'true' -or
+        $Config.HOTEL_AI_PERSONALIZATION_LOCAL_DEMO_ENABLED -ne 'true') {
+        throw 'Runtime phải là sandbox acceptance cố định, bật U14 synthetic và local v1; không tự sửa cấu hình.'
     }
     if (Test-Path -LiteralPath (Join-Path $RuntimeDir 'processes.json')) {
         throw 'Có manifest ứng dụng đang chạy; dừng sandbox trước khi Verify.'
@@ -110,11 +114,11 @@ try {
     })
     [PSCustomObject]@{ runId = $RunId; baseSha = $BaseSha; branch = $Branch; gitStatus = $GitStatus;
         scriptHashes = $ScriptHashes; database = '127.0.0.1:15432/hotel_acceptance_db'; redis = '127.0.0.1:16379';
-        providers = 'Gemini disabled; deterministic/synthetic only' } |
+        providers = 'Gemini disabled; deterministic/synthetic only; U14 local v1 enabled' } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $RunDir 'run.json') -Encoding UTF8
 
     $OwnedInfrastructure = $true
-    Invoke-ScriptStage -Name 'infrastructure' -Script 'Start.ps1' -Arguments @('-InfrastructureOnly')
+    Invoke-ScriptStage -Name 'services' -Script 'Start.ps1' -Arguments @('-ServicesOnly')
     $SnapshotFile = Join-Path $RunDir 'snapshot.sql'
     Invoke-ScriptStage -Name 'snapshot' -Script 'Snapshot.ps1' -Arguments @('-SnapshotFile', $SnapshotFile)
     if (-not (Test-Path -LiteralPath $SnapshotFile) -or (Get-Item -LiteralPath $SnapshotFile).Length -eq 0) {
@@ -122,12 +126,23 @@ try {
     }
     $SnapshotReady = $true
     $SnapshotHash = (Get-FileHash -LiteralPath $SnapshotFile -Algorithm SHA256).Hash
+    $SnapshotBytes = (Get-Item -LiteralPath $SnapshotFile).Length
+    $RunMetadataPath = Join-Path $RunDir 'run.json'
+    $RunMetadata = Get-Content -LiteralPath $RunMetadataPath -Raw | ConvertFrom-Json
+    $RunMetadata | Add-Member -NotePropertyName snapshotSha256 -NotePropertyValue $SnapshotHash -Force
+    $RunMetadata | Add-Member -NotePropertyName snapshotBytes -NotePropertyValue $SnapshotBytes -Force
+    $RunMetadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $RunMetadataPath -Encoding UTF8
+
+    # Migration and fixture seed mutate the volume; only run them after preserving its prior state.
+    Invoke-ScriptStage -Name 'infrastructure' -Script 'Start.ps1' -Arguments @('-InfrastructureOnly')
 
     Invoke-ScriptStage -Name 'maven' -Script 'Run-BackendTests.ps1' -Arguments @('-EvidenceDirectory', $RunDir)
     $Backend = Get-Content -LiteralPath (Join-Path $RunDir 'backend.json') -Raw | ConvertFrom-Json
     if ($Backend.status -ne 'PASS' -or $Backend.tests -lt 1) { throw 'Thiếu evidence Maven PASS.' }
     Invoke-Stage -Name 'source-audit' -Executable (Get-Command node -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_lazy_route_reaudit.cjs'))
+    Invoke-Stage -Name 'u14-source-audit' -Executable (Get-Command node -CommandType Application | Select-Object -First 1).Source `
+        -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_u14_source_reaudit.cjs'))
     Invoke-Stage -Name 'core-source-audit' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_core_reaudit.py'))
     Invoke-Stage -Name 'core-source-audit-tests' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
@@ -191,7 +206,9 @@ $ReportPath = Join-Path $ReportDirectory "acceptance-$RunId.md"
 $Lines = @('# Local technical acceptance', '', "- **Result:** $Status", "- **Run:** $RunId",
     "- **Base SHA:** $BaseSha", "- **Branch:** $Branch", "- **Runtime evidence:** $RunDir",
     '- **Environment:** dedicated loopback PostgreSQL 15432, Redis 16379, Keycloak 18081; synthetic data only.',
-    "- **Snapshot restored:** $Restored; Docker volumes retained.", '',
+    '- **U14 fixture:** local demo flag enabled; `test_customer_b` is linked to synthetic history and `test_customer_unlinked` has CUSTOMER role but no binding in the retained local Keycloak volume.',
+    "- **Snapshot restored:** $Restored; Docker volumes retained.",
+    "- **Snapshot:** SHA-256 $SnapshotHash; $SnapshotBytes bytes.", '',
     '| Stage | Status | Exit | Seconds |', '|---|---|---:|---:|')
 foreach ($Result in $Results) { $Lines += "| $($Result.stage) | $($Result.status) | $($Result.exitCode) | $($Result.seconds) |" }
 if ($Backend) {
@@ -215,6 +232,7 @@ $Lines += @('', '## Scope and evidence', '',
 foreach ($Hash in $ScriptHashes) { $Lines += "| $($Hash.file) | $($Hash.sha256) |" }
 $Lines | Set-Content -LiteralPath $ReportPath -Encoding UTF8
 [PSCustomObject]@{ status = $Status; problems = @($Problems.ToArray()); restored = $Restored;
+    snapshotSha256 = $SnapshotHash; snapshotBytes = $SnapshotBytes;
     stages = @($Results.ToArray()); report = $ReportPath } |
     ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $RunDir 'results.json') -Encoding UTF8
 Write-Host "Kết quả $Status. Báo cáo: $ReportPath"

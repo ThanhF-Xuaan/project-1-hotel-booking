@@ -66,6 +66,32 @@ Push-Location (Join-Path $ProjectRoot 'backend')
 try {
     & .\mvnw.cmd clean test
     if ($LASTEXITCODE -ne 0) { throw "Maven clean test thất bại (exit $LASTEXITCODE)." }
+
+    # Run the otherwise-disabled full-application context smoke test separately so its sandbox
+    # credentials cannot affect unit tests that intentionally verify missing-secret behavior.
+    $env:DB_HOST = '127.0.0.1'
+    $env:DB_PORT = [string]$Config.DB_PORT
+    $env:DB_NAME = [string]$Config.DB_NAME
+    $env:DB_USER = [string]$Config.DB_USER
+    $env:DB_PASSWORD = [string]$Config.DB_PASSWORD
+    $env:REDIS_HOST = '127.0.0.1'
+    $env:REDIS_PORT = [string]$Config.REDIS_PORT
+    $env:KEYCLOAK_SERVER_URL = [string]$Config.KEYCLOAK_SERVER_URL
+    $env:KEYCLOAK_REALM = [string]$Config.KEYCLOAK_REALM
+    $env:KEYCLOAK_CLIENT_ID = [string]$Config.KEYCLOAK_CLIENT_ID
+    $env:KEYCLOAK_CLIENT_SECRET = [string]$Config.KEYCLOAK_CLIENT_SECRET
+    $env:KEYCLOAK_ISSUER_URI = "$($Config.KEYCLOAK_SERVER_URL)/realms/$($Config.KEYCLOAK_REALM)"
+    $env:KEYCLOAK_JWK_SET_URI = "$($Config.KEYCLOAK_SERVER_URL)/realms/$($Config.KEYCLOAK_REALM)/protocol/openid-connect/certs"
+    $env:KEYCLOAK_ADMIN_USERNAME = [string]$Config.KEYCLOAK_ADMIN
+    $env:KEYCLOAK_ADMIN_PASSWORD = [string]$Config.KEYCLOAK_ADMIN_PASSWORD
+    $env:HOTEL_SCHEDULING_ENABLED = 'false'
+    $env:HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET = [string]$Config.HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET
+    $env:HOTEL_AI_PERSONALIZATION_SYNTHETIC_EVALUATION_ENABLED = 'true'
+    $env:HOTEL_AI_PERSONALIZATION_LOCAL_DEMO_ENABLED = 'true'
+    $env:SPRING_LIQUIBASE_ENABLED = 'false'
+    & .\mvnw.cmd '-Dacceptance.integration=true' '-Dtest=HotelBookingApplicationTests' test
+    if ($LASTEXITCODE -ne 0) { throw "Application context smoke test thất bại (exit $LASTEXITCODE)." }
+
     $Reports = @(Get-ChildItem -LiteralPath 'target/surefire-reports' -Filter 'TEST-*.xml' | ForEach-Object {
         $Suite = ([xml](Get-Content -LiteralPath $_.FullName -Raw)).testsuite
         [PSCustomObject]@{ name = [string]$Suite.name; tests = [int]$Suite.tests; failures = [int]$Suite.failures;
@@ -74,7 +100,8 @@ try {
     if ($Reports.Count -eq 0) { throw 'Maven không tạo Surefire evidence.' }
     foreach ($Required in @(
         @{ Name = 'LodgingExportPostgresTest'; Count = 3 },
-        @{ Name = 'RedisRoomAdvisorSessionStoreRealRedisTest'; Count = 4 }
+        @{ Name = 'RedisRoomAdvisorSessionStoreRealRedisTest'; Count = 4 },
+        @{ Name = 'HotelBookingApplicationTests'; Count = 1 }
     )) {
         $Suite = @($Reports | Where-Object { $_.name.EndsWith(".$($Required.Name)") })
         if ($Suite.Count -ne 1 -or $Suite[0].tests -ne $Required.Count -or
@@ -84,7 +111,7 @@ try {
     }
     $Failures = ($Reports | Measure-Object failures -Sum).Sum + ($Reports | Measure-Object errors -Sum).Sum
     if ($Failures -ne 0) { throw 'Surefire còn failure/error.' }
-    [PSCustomObject]@{ status = 'PASS'; command = '.\mvnw.cmd clean test';
+    [PSCustomObject]@{ status = 'PASS'; command = '.\mvnw.cmd clean test; .\mvnw.cmd -Dacceptance.integration=true -Dtest=HotelBookingApplicationTests test';
         tests = ($Reports | Measure-Object tests -Sum).Sum; skipped = ($Reports | Measure-Object skipped -Sum).Sum;
         suites = $Reports } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $EvidenceFile -Encoding UTF8
 } finally {

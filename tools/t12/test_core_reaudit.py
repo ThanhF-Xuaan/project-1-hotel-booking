@@ -45,9 +45,17 @@ class CoreReauditTest(unittest.TestCase):
 
     def test_unrelated_source_entry_cannot_be_changed(self):
         manifest = copy.deepcopy(self.manifest)
-        entry = next(item for item in manifest["files"] if item["path"] not in {audit.ERRORS, audit.AVAILABILITY})
+        entry = next(item for item in manifest["files"] if item["path"] not in
+                     {audit.ERRORS, audit.AVAILABILITY, *audit.U14_SOURCE_PATHS})
         entry["sha256"] = "0" * 64
         with self.assertRaisesRegex(ValueError, "Unrelated manifest"):
+            audit.verify_audit(manifest=manifest)
+
+    def test_u14_source_entry_must_match_versioned_audit(self):
+        manifest = copy.deepcopy(self.manifest)
+        entry = next(item for item in manifest["files"] if item["path"] == "frontend/src/App.tsx")
+        entry["sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "U14 manifest entry"):
             audit.verify_audit(manifest=manifest)
 
     def test_reconciled_manifest_must_match_current_hash(self):

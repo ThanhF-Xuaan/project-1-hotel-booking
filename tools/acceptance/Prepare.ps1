@@ -63,6 +63,7 @@ $EnvConfig = @{
     FRONTEND_PORT = 13000
     HOTEL_SCHEDULING_ENABLED = "false"
     HOTEL_AI_PERSONALIZATION_SYNTHETIC_EVALUATION_ENABLED = "true"
+    HOTEL_AI_PERSONALIZATION_LOCAL_DEMO_ENABLED = "true"
     HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET = "7f3c1a9e5b2d8460c4f19a3e7b2d5c80a1b2c3d4"
 }
 
@@ -90,7 +91,9 @@ $Manifest = @{
         @{ username = "manager_h1"; role = "PROPERTY_MANAGER"; scope = "PROPERTY (Hotel 1)" },
         @{ username = "manager_h2"; role = "PROPERTY_MANAGER"; scope = "PROPERTY (Hotel 2)" },
         @{ username = "reception_h1"; role = "RECEPTIONIST"; scope = "PROPERTY (Hotel 1)" },
-        @{ username = "test_customer"; role = "CUSTOMER"; scope = "PUBLIC" }
+        @{ username = "test_customer"; role = "CUSTOMER"; scope = "PUBLIC" },
+        @{ username = "test_customer_b"; role = "CUSTOMER"; scope = "PUBLIC (synthetic U14 history fixture)" },
+        @{ username = "test_customer_unlinked"; role = "CUSTOMER"; scope = "PUBLIC (no U14 identity binding)" }
     )
 }
 

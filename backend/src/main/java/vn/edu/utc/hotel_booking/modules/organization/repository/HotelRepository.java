@@ -21,6 +21,8 @@ public interface HotelRepository extends JpaRepository<Hotel, Short>, JpaSpecifi
 
     Optional<Hotel> findByIdAndIsDeletedFalse(Short id);
 
+    boolean existsByIdAndStatusAndIsDeletedFalse(Short id, String status);
+
     boolean existsByNameAndRegionIdAndIsDeletedFalse(String name, Short regionId);
 
     boolean existsByNameAndRegionIdAndIdNotAndIsDeletedFalse(String name, Short regionId, Short id);
