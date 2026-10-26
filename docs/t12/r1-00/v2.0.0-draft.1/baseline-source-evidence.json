@@ -30,14 +30,17 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
-      "sha256": "e08f2eadeb1b82295a2edd758b97e893774f8b7c5778e077672f7cafa5984b88",
+      "sha256": "9ea0dfe275cb8f1b4b3d6b032c6379eca505734ef8dd0650a13031c71c4ecf06",
       "historicalSha256": "407fb57045db44baadd3665d8b25ee81cb8972439a2480af4b1f7a34a8708a9f",
-      "previousReconciledSha256": "b6c113e6dca4514cf335132168d9889e5dc187e421858ff624f88a807ed41f98",
-      "previousReconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
-      "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
-      "reconciledSourceCommit": "023933e38092ce27e42635148276d4bacffd5326",
-      "reconciledFromPr": 24,
-      "baselineUnmodified": true
+      "previousReconciledSha256": "e08f2eadeb1b82295a2edd758b97e893774f8b7c5778e077672f7cafa5984b88",
+      "previousReconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+      "reconciledFromDevelopCommit": "96d7815b4e5d13f5052ca0fa6a6c414c8297ea1e",
+      "reconciledSourceCommit": "a87d19668a836cdee54521555c8b056ad0edfe54",
+      "baselineUnmodified": true,
+      "unixLfSha256": "b17fa21c271e100b4188f66f14b231de574e7f944411a82d799bf2b1ac143f9e",
+      "windowsCrlfSha256": "9ea0dfe275cb8f1b4b3d6b032c6379eca505734ef8dd0650a13031c71c4ecf06",
+      "reconciledSourceAudit": "docs/t12/re-audits/2026-10-26-core-integration-v1.json",
+      "previousReconciledFromPr": 24
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/organization/controller/PublicHotelController.java",
@@ -86,10 +89,16 @@
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java",
-      "sha256": "6d1ec1dc376f503ff9a23b9e9a1262120f11e64aa57fce2d4cff7d4ba1ef7cfd",
+      "sha256": "8466566e028dd3375801de0a46d167550cb5252dc061a72460f36199070da73b",
       "historicalSha256": "1e54ee1d889eddfc6462aaca5a13e1cec533a7efca74b42bae880996db56cc21",
-      "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
-      "baselineUnmodified": true
+      "reconciledFromDevelopCommit": "96d7815b4e5d13f5052ca0fa6a6c414c8297ea1e",
+      "baselineUnmodified": true,
+      "unixLfSha256": "854ddfc4a5bbdc63867336eab0a7491437a2dc56c8a49d8a1edce634a20d0a3b",
+      "windowsCrlfSha256": "8466566e028dd3375801de0a46d167550cb5252dc061a72460f36199070da73b",
+      "previousReconciledSha256": "6d1ec1dc376f503ff9a23b9e9a1262120f11e64aa57fce2d4cff7d4ba1ef7cfd",
+      "previousReconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
+      "reconciledSourceCommit": "1854ee46aaff4ec3129daeb552e037115f918ec4",
+      "reconciledSourceAudit": "docs/t12/re-audits/2026-10-26-core-integration-v1.json"
     },
     {
       "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/pricing/controller/PublicPricingController.java",
@@ -206,7 +215,10 @@
       "previousReconciledSha256": "8dd370acbc42a3e43d4a360679d817c88e65644e4d793f518bd6f26cfea01b3b",
       "workingTreeReconciliation": {
         "reason": "Carry confirmed advisor guest criteria (including infants and extra beds) into room-detail navigation.",
-        "verifiedWith": ["npm run build", "npm run test:e2e"]
+        "verifiedWith": [
+          "npm run build",
+          "npm run test:e2e"
+        ]
       }
     }
   ]
