@@ -18,6 +18,7 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = "hotel.storage.type", havingValue = "local")
 public class LocalFileSystemContractStorageService implements ContractStorageService {
 
     private final Path rootStoragePath;

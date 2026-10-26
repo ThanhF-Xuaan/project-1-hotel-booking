@@ -140,6 +140,14 @@ services:
       MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-}
       MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
       MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
+      # Lưu trữ Object Storage S3 (MinIO)
+      HOTEL_STORAGE_TYPE: ${HOTEL_STORAGE_TYPE:-s3}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-admin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-hotelbooking123}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-hotel-booking-storage}
+      S3_PATH_STYLE_ACCESS: ${S3_PATH_STYLE_ACCESS:-true}
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -149,9 +157,34 @@ services:
         condition: service_healthy
       liquibase:
         condition: service_completed_successfully # Đợi Liquibase container chạy xong 100%
+      minio:
+        condition: service_healthy
 
   # ==========================================
-  # 6. REACT VITE FRONTEND
+  # 6. OBJECT STORAGE (MINIO S3-COMPATIBLE)
+  # ==========================================
+  minio:
+    image: ${MINIO_IMAGE:-cgr.dev/chainguard/minio@sha256:268d68a2a3b6fc65f905a61f84d7eab6345ce6bff14f551e2b028ec31e6a1341}
+    container_name: hotel_minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000" # S3 API endpoint
+      - "9001:9001" # MinIO Web Console
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-hotelbooking123}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && exec 3>&-"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ==========================================
+  # 7. REACT VITE FRONTEND
   # ==========================================
   frontend:
     build: 
@@ -180,3 +213,4 @@ volumes:
   pg_data:
   redis_data:
   keycloak_data:
+  minio_data:

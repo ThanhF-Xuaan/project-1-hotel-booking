@@ -148,6 +148,14 @@ public enum ErrorCode {
     BILLING_ROUTING_RULE_NOT_FOUND(7219, "Không tìm thấy quy tắc định tuyến chi phí", HttpStatus.NOT_FOUND),
     MASTER_FOLIO_ALREADY_CLOSED(7220, "Master Folio đã đóng, không thể chỉnh sửa thêm", HttpStatus.BAD_REQUEST),
     INVALID_ROUTING_ADJUSTMENT(7221, "Dữ liệu điều chuyển chi phí không hợp lệ", HttpStatus.BAD_REQUEST),
+
+    // Storage & Media Module Errors (7300s)
+    FILE_EMPTY(7301, "Tệp tải lên không được để trống", HttpStatus.BAD_REQUEST),
+    FILE_SIZE_EXCEEDED(7302, "Dung lượng tệp vượt quá hạn mức cho phép", HttpStatus.BAD_REQUEST),
+    FILE_FORMAT_NOT_ALLOWED(7303, "Định dạng tệp không được chấp nhận cho danh mục này", HttpStatus.BAD_REQUEST),
+    FILE_CORRUPTED_OR_MALICIOUS(7304, "Tệp tin bị hỏng, giả mạo định dạng hoặc không vượt qua kiểm tra an toàn mã độc", HttpStatus.BAD_REQUEST),
+    MEDIA_NOT_FOUND(7305, "Không tìm thấy tệp tin đa phương tiện yêu cầu", HttpStatus.NOT_FOUND),
+    STORAGE_OPERATION_FAILED(7306, "Thao tác lưu trữ tệp tin thất bại", HttpStatus.INTERNAL_SERVER_ERROR),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {
