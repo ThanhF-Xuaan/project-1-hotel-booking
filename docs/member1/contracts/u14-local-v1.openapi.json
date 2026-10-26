@@ -1,0 +1,1337 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "U14 local synthetic personalization",
+    "version": "1.0.0-proposed",
+    "description": "PROPOSED contract for acceptance sandbox synthetic fixtures only. Not approved for real customer data. All operations require CUSTOMER role. Reject unknown JSON properties, unknown query parameters and repeated single-valued query parameters with HTTP 400. Responses produced by U14, including errors, use Cache-Control: private, no-store; existing authentication-filter 401 behavior is unchanged."
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Application base URL; acceptance uses the configured local backend origin."
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "U14 personalization"
+    }
+  ],
+  "paths": {
+    "/api/v1/me/personalization-consent": {
+      "get": {
+        "tags": [
+          "U14 personalization"
+        ],
+        "operationId": "getMyU14Consent",
+        "summary": "Read the authenticated customer's consent for one hotel",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HotelId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consent state and local-demo notice",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentEnvelope"
+                },
+                "example": {
+                  "code": 200,
+                  "message": "Lấy trạng thái consent thành công",
+                  "result": {
+                    "hotelId": 1,
+                    "status": "NOT_GRANTED",
+                    "granted": false,
+                    "revision": 0,
+                    "bindingVersion": 1,
+                    "purpose": "ROOM_TYPE_RECOMMENDATION",
+                    "currentPolicyVersion": "u14-local-room-affinity-v1",
+                    "acceptedPolicyVersion": null,
+                    "updatedAt": null,
+                    "historyLookbackMonths": 12,
+                    "noticeText": "Đây là bản demo dùng dữ liệu giả lập. Khi consent có hiệu lực, hệ thống phân tích các booking FIT một phòng đã hoàn tất, đứng tên hồ sơ được liên kết, tại khách sạn này trong 12 tháng gần nhất để xếp hạng hạng phòng, bao gồm booking trước thời điểm cấp consent. Có thể rút consent bất cứ lúc nào. Gợi ý không thay đổi giá, khuyến mại hoặc đặt phòng và không bảo đảm giá hay tồn phòng.",
+                    "privacyPolicyUrl": "/portal/privacy",
+                    "dataMode": "LOCAL_SYNTHETIC"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/IdentityLinkRequired"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "U14 personalization"
+        ],
+        "operationId": "updateMyU14Consent",
+        "summary": "Grant or revoke the authenticated customer's consent",
+        "description": "Compare-and-set by revision and binding version. Consent state and event commit in one transaction. Conflicts must not be retried automatically.",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentMutation"
+              },
+              "examples": {
+                "grant": {
+                  "value": {
+                    "hotelId": 1,
+                    "granted": true,
+                    "expectedRevision": 0,
+                    "expectedBindingVersion": 1,
+                    "policyVersion": "u14-local-room-affinity-v1"
+                  }
+                },
+                "revoke": {
+                  "value": {
+                    "hotelId": 1,
+                    "granted": false,
+                    "expectedRevision": 1,
+                    "expectedBindingVersion": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "State and matching consent event committed",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentEnvelope"
+                },
+                "examples": {
+                  "granted": {
+                    "value": {
+                      "code": 200,
+                      "message": "Đã cấp consent.",
+                      "result": {
+                        "hotelId": 1,
+                        "status": "GRANTED",
+                        "granted": true,
+                        "revision": 1,
+                        "bindingVersion": 1,
+                        "purpose": "ROOM_TYPE_RECOMMENDATION",
+                        "currentPolicyVersion": "u14-local-room-affinity-v1",
+                        "acceptedPolicyVersion": "u14-local-room-affinity-v1",
+                        "updatedAt": "2026-10-26T10:00:00+07:00",
+                        "historyLookbackMonths": 12,
+                        "noticeText": "Đây là bản demo dùng dữ liệu giả lập. Khi consent có hiệu lực, hệ thống phân tích các booking FIT một phòng đã hoàn tất, đứng tên hồ sơ được liên kết, tại khách sạn này trong 12 tháng gần nhất để xếp hạng hạng phòng, bao gồm booking trước thời điểm cấp consent. Có thể rút consent bất cứ lúc nào. Gợi ý không thay đổi giá, khuyến mại hoặc đặt phòng và không bảo đảm giá hay tồn phòng.",
+                        "privacyPolicyUrl": "/portal/privacy",
+                        "dataMode": "LOCAL_SYNTHETIC"
+                      }
+                    }
+                  },
+                  "revoked": {
+                    "value": {
+                      "code": 200,
+                      "message": "Đã rút consent.",
+                      "result": {
+                        "hotelId": 1,
+                        "status": "NOT_GRANTED",
+                        "granted": false,
+                        "revision": 2,
+                        "bindingVersion": 1,
+                        "purpose": "ROOM_TYPE_RECOMMENDATION",
+                        "currentPolicyVersion": "u14-local-room-affinity-v1",
+                        "acceptedPolicyVersion": "u14-local-room-affinity-v1",
+                        "updatedAt": "2026-10-26T10:05:00+07:00",
+                        "historyLookbackMonths": 12,
+                        "noticeText": "Đây là bản demo dùng dữ liệu giả lập. Khi consent có hiệu lực, hệ thống phân tích các booking FIT một phòng đã hoàn tất, đứng tên hồ sơ được liên kết, tại khách sạn này trong 12 tháng gần nhất để xếp hạng hạng phòng, bao gồm booking trước thời điểm cấp consent. Có thể rút consent bất cứ lúc nào. Gợi ý không thay đổi giá, khuyến mại hoặc đặt phòng và không bảo đảm giá hay tồn phòng.",
+                        "privacyPolicyUrl": "/portal/privacy",
+                        "dataMode": "LOCAL_SYNTHETIC"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Missing active binding, stale revision/version, or old policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorEnvelope"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            11001,
+                            11002,
+                            11003,
+                            11004
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "examples": {
+                  "revisionConflict": {
+                    "value": {
+                      "code": 11002,
+                      "message": "Consent đã được cập nhật. Tải lại trạng thái trước khi thao tác tiếp.",
+                      "result": {
+                        "reasonCode": "CONSENT_REVISION_CONFLICT",
+                        "retryable": false
+                      }
+                    }
+                  },
+                  "policyConflict": {
+                    "value": {
+                      "code": 11003,
+                      "message": "Policy đã thay đổi. Đọc policy hiện hành trước khi cấp consent.",
+                      "result": {
+                        "reasonCode": "CONSENT_POLICY_CONFLICT",
+                        "retryable": false
+                      }
+                    }
+                  },
+                  "bindingConflict": {
+                    "value": {
+                      "code": 11004,
+                      "message": "Liên kết hồ sơ đã thay đổi. Tải lại trạng thái consent.",
+                      "result": {
+                        "reasonCode": "IDENTITY_BINDING_CONFLICT",
+                        "retryable": false
+                      }
+                    }
+                  },
+                  "identityLinkRequired": {
+                    "value": {
+                      "code": 11001,
+                      "message": "Tài khoản chưa có liên kết hồ sơ cho demo U14.",
+                      "result": {
+                        "reasonCode": "IDENTITY_LINK_REQUIRED",
+                        "retryable": false
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/me/personalization/recommendations": {
+      "get": {
+        "tags": [
+          "U14 personalization"
+        ],
+        "operationId": "getMyU14RoomRecommendations",
+        "summary": "Get non-binding room-type suggestions for the authenticated customer's linked profile",
+        "description": "No client-supplied identity, booking history, consent, free text, price or availability is accepted. Final authorization reads fresh binding/consent: revoked consent or outdated stored policy returns CONSENT_REQUIRED; missing/revoked binding or deleted guest returns 11001; changed binding returns 11004; consent still effective with a changed revision returns 11002. Discard all computed suggestions on those outcomes.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/HotelId"
+          },
+          {
+            "name": "maxSuggestions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 3
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Consent required, cold start, or recommendations",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationEnvelope"
+                },
+                "examples": {
+                  "consentRequired": {
+                    "value": {
+                      "code": 200,
+                      "message": "Cần cấp consent để xem gợi ý.",
+                      "result": {
+                        "status": "CONSENT_REQUIRED",
+                        "hotelId": 1,
+                        "dataMode": "LOCAL_SYNTHETIC",
+                        "roomTypeSuggestions": [],
+                        "nonBindingSuggestion": true,
+                        "pricingOrPromotionMutated": false,
+                        "reasonCode": "CONSENT_REQUIRED"
+                      }
+                    }
+                  },
+                  "personalizedReady": {
+                    "value": {
+                      "code": 200,
+                      "message": "Đã tạo gợi ý hạng phòng.",
+                      "result": {
+                        "status": "PERSONALIZED_READY",
+                        "hotelId": 1,
+                        "dataMode": "LOCAL_SYNTHETIC",
+                        "roomTypeSuggestions": [
+                          {
+                            "hotelRoomTypeId": 2,
+                            "roomTypeCode": "DLX",
+                            "roomTypeName": "Deluxe",
+                            "affinityScore": 1.0,
+                            "reasonCode": "HISTORICAL_BOOKING_AFFINITY"
+                          }
+                        ],
+                        "nonBindingSuggestion": true,
+                        "pricingOrPromotionMutated": false
+                      }
+                    }
+                  },
+                  "coldStart": {
+                    "value": {
+                      "code": 200,
+                      "message": "Chưa có hạng phòng phù hợp để gợi ý.",
+                      "result": {
+                        "status": "COLD_START_FALLBACK",
+                        "hotelId": 1,
+                        "dataMode": "LOCAL_SYNTHETIC",
+                        "roomTypeSuggestions": [],
+                        "nonBindingSuggestion": true,
+                        "pricingOrPromotionMutated": false,
+                        "reasonCode": "NO_ELIGIBLE_HISTORY"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/InvalidRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "Identity link required, binding changed, or consent revision changed at final authorization; discard computed suggestions.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/NoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorEnvelope"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "enum": [
+                            11001,
+                            11002,
+                            11004
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "examples": {
+                  "revisionConflict": {
+                    "value": {
+                      "code": 11002,
+                      "message": "Consent đã được cập nhật. Tải lại trạng thái trước khi thao tác tiếp.",
+                      "result": {
+                        "reasonCode": "CONSENT_REVISION_CONFLICT",
+                        "retryable": false
+                      }
+                    }
+                  },
+                  "bindingConflict": {
+                    "value": {
+                      "code": 11004,
+                      "message": "Liên kết hồ sơ đã thay đổi. Tải lại trạng thái consent.",
+                      "result": {
+                        "reasonCode": "IDENTITY_BINDING_CONFLICT",
+                        "retryable": false
+                      }
+                    }
+                  },
+                  "identityLinkRequired": {
+                    "value": {
+                      "code": 11001,
+                      "message": "Tài khoản chưa có liên kết hồ sơ cho demo U14.",
+                      "result": {
+                        "reasonCode": "IDENTITY_LINK_REQUIRED",
+                        "retryable": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "HotelId": {
+        "name": "hotelId",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32767
+        }
+      }
+    },
+    "headers": {
+      "NoStore": {
+        "description": "Prevent browser and shared-cache retention of personalized results.",
+        "schema": {
+          "type": "string",
+          "const": "private, no-store"
+        }
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "const": 200
+          },
+          "message": {
+            "type": "string"
+          },
+          "result": {}
+        },
+        "additionalProperties": false
+      },
+      "ConsentView": {
+        "type": "object",
+        "required": [
+          "hotelId",
+          "status",
+          "granted",
+          "revision",
+          "bindingVersion",
+          "purpose",
+          "currentPolicyVersion",
+          "acceptedPolicyVersion",
+          "updatedAt",
+          "historyLookbackMonths",
+          "noticeText",
+          "privacyPolicyUrl",
+          "dataMode"
+        ],
+        "properties": {
+          "hotelId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32767
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "GRANTED",
+              "NOT_GRANTED",
+              "RECONSENT_REQUIRED"
+            ]
+          },
+          "granted": {
+            "type": "boolean"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "bindingVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "purpose": {
+            "type": "string",
+            "const": "ROOM_TYPE_RECOMMENDATION"
+          },
+          "currentPolicyVersion": {
+            "type": "string",
+            "const": "u14-local-room-affinity-v1"
+          },
+          "acceptedPolicyVersion": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Last accepted policy version, retained on revoke. Null when no grant has occurred for this binding and hotel."
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "historyLookbackMonths": {
+            "type": "integer",
+            "const": 12
+          },
+          "noticeText": {
+            "type": "string"
+          },
+          "privacyPolicyUrl": {
+            "type": "string",
+            "const": "/portal/privacy"
+          },
+          "dataMode": {
+            "type": "string",
+            "const": "LOCAL_SYNTHETIC"
+          }
+        },
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "GRANTED"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "granted": {
+                  "const": true
+                },
+                "revision": {
+                  "minimum": 1
+                },
+                "acceptedPolicyVersion": {
+                  "const": "u14-local-room-affinity-v1"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "NOT_GRANTED",
+                    "RECONSENT_REQUIRED"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "granted": {
+                  "const": false
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "revision": {
+                  "const": 0
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "status": {
+                  "const": "NOT_GRANTED"
+                },
+                "acceptedPolicyVersion": {
+                  "type": "null"
+                },
+                "updatedAt": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "revision": {
+                  "minimum": 1
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "updatedAt": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "RECONSENT_REQUIRED"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "revision": {
+                  "minimum": 1
+                },
+                "acceptedPolicyVersion": {
+                  "type": "string",
+                  "minLength": 1,
+                  "not": {
+                    "const": "u14-local-room-affinity-v1"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ConsentMutation": {
+        "type": "object",
+        "required": [
+          "hotelId",
+          "granted",
+          "expectedRevision",
+          "expectedBindingVersion"
+        ],
+        "properties": {
+          "hotelId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32767
+          },
+          "granted": {
+            "type": "boolean"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "expectedBindingVersion": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "policyVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Required only for grant. Syntactically valid versions other than the current policy return HTTP 409 CONSENT_POLICY_CONFLICT, rather than validation HTTP 400."
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "granted": {
+                  "const": true
+                }
+              },
+              "required": [
+                "granted"
+              ]
+            },
+            "then": {
+              "required": [
+                "policyVersion"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "granted": {
+                  "const": false
+                }
+              },
+              "required": [
+                "granted"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "policyVersion"
+                ]
+              }
+            }
+          }
+        ],
+        "additionalProperties": false
+      },
+      "RoomTypeSuggestion": {
+        "type": "object",
+        "required": [
+          "hotelRoomTypeId",
+          "roomTypeCode",
+          "roomTypeName",
+          "affinityScore",
+          "reasonCode"
+        ],
+        "properties": {
+          "hotelRoomTypeId": {
+            "type": "integer",
+            "minimum": 1,
+            "format": "int32",
+            "maximum": 2147483647
+          },
+          "roomTypeCode": {
+            "type": "string",
+            "minLength": 1
+          },
+          "roomTypeName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "affinityScore": {
+            "type": "number",
+            "minimum": 0.01,
+            "maximum": 1
+          },
+          "reasonCode": {
+            "type": "string",
+            "const": "HISTORICAL_BOOKING_AFFINITY"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RecommendationResult": {
+        "type": "object",
+        "required": [
+          "status",
+          "hotelId",
+          "dataMode",
+          "roomTypeSuggestions",
+          "nonBindingSuggestion",
+          "pricingOrPromotionMutated"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "CONSENT_REQUIRED",
+              "COLD_START_FALLBACK",
+              "PERSONALIZED_READY"
+            ]
+          },
+          "hotelId": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32767
+          },
+          "dataMode": {
+            "type": "string",
+            "const": "LOCAL_SYNTHETIC"
+          },
+          "roomTypeSuggestions": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/RoomTypeSuggestion"
+            }
+          },
+          "nonBindingSuggestion": {
+            "type": "boolean",
+            "const": true
+          },
+          "pricingOrPromotionMutated": {
+            "type": "boolean",
+            "const": false
+          },
+          "reasonCode": {
+            "type": "string",
+            "enum": [
+              "CONSENT_REQUIRED",
+              "NO_ELIGIBLE_HISTORY",
+              "NO_PUBLIC_ROOM_TYPES"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "CONSENT_REQUIRED",
+                    "COLD_START_FALLBACK"
+                  ]
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "roomTypeSuggestions": {
+                  "maxItems": 0
+                }
+              },
+              "required": [
+                "reasonCode"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "PERSONALIZED_READY"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "roomTypeSuggestions": {
+                  "minItems": 1
+                }
+              },
+              "not": {
+                "required": [
+                  "reasonCode"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "CONSENT_REQUIRED"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reasonCode": {
+                  "const": "CONSENT_REQUIRED"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "COLD_START_FALLBACK"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "reasonCode": {
+                  "enum": [
+                    "NO_ELIGIBLE_HISTORY",
+                    "NO_PUBLIC_ROOM_TYPES"
+                  ]
+                }
+              }
+            }
+          }
+        ],
+        "additionalProperties": false
+      },
+      "ErrorDetail": {
+        "type": "object",
+        "required": [
+          "reasonCode",
+          "retryable"
+        ],
+        "properties": {
+          "reasonCode": {
+            "type": "string",
+            "enum": [
+              "INVALID_REQUEST",
+              "FORBIDDEN",
+              "HOTEL_NOT_FOUND",
+              "IDENTITY_LINK_REQUIRED",
+              "CONSENT_REVISION_CONFLICT",
+              "CONSENT_POLICY_CONFLICT",
+              "IDENTITY_BINDING_CONFLICT",
+              "DEPENDENCY_UNAVAILABLE"
+            ]
+          },
+          "retryable": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "result"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "properties": {
+              "code": {
+                "const": 1002
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "INVALID_REQUEST"
+                  },
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "code": {
+                "const": 1007
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "FORBIDDEN"
+                  },
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "code": {
+                "const": 2021
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "HOTEL_NOT_FOUND"
+                  },
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "code": {
+                "const": 11001
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "IDENTITY_LINK_REQUIRED"
+                  },
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "code": {
+                "const": 11002
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "CONSENT_REVISION_CONFLICT"
+                  },
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "code": {
+                "const": 11003
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "CONSENT_POLICY_CONFLICT"
+                  },
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "code": {
+                "const": 11004
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "IDENTITY_BINDING_CONFLICT"
+                  },
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          },
+          {
+            "properties": {
+              "code": {
+                "const": 11005
+              },
+              "result": {
+                "properties": {
+                  "reasonCode": {
+                    "const": "DEPENDENCY_UNAVAILABLE"
+                  },
+                  "retryable": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ConsentEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/ConsentView"
+              }
+            }
+          }
+        ]
+      },
+      "RecommendationEnvelope": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResponse"
+          },
+          {
+            "type": "object",
+            "required": [
+              "result"
+            ],
+            "properties": {
+              "result": {
+                "$ref": "#/components/schemas/RecommendationResult"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "responses": {
+      "InvalidRequest": {
+        "description": "Unknown, repeated, malformed or out-of-range input",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": 1002
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Existing OAuth2 Resource Server rejects authentication; its 401 body remains unchanged."
+      },
+      "Forbidden": {
+        "description": "Authenticated principal is missing CUSTOMER role",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": 1007
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Hotel missing/inactive/deleted returns HOTEL_NOT_FOUND envelope. A disabled local-demo route may use the existing generic 404 body instead; no personalization records are accessed.",
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "anyOf": [
+                {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ErrorEnvelope"
+                    },
+                    {
+                      "properties": {
+                        "code": {
+                          "const": 2021
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": [
+                    "object",
+                    "string",
+                    "null"
+                  ],
+                  "description": "Existing generic 404 body only while the feature is disabled."
+                }
+              ]
+            },
+            "example": {
+              "code": 2021,
+              "message": "Không tìm thấy khách sạn công khai phù hợp.",
+              "result": {
+                "reasonCode": "HOTEL_NOT_FOUND",
+                "retryable": false
+              }
+            }
+          }
+        }
+      },
+      "IdentityLinkRequired": {
+        "description": "No active synthetic binding exists or the linked guest was soft-deleted",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": 11001
+                    }
+                  }
+                }
+              ]
+            },
+            "example": {
+              "code": 11001,
+              "message": "Tài khoản chưa có liên kết hồ sơ cho demo U14.",
+              "result": {
+                "reasonCode": "IDENTITY_LINK_REQUIRED",
+                "retryable": false
+              }
+            }
+          }
+        },
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        }
+      },
+      "DependencyUnavailable": {
+        "description": "Binding, consent, history or catalog failed; this is not an empty-history result",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                },
+                {
+                  "properties": {
+                    "code": {
+                      "const": 11005
+                    }
+                  }
+                }
+              ]
+            },
+            "example": {
+              "code": 11005,
+              "message": "Dịch vụ cá nhân hóa tạm thời không khả dụng. Vui lòng thử lại sau.",
+              "result": {
+                "reasonCode": "DEPENDENCY_UNAVAILABLE",
+                "retryable": true
+              }
+            }
+          }
+        },
+        "headers": {
+          "Cache-Control": {
+            "$ref": "#/components/headers/NoStore"
+          }
+        }
+      }
+    }
+  }
+}
