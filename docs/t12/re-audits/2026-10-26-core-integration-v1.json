@@ -1,0 +1,93 @@
+{
+  "version": "2026-10-26-core-integration-v1",
+  "status": "SOURCE_RECONCILED",
+  "comparisonCommit": "368f6e466cacfd5f7836e9d24b0908b9e1c1a132",
+  "acceptedDevelopCommit": "96d7815b4e5d13f5052ca0fa6a6c414c8297ea1e",
+  "manifestPath": "docs/t12/r1-00/v2.0.0-draft.1/baseline-source-evidence.json",
+  "entries": [
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
+      "previousSourceEvidence": {
+        "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
+        "sha256": "e08f2eadeb1b82295a2edd758b97e893774f8b7c5778e077672f7cafa5984b88",
+        "historicalSha256": "407fb57045db44baadd3665d8b25ee81cb8972439a2480af4b1f7a34a8708a9f",
+        "previousReconciledSha256": "b6c113e6dca4514cf335132168d9889e5dc187e421858ff624f88a807ed41f98",
+        "previousReconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
+        "reconciledFromDevelopCommit": "a6b2088f55d2326a51e895ff2cfffbb4fe70831e",
+        "reconciledSourceCommit": "023933e38092ce27e42635148276d4bacffd5326",
+        "reconciledFromPr": 24,
+        "baselineUnmodified": true
+      },
+      "previousUnixLfSha256": "1e0345d52b017aac95755a0fe6a277124c564e430a27e0410baddae2da5ab237",
+      "currentHashes": {
+        "unixLfSha256": "b17fa21c271e100b4188f66f14b231de574e7f944411a82d799bf2b1ac143f9e",
+        "windowsCrlfSha256": "9ea0dfe275cb8f1b4b3d6b032c6379eca505734ef8dd0650a13031c71c4ecf06"
+      },
+      "patchSha256": "6d14ff09b92e2b8f501795a24b2193903eecc505d1bf55303cfb4afd9f0e0201",
+      "sourceChangeCommits": [
+        "b240b12306d418979e478710655955461601d2b1",
+        "1854ee46aaff4ec3129daeb552e037115f918ec4",
+        "a87d19668a836cdee54521555c8b056ad0edfe54"
+      ],
+      "review": "Upstream adds Group Booking and master-folio error constants; existing error tuples must remain identical."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java",
+      "previousSourceEvidence": {
+        "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java",
+        "sha256": "6d1ec1dc376f503ff9a23b9e9a1262120f11e64aa57fce2d4cff7d4ba1ef7cfd",
+        "historicalSha256": "1e54ee1d889eddfc6462aaca5a13e1cec533a7efca74b42bae880996db56cc21",
+        "reconciledFromDevelopCommit": "bf666917e43c8dcb2e55a70929d4a26346b3ab4b",
+        "baselineUnmodified": true
+      },
+      "previousUnixLfSha256": "5ec9bf216bd505c9e4ca469afbcad2902b9d7cffbc4eee54ae7e519638781ed7",
+      "currentHashes": {
+        "unixLfSha256": "854ddfc4a5bbdc63867336eab0a7491437a2dc56c8a49d8a1edce634a20d0a3b",
+        "windowsCrlfSha256": "8466566e028dd3375801de0a46d167550cb5252dc061a72460f36199070da73b"
+      },
+      "patchSha256": "6ba28f3fe57ae531000e5e91bbda7f857a9a31f086458fa46ff44ec6a0d0afcd",
+      "sourceChangeCommits": [
+        "1854ee46aaff4ec3129daeb552e037115f918ec4"
+      ],
+      "review": "Upstream subtracts active DEFINITE group blocks from public availability and inventory checks. T12 consumes authoritative read-only counts; no advisor price/availability arithmetic added."
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/response/RoomAvailabilityResponse.java",
+      "unixLfSha256": "437a6b45103cf76ab45fa9afd4d2b2b7a94d8423321fe4daa546c09fd02bbacb",
+      "unchangedFromComparison": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/dto/request/RoomAvailabilitySearchDto.java",
+      "unixLfSha256": "03bce7ab8778a2ddd65689c50434d76476586cad2f0a3b257d5ab9758ceb75ac",
+      "unchangedFromComparison": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/adapter/PublicBookingCoreAdapter.java",
+      "unixLfSha256": "46e7c9113ba0e3b1f796c828d284b74aa9f716d1965f133b80e78939c54e078c",
+      "unchangedFromComparison": true
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/BlockedInventoryProvider.java",
+      "unixLfSha256": "4bf32338402a3a2890c8634ad7404fc02f880e98e61c16e0f9f44c18225686dc",
+      "unchangedFromComparison": false
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/service/impl/GroupRoomBlockProviderImpl.java",
+      "unixLfSha256": "c85ef11a485bd2dfeb147698b373c6723b797cb2e4480920f3ff2e5110a0c91b",
+      "unchangedFromComparison": false
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/service/impl/GroupRoomBlockServiceImpl.java",
+      "unixLfSha256": "4100f0facc19f01ef40108e93a049abee30fd9cb20f5b62af59988365670dcd6",
+      "unchangedFromComparison": false
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/repository/GroupRoomBlockDailyRepository.java",
+      "unixLfSha256": "e60be5a4f30d1100b8d11d891139530688ce22060a063119bb2d717158e7de25",
+      "unchangedFromComparison": false
+    }
+  ],
+  "limitations": "Source provenance and existing API structure reconciliation; no gold, thresholds, historical approvals or model evaluation change."
+}

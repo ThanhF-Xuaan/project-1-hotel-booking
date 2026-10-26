@@ -128,6 +128,10 @@ try {
     if ($Backend.status -ne 'PASS' -or $Backend.tests -lt 1) { throw 'Thiếu evidence Maven PASS.' }
     Invoke-Stage -Name 'source-audit' -Executable (Get-Command node -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_lazy_route_reaudit.cjs'))
+    Invoke-Stage -Name 'core-source-audit' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
+        -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_core_reaudit.py'))
+    Invoke-Stage -Name 'core-source-audit-tests' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
+        -Arguments @((Join-Path $ProjectRoot 'tools/t12/test_core_reaudit.py'))
     Push-Location (Join-Path $ProjectRoot 'frontend')
     try {
         Invoke-Stage -Name 'dependency-audit' -Executable (Get-Command npm.cmd -CommandType Application | Select-Object -First 1).Source `

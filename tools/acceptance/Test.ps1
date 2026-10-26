@@ -160,7 +160,7 @@ if ($SkipContract) {
             $sw2.Stop()
             if ($portabilityExitCode -eq 0) {
                 Write-Host "  -> Portability Unit Tests: PASS ($($sw2.Elapsed.TotalSeconds.ToString('F1'))s)" -ForegroundColor Green
-                Record-Result "Contracts" "Portability Validation" "python tools/t12/test_portability_validation.py" "PASS" $sw2.Elapsed.TotalSeconds "11 unit tests passed"
+                Record-Result "Contracts" "Portability Validation" "python tools/t12/test_portability_validation.py" "PASS" $sw2.Elapsed.TotalSeconds "Portability command passed; actual case counts are in unittest output"
             } else {
                 Write-Host "  -> Portability Unit Tests: FAIL" -ForegroundColor Red
                 Record-Result "Contracts" "Portability Validation" "python tools/t12/test_portability_validation.py" "FAIL" $sw2.Elapsed.TotalSeconds "Portability tests failed or Python could not start"
