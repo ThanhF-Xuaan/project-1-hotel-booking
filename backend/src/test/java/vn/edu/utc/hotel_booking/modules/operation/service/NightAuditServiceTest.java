@@ -11,6 +11,7 @@ import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityGenerationService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.NightAuditRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.NightAuditResponse;
@@ -38,6 +39,7 @@ class NightAuditServiceTest {
     @Mock BookingLookupService bookingLookupService;
     @Mock RoomInstanceService roomInstanceService;
     @Mock ServiceOrderService serviceOrderService;
+    @Mock RoomAvailabilityGenerationService roomAvailabilityGenerationService;
     @Mock NightAuditRepository nightAuditRepository;
 
     @InjectMocks

@@ -24,9 +24,11 @@ import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeReposi
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomFeatureRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomTypeRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityGenerationService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -42,6 +44,7 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
     RoomTypeRepository roomTypeRepository;
     RoomFeatureRepository roomFeatureRepository;
     HotelRoomTypeMapper hotelRoomTypeMapper;
+    RoomAvailabilityGenerationService roomAvailabilityGenerationService;
 
     @Override
     @Transactional
@@ -66,6 +69,7 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
         }
 
         HotelRoomType saved = hotelRoomTypeRepository.save(hotelRoomType);
+        roomAvailabilityGenerationService.generateForRoomType(saved.getId(), LocalDate.now(), 365);
         return hotelRoomTypeMapper.toResponse(saved);
     }
 
@@ -75,6 +79,7 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
         HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND, "Không tìm thấy cấu hình loại phòng id: " + id));
 
+        Integer oldQuantity = hotelRoomType.getTotalQuantity();
         hotelRoomTypeMapper.updateEntity(hotelRoomType, request);
 
         if (request.getFeatureIds() != null) {
@@ -85,6 +90,9 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
         }
 
         HotelRoomType updated = hotelRoomTypeRepository.save(hotelRoomType);
+        if (request.getTotalQuantity() != null && !request.getTotalQuantity().equals(oldQuantity)) {
+            roomAvailabilityGenerationService.propagateCapacityChange(updated.getId(), updated.getTotalQuantity());
+        }
         return hotelRoomTypeMapper.toResponse(updated);
     }
 

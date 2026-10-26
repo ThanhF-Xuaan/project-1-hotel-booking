@@ -40,6 +40,9 @@ class HotelRoomTypeServiceTest {
     @Mock
     HotelRoomTypeMapper hotelRoomTypeMapper;
 
+    @Mock
+    RoomAvailabilityGenerationService roomAvailabilityGenerationService;
+
     @InjectMocks
     HotelRoomTypeServiceImpl hotelRoomTypeService;
 

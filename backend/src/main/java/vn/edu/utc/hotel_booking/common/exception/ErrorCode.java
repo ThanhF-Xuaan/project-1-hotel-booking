@@ -59,6 +59,7 @@ public enum ErrorCode {
     ROOM_INSTANCE_NOT_FOUND(5021, "Không tìm thấy phòng vật lý", HttpStatus.NOT_FOUND),
     ROOM_NUMBER_ALREADY_EXISTS(5022, "Số phòng đã tồn tại trong khách sạn", HttpStatus.CONFLICT),
     ROOM_NOT_AVAILABLE(5031, "Không đủ phòng trống trong khoảng thời gian yêu cầu", HttpStatus.CONFLICT),
+    BOOKING_DATE_OUT_OF_HORIZON(5032, "Ngày lưu trú nằm ngoài chân trời mở bán của khách sạn", HttpStatus.BAD_REQUEST),
 
     // Pricing Module Errors
     PRICING_RULE_NOT_FOUND(6001, "Không tìm thấy quy tắc giá", HttpStatus.NOT_FOUND),
