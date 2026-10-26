@@ -1,11 +1,11 @@
 # Hợp đồng U14 local v1 — consent và gợi ý hạng phòng
 
-- Trạng thái: **PROPOSED — hợp đồng local, chưa triển khai**.
+- Trạng thái: **PROPOSED — API/UI chưa triển khai; schema và fixture I01 đã viết, kiểm tra trên PostgreSQL tạm; chưa áp dụng vào volume acceptance**.
 - Baseline: **develop@627887bc235d5eb0b59835a8d47744e605430aa8**.
 - Ngày: 2026-10-26; múi giờ Asia/Ho_Chi_Minh.
 - Đích: acceptance sandbox riêng, PostgreSQL/Keycloak và dữ liệu giả lập.
 - Chủ trì: Member 1; Identity sở hữu binding/consent, Booking sở hữu history, Inventory sở hữu catalog, frontend sở hữu UI.
-- Lượt này chỉ thêm ba tài liệu trong docs/member1/contracts; giữ nguyên hồ sơ U14 untracked hiện có.
+- Lượt lập hợp đồng chỉ thêm ba tài liệu trong `docs/member1/contracts`; slice I01 sau đó bổ sung migration và fixture, giữ nguyên hồ sơ U14 untracked hiện có.
 
 ## 1. Quyết định sản phẩm
 
@@ -134,7 +134,7 @@ Mã lỗi domain U14 dưới đây là PROPOSED, chỉ ánh xạ trong U14 contr
 
 ## 4. Schema logical đề xuất
 
-Tên bảng/kiểu dưới đây là contract cho migration additive I01; chưa tồn tại và chưa chạy migration.
+Tên bảng/kiểu dưới đây là contract cho migration additive I01. Migration đã được viết và kiểm tra trên PostgreSQL 16 tạm; chưa áp dụng trên volume acceptance.
 
 ### personalization_account_bindings
 
@@ -148,6 +148,7 @@ Tên bảng/kiểu dưới đây là contract cho migration additive I01; chưa 
 | source | VARCHAR(50) NOT NULL CHECK = SYNTHETIC_FIXTURE |
 | status | VARCHAR(20) NOT NULL CHECK IN (ACTIVE, REVOKED) |
 | created_at | TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP |
+| updated_at | TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP; trigger cập nhật khi lifecycle đổi |
 | revoked_at | TIMESTAMPTZ NULL; ACTIVE cần null, REVOKED cần khác null |
 
 Unique (issuer, subject, binding_version), partial unique active index theo (issuer,subject), partial unique active index theo guest_id. Index các FK. Relink dùng max version + 1, không tái dùng version.
@@ -177,11 +178,11 @@ Primary/unique key (binding_id, hotel_id, purpose). Không có row tương đư�
 | granted | BOOLEAN NOT NULL |
 | policy_version | VARCHAR(100) NULL |
 | event_at | TIMESTAMPTZ NOT NULL, do server gán |
-| unique | (binding_id, hotel_id, purpose, revision) |
+| unique | (binding_id, hotel_id, purpose, revision); FK ghép (binding_id, binding_version) tới đúng phiên bản binding |
 
 Application không có update/delete cho event. Không ghi request/response, PII, JWT, IP hoặc user agent. Không áp dụng AOP audit chung cho consent endpoint vì aspect có thể serialize tham số; state + event cùng transaction là evidence v1.
 
-Tạo trigger updated_at chỉ trên state table; event append-only không cập nhật. Migration theo Liquibase incremental convention; chỉ thử trên acceptance DB đã snapshot. Không viết/chạy migration trong lượt này.
+Tạo trigger updated_at trên binding và state table; event append-only không cập nhật. Migration theo Liquibase incremental convention. I01 đã được kiểm tra trên PostgreSQL 16 tạm. Volume acceptance có 30 changeset đã áp dụng; Liquibase status-only cho thấy dev seed dùng chung và changeset U14 còn pending. Không chạy update trên volume đó; do vậy changeset U14 vẫn chưa chạy ở acceptance.
 
 ## 5. History, catalog và ranking
 
@@ -238,7 +239,7 @@ Dùng dữ liệu khách thật bị BLOCKED cho tới khi có identity verifica
 | D2: local synthetic | Người dùng chọn; real binding workflow chưa có |
 | D3: 12 tháng, limit 100 | Người dùng chọn; cửa sổ phân tích, không phải retention |
 | D4: UI tối thiểu | Người dùng chọn; privacy route cần tồn tại trước khi bật |
-| D5: API/schema/error detail | PROPOSED tại tài liệu này; chưa có trong source |
+| D5: API/error detail | PROPOSED tại tài liệu này; chưa có implementation. Schema additive I01 đã có trên nhánh implementation |
 | D6: dữ liệu khách thật | BLOCKED bởi verification, privacy policy và retention chưa chốt |
 
-Runtime/API/schema mới: **NOT RUN**. Contract không xác nhận model quality, consent khách thật hoặc production readiness.
+API/UI runtime: **NOT RUN**. Schema migration đã chạy trên PostgreSQL 16 tạm; chưa áp dụng vào volume acceptance. Contract không xác nhận model quality, consent khách thật hoặc production readiness.

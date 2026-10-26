@@ -217,6 +217,26 @@
       "realmRoles": [
         "CUSTOMER"
       ]
+    },
+    {
+      "id": "20000000-0000-0000-0000-000000000007",
+      "username": "test_customer_b",
+      "enabled": true,
+      "email": "u14-customer-b@acceptance.local",
+      "firstName": "U14 Synthetic",
+      "lastName": "Customer B",
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Password123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "CUSTOMER"
+      ]
     }
   ]
 }

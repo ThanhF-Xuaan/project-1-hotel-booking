@@ -1,6 +1,6 @@
 # U14 local v1 — ma trận nghiệm thu và backlog
 
-- Trạng thái: **PROPOSED — ca kiểm thử API mới đều NOT RUN**.
+- Trạng thái: **PROPOSED — API/UI mới chưa có; API tests NOT RUN. I01 migration/fixture đã kiểm tra trên PostgreSQL tạm; volume acceptance chưa migrate**.
 - Baseline: develop@627887bc235d5eb0b59835a8d47744e605430aa8.
 - Hợp đồng: [u14-local-v1.md](u14-local-v1.md); OpenAPI: [u14-local-v1.openapi.json](u14-local-v1.openapi.json).
 - Chỉ dùng fixture synthetic trong acceptance sandbox. Không dùng dữ liệu khách thật.
@@ -9,7 +9,7 @@
 
 **CONFIRMED:** U14 tests hiện tại kiểm tra thuật toán synthetic, route gate mặc định và giới hạn CHAIN_ADMIN. Chúng không xác minh binding server-side, consent store/revision, history từ Booking hoặc ownership.
 
-**NOT RUN:** mọi route/schema/UI mới ở contract này. Kết quả Maven/API/browser cũ không phải bằng chứng cho endpoint mới.
+**NOT RUN:** các route/UI mới và ca nghiệm thu API của contract này. Migration/fixture I01 có bằng chứng riêng ở mục 7; kết quả Maven/API/browser cũ không phải bằng chứng cho endpoint mới.
 
 Route cần triển khai và nghiệm thu: `GET/PUT /api/v1/me/personalization-consent`; `GET /api/v1/me/personalization/recommendations`. Chi tiết schema nằm trong OpenAPI liên kết ở đầu tài liệu.
 
@@ -84,14 +84,14 @@ Ghi SHA, config không secret, command/exit code, fixture marker, snapshot hash 
 
 ## 5. Backlog implementation chia lát
 
-| ID | Slice / owner | Filescope sơ bộ cần khóa tại SHA triển khai | Exit criteria |
+| ID | Slice / owner | Filescope sơ bộ cần khóa tại SHA triển khai | Exit criteria | Trạng thái hiện tại |
 |---|---|---|---|
-| I01 | Identity schema/fixtures | Liquibase XML/SQL, binding/consent/event model/repository, acceptance SQL/Keycloak fixture | Migration additive; uniqueness/lifecycle; snapshot restore |
-| I02 | Consent API/CAS — Identity | Controller/service/DTO/local error mapper và tests | CUSTOMER-only; revision+binding CAS; transaction atomic; fail closed |
-| I03 | History/catalog providers — Booking/Inventory | Port DTO thuộc AI; query provider trong module sở hữu; PostgreSQL IT | Scope trước limit; 12 tháng/100; actual timestamps; empty khác outage |
-| I04 | Affinity/orchestration — AI | Tách core, context orchestration, controller/DTO và tests | Synthetic regression; no history without consent; final auth; zero writes |
-| I05 | UI/API/browser — frontend | App.tsx, portal entry, U14/privacy pages, API types/client, Playwright | Login/policy/grant/revoke/errors; không render stale data |
-| I06 | Provenance và acceptance | T12 re-audit/tests, runner/evidence | Source drift có provenance; validators giữ nguyên; sandbox restore |
+| I01 | Identity schema/fixtures | Liquibase XML/SQL, binding/consent/event model/repository, acceptance SQL/Keycloak fixture | Migration additive; uniqueness/lifecycle; snapshot restore | **PARTIAL:** migration/fixtures PASS trên PostgreSQL tạm; model/repository và acceptance migration/restore NOT RUN |
+| I02 | Consent API/CAS — Identity | Controller/service/DTO/local error mapper và tests | CUSTOMER-only; revision+binding CAS; transaction atomic; fail closed | NOT STARTED |
+| I03 | History/catalog providers — Booking/Inventory | Port DTO thuộc AI; query provider trong module sở hữu; PostgreSQL IT | Scope trước limit; 12 tháng/100; actual timestamps; empty khác outage | NOT STARTED |
+| I04 | Affinity/orchestration — AI | Tách core, context orchestration, controller/DTO và tests | Synthetic regression; no history without consent; final auth; zero writes | NOT STARTED |
+| I05 | UI/API/browser — frontend | App.tsx, portal entry, U14/privacy pages, API types/client, Playwright | Login/policy/grant/revoke/errors; không render stale data | NOT STARTED |
+| I06 | Provenance và acceptance | T12 re-audit/tests, runner/evidence | Source drift có provenance; validators giữ nguyên; sandbox restore | NOT STARTED |
 
 Filescope là dự kiến, chưa phải allowlist. Trước mỗi slice ghi SHA, status, file cụ thể, snapshot, lệnh và rollback. Chưa chạy test/migration trong lượt lập contract.
 
@@ -111,13 +111,23 @@ Kiểm tra bộ tài liệu trước commit ngày 2026-10-26:
 | Python inline dùng `jsonschema.Draft202012Validator`, resolver local và format checker | PASS: 9 schema, 18 example; 2 mutation hợp lệ, 10 input sai bị loại, 2 recommendation sai bị loại |
 | Python inline đối soát `$ref`, route ở ba tài liệu, 30 case và trailing whitespace | PASS |
 | `validate_copy.py` với `--register eng-impersonal --doctype rfc` cho hai file Markdown | PASS |
-| Maven, frontend lint/build, API/browser, Docker và migration | NOT RUN: scope chỉ gồm tài liệu, chưa có implementation mới |
+| Maven, frontend lint/build, API/browser | NOT RUN: slice I01 chỉ có schema và fixture, chưa có API/UI để chạy các kiểm tra này |
+| Docker acceptance Postgres | PASS, chỉ đọc Liquibase status; không chạy update, seed hoặc migration trên volume hiện có |
 
 Kiểm tra JSON Schema ở trên không được báo thành nghiệm thu endpoint hoặc full OpenAPI tooling validation.
 
+I01 trên nhánh implementation từ `develop@a683712ae430eeafe492bf4a01b64ef8580751df` thêm migration additive, binding/state synthetic và fixture CUSTOMER B. Migration đã chạy trên PostgreSQL 16 dùng tmpfs: Liquibase áp dụng 32/32 changeset, lần cập nhật lặp lại có 0 changeset, fixture chạy hai lượt; DB còn đúng 2 active binding synthetic, 0 consent và 0 event. Kiểm tra duplicate active guest, source ngoài synthetic, grant thiếu policy và binding version sai đều bị DB từ chối. Container tạm đã bị xóa.
+
+Volume acceptance hiện có được mở chỉ để kiểm tra trạng thái: 30 changeset đã áp dụng; Liquibase báo còn `db/changelogs/05-db-dev-seed.xml::1.0.0-05-dev-seed::utc-hotel-team` và changeset U14 `20261026-160000-create-u14-local-binding-consent` chưa áp dụng. Không chạy `update`, seed hay migration vì việc đó sẽ ghi cả dev seed ngoài lát I01. Container PostgreSQL chỉ dùng cho lần đọc này đã được gỡ; named volume được giữ. Snapshot `tools/acceptance/.runtime/snapshot.sql` vẫn có SHA-256 `E20EAD6FDDFB33D2FE02B2DE639D944E2DB6C31A1545E28A2191153EAC887632`.
+
+Chưa kiểm tra restore snapshot trên acceptance volume. Keycloak realm export có CUSTOMER B cho lần import realm mới; volume đã khởi tạo không tự nhận user mới từ file. Cần provision additive B trước khi chạy API/browser A/B với volume hiện tại; không reset volume.
+
 Đối soát C01–C09: C01–C02 nằm ở mục 1–2 hợp đồng; C03–C04 ở schema/state machine/race table; C05 ở history/catalog và fixture ranking; C06 ở OpenAPI; C07 ở UI và ma trận này. C08 là self-review source, schema, ví dụ và expected outcomes trong lượt bàn giao; không thay thế review của người duyệt PR. C09 bàn giao ba tài liệu và backlog I01–I06; trạng thái duyệt/merge được xác nhận qua PR, không tự ghi đã phê duyệt API/schema khi chưa có bằng chứng.
+
+I01 đã thay đổi file migration/fixture trong nhánh `codex/u14-local-v1-binding-storage`. Kết quả migration/fixture chỉ áp dụng cho PostgreSQL tạm. Volume acceptance mới được kiểm tra trạng thái, không phải nghiệm thu migration, restore, API hoặc UI.
 
 | Ngày | Thay đổi | Bằng chứng |
 |---|---|---|
 | 2026-10-26 | Tạo contract local theo lựa chọn người dùng | Source inspection baseline 627887bc; API/schema mới NOT RUN |
 | 2026-10-26 | Rà soát trước commit | Chốt race outcomes, giữ policy khi revoke, final authorization và fixture ranking; kiểm tra schema/examples riêng, runtime vẫn NOT RUN |
+| 2026-10-26 | I01: migration và fixture binding | Base a683712; PostgreSQL 16 tmpfs; Liquibase 32/32, rerun 0; seed hai lượt; active bindings=2, consent/event=0; constraint checks PASS. Acceptance status-only: 30 applied, dev seed và U14 pending; không ghi DB; snapshot hash giữ nguyên. Acceptance migration/restore và Keycloak volume NOT RUN |
