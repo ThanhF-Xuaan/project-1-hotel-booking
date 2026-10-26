@@ -15,6 +15,8 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.GroupContractRespon
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupContract;
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupContractStatus;
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlock;
+import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlockDaily;
+import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlockDailyStatus;
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlockStatus;
 import vn.edu.utc.hotel_booking.modules.booking.repository.GroupContractRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.GroupInquiryService;
@@ -284,5 +286,48 @@ class GroupContractServiceTest {
         assertThat(response.getStatus()).isEqualTo(GroupContractStatus.CANCELLED_NO_DEPOSIT);
         assertThat(response.getCancellationReason()).isEqualTo("Doanh nghiệp thay đổi lịch công tác");
         assertThat(block.getStatus()).isEqualTo(GroupRoomBlockStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("getEntityById returns contract or throws exception")
+    void getEntityById_Success() {
+        GroupContract contract = GroupContract.builder().id(100L).build();
+        when(groupContractRepository.findById(100L)).thenReturn(Optional.of(contract));
+
+        GroupContract found = groupContractService.getEntityById(100L);
+
+        assertThat(found).isEqualTo(contract);
+    }
+
+    @Test
+    @DisplayName("cancelExpiredTentativeContracts cancels contracts and expires room blocks")
+    void cancelExpiredTentativeContracts_Success() {
+        GroupRoomBlock block = GroupRoomBlock.builder()
+                .id(1L)
+                .status(GroupRoomBlockStatus.TENTATIVE)
+                .dailyBlocks(new ArrayList<>())
+                .build();
+        GroupRoomBlockDaily daily = GroupRoomBlockDaily.builder()
+                .id(10L)
+                .status(GroupRoomBlockDailyStatus.ACTIVE)
+                .build();
+        block.getDailyBlocks().add(daily);
+
+        GroupContract contract = GroupContract.builder()
+                .id(100L)
+                .status(GroupContractStatus.TENTATIVE)
+                .roomBlocks(List.of(block))
+                .build();
+
+        when(groupContractRepository.findByStatusAndDepositDueDateBefore(eq(GroupContractStatus.TENTATIVE), any()))
+                .thenReturn(List.of(contract));
+
+        int cancelled = groupContractService.cancelExpiredTentativeContracts(OffsetDateTime.now());
+
+        assertThat(cancelled).isEqualTo(1);
+        assertThat(contract.getStatus()).isEqualTo(GroupContractStatus.CANCELLED_NO_DEPOSIT);
+        assertThat(block.getStatus()).isEqualTo(GroupRoomBlockStatus.CANCELLED);
+        assertThat(daily.getStatus()).isEqualTo(GroupRoomBlockDailyStatus.EXPIRED);
+        verify(groupContractRepository, times(1)).save(contract);
     }
 }

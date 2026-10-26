@@ -5,6 +5,7 @@ import lombok.experimental.FieldDefaults;
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlockStatus;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -19,6 +20,8 @@ public class GroupRoomBlockResponse {
     String roomTypeName;
     Integer blockedRooms;
     Integer pickedUpRooms;
+    Integer releasedRooms;
     BigDecimal negotiatedRatePerNight;
     GroupRoomBlockStatus status;
+    List<GroupRoomBlockDailyResponse> dailyBlocks;
 }
