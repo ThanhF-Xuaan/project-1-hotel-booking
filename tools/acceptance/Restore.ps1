@@ -1,6 +1,6 @@
 # Restore.ps1 — Restore Acceptance Database from Snapshot
 [CmdletBinding()]
-param()
+param([string]$SnapshotFile)
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -11,7 +11,7 @@ $ProjectRoot = $AcceptanceRuntime.ProjectRoot
 $RuntimeDir = $AcceptanceRuntime.RuntimeDirectory
 $EnvConfig = $AcceptanceRuntime.Environment
 $ComposeArgs = $AcceptanceRuntime.ComposeArguments
-$SnapshotFile = "$RuntimeDir/snapshot.sql"
+if (-not $SnapshotFile) { $SnapshotFile = "$RuntimeDir/snapshot.sql" }
 
 if (-not (Test-Path $SnapshotFile)) {
     throw "Không tìm thấy file snapshot: $SnapshotFile! Hãy chạy Snapshot.ps1 trước."

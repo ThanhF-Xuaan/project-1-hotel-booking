@@ -1,8 +1,14 @@
 # Start.ps1 — Launch the isolated Acceptance Sandbox and local applications
 [CmdletBinding()]
-param()
+param(
+    [switch]$InfrastructureOnly,
+    [switch]$ApplicationsOnly
+)
 
 $ErrorActionPreference = 'Stop'
+if ($InfrastructureOnly -and $ApplicationsOnly) {
+    throw 'Chọn InfrastructureOnly hoặc ApplicationsOnly, không dùng cả hai.'
+}
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RuntimeDir = Join-Path $ScriptDir '.runtime'
 $RuntimeFile = Join-Path $RuntimeDir 'env.json'
@@ -58,6 +64,7 @@ foreach ($applicationPort in @([int]$EnvConfig.BACKEND_PORT, [int]$EnvConfig.FRO
     }
 }
 
+if (-not $ApplicationsOnly) {
 Write-Host "=== [1/6] Khởi động PostgreSQL, Redis và Keycloak của sandbox ===" -ForegroundColor Cyan
 docker compose @ComposeArgs up -d
 if ($LASTEXITCODE -ne 0) {
@@ -143,6 +150,12 @@ $VerificationSql = "SELECT 'hotels' AS tbl, count(*) FROM hotels UNION ALL SELEC
 docker exec $PgContainerId psql -v ON_ERROR_STOP=1 -U $($EnvConfig.DB_USER) -d $($EnvConfig.DB_NAME) -c "$VerificationSql"
 if ($LASTEXITCODE -ne 0) {
     throw 'Kiểm tra dữ liệu fixture thất bại.'
+}
+}
+
+if ($InfrastructureOnly) {
+    Write-Host 'Hạ tầng và fixture đã sẵn sàng; ứng dụng chưa chạy.' -ForegroundColor Green
+    return
 }
 
 Write-Host "=== [5/6] Khởi chạy backend và frontend trên host ===" -ForegroundColor Cyan

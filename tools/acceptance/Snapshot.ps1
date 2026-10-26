@@ -1,6 +1,6 @@
 # Snapshot.ps1 — Backup Acceptance DB and State
 [CmdletBinding()]
-param()
+param([string]$SnapshotFile)
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -18,7 +18,11 @@ if (-not $PgContainerId) {
 }
 
 Write-Host "=== Tạo Snapshot cho Cơ sở dữ liệu Sandbox ===" -ForegroundColor Cyan
-$SnapshotFile = "$RuntimeDir/snapshot.sql"
+$CustomSnapshot = -not [string]::IsNullOrWhiteSpace($SnapshotFile)
+if (-not $CustomSnapshot) { $SnapshotFile = "$RuntimeDir/snapshot.sql" }
+if ($CustomSnapshot -and (Test-Path -LiteralPath $SnapshotFile)) {
+    throw "Snapshot đã tồn tại, không ghi đè: $SnapshotFile"
+}
 
 # Dump inside container to /tmp/snapshot.sql and copy to host to preserve raw UTF-8 binary integrity
 docker exec $PgContainerId pg_dump -U $($EnvConfig.DB_USER) -d $($EnvConfig.DB_NAME) --clean --if-exists -f /tmp/snapshot.sql
@@ -41,5 +45,6 @@ $SnapshotMeta = @{
     database = $EnvConfig.DB_NAME
 }
 
-$SnapshotMeta | ConvertTo-Json -Depth 5 | Set-Content -Path "$RuntimeDir/snapshot-metadata.json" -Encoding UTF8
+$MetadataFile = if ($CustomSnapshot) { [IO.Path]::ChangeExtension($SnapshotFile, 'metadata.json') } else { "$RuntimeDir/snapshot-metadata.json" }
+$SnapshotMeta | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $MetadataFile -Encoding UTF8
 Write-Host "Hoàn tất Snapshot!" -ForegroundColor Green
