@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261026-140000-create-master-folio-item-adjustments" author="member2">
+        <comment>Tao bang master_folio_item_adjustments luu vet dieu chuyen chi phi thu cong theo SRS UC-FIN-04</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261026-140000-create-master-folio-item-adjustments.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

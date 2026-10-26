@@ -65,4 +65,10 @@ public class FolioResponse {
 
     @Builder.Default
     BigDecimal overpaymentAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    BigDecimal coveredByMasterFolioAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    BigDecimal personalBalance = BigDecimal.ZERO;
 }

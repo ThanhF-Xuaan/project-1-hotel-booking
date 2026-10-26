@@ -5,8 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import vn.edu.utc.hotel_booking.common.exception.AppException;
-import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.FolioLineItemDto;
@@ -14,8 +12,10 @@ import vn.edu.utc.hotel_booking.modules.finance.dto.response.FolioPaymentDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.FolioResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.FolioRoomSummaryDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
-import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentPurpose;
-import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
+import vn.edu.utc.hotel_booking.modules.finance.entity.*;
+import vn.edu.utc.hotel_booking.modules.finance.repository.BillingRoutingRuleRepository;
+import vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioItemAdjustmentRepository;
+import vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.FolioService;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
@@ -27,8 +27,7 @@ import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +38,9 @@ public class FolioServiceImpl implements FolioService {
     BookingLookupService bookingLookupService;
     PaymentService paymentService;
     ServiceOrderService serviceOrderService;
+    MasterFolioRepository masterFolioRepository;
+    BillingRoutingRuleRepository billingRoutingRuleRepository;
+    MasterFolioItemAdjustmentRepository masterFolioItemAdjustmentRepository;
 
     @Override
     public FolioResponse getFolioByBookingId(Long bookingId) {
@@ -66,9 +68,37 @@ public class FolioServiceImpl implements FolioService {
         BigDecimal serviceFeeAmount = BigDecimal.ZERO;
         BigDecimal vatAmount = BigDecimal.ZERO;
         BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
+        BigDecimal coveredByMasterFolioAmount = BigDecimal.ZERO;
 
         LocalDate checkInDate = null;
         LocalDate checkOutDate = null;
+
+        boolean isGroupBooking = (booking.getGroupContract() != null);
+        Map<ChargeCategory, BillingRoutingRule> ruleMap = new EnumMap<>(ChargeCategory.class);
+        Map<String, MasterFolioItemAdjustment> adjustmentMap = new HashMap<>();
+
+        if (isGroupBooking && masterFolioRepository != null) {
+            Optional<MasterFolio> mfOpt = masterFolioRepository.findByContractId(booking.getGroupContract().getId());
+            if (mfOpt.isPresent()) {
+                MasterFolio mf = mfOpt.get();
+                if (billingRoutingRuleRepository != null) {
+                    List<BillingRoutingRule> rules = billingRoutingRuleRepository.findByMasterFolioIdAndIsActiveTrue(mf.getId());
+                    if (rules != null) {
+                        for (BillingRoutingRule r : rules) {
+                            ruleMap.put(r.getChargeCategory(), r);
+                        }
+                    }
+                }
+                if (masterFolioItemAdjustmentRepository != null) {
+                    List<MasterFolioItemAdjustment> adjs = masterFolioItemAdjustmentRepository.findByMasterFolioId(mf.getId());
+                    if (adjs != null) {
+                        for (MasterFolioItemAdjustment a : adjs) {
+                            adjustmentMap.put(a.getItemType() + ":" + a.getReferenceId(), a);
+                        }
+                    }
+                }
+            }
+        }
 
         if (booking.getBookingDetails() != null) {
             for (BookingDetail detail : booking.getBookingDetails()) {
@@ -126,6 +156,23 @@ public class FolioServiceImpl implements FolioService {
                                     .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                             BigDecimal lineTotal = lineTaxable.add(lineVat);
 
+                            boolean isCoveredByMaster = false;
+                            String routingTarget = "SUB_FOLIO";
+
+                            if (isGroupBooking) {
+                                MasterFolioItemAdjustment adj = adjustmentMap.get("ROOM_RATE:" + dr.getId());
+                                if (adj != null) {
+                                    isCoveredByMaster = (adj.getAdjustedTarget() == RoutingTarget.MASTER);
+                                    routingTarget = adj.getAdjustedTarget().name();
+                                } else {
+                                    BillingRoutingRule rule = ruleMap.get(ChargeCategory.ROOM_RATE);
+                                    if (rule != null && rule.getRouteTarget() == RoutingTarget.MASTER) {
+                                        isCoveredByMaster = true;
+                                        routingTarget = "MASTER";
+                                    }
+                                }
+                            }
+
                             FolioLineItemDto lineItem = FolioLineItemDto.builder()
                                     .referenceId(dr.getId())
                                     .lineType("ROOM_RATE")
@@ -140,12 +187,18 @@ public class FolioServiceImpl implements FolioService {
                                     .vatAmount(lineVat)
                                     .totalAmount(lineTotal)
                                     .roomNumber(roomNum)
+                                    .coveredByMasterFolio(isCoveredByMaster)
+                                    .routingTarget(routingTarget)
                                     .build();
 
                             debits.add(lineItem);
                             subTotal = subTotal.add(lineSubtotal);
                             serviceFeeAmount = serviceFeeAmount.add(lineServiceFee);
                             vatAmount = vatAmount.add(lineVat);
+
+                            if (isCoveredByMaster) {
+                                coveredByMasterFolioAmount = coveredByMasterFolioAmount.add(lineTotal);
+                            }
                         }
                     }
 
@@ -159,6 +212,17 @@ public class FolioServiceImpl implements FolioService {
                             LocalDate chargeDate = charge.getCreatedAt() != null
                                     ? charge.getCreatedAt().toLocalDate()
                                     : LocalDate.now();
+
+                            boolean isCoveredByMaster = false;
+                            String routingTarget = "SUB_FOLIO";
+
+                            if (isGroupBooking) {
+                                MasterFolioItemAdjustment adj = adjustmentMap.get("BOOKING_CHARGE:" + charge.getId());
+                                if (adj != null) {
+                                    isCoveredByMaster = (adj.getAdjustedTarget() == RoutingTarget.MASTER);
+                                    routingTarget = adj.getAdjustedTarget().name();
+                                }
+                            }
 
                             FolioLineItemDto lineItem = FolioLineItemDto.builder()
                                     .referenceId(charge.getId())
@@ -174,12 +238,18 @@ public class FolioServiceImpl implements FolioService {
                                     .vatAmount(charge.getVatAmount())
                                     .totalAmount(charge.getTotalAmount())
                                     .roomNumber(roomNum)
+                                    .coveredByMasterFolio(isCoveredByMaster)
+                                    .routingTarget(routingTarget)
                                     .build();
 
                             debits.add(lineItem);
                             subTotal = subTotal.add(charge.getSubtotal());
                             serviceFeeAmount = serviceFeeAmount.add(charge.getServiceFeeAmount());
                             vatAmount = vatAmount.add(charge.getVatAmount());
+
+                            if (isCoveredByMaster) {
+                                coveredByMasterFolioAmount = coveredByMasterFolioAmount.add(charge.getTotalAmount());
+                            }
                         }
                     }
                 }
@@ -208,6 +278,24 @@ public class FolioServiceImpl implements FolioService {
                                     ? "PRODUCT"
                                     : "SERVICE";
 
+                            boolean isCoveredByMaster = false;
+                            String routingTarget = "SUB_FOLIO";
+
+                            if (isGroupBooking) {
+                                MasterFolioItemAdjustment adj = adjustmentMap.get("SERVICE_ORDER_DETAIL:" + item.getId());
+                                if (adj != null) {
+                                    isCoveredByMaster = (adj.getAdjustedTarget() == RoutingTarget.MASTER);
+                                    routingTarget = adj.getAdjustedTarget().name();
+                                } else {
+                                    ChargeCategory cat = resolveCategory(item.getItemName());
+                                    BillingRoutingRule rule = ruleMap.get(cat);
+                                    if (rule != null && rule.getRouteTarget() == RoutingTarget.MASTER) {
+                                        isCoveredByMaster = true;
+                                        routingTarget = "MASTER";
+                                    }
+                                }
+                            }
+
                             FolioLineItemDto lineItem = FolioLineItemDto.builder()
                                     .referenceId(item.getId())
                                     .lineType(itemLineType)
@@ -222,12 +310,18 @@ public class FolioServiceImpl implements FolioService {
                                     .vatAmount(item.getVatAmount())
                                     .totalAmount(item.getTotalAmount())
                                     .roomNumber(order.getRoomNumber())
+                                    .coveredByMasterFolio(isCoveredByMaster)
+                                    .routingTarget(routingTarget)
                                     .build();
 
                             debits.add(lineItem);
                             subTotal = subTotal.add(item.getSubtotal());
                             serviceFeeAmount = serviceFeeAmount.add(item.getServiceFeeAmount());
                             vatAmount = vatAmount.add(item.getVatAmount());
+
+                            if (isCoveredByMaster) {
+                                coveredByMasterFolioAmount = coveredByMasterFolioAmount.add(item.getTotalAmount());
+                            }
                         }
                     }
                 }
@@ -267,7 +361,15 @@ public class FolioServiceImpl implements FolioService {
         }
 
         BigDecimal balance = totalDebits.subtract(totalCredits);
-        boolean canCheckOut = balance.compareTo(BigDecimal.ZERO) == 0;
+        BigDecimal personalBalance = balance.subtract(coveredByMasterFolioAmount);
+        if (personalBalance.compareTo(BigDecimal.ZERO) < 0) {
+            personalBalance = BigDecimal.ZERO;
+        }
+
+        boolean canCheckOut = isGroupBooking
+                ? (personalBalance.compareTo(BigDecimal.ZERO) == 0)
+                : (balance.compareTo(BigDecimal.ZERO) == 0);
+
         boolean hasOverpayment = balance.compareTo(BigDecimal.ZERO) < 0;
         BigDecimal overpaymentAmount = hasOverpayment ? balance.abs() : BigDecimal.ZERO;
 
@@ -294,6 +396,18 @@ public class FolioServiceImpl implements FolioService {
                 .canCheckOut(canCheckOut)
                 .hasOverpayment(hasOverpayment)
                 .overpaymentAmount(overpaymentAmount)
+                .coveredByMasterFolioAmount(coveredByMasterFolioAmount)
+                .personalBalance(personalBalance)
                 .build();
+    }
+
+    private ChargeCategory resolveCategory(String itemName) {
+        if (itemName == null) return ChargeCategory.CUSTOM;
+        String l = itemName.toLowerCase();
+        if (l.contains("minibar") || l.contains("nước suối") || l.contains("snack")) return ChargeCategory.MINIBAR;
+        if (l.contains("giặt") || l.contains("laundry")) return ChargeCategory.LAUNDRY;
+        if (l.contains("ăn sáng") || l.contains("breakfast")) return ChargeCategory.BREAKFAST;
+        if (l.contains("tiệc") || l.contains("hội nghị") || l.contains("banquet")) return ChargeCategory.BANQUET;
+        return ChargeCategory.CUSTOM;
     }
 }
