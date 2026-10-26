@@ -7,6 +7,11 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractDeposit
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchDto;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.GroupContractResponse;
 
+import vn.edu.utc.hotel_booking.modules.booking.entity.GroupContract;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+
 public interface GroupContractService {
 
     GroupContractResponse createContract(GroupContractCreateRequest request, Integer currentStaffId);
@@ -18,4 +23,16 @@ public interface GroupContractService {
     GroupContractResponse confirmDeposit(Long id, GroupContractDepositRequest request);
 
     GroupContractResponse cancelContract(Long id, GroupContractCancelRequest request);
+
+    GroupContract getEntityById(Long id);
+
+    boolean existsById(Long id);
+
+    List<GroupContract> findContractsPastCutoff(OffsetDateTime cutoff);
+
+    List<GroupContract> findContractsApproachingCutoff(OffsetDateTime now, OffsetDateTime threshold);
+
+    int cancelExpiredTentativeContracts(OffsetDateTime now);
+
+    GroupContract saveEntity(GroupContract contract);
 }

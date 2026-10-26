@@ -142,6 +142,7 @@ public enum ErrorCode {
     GROUP_CONTRACT_DEPOSIT_INSUFFICIENT(7214, "Số tiền đặt cọc không đủ mức tối thiểu 50% theo Điều 328 BLDS 2015 và thỏa thuận hợp đồng", HttpStatus.BAD_REQUEST),
     GROUP_CONTRACT_ALREADY_DEPOSITED(7215, "Hợp đồng này đã được xác nhận đặt cọc trước đó", HttpStatus.BAD_REQUEST),
     GROUP_ROOM_BLOCK_INSUFFICIENT_INVENTORY(7216, "Không đủ phòng trống để tạo block phòng đoàn trong khoảng thời gian yêu cầu", HttpStatus.CONFLICT),
+    GROUP_ROOM_BLOCK_NOT_FOUND(7217, "Không tìm thấy thông tin block phòng đoàn", HttpStatus.NOT_FOUND),
     ;
 
     ErrorCode(int code, String message, HttpStatusCode statusCode) {

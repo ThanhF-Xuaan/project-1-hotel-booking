@@ -389,4 +389,70 @@ public class GroupContractServiceImpl implements GroupContractService {
                 .roomBlocks(blockResponses)
                 .build();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GroupContract getEntityById(Long id) {
+        return groupContractRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.GROUP_CONTRACT_NOT_FOUND));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsById(Long id) {
+        return groupContractRepository.existsById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GroupContract> findContractsPastCutoff(OffsetDateTime cutoff) {
+        return groupContractRepository.findByStatusInAndCutoffDateBefore(
+                List.of(GroupContractStatus.DEPOSIT_PAID, GroupContractStatus.ROOMING_LIST_ATTACHED),
+                cutoff
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GroupContract> findContractsApproachingCutoff(OffsetDateTime now, OffsetDateTime threshold) {
+        return groupContractRepository.findByStatusInAndCutoffDateBetween(
+                List.of(GroupContractStatus.DEPOSIT_PAID),
+                now,
+                threshold
+        );
+    }
+
+    @Override
+    @Transactional
+    public int cancelExpiredTentativeContracts(OffsetDateTime now) {
+        List<GroupContract> expiredContracts = groupContractRepository.findByStatusAndDepositDueDateBefore(
+                GroupContractStatus.TENTATIVE,
+                now
+        );
+
+        if (expiredContracts.isEmpty()) {
+            return 0;
+        }
+
+        for (GroupContract contract : expiredContracts) {
+            contract.setStatus(GroupContractStatus.CANCELLED_NO_DEPOSIT);
+            contract.setCancellationReason("Hệ thống tự động hủy do quá hạn đặt cọc 50% theo Điều 328 BLDS 2015");
+
+            for (GroupRoomBlock block : contract.getRoomBlocks()) {
+                block.setStatus(GroupRoomBlockStatus.CANCELLED);
+                for (GroupRoomBlockDaily daily : block.getDailyBlocks()) {
+                    daily.setStatus(GroupRoomBlockDailyStatus.EXPIRED);
+                }
+            }
+            groupContractRepository.save(contract);
+        }
+
+        return expiredContracts.size();
+    }
+
+    @Override
+    @Transactional
+    public GroupContract saveEntity(GroupContract contract) {
+        return groupContractRepository.save(contract);
+    }
 }

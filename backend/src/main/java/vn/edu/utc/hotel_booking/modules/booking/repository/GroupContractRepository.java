@@ -24,4 +24,8 @@ public interface GroupContractRepository extends JpaRepository<GroupContract, Lo
     List<GroupContract> findByStatusAndDepositDueDateBefore(GroupContractStatus status, OffsetDateTime deadline);
 
     List<GroupContract> findByStatusAndCutoffDateBefore(GroupContractStatus status, OffsetDateTime cutoff);
+
+    List<GroupContract> findByStatusInAndCutoffDateBefore(List<GroupContractStatus> statuses, OffsetDateTime cutoff);
+
+    List<GroupContract> findByStatusInAndCutoffDateBetween(List<GroupContractStatus> statuses, OffsetDateTime start, OffsetDateTime end);
 }

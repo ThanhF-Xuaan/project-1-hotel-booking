@@ -359,4 +359,35 @@ class RoomAvailabilityServiceTest {
         assertThat(av10.getLockedRooms()).isEqualTo(0);
         verify(roomInventoryHoldService, times(1)).markHoldsReleased(List.of(expiredHold), HoldReleaseReason.EXPIRED);
     }
+
+    @Test
+    @DisplayName("getAvailability deducts group blocked rooms when BlockedInventoryProvider is present")
+    void testGetAvailability_DeductsGroupBlockedRooms() {
+        BlockedInventoryProvider provider = mock(BlockedInventoryProvider.class);
+        when(provider.getActiveBlockedRooms(eq(10), any(LocalDate.class))).thenReturn(2);
+
+        RoomAvailabilityServiceImpl serviceWithProvider = new RoomAvailabilityServiceImpl(
+                roomAvailabilityRepository,
+                hotelRoomTypeService,
+                roomInventoryHoldService,
+                roomAvailabilityMapper,
+                Optional.of(provider)
+        );
+
+        RoomAvailabilitySearchDto searchDto = RoomAvailabilitySearchDto.builder()
+                .hotelRoomTypeId(10)
+                .startDate(LocalDate.of(2026, 10, 1))
+                .endDate(LocalDate.of(2026, 10, 1))
+                .build();
+
+        when(hotelRoomTypeService.getEntityById(10)).thenReturn(hotelRoomType);
+        when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(eq(10), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        List<RoomAvailabilityResponse> list = serviceWithProvider.getAvailability(searchDto);
+
+        assertThat(list).hasSize(1);
+        // Total = 5, Group Blocked = 2 => Available = 3
+        assertThat(list.get(0).getAvailableCount()).isEqualTo(3);
+    }
 }
