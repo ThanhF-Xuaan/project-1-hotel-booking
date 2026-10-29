@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users,
   Plus,
@@ -14,6 +14,7 @@ import {
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { extractIdentityImage, ocrFields, type IdentityOcrDraft } from '../../operation/services/identityOcr.service';
 import stayGuestService from '../../operation/services/stayGuest.service';
 import type {
   StayGuestResponse,
@@ -58,6 +59,63 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
   const [permanentAddress, setPermanentAddress] = useState('');
   const [reasonForStay, setReasonForStay] = useState('Du lịch / Nghỉ dưỡng');
 
+  const [ocrDraft, setOcrDraft] = useState<IdentityOcrDraft | null>(null);
+  const [isReadingImage, setIsReadingImage] = useState(false);
+  const [humanVerified, setHumanVerified] = useState(false);
+  const [checkInTime, setCheckInTime] = useState('');
+  const [expectedCheckOutTime, setExpectedCheckOutTime] = useState('');
+  const ocrRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => { ocrRequest.current?.abort(); }, [isOpen, bookingRoomId]);
+
+  const readIdentityImage = async (file?: File) => {
+    if (!file || isSubmitting) return;
+    ocrRequest.current?.abort();
+    const request = new AbortController();
+    ocrRequest.current = request;
+    setIsReadingImage(true);
+    setHumanVerified(false);
+    setErrorMessage(null);
+    try {
+      const draft = await extractIdentityImage(file, request.signal);
+      if (request.signal.aborted) return;
+      if (draft.status === 'UNREADABLE_DOCUMENT' || draft.status === 'INVALID_FILE') {
+        setErrorMessage('Không đọc được giấy tờ. Vui lòng thử ảnh khác hoặc nhập thủ công.');
+        return;
+      }
+      setOcrDraft(draft);
+      setFullName(draft.fullName.value ?? '');
+      setDateOfBirth(draft.dateOfBirth.value ?? '');
+      setGender(draft.gender.value ?? 'OTHER');
+      setNationality(draft.nationality.value ?? '');
+      setDocumentType(draft.documentType.value ?? 'OTHER');
+      setDocumentNumber(draft.documentNumber.value ?? '');
+      setPermanentAddress(draft.permanentAddress.value ?? '');
+    } catch {
+      if (!request.signal.aborted) setErrorMessage('Không thể đọc ảnh. Kiểm tra định dạng, giới hạn 5 MiB hoặc nhập thủ công.');
+    } finally {
+      if (!request.signal.aborted) setIsReadingImage(false);
+    }
+  };
+
+  const resetForm = useCallback(() => {
+    ocrRequest.current?.abort();
+    setIsReadingImage(false);
+    setOcrDraft(null);
+    setHumanVerified(false);
+    setCheckInTime('');
+    setExpectedCheckOutTime('');
+    setFullName('');
+    setDocumentType('CCCD');
+    setDocumentNumber('');
+    setDateOfBirth('');
+    setGender('MALE');
+    setNationality('Việt Nam');
+    setPermanentAddress('');
+    setReasonForStay('Du lịch / Nghỉ dưỡng');
+    setShowAddForm(false);
+  }, []);
+
   const loadGuests = useCallback(async () => {
     if (!bookingRoomId) return;
     setIsLoading(true);
@@ -79,25 +137,15 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
     const timer = setTimeout(() => {
       if (isOpen && bookingRoomId) {
         void loadGuests();
-        setShowAddForm(false);
+        resetForm();
         setSuccessMessage(null);
         setErrorMessage(null);
       }
     }, 0);
     return () => clearTimeout(timer);
-  }, [isOpen, bookingRoomId, loadGuests]);
+  }, [isOpen, bookingRoomId, loadGuests, resetForm]);
 
-  const resetForm = () => {
-    setFullName('');
-    setDocumentType('CCCD');
-    setDocumentNumber('');
-    setDateOfBirth('');
-    setGender('MALE');
-    setNationality('Việt Nam');
-    setPermanentAddress('');
-    setReasonForStay('Du lịch / Nghỉ dưỡng');
-    setShowAddForm(false);
-  };
+
 
   const handleCreateGuest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,8 +154,17 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
       return;
     }
 
-    if (!fullName.trim()) {
-      setErrorMessage('Vui lòng nhập họ và tên khách.');
+    if (isReadingImage || isSubmitting || (ocrDraft && !humanVerified)) {
+      setErrorMessage('Vui lòng kiểm tra bản nháp và xác nhận trước khi lưu.');
+      return;
+    }
+    if (!checkInTime || !expectedCheckOutTime || !Number.isFinite(Date.parse(checkInTime))
+        || !Number.isFinite(Date.parse(expectedCheckOutTime)) || Date.parse(expectedCheckOutTime) <= Date.parse(checkInTime)) {
+      setErrorMessage('Vui lòng nhập giờ lưu trú hợp lệ; giờ trả phải sau giờ nhận phòng.');
+      return;
+    }
+    if (!fullName.trim() || !documentNumber.trim()) {
+      setErrorMessage('Vui lòng nhập họ tên và số giấy tờ.');
       return;
     }
 
@@ -128,6 +185,8 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
       nationality: nationality.trim() || undefined,
       permanentAddress: permanentAddress.trim() || undefined,
       reasonForStay: reasonForStay.trim() || undefined,
+      checkInTime: new Date(checkInTime).toISOString(),
+      expectedCheckOutTime: new Date(expectedCheckOutTime).toISOString(),
     };
 
     try {
@@ -136,7 +195,7 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
       resetForm();
       loadGuests();
     } catch (err: unknown) {
-      console.error('Lỗi khai báo khách lưu trú:', err);
+      void err; // Không ghi payload giấy tờ hoặc lỗi Axios vào console.
       setErrorMessage('Không thể thêm thông tin khách lưu trú. Vui lòng kiểm tra lại.');
     } finally {
       setIsSubmitting(false);
@@ -160,7 +219,7 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => { resetForm(); onClose(); }}
       title={`Khai báo Khách lưu trú - Phòng ${roomNumber || 'Chưa xếp'}`}
       maxWidth="2xl"
     >
@@ -299,6 +358,20 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
               </button>
             </div>
 
+            <fieldset disabled={isReadingImage || isSubmitting} className="space-y-3">
+              <label className="block text-sm font-semibold">
+                Đọc ảnh CCCD / Hộ chiếu (PNG, JPEG, WebP; tối đa 5 MiB)
+                <input aria-label="Ảnh giấy tờ" type="file" accept="image/png,image/jpeg,image/webp"
+                  onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void readIdentityImage(file); }} />
+              </label>
+              {ocrDraft && <div role="status" className="text-sm space-y-1">
+                <p>Bản nháp OCR — đối chiếu giấy tờ gốc và sửa các trường trước khi lưu.</p>
+                {Object.entries(ocrFields).map(([key, label]) => {
+                  const field = ocrDraft[key as keyof typeof ocrFields];
+                  return <p key={key}>{label}: {Math.round(field.confidence * 100)}%{!field.valid ? ' — Cần kiểm tra' : ''}</p>;
+                })}
+                {ocrDraft.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
+              </div>}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">
@@ -349,6 +422,7 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
                   Số giấy tờ (CCCD/Passport)
                 </label>
                 <Input
+                  required
                   placeholder="001200001234"
                   value={documentNumber}
                   onChange={(e) => setDocumentNumber(e.target.value)}
@@ -400,11 +474,23 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
               </div>
             </div>
 
+              <label className="block text-sm">Giờ nhận phòng
+                <input aria-label="Giờ nhận phòng" type="datetime-local" required value={checkInTime} onChange={e => setCheckInTime(e.target.value)} />
+              </label>
+              <label className="block text-sm">Giờ dự kiến trả phòng
+                <input aria-label="Giờ dự kiến trả phòng" type="datetime-local" required value={expectedCheckOutTime} onChange={e => setExpectedCheckOutTime(e.target.value)} />
+              </label>
+              {ocrDraft && <label className="block text-sm">
+                <input type="checkbox" checked={humanVerified} onChange={e => setHumanVerified(e.target.checked)} />
+                Tôi đã đối chiếu giấy tờ gốc và kiểm tra, sửa thông tin OCR.
+              </label>}
+            </fieldset>
+            {isReadingImage && <p role="status">Đang đọc ảnh...</p>}
             <div className="flex justify-end gap-2 pt-2 border-t border-neutral-200">
               <Button type="button" variant="outline" size="sm" onClick={resetForm}>
                 Hủy
               </Button>
-              <Button type="submit" variant="primary" size="sm" disabled={isSubmitting}>
+              <Button type="submit" variant="primary" size="sm" disabled={isSubmitting || isReadingImage || (!!ocrDraft && !humanVerified)}>
                 {isSubmitting ? 'Đang lưu...' : 'Lưu khách lưu trú'}
               </Button>
             </div>
@@ -412,7 +498,7 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
         )}
 
         <div className="pt-2 flex justify-end">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={() => { resetForm(); onClose(); }}>
             Đóng
           </Button>
         </div>

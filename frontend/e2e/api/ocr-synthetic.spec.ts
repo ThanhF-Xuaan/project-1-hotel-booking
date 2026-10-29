@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
 import { getKeycloakToken, BACKEND_URL } from '../helpers/auth.helper';
 
 test.describe('U13 Synthetic Document OCR & Receptionist Extraction', () => {
   let receptionToken: string;
 
   test.beforeAll(async () => {
-    receptionToken = await getKeycloakToken('reception_h1');
+    receptionToken = process.env.OCR_RECEPTION_TOKEN || await getKeycloakToken('reception_h1');
   });
 
   test('should extract CCCD fields from synthetic OCR text with draft status', async ({ request }) => {
@@ -36,7 +37,7 @@ Nơi thường trú: 123 Đường Test, Quận 1, TP. Hồ Chí Minh
     const draft = body.result;
     expect(draft.status).toBe('SUCCESS');
     expect(draft.requiresHumanVerification).toBe(true);
-    expect(draft.fullName.value).toContain('NGUYEN VAN TEST');
+    expect(draft.fullName.value).toBe('NGUYEN VAN TEST');
     expect(draft.documentNumber.value).toBe('079190012345');
     expect(draft.gender.value).toBe('MALE');
   });
@@ -72,4 +73,36 @@ Nơi thường trú: 123 Đường Test, Quận 1, TP. Hồ Chí Minh
 
     expect(res.status()).toBe(400);
   });
+
+  test('multipart image returns a human-reviewed draft according to the OCR flag', async ({ request }) => {
+    const image = await readFile(new URL('../../../backend/src/test/resources/ai/ocr/cccd-synthetic.png', import.meta.url));
+    const res = await request.post(`${BACKEND_URL}/api/v1/ai/ocr/extract-file`, {
+      headers: { Authorization: `Bearer ${receptionToken}` },
+      multipart: { file: { name: 'cccd-synthetic.png', mimeType: 'image/png', buffer: image } },
+    });
+    expect(res.status()).toBe(200);
+    const draft = (await res.json()).result;
+    expect(draft.requiresHumanVerification).toBe(true);
+    if (process.env.OCR_IMAGE_ENABLED === 'true') {
+      expect(draft.documentNumber.value).toBe('079190012345');
+      expect(draft.fullName.value).toContain('NGUYEN VAN TEST');
+      expect(draft.overallConfidence).toBeGreaterThan(0);
+    } else {
+      expect(draft.status).toBe('UNREADABLE_DOCUMENT');
+      expect(draft.overallConfidence).toBe(0);
+      expect(draft.missingOrLowConfidenceFields).toContain('rawOcrText');
+    }
+  });
+
+  test('multipart invalid file returns a safe error and never a saved guest', async ({ request }) => {
+    const res = await request.post(`${BACKEND_URL}/api/v1/ai/ocr/extract-file`, {
+      headers: { Authorization: `Bearer ${receptionToken}` },
+      multipart: { file: { name: 'synthetic.png', mimeType: 'image/png', buffer: Buffer.from('invalid synthetic image') } },
+    });
+    expect(res.status()).toBe(400);
+    const body = await res.json();
+    expect(body.result.status).toBe('INVALID_FILE');
+    expect(body.result.requiresHumanVerification).toBe(true);
+  });
+
 });

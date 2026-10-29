@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+ <changeSet id="20261029-193100-stay-guest-identity-compatibility" author="member1">
+  <sqlFile path="db/sqlFile/incremental/2026/20261029-193100-stay-guest-identity-compatibility.sql" relativeToChangelogFile="false"/>
+  <rollback><sql>ALTER TABLE stay_guests DROP CONSTRAINT chk_adult_requires_identity; ALTER TABLE stay_guests ADD CONSTRAINT chk_adult_requires_identity CHECK (guest_type != 'ADULT' OR (identity_type IS NOT NULL AND identity_number IS NOT NULL AND identity_number != ''));</sql></rollback>
+ </changeSet>
+</databaseChangeLog>

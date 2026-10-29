@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+ <changeSet id="20261029-193000-stay-guest-legacy-name-compatibility" author="member1">
+  <comment>Align legacy optional fields with the existing fullName StayGuest create contract.</comment>
+  <sqlFile path="db/sqlFile/incremental/2026/20261029-193000-stay-guest-legacy-name-compatibility.sql" relativeToChangelogFile="false"/>
+  <rollback><sql>ALTER TABLE stay_guests ALTER COLUMN first_name SET NOT NULL, ALTER COLUMN last_name SET NOT NULL, ALTER COLUMN guest_type SET NOT NULL;</sql></rollback>
+ </changeSet>
+</databaseChangeLog>

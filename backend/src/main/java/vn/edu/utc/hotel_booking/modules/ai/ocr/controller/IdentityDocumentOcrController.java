@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
+import vn.edu.utc.hotel_booking.modules.ai.ocr.config.OcrEngineProperties;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrDocumentExtractRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrStayGuestDraftDto;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.enums.OcrExtractionStatus;
@@ -21,6 +22,7 @@ import vn.edu.utc.hotel_booking.modules.ai.ocr.port.OcrVisionPort;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.validator.OcrUploadValidator;
 
 import java.util.List;
+import java.io.IOException;
 import java.util.stream.Collectors;
 
 /**
@@ -47,11 +49,14 @@ public class IdentityDocumentOcrController {
 
     private final OcrVisionPort ocrVisionPort;
     private final OcrUploadValidator uploadValidator;
+    private final OcrEngineProperties engineProperties;
 
     public IdentityDocumentOcrController(OcrVisionPort ocrVisionPort,
-                                         OcrUploadValidator uploadValidator) {
+                                         OcrUploadValidator uploadValidator,
+                                         OcrEngineProperties engineProperties) {
         this.ocrVisionPort = ocrVisionPort;
         this.uploadValidator = uploadValidator;
+        this.engineProperties = engineProperties;
     }
 
     /**
@@ -89,14 +94,28 @@ public class IdentityDocumentOcrController {
 
         OcrUploadValidator.ValidationResult validation = uploadValidator.validate(file);
         if (!validation.isValid()) {
-            log.warn("U13 OCR /extract-file: file không hợp lệ – {}", validation.getReason());
-            OcrStayGuestDraftDto invalid = buildInvalidFileResult(validation.getReason());
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.<OcrStayGuestDraftDto>builder()
-                            .code(400).message(validation.getReason()).result(invalid).build());
+            return invalidImage();
         }
 
         log.debug("U13 OCR /extract-file: sizeBytes={}", file.getSize());
+
+        if (engineProperties.isEnabled()) {
+            byte[] image;
+            try {
+                image = file.getBytes();
+            } catch (IOException e) {
+                return invalidImage();
+            }
+            if (!uploadValidator.validateForOcr(file.getOriginalFilename(), file.getContentType(), image).isValid()) {
+                return invalidImage();
+            }
+            OcrDocumentExtractRequestDto metadata = new OcrDocumentExtractRequestDto();
+            metadata.setFileName(file.getOriginalFilename());
+            metadata.setContentType(file.getContentType());
+            metadata.setFileSizeBytes(image.length);
+            // G1: ảnh là nguồn duy nhất khi flag bật; không chuyển client text sang engine.
+            return ResponseEntity.ok(ApiResponse.success(ocrVisionPort.extractImage(image, metadata)));
+        }
 
         if (rawOcrText == null || rawOcrText.isBlank()) {
             OcrStayGuestDraftDto unreadable = new OcrStayGuestDraftDto();
@@ -130,6 +149,19 @@ public class IdentityDocumentOcrController {
     }
 
     // ---- Exception Handlers cục bộ ----
+
+    @ExceptionHandler(OcrVisionPort.ExtractionUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEngineUnavailable() {
+        return ResponseEntity.status(503).body(ApiResponse.<Void>builder()
+                .code(503).message("Dịch vụ OCR tạm thời không khả dụng. Vui lòng thử lại sau.").build());
+    }
+
+    private ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> invalidImage() {
+        String message = "File ảnh không hợp lệ hoặc vượt giới hạn cho phép";
+        log.warn("U13 OCR /extract-file: invalid image");
+        return ResponseEntity.badRequest().body(ApiResponse.<OcrStayGuestDraftDto>builder()
+                .code(400).message(message).result(buildInvalidFileResult(message)).build());
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<Void>> handleValidation(MethodArgumentNotValidException ex) {
