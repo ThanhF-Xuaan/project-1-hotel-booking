@@ -74,7 +74,7 @@ class RoomAvailabilityServiceTest {
     }
 
     @Test
-    @DisplayName("getAvailability returns sparse default data when no records exist and no generation service")
+    @DisplayName("getAvailability returns sparse data without generating rows even with generation service")
     void testGetAvailability_SparseDefault() {
         RoomAvailabilitySearchDto searchDto = RoomAvailabilitySearchDto.builder()
                 .hotelRoomTypeId(10)
@@ -93,6 +93,35 @@ class RoomAvailabilityServiceTest {
         assertThat(list.get(0).getAvailableCount()).isEqualTo(5);
         assertThat(list.get(0).getBookedRooms()).isEqualTo(0);
         assertThat(list.get(0).getLockedRooms()).isEqualTo(0);
+        assertThat(list.get(1).getDate()).isEqualTo(searchDto.getEndDate());
+        verifyNoInteractions(roomAvailabilityGenerationService, roomInventoryHoldService, roomAvailabilityMapper);
+        verify(roomAvailabilityRepository).findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(
+                10, searchDto.getStartDate(), searchDto.getEndDate());
+        verifyNoMoreInteractions(roomAvailabilityRepository);
+    }
+
+    @Test
+    @DisplayName("getAvailability keeps existing counts and virtual missing days without business writes")
+    void testGetAvailability_PartiallyPopulatedIsReadOnly() {
+        LocalDate start = LocalDate.of(2026, 11, 1);
+        RoomAvailability row = RoomAvailability.builder()
+                .hotelRoomType(hotelRoomType).date(start)
+                .totalRooms(5).bookedRooms(1).lockedRooms(1).oooRooms(1).build();
+        when(hotelRoomTypeService.getEntityById(10)).thenReturn(hotelRoomType);
+        when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(10, start, start.plusDays(1)))
+                .thenReturn(List.of(row));
+        when(roomAvailabilityMapper.toResponse(row)).thenReturn(RoomAvailabilityResponse.builder().date(start).build());
+
+        List<RoomAvailabilityResponse> list = roomAvailabilityService.getAvailability(
+                RoomAvailabilitySearchDto.builder().hotelRoomTypeId(10).startDate(start).endDate(start.plusDays(1)).build());
+
+        assertThat(list).extracting(RoomAvailabilityResponse::getAvailableCount).containsExactly(2, 5);
+        assertThat(row.getBookedRooms()).isEqualTo(1);
+        assertThat(row.getLockedRooms()).isEqualTo(1);
+        assertThat(row.getOooRooms()).isEqualTo(1);
+        verifyNoInteractions(roomAvailabilityGenerationService, roomInventoryHoldService);
+        verify(roomAvailabilityRepository).findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(10, start, start.plusDays(1));
+        verifyNoMoreInteractions(roomAvailabilityRepository);
     }
 
     @Test
@@ -454,5 +483,9 @@ class RoomAvailabilityServiceTest {
         assertThat(list).hasSize(1);
         // Total = 5, Group Blocked = 2 => Available = 3
         assertThat(list.get(0).getAvailableCount()).isEqualTo(3);
+        verifyNoInteractions(roomAvailabilityGenerationService, roomInventoryHoldService);
+        verify(roomAvailabilityRepository).findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(
+                10, searchDto.getStartDate(), searchDto.getEndDate());
+        verifyNoMoreInteractions(roomAvailabilityRepository);
     }
 }

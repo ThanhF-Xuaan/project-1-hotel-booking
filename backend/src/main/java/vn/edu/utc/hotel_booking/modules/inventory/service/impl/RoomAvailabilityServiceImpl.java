@@ -31,7 +31,6 @@ import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInventoryHoldServi
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -87,20 +86,7 @@ public class RoomAvailabilityServiceImpl implements RoomAvailabilityService {
                 searchDto.getEndDate()
         );
 
-        long expectedDays = ChronoUnit.DAYS.between(searchDto.getStartDate(), searchDto.getEndDate()) + 1;
-        if (existingList.size() < expectedDays && roomAvailabilityGenerationService != null) {
-            roomAvailabilityGenerationService.generateForRoomType(
-                    searchDto.getHotelRoomTypeId(),
-                    searchDto.getStartDate(),
-                    (int) expectedDays
-            );
-            existingList = roomAvailabilityRepository.findByHotelRoomTypeIdAndDateBetweenOrderByDateAsc(
-                    searchDto.getHotelRoomTypeId(),
-                    searchDto.getStartDate(),
-                    searchDto.getEndDate()
-            );
-        }
-
+        // Missing days are virtual read results; only explicit write flows generate rows.
         Map<LocalDate, RoomAvailability> map = existingList.stream()
                 .collect(Collectors.toMap(RoomAvailability::getDate, Function.identity()));
 
