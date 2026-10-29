@@ -68,3 +68,6 @@ Sandbox và local application sẽ dừng sau kiểm chứng; giữ volumes/snap
 ## Delivery follow-up — 29/10/2026
 
 Thêm changeset `20261029-194000-preserve-stay-guest-type-required` (XML/SQL) giữ guest_type NOT NULL vì entity đã map discriminator này và default ADULT. Hai changesets đã áp trước được giữ nguyên checksum; thứ tự mới khôi phục invariant thay vì sửa migration lịch sử. Nếu môi trường đã có guest_type NULL thì changeset dừng, không tự phân loại/backfill. Full-name và adult identity constraints vẫn bắt buộc. Bước bàn giao tiếp theo kiểm chứng trên repoD rồi ghi kết quả/commit vào delivery report riêng.
+
+
+Bàn giao cập nhật: xem [ocr02-delivery-2026-10-29.md](ocr02-delivery-2026-10-29.md). Code đã commit và fast-forward vào repoD, đã kiểm lại full runtime từ repoD; mô tả chưa tích hợp ở các đoạn trên là lịch sử.
