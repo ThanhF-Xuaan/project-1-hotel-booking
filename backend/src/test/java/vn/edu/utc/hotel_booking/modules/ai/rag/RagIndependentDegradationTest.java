@@ -74,7 +74,7 @@ class RagIndependentDegradationTest {
                 failingRagService
         );
 
-        publicRagKnowledgeController = new PublicRagKnowledgeController(failingRagService);
+        publicRagKnowledgeController = new PublicRagKnowledgeController(failingRagService, hotelId -> true);
     }
 
     @Test

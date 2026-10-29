@@ -29,6 +29,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(MockitoExtension.class)
 class PublicRagKnowledgeControllerTest {
 
+    private final vn.edu.utc.hotel_booking.modules.organization.service.PublicHotelEligibilityReader hotelEligibility =
+            id -> id == 1;
+
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
@@ -40,7 +43,7 @@ class PublicRagKnowledgeControllerTest {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new PublicRagKnowledgeController(ragGroundedAnswerService))
+                .standaloneSetup(new PublicRagKnowledgeController(ragGroundedAnswerService, hotelEligibility))
                 .build();
     }
 
@@ -111,14 +114,15 @@ class PublicRagKnowledgeControllerTest {
                 .build();
 
         when(ragGroundedAnswerService.answerQuestion(any()))
-                .thenThrow(new RuntimeException("Vector store connection timeout"));
+                .thenThrow(new RuntimeException("PRIVATE_EXCEPTION_SENTINEL"));
 
         mockMvc.perform(post("/api/v1/public/ai/room-advisor/knowledge/ask")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isServiceUnavailable())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("PRIVATE_EXCEPTION_SENTINEL"))))
                 .andExpect(jsonPath("$.code").value(503))
-                .andExpect(jsonPath("$.message").value("RAG_TEMP_UNAVAILABLE: Vector store connection timeout"))
+                .andExpect(jsonPath("$.message").value("RAG_TEMP_UNAVAILABLE: Dịch vụ tra cứu tạm thời không khả dụng."))
                 .andExpect(jsonPath("$.result.status").value("INSUFFICIENT_EVIDENCE"))
                 .andExpect(jsonPath("$.result.disclaimers[0]").value("RAG_TEMP_UNAVAILABLE: Dịch vụ RAG tạm thời không khả dụng, nghiệp vụ tìm kiếm và đặt phòng vẫn hoạt động bình thường."));
     }
@@ -138,4 +142,22 @@ class PublicRagKnowledgeControllerTest {
                 .andExpect(jsonPath("$.code").value(400))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("question")));
     }
+    @Test
+    void rejectsInactiveHotelBeforeRetrieval() throws Exception {
+        mockMvc.perform(post("/api/v1/public/ai/room-advisor/knowledge/ask")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"hotelId\":2,\"question\":\"check in\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.result.status").value("SCOPE_REQUIRED"));
+        org.mockito.Mockito.verifyNoInteractions(ragGroundedAnswerService);
+    }
+
+    @Test
+    void boundsTopKAndRejectsUnresolvedCode() throws Exception {
+        for (String body : new String[]{"{\"topK\":6,\"question\":\"check in\"}",
+                "{\"hotelId\":0,\"question\":\"check in\"}", "{\"hotelCode\":\"unresolved\",\"question\":\"check in\"}"}) {
+            mockMvc.perform(post("/api/v1/public/ai/room-advisor/knowledge/ask")
+                    .contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
+        }
+        org.mockito.Mockito.verifyNoInteractions(ragGroundedAnswerService);
+    }
+
 }

@@ -1,3 +1,4 @@
+import { HotelKnowledgePanel } from './HotelKnowledgePanel';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
@@ -26,6 +27,7 @@ interface RoomAdvisorWidgetProps {
   onViewRoomDetails?: (recommendation: AdvisorRecommendation, criteria: AdvisorSearchCriteria) => void;
   isOpenExternal?: boolean;
   onCloseExternal?: () => void;
+  onOpenExternal?: () => void;
 }
 
 const QUICK_PROMPTS = [
@@ -52,7 +54,9 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   onViewRoomDetails,
   isOpenExternal,
   onCloseExternal,
+  onOpenExternal,
 }) => {
+  const [mode, setMode] = useState<'rooms' | 'knowledge'>('rooms');
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = typeof isOpenExternal === 'boolean' ? isOpenExternal : internalIsOpen;
 
@@ -69,6 +73,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
   const handleOpen = () => {
     setInternalIsOpen(true);
+    onOpenExternal?.();
   };
 
   const handleClose = () => {
@@ -280,7 +285,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h2 id="advisor-dialog-title" className="font-semibold text-sm sm:text-base text-white">
-                    Trợ lý AI Đặt phòng
+                    Trợ lý AI Tìm phòng
                   </h2>
                   <span className="text-[10px] bg-red-950 text-red-300 border border-red-800 px-1.5 py-0.5 rounded font-mono font-medium">
                     T12 R1
@@ -311,6 +316,12 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             </div>
           </div>
 
+          <div className="flex gap-2 p-2 border-b">
+            <button type="button" aria-pressed={mode === 'rooms'} onClick={() => setMode('rooms')} className="rounded border px-3 py-2 text-sm">Tìm phòng</button>
+            <button type="button" aria-pressed={mode === 'knowledge'} onClick={() => setMode('knowledge')} className="rounded border px-3 py-2 text-sm">Chính sách &amp; tiện ích</button>
+          </div>
+          {mode === 'knowledge' && <HotelKnowledgePanel />}
+          <div className={mode === 'rooms' ? 'contents' : 'hidden'}>
           {/* Chat Messages Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-neutral-50">
             {messages.map((msg) => (
@@ -470,6 +481,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             >
               <Send className="w-4 h-4" />
             </button>
+          </div>
           </div>
         </div>
       )}

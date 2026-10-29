@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
-import vn.edu.utc.hotel_booking.modules.ai.advisor.llm.PiiRedactionUtil;
+import vn.edu.utc.hotel_booking.modules.organization.service.PublicHotelEligibilityReader;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagAnswerStatus;
@@ -23,6 +23,7 @@ import java.util.List;
 public class PublicRagKnowledgeController {
 
     private final RagGroundedAnswerService ragGroundedAnswerService;
+    private final PublicHotelEligibilityReader hotelEligibility;
 
     @PostMapping("/ask")
     public ResponseEntity<ApiResponse<RagQueryResultDto>> ask(
@@ -32,15 +33,21 @@ public class PublicRagKnowledgeController {
             throw new IllegalArgumentException("Request body cannot be null");
         }
 
-        String rawQuestion = request.getQuestion();
-        String safeQuestion = PiiRedactionUtil.redact(rawQuestion);
-        log.info("Public RAG ask received for hotelId: {}, question: {}", request.getHotelId(), safeQuestion);
+        if (request.getHotelCode() != null && !request.getHotelCode().isBlank()) {
+            throw new IllegalArgumentException("Use a verified hotelId");
+        }
+        log.debug("Public RAG request received");
 
         try {
+            if (request.getHotelId() != null && !hotelEligibility.isActivePublicHotel(request.getHotelId().shortValue())) {
+                return ResponseEntity.ok(ApiResponse.success(RagQueryResultDto.builder()
+                        .status(RagAnswerStatus.SCOPE_REQUIRED)
+                        .answer("Vui lòng chọn khách sạn đang hoạt động trong danh sách công khai.").build()));
+            }
             RagQueryResultDto result = ragGroundedAnswerService.answerQuestion(request);
             return ResponseEntity.ok(ApiResponse.success(result));
         } catch (Exception e) {
-            log.error("T12-V2-030: RAG knowledge service outage/error: {}", e.getMessage(), e);
+            log.warn("T12-V2-030: RAG knowledge temporarily unavailable");
             RagQueryResultDto fallback = RagQueryResultDto.builder()
                     .status(RagAnswerStatus.INSUFFICIENT_EVIDENCE)
                     .answer("Hệ thống tra cứu thông tin chính sách tạm thời gián đoạn. Quý khách vui lòng liên hệ nhân viên khách sạn để được hỗ trợ trực tiếp.")
@@ -50,7 +57,7 @@ public class PublicRagKnowledgeController {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(ApiResponse.<RagQueryResultDto>builder()
                             .code(503)
-                            .message("RAG_TEMP_UNAVAILABLE: " + e.getMessage())
+                            .message("RAG_TEMP_UNAVAILABLE: Dịch vụ tra cứu tạm thời không khả dụng.")
                             .result(fallback)
                             .build());
         }
@@ -72,11 +79,11 @@ public class PublicRagKnowledgeController {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleBadRequest(IllegalArgumentException e) {
-        log.warn("Public RAG invalid request: {}", e.getMessage());
+        log.warn("Public RAG invalid request");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.<Void>builder()
                         .code(400)
-                        .message(e.getMessage())
+                        .message("Yêu cầu tra cứu không hợp lệ.")
                         .build());
     }
 }
