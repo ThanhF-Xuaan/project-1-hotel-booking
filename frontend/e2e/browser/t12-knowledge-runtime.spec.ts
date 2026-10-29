@@ -48,3 +48,30 @@ test('real portal widget retrieves scoped citations, rejects inactive scope and 
   await page.getByLabel('Gửi tin nhắn').click();
   expect((await chat).status()).toBe(200);
 });
+
+test('real R1 search returns verified rooms on missing inventory days without generating rows', async ({ request }) => {
+  const countMissingRange = () => {
+    const pg = execFileSync('docker', ['ps', '--filter', 'label=com.docker.compose.project=hotel-ocr02-final', '--filter', 'label=com.docker.compose.service=acceptance_postgres', '--format', '{{.ID}}'], { encoding: 'utf8' }).trim();
+    if (!pg) throw new Error('Synthetic sandbox required');
+    return execFileSync('docker', ['exec', pg, 'psql', '-U', 'postgres', '-d', 'hotel_acceptance_db', '-Atc',
+      "SELECT count(*) FROM room_availability WHERE date BETWEEN DATE '2027-01-10' AND DATE '2027-01-11'"], { encoding: 'utf8' }).trim();
+  };
+  expect(countMissingRange(), 'Fixture must exercise absent inventory rows').toBe('0');
+  const response = await request.post(`${BACKEND_URL}/api/v1/public/ai/room-advisor/search`, { data: {
+    contractVersion: '2.0', criteria: { hotelId: 1, locationKeyword: 'Acceptance Luxury Hanoi (Hà Nội)',
+      checkInDate: '2027-01-10', checkOutDate: '2027-01-12', adults: 2, children: 0,
+      extraBeds: 0, roomsCount: 1, requiredFeatureCodes: [], preferredFeatureCodes: [] },
+  } });
+  expect(response.status()).toBe(200);
+  const result = (await response.json()).result;
+  expect(result.status).toBe('RESULTS');
+  expect(result.recommendations.length).toBeGreaterThan(0);
+  for (const card of result.recommendations) {
+    expect(card.room.hotelId).toBe(1);
+    expect(card.stay.checkInDate).toBe('2027-01-10');
+    expect(card.stay.checkOutDate).toBe('2027-01-12');
+    expect(card.action.type).toBe('VIEW_ROOM_DETAILS');
+    expect(Number(card.price.finalTotalAmount)).toBeGreaterThan(0);
+  }
+  expect(countMissingRange(), 'R1 read must leave missing inventory rows absent').toBe('0');
+});

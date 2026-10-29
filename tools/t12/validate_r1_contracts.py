@@ -196,6 +196,8 @@ def semantic_response(response):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--json-report', type=Path, help='Optional report path outside the dataset')
+    parser.add_argument('--reviewed-widget-sources', action='store_true',
+                        help='Verify the fixed T12-01 source re-audit; historical manifest stays unchanged')
     args = parser.parse_args()
     counters = Counter()
     json_files = sorted([*DOC.rglob('*.json'), *FIX.rglob('*.json'), *EVAL.rglob('*.json')])
@@ -369,10 +371,16 @@ def main():
         counters['protected_user_hashes_checked'] += 1
     evidence = documents[DOC / 'baseline-source-evidence.json']
     require(evidence['gitSha'] == decisions['baselineCommit'], 'Source baseline version mismatch')
+    reconciled_paths = set()
+    reconciliation = None
+    if args.reviewed_widget_sources:
+        from verify_widget_source_reaudit import PRIOR_COMMITS, verify_reconciliation
+        reconciliation = verify_reconciliation()
+        reconciled_paths = set(PRIOR_COMMITS)
     for entry in evidence['files']:
         path = ROOT / entry['path']
         require(path.is_file() and entry['baselineUnmodified'] is True, 'Missing source evidence')
-        require(verify_source_evidence_entry(entry, path),
+        require(verify_source_evidence_entry(entry, path) or entry['path'] in reconciled_paths,
                 'Source changed after audit: ' + entry['path'])
         counters['source_evidence_hashes_checked'] += 1
 
@@ -446,6 +454,8 @@ def main():
               'counters':dict(counters),'caseCategories':dict(Counter(c['category'] for c in cases)),
               'evaluationCasesSha256':hashlib.sha256((EVAL / 'cases.json').read_bytes()).hexdigest(),
               'contractArtifactVersion':'2.0.0-draft.1','evaluationVersion':'0.1.0-draft'}
+    if reconciliation is not None:
+        report['sourceReconciliation'] = reconciliation
     if args.json_report:
         require(not args.json_report.resolve().is_relative_to(ROOT), 'Reports must be outside the repository')
         args.json_report.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

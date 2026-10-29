@@ -1,0 +1,50 @@
+{
+  "status": "REVIEWED_SOURCE_ONLY",
+  "manifestPath": "docs/t12/r1-00/v2.0.0-draft.1/baseline-source-evidence.json",
+  "frozenCommit": "31276ac0ce062d418a580ceb466a4371bc4235f4",
+  "reviewedCodeCommit": "3f0cb2eacab3a5a2ca8c1155f187ff1ae6640afb",
+  "manifestLfSha256": "4887232d7a3003e0240cc2cc86047a1711316e59af0ff3e0bd578c4d2b228375",
+  "authorization": "User authorized implementation and cross-owner repairs; no member approval fabricated. Artifact validation is not model evaluation or production approval.",
+  "files": [
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
+      "priorCommit": "a87d19668a836cdee54521555c8b056ad0edfe54",
+      "priorLfSha256": "b17fa21c271e100b4188f66f14b231de574e7f944411a82d799bf2b1ac143f9e",
+      "currentLfSha256": "25fe88ea082fddef55d5366b26ed7fa9a82441c855389873c5f7695cc41e3f72",
+      "patchLfSha256": "9fb4b8cd5116a0412bb5c0cb0f9e831523f1ce69f233b235dae73ed3ec75bf4f",
+      "review": "Only new horizon/storage error constants; existing error names/codes/messages/statuses preserved."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/service/impl/RoomAvailabilityServiceImpl.java",
+      "priorCommit": "1854ee46aaff4ec3129daeb552e037115f918ec4",
+      "priorLfSha256": "854ddfc4a5bbdc63867336eab0a7491437a2dc56c8a49d8a1edce634a20d0a3b",
+      "currentLfSha256": "37a5380a79ed9c54672d8e554133b85041d21a1076d692eb0bbb4dd9a7540153",
+      "patchLfSha256": "a5e708053676820fb5deea65a1c63db5517890605c715fc2c4fca7a8c0825e3d",
+      "review": "Upstream generation and lock changes retained for explicit inventory commands. getAvailability remains sparse/virtual with no generation/save/hold/release calls after 3f0cb2e. Unit regression reproduced 3 failures before fix, then passed; group-block read chain is a SELECT aggregate. Inventory command tests retained."
+    },
+    {
+      "path": "backend/pom.xml",
+      "priorCommit": "e827013e89be77e3ec85c971ab441e470a297783",
+      "priorLfSha256": "3540a91bb8d548707ffc8c87d9881188e2c0ab266ce067e612a01df1b0b5cc02",
+      "currentLfSha256": "f2fac42a9457192e657cc0700c507399d76ae0ce6589e18f8da15233a0800f0b",
+      "patchLfSha256": "112c189556011dfb228fb8795c3a3c316d4898d67fc8454bbce45430adb87aa7",
+      "review": "Upstream storage dependencies and AWS BOM; no T12 model or pricing dependency change. Backend build/tests verified separately."
+    },
+    {
+      "path": "docker-compose.yml",
+      "priorCommit": "26d26eb151ffde268ac9487dd10dd7cf453fe400",
+      "priorLfSha256": "39827c05fd4976c781a862245cc1596e136d132f00cab0b89e7df060c210a991",
+      "currentLfSha256": "730038471762011d8bf45e2810be5c94f433e14db58192cff32b564141a3816e",
+      "patchLfSha256": "ab5a3eb4f5bca330317544ebf7df378a0e4f79777b19a14bc64b04a8351e0c96",
+      "review": "Upstream MinIO service, volume and storage wiring; unrelated to T12 behavior. This review does not certify production storage secrets or deployment."
+    },
+    {
+      "path": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
+      "priorCommit": "e827013e89be77e3ec85c971ab441e470a297783",
+      "priorLfSha256": "2ff3b0b90905689d3e6a1a01824619d6fad412894add13d1c62b25117d4305b8",
+      "currentLfSha256": "6a4b6b5857814b36d2b873b1ab3be5e157126cb142a65d46f17a34ffeb924f86",
+      "patchLfSha256": "ea4990bd5005257ba49eb3969f3838c56b82d87a32e9d31170ca110d870fbbfc",
+      "review": "Adds controlled widget open callback; room search and booking actions unchanged. Portal regression verifies the launcher."
+    }
+  ]
+}
