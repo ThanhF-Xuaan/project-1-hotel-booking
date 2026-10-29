@@ -7,7 +7,6 @@ import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrDocumentExtractRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrStayGuestDraftDto;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.enums.OcrExtractionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.model.ExtractedFieldDto;
-import vn.edu.utc.hotel_booking.modules.ai.ocr.port.OcrVisionPort;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.util.PiiRedactionUtil;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.DocumentType;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
@@ -32,7 +31,7 @@ import java.util.regex.Pattern;
  * <p><strong>Bất biến U13:</strong> {@code requiresHumanVerification} luôn {@code true}.</p>
  */
 @Service
-public class IdentityDocumentOcrService implements OcrVisionPort {
+public class IdentityDocumentOcrService {
 
     private static final Logger log = LoggerFactory.getLogger(IdentityDocumentOcrService.class);
 
@@ -55,7 +54,7 @@ public class IdentityDocumentOcrService implements OcrVisionPort {
 
     /** Họ và tên tiếng Việt (in hoa / có dấu). */
     private static final Pattern FULLNAME_VN_PATTERN = Pattern.compile(
-            "(?:Họ và tên|Họ tên|Họ, tên|Full name|Name)[:\\s]+([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴỶỸ][A-Za-zÀ-ỹ\\s]+)",
+            "(?:Họ và tên|Họ tên|Họ, tên|Full name|Name)[:\\h]+([A-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝĂĐƠƯẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼẾỀỂỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪỬỮỰỲỴỶỸ][A-Za-zÀ-ỹ\\h]+)",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     /** Giới tính tiếng Việt. */
@@ -70,7 +69,7 @@ public class IdentityDocumentOcrService implements OcrVisionPort {
 
     /** Quốc tịch tiếng Việt. */
     private static final Pattern NATIONALITY_VN_PATTERN = Pattern.compile(
-            "(?:Quốc tịch|Quoc tich|Nationality)[:\\s]+([A-Za-zÀ-ỹ\\s]+)",
+            "(?:Quốc tịch|Quoc tich|Nationality)[:\\h]+([A-Za-zÀ-ỹ][A-Za-zÀ-ỹ\\h]*)?",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     // ---- Patterns MRZ Hộ chiếu ICAO 9303 TD3 ----
@@ -116,7 +115,6 @@ public class IdentityDocumentOcrService implements OcrVisionPort {
             Map.entry("NLD", "Hà Lan")
     );
 
-    @Override
     public OcrStayGuestDraftDto extract(OcrDocumentExtractRequestDto request) {
         String text = request.getRawOcrText();
         DocumentType hint = request.getDocumentTypeHint();
@@ -172,7 +170,7 @@ public class IdentityDocumentOcrService implements OcrVisionPort {
         ExtractedFieldDto<Gender> gender = extractGenderVn(text, lowFields);
 
         // --- Quốc tịch ---
-        ExtractedFieldDto<String> nationality = extractNationalityVn(text);
+        ExtractedFieldDto<String> nationality = extractNationalityVn(text, lowFields);
 
         // --- Địa chỉ thường trú ---
         ExtractedFieldDto<String> address = extractAddressVn(text);
@@ -367,7 +365,7 @@ public class IdentityDocumentOcrService implements OcrVisionPort {
         draft.setFullName(fullName);
         draft.setDateOfBirth(extractDateOfBirth(text, lowFields));
         draft.setGender(extractGenderVn(text, lowFields));
-        draft.setNationality(extractNationalityVn(text));
+        draft.setNationality(extractNationalityVn(text, lowFields));
         draft.setPermanentAddress(ExtractedFieldDto.of(null, 1.0));
 
         double overall = computeOverall(List.of(
@@ -474,10 +472,16 @@ public class IdentityDocumentOcrService implements OcrVisionPort {
         return ExtractedFieldDto.missing();
     }
 
-    private ExtractedFieldDto<String> extractNationalityVn(String text) {
+    private ExtractedFieldDto<String> extractNationalityVn(String text, List<String> lowFields) {
         Matcher m = NATIONALITY_VN_PATTERN.matcher(text);
         if (m.find()) {
-            return ExtractedFieldDto.of(m.group(1).trim(), 0.90);
+            String nationality = m.group(1);
+            if (nationality != null && !nationality.isBlank()) {
+                return ExtractedFieldDto.of(nationality.trim(), 0.90);
+            }
+            // Nhãn có giá trị trống phải được kiểm tra, không dùng nhãn dòng sau hay giá trị mặc định.
+            lowFields.add("nationality");
+            return ExtractedFieldDto.missing();
         }
         // Mặc định Việt Nam nếu không tìm thấy nhãn nhưng văn bản có tiếng Việt
         return ExtractedFieldDto.of("Việt Nam", 0.70);

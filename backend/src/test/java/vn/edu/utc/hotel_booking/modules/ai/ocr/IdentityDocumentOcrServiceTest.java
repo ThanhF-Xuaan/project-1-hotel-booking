@@ -3,6 +3,9 @@ package vn.edu.utc.hotel_booking.modules.ai.ocr;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrDocumentExtractRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrStayGuestDraftDto;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.enums.OcrExtractionStatus;
@@ -11,6 +14,7 @@ import vn.edu.utc.hotel_booking.modules.operation.entity.enums.DocumentType;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
 
 import java.time.LocalDate;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,6 +32,67 @@ class IdentityDocumentOcrServiceTest {
     @BeforeEach
     void setUp() {
         service = new IdentityDocumentOcrService();
+    }
+
+    static Stream<Arguments> blankLabeledFields() {
+        return Stream.of("\n", "\r\n").flatMap(newline ->
+                Stream.of(DocumentType.CCCD, DocumentType.PASSPORT).flatMap(type ->
+                        Stream.of("fullName", "nationality", "both")
+                                .map(blank -> Arguments.of(newline, type, blank))));
+    }
+
+    @ParameterizedTest
+    @MethodSource("blankLabeledFields")
+    void blankValuesNeverConsumeAdjacentLabels(String newline, DocumentType type, String blank) {
+        boolean blankName = !blank.equals("nationality");
+        boolean blankNationality = !blank.equals("fullName");
+        var request = buildRequest(String.join(newline,
+                "Căn cước công dân",
+                "Họ và tên:" + (blankName ? " \t" : " NGUYEN VAN TEST"),
+                "Ngày sinh: 15/06/1990", "Giới tính: Nam",
+                "Quốc tịch:" + (blankNationality ? "" : " Việt Nam"),
+                "Số CCCD: 079190012345", "Passport: A12345678",
+                "Nơi thường trú: 123 Test"));
+        request.setDocumentTypeHint(type);
+
+        var draft = service.extract(request);
+
+        assertThat(draft.getStatus()).isEqualTo(OcrExtractionStatus.LOW_CONFIDENCE_REVIEW_REQUIRED);
+        assertThat(draft.isRequiresHumanVerification()).isTrue();
+        if (blankName) {
+            assertThat(draft.getFullName().getValue()).isNull();
+            assertThat(draft.getFullName().isValid()).isFalse();
+            assertThat(draft.getFullName().getConfidence()).isZero();
+            assertThat(draft.getMissingOrLowConfidenceFields()).contains("fullName");
+        } else {
+            assertThat(draft.getFullName().getValue()).isEqualTo("NGUYEN VAN TEST");
+            assertThat(draft.getMissingOrLowConfidenceFields()).doesNotContain("fullName");
+        }
+        if (blankNationality) {
+            assertThat(draft.getNationality().getValue()).isNull();
+            assertThat(draft.getNationality().isValid()).isFalse();
+            assertThat(draft.getNationality().getConfidence()).isZero();
+            assertThat(draft.getMissingOrLowConfidenceFields()).contains("nationality");
+        } else {
+            assertThat(draft.getNationality().getValue()).isEqualTo("Việt Nam");
+            assertThat(draft.getMissingOrLowConfidenceFields()).doesNotContain("nationality");
+        }
+        assertThat(draft.getDateOfBirth().getValue()).isEqualTo(LocalDate.of(1990, 6, 15));
+        assertThat(draft.getGender().getValue()).isEqualTo(Gender.MALE);
+        assertThat(draft.getDocumentNumber().getValue()).isEqualTo(
+                type == DocumentType.PASSPORT ? "A12345678" : "079190012345");
+    }
+
+    @Test
+    void adjacentLabelsNeverLeakIntoNameOrNationality() {
+        for (String newline : new String[]{"\n", "\r\n"}) {
+            var draft = service.extract(buildRequest(String.join(newline,
+                    "Căn cước công dân", "Họ và tên: NGUYEN VAN TEST",
+                    "Ngày sinh: 15/06/1990", "Giới tính: Nam", "Quốc tịch: Việt Nam",
+                    "Số CCCD: 079190012345", "Nơi thường trú: 123 Test")));
+            assertThat(draft.getFullName().getValue()).isEqualTo("NGUYEN VAN TEST");
+            assertThat(draft.getNationality().getValue()).isEqualTo("Việt Nam");
+        }
     }
 
     // =====================================================================
@@ -54,10 +119,10 @@ class IdentityDocumentOcrServiceTest {
         assertThat(draft.getMissingOrLowConfidenceFields()).isEmpty();
 
         // 7 trường phải có giá trị
-        assertThat(draft.getFullName().getValue()).contains("NGUYEN VAN TEST");
+        assertThat(draft.getFullName().getValue()).isEqualTo("NGUYEN VAN TEST");
         assertThat(draft.getDateOfBirth().getValue()).isNotNull();
         assertThat(draft.getGender().getValue()).isEqualTo(Gender.MALE);
-        assertThat(draft.getNationality().getValue()).containsIgnoringCase("Việt");
+        assertThat(draft.getNationality().getValue()).isEqualTo("Việt Nam");
         assertThat(draft.getDocumentType().getValue()).isIn(DocumentType.CCCD, DocumentType.CMND);
         assertThat(draft.getDocumentNumber().getValue()).isEqualTo("079190012345");
         assertThat(draft.getPermanentAddress().getValue()).isNotBlank();

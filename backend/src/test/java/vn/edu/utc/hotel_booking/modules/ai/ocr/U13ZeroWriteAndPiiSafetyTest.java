@@ -162,6 +162,17 @@ class U13ZeroWriteAndPiiSafetyTest {
     // Helpers
     // =====================================================================
 
+    @Test
+    void imagePipelineHasNoBusinessWriteDependencies() {
+        for (Class<?> type : java.util.List.of(
+                vn.edu.utc.hotel_booking.modules.ai.ocr.adapter.TesseractOcrVisionAdapter.class,
+                vn.edu.utc.hotel_booking.modules.ai.ocr.service.TesseractTsvParser.class,
+                vn.edu.utc.hotel_booking.modules.ai.ocr.validator.OcrUploadValidator.class)) {
+            assertThat(Arrays.stream(getAllFields(type)).map(field -> field.getType().getSimpleName()))
+                    .noneMatch(FORBIDDEN_WRITE_CLASS_SIMPLE_NAMES::contains);
+        }
+    }
+
     private Field[] getAllFields(Class<?> clazz) {
         Set<Field> fields = new HashSet<>(Arrays.asList(clazz.getDeclaredFields()));
         Class<?> superclass = clazz.getSuperclass();

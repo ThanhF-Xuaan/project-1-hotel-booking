@@ -3,7 +3,13 @@ package vn.edu.utc.hotel_booking.modules.ai.ocr.validator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Set;
 
 /**
@@ -24,6 +30,7 @@ import java.util.Set;
 public class OcrUploadValidator {
 
     public static final long MAX_FILE_SIZE_BYTES = 5_242_880L;
+    public static final long MAX_IMAGE_PIXELS = 12_000_000L;
 
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "image/jpeg",
@@ -92,6 +99,83 @@ public class OcrUploadValidator {
         }
 
         return validateMagicBytes(contentType.toLowerCase(), header);
+    }
+
+    /**
+     * Kiểm tra thêm ảnh thực trước khi chuyển bytes vào engine OCR.
+     * Không thay đổi validator multipart cũ để giữ nguyên hợp đồng endpoint hiện tại.
+     */
+    public ValidationResult validateForOcr(String fileName, String contentType, byte[] imageBytes) {
+        if (imageBytes == null || imageBytes.length == 0) {
+            return ValidationResult.fail("File không được rỗng");
+        }
+        if (imageBytes.length > MAX_FILE_SIZE_BYTES) {
+            return ValidationResult.fail("File vượt quá giới hạn 5 MB");
+        }
+        ValidationResult name = validateFileName(fileName);
+        if (!name.isValid()) return name;
+        if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
+            return ValidationResult.fail("Định dạng file không được hỗ trợ");
+        }
+        String mime = contentType.toLowerCase();
+        ValidationResult magic = validateMagicBytes(mime, imageBytes);
+        if (!magic.isValid()) return magic;
+
+        try {
+            int[] dimensions = mime.equals("image/webp")
+                    ? webpDimensions(imageBytes)
+                    : imageDimensions(imageBytes);
+            if (dimensions == null || dimensions[0] <= 0 || dimensions[1] <= 0) {
+                return ValidationResult.fail("Không đọc được kích thước ảnh");
+            }
+            if ((long) dimensions[0] * dimensions[1] > MAX_IMAGE_PIXELS) {
+                return ValidationResult.fail("Ảnh vượt quá giới hạn 12 megapixel");
+            }
+            return ValidationResult.ok();
+        } catch (IOException | RuntimeException e) {
+            return ValidationResult.fail("Ảnh không hợp lệ hoặc không hỗ trợ");
+        }
+    }
+
+    private int[] imageDimensions(byte[] bytes) throws IOException {
+        try (ImageInputStream input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) return null;
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input, true, true);
+                return new int[]{reader.getWidth(0), reader.getHeight(0)};
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
+
+    /** Đọc kích thước VP8, VP8L và VP8X mà không giải nén ảnh vào heap. */
+    private int[] webpDimensions(byte[] data) {
+        if (data.length < 30) return null;
+        String chunk = new String(data, 12, 4, java.nio.charset.StandardCharsets.US_ASCII);
+        return switch (chunk) {
+            case "VP8X" -> new int[]{1 + u24le(data, 24), 1 + u24le(data, 27)};
+            case "VP8L" -> {
+                if ((data[20] & 0xff) != 0x2f) yield null;
+                int b1 = data[21] & 0xff, b2 = data[22] & 0xff;
+                int b3 = data[23] & 0xff, b4 = data[24] & 0xff;
+                yield new int[]{1 + b1 + ((b2 & 0x3f) << 8),
+                        1 + ((b2 & 0xc0) >> 6) + (b3 << 2) + ((b4 & 0x0f) << 10)};
+            }
+            case "VP8 " -> {
+                if ((data[23] & 0xff) != 0x9d || (data[24] & 0xff) != 0x01 || (data[25] & 0xff) != 0x2a) yield null;
+                int width = (data[26] & 0xff) | ((data[27] & 0x3f) << 8);
+                int height = (data[28] & 0xff) | ((data[29] & 0x3f) << 8);
+                yield new int[]{width, height};
+            }
+            default -> null;
+        };
+    }
+
+    private int u24le(byte[] data, int offset) {
+        return (data[offset] & 0xff) | ((data[offset + 1] & 0xff) << 8) | ((data[offset + 2] & 0xff) << 16);
     }
 
     /**

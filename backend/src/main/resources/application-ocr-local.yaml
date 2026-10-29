@@ -1,0 +1,13 @@
+# Opt-in local OCR profile. Applies to ALL multipart endpoints in this process.
+# Keep isolated from deployments requiring larger file uploads.
+spring:
+  servlet:
+    multipart:
+      file-size-threshold: 6MB
+      max-file-size: 5MB
+      max-request-size: 6MB
+hotel:
+  ai:
+    ocr:
+      enabled: ${HOTEL_AI_OCR_ENABLED:false}
+      executable-path: ${TESSERACT_EXE:tesseract}

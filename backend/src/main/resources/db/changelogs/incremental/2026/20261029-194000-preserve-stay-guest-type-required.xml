@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+ <changeSet id="20261029-194000-preserve-stay-guest-type-required" author="member1">
+  <comment>Keep guest type required; OCR compatibility only needs optional legacy split-name fields.</comment>
+  <sqlFile path="db/sqlFile/incremental/2026/20261029-194000-preserve-stay-guest-type-required.sql" relativeToChangelogFile="false"/>
+  <rollback><sql>ALTER TABLE stay_guests ALTER COLUMN guest_type DROP NOT NULL;</sql></rollback>
+ </changeSet>
+</databaseChangeLog>
