@@ -66,7 +66,9 @@ def verify_existing_errors(before, current):
     return len(new.keys() - old.keys())
 
 
-def verify_u14_source_entries(manifest, current_entries, read_working):
+def verify_u14_source_entries(manifest, current_entries, read_working, read_patch=None):
+    if read_patch is None:
+        read_patch = lambda comparison, path: git("diff", "--no-ext-diff", "--binary", comparison, "--", path)
     audit = json.loads((ROOT / U14_AUDIT).read_text(encoding="utf-8-sig"))
     require(audit["status"] == "WORKING_TREE_SOURCE_RECONCILED" and
             audit["manifestPath"] == MANIFEST and audit["manifestGitSha"] == manifest["gitSha"],
@@ -90,7 +92,7 @@ def verify_u14_source_entries(manifest, current_entries, read_working):
         require(sha(current) == item["currentHashes"]["unixLfSha256"] and
                 sha(current.replace(b"\n", b"\r\n")) == item["currentHashes"]["windowsCrlfSha256"],
                 f"U14 current source hash mismatch: {path}")
-        patch = git("diff", "--no-ext-diff", "--binary", audit["comparisonCommit"], "--", path)
+        patch = read_patch(audit["comparisonCommit"], path)
         require(sha(patch) == item["patchSha256"], f"U14 source patch changed: {path}")
 
         prior = item["previousSourceEvidence"]
@@ -111,7 +113,7 @@ def verify_u14_source_entries(manifest, current_entries, read_working):
                 f"U14 manifest entry does not match reviewed provenance: {path}")
 
 
-def verify_audit(audit=None, manifest=None, read_working=None):
+def verify_audit(audit=None, manifest=None, read_working=None, read_u14_patch=None):
     if audit is None:
         audit = json.loads((ROOT / AUDIT).read_text(encoding="utf-8-sig"))
     if manifest is None:
@@ -131,7 +133,7 @@ def verify_audit(audit=None, manifest=None, read_working=None):
     require(set(current) == set(previous) and len(current) == len(manifest["files"]), "Source manifest path drift")
     require({k: v for k, v in manifest.items() if k != "files"} ==
             {k: v for k, v in old_manifest.items() if k != "files"}, "Historical manifest metadata changed")
-    verify_u14_source_entries(manifest, current, read_working)
+    verify_u14_source_entries(manifest, current, read_working, read_u14_patch)
     for path in set(previous) - set(paths):
         if path not in U14_SOURCE_PATHS:
             require(current[path] == previous[path], f"Unrelated manifest entry changed: {path}")

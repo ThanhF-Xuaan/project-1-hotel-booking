@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.dto;
 
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -14,6 +15,8 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class RagQueryRequestDto {
+    @Min(1)
+    @Max(32767)
     Integer hotelId;
     String hotelCode;
 
@@ -26,5 +29,6 @@ public class RagQueryRequestDto {
 
     @Min(value = 1, message = "topK must be at least 1")
     @Builder.Default
+    @Max(value = 5, message = "topK cannot exceed 5")
     Integer topK = 5;
 }

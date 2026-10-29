@@ -334,6 +334,7 @@ export const SearchPage: React.FC = () => {
       <RoomAdvisorWidget
         isOpenExternal={isAdvisorOpen}
         onCloseExternal={() => setIsAdvisorOpen(false)}
+        onOpenExternal={() => setIsAdvisorOpen(true)}
         onViewRoomDetails={handleAdvisorViewDetails}
       />
     </div>

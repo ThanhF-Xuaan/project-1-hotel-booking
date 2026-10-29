@@ -11,6 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/t12'))
 
 from validate_r1_contracts import verify_protected_file_entry, verify_source_evidence_entry
+from verify_core_reaudit import ACCEPTED, git
 
 
 class TestPortabilityValidation(unittest.TestCase):
@@ -92,7 +93,8 @@ class TestPortabilityValidation(unittest.TestCase):
         for path in paths:
             with self.subTest(path=path):
                 entry = self.entries[path]
-                source_lf = (ROOT / path).read_bytes().replace(b'\r\n', b'\n')
+                # This test verifies the recorded historical hashes, not later application edits.
+                source_lf = git('show', f'{ACCEPTED}:{path}').replace(b'\r\n', b'\n')
                 source_crlf = source_lf.replace(b'\n', b'\r\n')
                 self.assertTrue(verify_source_evidence_entry(entry, source_lf))
                 self.assertTrue(verify_source_evidence_entry(entry, source_crlf))
@@ -109,9 +111,9 @@ class TestPortabilityValidation(unittest.TestCase):
         self.assertFalse(verify_protected_file_entry(self.protected_entry, tampered))
 
     def test_full_contract_validator_execution(self):
-        """The full offline validator command must execute and report PASS."""
+        """The full current-source validator must execute all artifact checks and report PASS."""
         res = subprocess.run(
-            [sys.executable, '-B', str(ROOT / 'tools/t12/validate_r1_contracts.py')],
+            [sys.executable, '-B', str(ROOT / 'tools/t12/validate_r1_contracts.py'), '--reviewed-widget-sources'],
             capture_output=True,
             text=True,
             cwd=str(ROOT),
@@ -119,6 +121,8 @@ class TestPortabilityValidation(unittest.TestCase):
         self.assertEqual(res.returncode, 0, f"Validator failed: {res.stderr}\n{res.stdout}")
         parsed = json.loads(res.stdout)
         self.assertEqual(parsed['status'], 'PASS')
+        self.assertEqual(parsed['engineEvaluation'], 'NOT_RUN')
+        self.assertEqual(parsed['counters']['negative_cases_rejected'], 33)
 
 
 if __name__ == '__main__':
