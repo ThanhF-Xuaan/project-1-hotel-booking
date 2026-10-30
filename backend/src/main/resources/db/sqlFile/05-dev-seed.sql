@@ -422,12 +422,12 @@ FROM (
         ('Viettel Luxury Hà Nội', 'DLX', '101C', 'READY'),
         ('Viettel Luxury Hà Nội', 'DLX', '102C', 'READY'),
         ('Viettel Luxury Hà Nội', 'DLX', '103C', 'READY'),
-        ('Viettel Luxury Hà Nội', 'DLX', '104C', 'READY'), 
-        ('Viettel Luxury Hà Nội', 'DLX', '105C', 'READY'), 
-        ('Viettel Luxury Hà Nội', 'DLX', '106C', 'READY'), 
+        ('Viettel Luxury Hà Nội', 'DLX', '104C', 'READY'),
+        ('Viettel Luxury Hà Nội', 'DLX', '105C', 'READY'),
+        ('Viettel Luxury Hà Nội', 'DLX', '106C', 'READY'),
         -- Tòa D: Suite (Tầng 2)
         ('Viettel Luxury Hà Nội', 'STE', '201D', 'READY'),
-        ('Viettel Luxury Hà Nội', 'STE', '202D', 'READY'), 
+        ('Viettel Luxury Hà Nội', 'STE', '202D', 'READY'),
         ('Viettel Luxury Hà Nội', 'STE', '203D', 'READY'),
         ('Viettel Luxury Hà Nội', 'STE', '204D', 'READY'),
         -- Tòa E: Executive Suite (Tầng 3)
