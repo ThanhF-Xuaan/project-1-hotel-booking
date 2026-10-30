@@ -13,8 +13,16 @@ import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.*;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeResponse;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomingListConfirmRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomingListImportResultResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomingListPreviewResponse;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -98,5 +106,46 @@ public class BookingController {
     @Operation(summary = "Thực hiện Check-out trả phòng")
     public ApiResponse<BookingResponse> checkOut(@PathVariable Long bookingRoomId) {
         return ApiResponse.success("Check-out trả phòng thành công", bookingService.checkOut(bookingRoomId));
+    }
+
+    @PostMapping(value = "/{id}/rooming-list/preview", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
+    @Operation(summary = "Xem trước danh sách phòng từ file Excel Rooming List (Preview)")
+    public ApiResponse<RoomingListPreviewResponse> previewRoomingList(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        return ApiResponse.success("Đọc và kiểm tra file Excel thành công", bookingService.previewRoomingList(id, file));
+    }
+
+    @PostMapping(value = "/{id}/rooming-list/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
+    @Operation(summary = "Import danh sách phòng từ file Excel (Hỗ trợ dryRun/confirm)")
+    public ApiResponse<RoomingListImportResultResponse> importRoomingList(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "confirm", defaultValue = "false") boolean confirm) {
+        RoomingListImportResultResponse result = bookingService.importRoomingList(id, file, confirm);
+        String msg = confirm
+                ? "Import danh sách phòng thành công (" + result.getImportedCount() + " khách)"
+                : "Phân tích file Excel thành công (chế độ xem trước)";
+        return ApiResponse.success(msg, result);
+    }
+
+    @PostMapping("/{id}/rooming-list/confirm")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
+    @Operation(summary = "Xác nhận lưu danh sách khách đã preview vào đơn đặt phòng")
+    public ApiResponse<RoomingListImportResultResponse> confirmRoomingList(
+            @PathVariable Long id,
+            @Valid @RequestBody RoomingListConfirmRequest request) {
+        RoomingListImportResultResponse result = bookingService.confirmRoomingList(id, request);
+        return ApiResponse.success("Xác nhận import danh sách phòng thành công (" + result.getImportedCount() + " khách)", result);
+    }
+
+    @GetMapping("/vacant-rooms")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
+    @Operation(summary = "Xem danh sách các phòng vật lý đang còn trống (READY) kèm sức chứa")
+    public ApiResponse<List<RoomInstanceResponse>> getVacantRooms(
+            @RequestParam(value = "hotelId", required = false) Short hotelId) {
+        return ApiResponse.success("Lấy danh sách phòng trống thành công", bookingService.getVacantRooms(hotelId));
     }
 }

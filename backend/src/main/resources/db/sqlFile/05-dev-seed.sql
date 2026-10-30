@@ -419,44 +419,44 @@ FROM (
         -- 1. VIETTEL LUXURY HÀ NỘI (5 SAO)
         -- ==========================================================
         -- Tầng 1: Deluxe
-        ('Viettel Luxury Hà Nội', 'DLX', '101', 'READY'),
-        ('Viettel Luxury Hà Nội', 'DLX', '102', 'READY'),
-        ('Viettel Luxury Hà Nội', 'DLX', '103', 'READY'),
-        ('Viettel Luxury Hà Nội', 'DLX', '104', 'READY'), 
-        ('Viettel Luxury Hà Nội', 'DLX', '105', 'READY'), 
-        ('Viettel Luxury Hà Nội', 'DLX', '106', 'READY'), 
+        ('Viettel Luxury Hà Nội', 'DLX', '101 - DLX', 'READY'),
+        ('Viettel Luxury Hà Nội', 'DLX', '102 - DLX', 'READY'),
+        ('Viettel Luxury Hà Nội', 'DLX', '103 - DLX', 'READY'),
+        ('Viettel Luxury Hà Nội', 'DLX', '104 - DLX', 'READY'), 
+        ('Viettel Luxury Hà Nội', 'DLX', '105 - DLX', 'READY'), 
+        ('Viettel Luxury Hà Nội', 'DLX', '106 - DLX', 'READY'), 
         -- Tầng 2: Suite
-        ('Viettel Luxury Hà Nội', 'STE', '201', 'READY'),
-        ('Viettel Luxury Hà Nội', 'STE', '202', 'READY'), 
-        ('Viettel Luxury Hà Nội', 'STE', '203', 'READY'),
-        ('Viettel Luxury Hà Nội', 'STE', '204', 'READY'),
+        ('Viettel Luxury Hà Nội', 'STE', '201 - STE', 'READY'),
+        ('Viettel Luxury Hà Nội', 'STE', '202 - STE', 'READY'), 
+        ('Viettel Luxury Hà Nội', 'STE', '203 - STE', 'READY'),
+        ('Viettel Luxury Hà Nội', 'STE', '204 - STE', 'READY'),
         -- Tầng 3: Executive
-        ('Viettel Luxury Hà Nội', 'EXE', '301', 'READY'),
-        ('Viettel Luxury Hà Nội', 'EXE', '302', 'READY'),
+        ('Viettel Luxury Hà Nội', 'EXE', '301 - EXE', 'READY'),
+        ('Viettel Luxury Hà Nội', 'EXE', '302 - EXE', 'READY'),
 
         -- ==========================================================
         -- 2. VIETTEL GRAND ĐÀ NẴNG (4 SAO)
         -- ==========================================================
         -- Tầng 1: Superior
-        ('Viettel Grand Đà Nẵng', 'SUP', '101', 'READY'),
-        ('Viettel Grand Đà Nẵng', 'SUP', '102', 'READY'),
-        ('Viettel Grand Đà Nẵng', 'SUP', '103', 'READY'),
+        ('Viettel Grand Đà Nẵng', 'SUP', '101 - SUP', 'READY'),
+        ('Viettel Grand Đà Nẵng', 'SUP', '102 - SUP', 'READY'),
+        ('Viettel Grand Đà Nẵng', 'SUP', '103 - SUP', 'READY'),
         -- Tầng 2: Deluxe
-        ('Viettel Grand Đà Nẵng', 'DLX', '201', 'READY'),
-        ('Viettel Grand Đà Nẵng', 'DLX', '202', 'READY'),
+        ('Viettel Grand Đà Nẵng', 'DLX', '201 - DLX', 'READY'),
+        ('Viettel Grand Đà Nẵng', 'DLX', '202 - DLX', 'READY'),
         -- Tầng 3: Family
-        ('Viettel Grand Đà Nẵng', 'FAM', '301', 'READY'),
+        ('Viettel Grand Đà Nẵng', 'FAM', '301 - FAM', 'READY'),
 
         -- ==========================================================
         -- 3. VIETTEL BOUTIQUE SAPA (3 SAO)
         -- ==========================================================
         -- Tầng 1: Standard
-        ('Viettel Boutique Sapa', 'STD', '101', 'READY'),
-        ('Viettel Boutique Sapa', 'STD', '102', 'READY'),
-        ('Viettel Boutique Sapa', 'STD', '103', 'READY'),
+        ('Viettel Boutique Sapa', 'STD', '101 - STD', 'READY'),
+        ('Viettel Boutique Sapa', 'STD', '102 - STD', 'READY'),
+        ('Viettel Boutique Sapa', 'STD', '103 - STD', 'READY'),
         -- Tầng 2: Superior
-        ('Viettel Boutique Sapa', 'SUP', '201', 'READY'),
-        ('Viettel Boutique Sapa', 'SUP', '202', 'READY')
+        ('Viettel Boutique Sapa', 'SUP', '201 - SUP', 'READY'),
+        ('Viettel Boutique Sapa', 'SUP', '202 - SUP', 'READY')
 
 ) AS v(hotel_name, room_code, room_number, current_status)
 JOIN hotels h ON h.name = v.hotel_name

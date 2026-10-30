@@ -57,6 +57,9 @@ public class StayGuest extends BaseEntity {
     @Column(name = "date_of_birth")
     LocalDate dateOfBirth;
 
+    @Column(name = "birth_date")
+    LocalDate birthDate;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "guest_type", length = 20)
     @Builder.Default
@@ -77,6 +80,13 @@ public class StayGuest extends BaseEntity {
 
     @Column(name = "document_number", length = 50)
     String documentNumber;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "identity_type", length = 20)
+    DocumentType identityType;
+
+    @Column(name = "identity_number", length = 50)
+    String identityNumber;
 
     @Column(name = "permanent_address", columnDefinition = "TEXT")
     String permanentAddress;

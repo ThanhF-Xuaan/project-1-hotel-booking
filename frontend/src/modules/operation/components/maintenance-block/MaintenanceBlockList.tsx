@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Wrench,
   Filter,
   RotateCcw,
   Plus,
@@ -8,7 +7,6 @@ import {
   CheckCircle,
   XCircle,
   Calendar,
-  AlertCircle,
   Info,
 } from 'lucide-react';
 import Button from '../../../../core/components/ui/Button';
@@ -69,7 +67,7 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
       };
 
       const res = await operationService.filterMaintenanceBlocks(searchDto);
-      setBlocks(res.data || []);
+      setBlocks(res.content || (res as any).data || []);
       setTotalPages(res.totalPages || 0);
       setTotalElements(res.totalElements || 0);
     } catch (err) {

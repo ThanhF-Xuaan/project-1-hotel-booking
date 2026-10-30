@@ -10,7 +10,9 @@ import {
   BedDouble,
   UserCheck,
   Receipt,
+  FileSpreadsheet,
 } from 'lucide-react';
+import RoomingListImportModal from '../components/RoomingListImportModal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
@@ -62,6 +64,10 @@ export const BookingListPage: React.FC = () => {
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // Rooming List Import Modal
+  const [isRoomingListModalOpen, setIsRoomingListModalOpen] = useState(false);
+  const [roomingListBooking, setRoomingListBooking] = useState<{ id: number; bookingNumber: string } | null>(null);
 
   // Action status message
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
@@ -383,6 +389,16 @@ export const BookingListPage: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.href = '/booking/rooming-list';
+            }}
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1.5 text-red-600" />
+            Import Excel Rooming List
+          </Button>
           <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
             <RefreshCw className={`w-4 h-4 mr-1.5 ${isLoading ? 'animate-spin' : ''}`} />
             Làm mới
@@ -514,6 +530,17 @@ export const BookingListPage: React.FC = () => {
                           title="Xem chi tiết đơn"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setRoomingListBooking({ id: booking.id, bookingNumber: booking.bookingNumber });
+                            setIsRoomingListModalOpen(true);
+                          }}
+                          className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg"
+                          title="Import Rooming List (Excel)"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
                         </button>
 
                         {booking.status === 'CONFIRMED' && (
@@ -821,6 +848,25 @@ export const BookingListPage: React.FC = () => {
         cancelText="Đóng"
         variant="danger"
       />
+
+      {/* ROOMING LIST IMPORT MODAL */}
+      {roomingListBooking && (
+        <RoomingListImportModal
+          isOpen={isRoomingListModalOpen}
+          onClose={() => {
+            setIsRoomingListModalOpen(false);
+            setRoomingListBooking(null);
+          }}
+          bookingId={roomingListBooking.id}
+          bookingNumber={roomingListBooking.bookingNumber}
+          onSuccess={(result) => {
+            setActionSuccessMessage(
+              `Đã import thành công ${result.importedCount} khách vào đơn đặt phòng ${roomingListBooking.bookingNumber}!`
+            );
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 };

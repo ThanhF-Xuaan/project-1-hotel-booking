@@ -7,8 +7,10 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchDto;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingChargeResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingStatus;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public interface BookingService {
 
@@ -33,4 +35,12 @@ public interface BookingService {
     BookingResponse checkOut(Long bookingRoomId);
 
     boolean isRoomBookedBetween(Integer roomInstanceId, LocalDate startDate, LocalDate endDate);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomingListPreviewResponse previewRoomingList(Long bookingId, org.springframework.web.multipart.MultipartFile file);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomingListImportResultResponse importRoomingList(Long bookingId, org.springframework.web.multipart.MultipartFile file, boolean confirm);
+
+    vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomingListImportResultResponse confirmRoomingList(Long bookingId, vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomingListConfirmRequest request);
+
+    List<RoomInstanceResponse> getVacantRooms(Short hotelId);
 }

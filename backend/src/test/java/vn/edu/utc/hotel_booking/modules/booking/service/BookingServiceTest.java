@@ -72,6 +72,8 @@ class BookingServiceTest {
     @Mock BookingMapper bookingMapper;
     @Mock TaxCategoryRepository taxCategoryRepository;
     @Mock VatRuleRepository vatRuleRepository;
+    @Mock vn.edu.utc.hotel_booking.modules.booking.service.ExcelParserService excelParserService;
+    @Mock vn.edu.utc.hotel_booking.modules.operation.mapper.StayGuestMapper stayGuestMapper;
 
     @InjectMocks
     BookingServiceImpl bookingService;

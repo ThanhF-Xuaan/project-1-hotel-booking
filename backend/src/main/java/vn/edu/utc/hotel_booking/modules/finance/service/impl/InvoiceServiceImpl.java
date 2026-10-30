@@ -147,16 +147,21 @@ public class InvoiceServiceImpl implements InvoiceService {
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
                 if (order.getDetails() != null) {
+                    String orderRoomPrefix = (order.getRoomNumber() != null && !order.getRoomNumber().isBlank())
+                            ? "Phòng " + order.getRoomNumber() + " - "
+                            : "";
                     for (ServiceOrderDetailResponse item : order.getDetails()) {
                         InvoiceLineType itemLineType = "PRODUCT".equalsIgnoreCase(item.getItemType())
                                 ? InvoiceLineType.PRODUCT
                                 : InvoiceLineType.SERVICE;
 
+                        String rawItemName = item.getItemName() != null ? item.getItemName() : "Dịch vụ/Sản phẩm POS";
+
                         InvoiceDetail invDetail = InvoiceDetail.builder()
                                 .invoice(invoice)
                                 .referenceId(item.getId())
                                 .lineType(itemLineType)
-                                .description(item.getItemName() != null ? item.getItemName() : "Dịch vụ/Sản phẩm POS")
+                                .description(orderRoomPrefix + rawItemName)
                                 .quantity(item.getQuantity())
                                 .unitPrice(item.getUnitPrice())
                                 .subtotal(item.getSubtotal())

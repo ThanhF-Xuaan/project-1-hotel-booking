@@ -65,6 +65,32 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
             Pageable pageable
     );
 
+    @Query("SELECT r FROM RoomInstance r " +
+            "JOIN FETCH r.hotel h " +
+            "JOIN FETCH r.hotelRoomType hrt " +
+            "JOIN FETCH hrt.roomType rt " +
+            "WHERE r.isDeleted = false " +
+            "AND r.currentStatus = 'READY' " +
+            "AND (:hotelId IS NULL OR r.hotel.id = :hotelId) " +
+            "AND r.id NOT IN (" +
+            "    SELECT br.roomInstance.id FROM BookingRoom br " +
+            "    JOIN br.bookingDetail bd " +
+            "    JOIN bd.booking b " +
+            "    WHERE br.roomInstance.id IS NOT NULL " +
+            "    AND b.status = 'CONFIRMED'" +
+            ") " +
+            "ORDER BY " +
+            "CASE rt.code " +
+            "  WHEN 'STD' THEN 1 " +
+            "  WHEN 'SUP' THEN 2 " +
+            "  WHEN 'DLX' THEN 3 " +
+            "  WHEN 'STE' THEN 4 " +
+            "  WHEN 'EXE' THEN 5 " +
+            "  WHEN 'FAM' THEN 6 " +
+            "  ELSE 99 END, " +
+            "r.roomNumber ASC")
+    List<RoomInstance> findVacantRooms(@Param("hotelId") Short hotelId);
+
     List<RoomInstance> findByHotelRoomTypeIdAndCurrentStatusAndIsDeletedFalse(Integer hotelRoomTypeId, String status);
 
     @Modifying

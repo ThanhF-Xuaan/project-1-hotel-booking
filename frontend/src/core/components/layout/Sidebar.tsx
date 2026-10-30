@@ -79,6 +79,12 @@ const navGroups: NavGroup[] = [
         icon: <UserPlus className="w-5 h-5" />,
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST'],
       },
+      {
+        label: 'Import Rooming List',
+        to: '/booking/rooming-list',
+        icon: <FileSpreadsheet className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST'],
+      },
     ],
   },
   {

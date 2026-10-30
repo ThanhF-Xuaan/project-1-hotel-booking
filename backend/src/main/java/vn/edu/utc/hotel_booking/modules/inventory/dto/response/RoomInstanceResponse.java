@@ -37,6 +37,18 @@ public class RoomInstanceResponse {
     @Schema(description = "Trạng thái hiện tại", example = "READY")
     String currentStatus;
 
+    @Schema(description = "Số người lớn tối đa", example = "2")
+    Short maxAdults;
+
+    @Schema(description = "Số trẻ em tối đa", example = "1")
+    Short maxChildren;
+
+    @Schema(description = "Tổng số người tối đa", example = "3")
+    Short maxTotalGuests;
+
+    @Schema(description = "Số giường", example = "1")
+    Short maxBeds;
+
     @Schema(description = "Thời gian tạo")
     OffsetDateTime createdAt;
 

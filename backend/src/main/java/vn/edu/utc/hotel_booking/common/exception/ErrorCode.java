@@ -76,6 +76,11 @@ public enum ErrorCode {
     INSUFFICIENT_ROOM_AVAILABILITY(7031, "Không đủ phòng trống để thực hiện đặt phòng", HttpStatus.CONFLICT),
     EXCEEDS_MAX_CAPACITY(7041, "Số lượng khách hoặc giường phụ vượt quá sức chứa tối đa của hạng phòng", HttpStatus.BAD_REQUEST),
     BOOKING_SESSION_EXPIRED(7051, "Phiên đặt phòng hoặc thanh toán đã hết hạn, vui lòng thao tác lại", HttpStatus.GONE),
+    EXCEL_INVALID_FILE(7061, "Định dạng file không hợp lệ. Chỉ chấp nhận tệp Excel (.xlsx)", HttpStatus.BAD_REQUEST),
+    EXCEL_FILE_SIZE_EXCEEDED(7062, "Dung lượng file vượt quá giới hạn tối đa cho phép", HttpStatus.BAD_REQUEST),
+    EXCEL_EMPTY_FILE(7063, "File Excel không chứa dòng dữ liệu nào", HttpStatus.BAD_REQUEST),
+    EXCEL_INVALID_STRUCTURE(7064, "Cấu trúc file Excel không hợp lệ", HttpStatus.BAD_REQUEST),
+    EXCEL_MAX_ROWS_EXCEEDED(7065, "Số lượng dòng dữ liệu vượt quá giới hạn tối đa cho phép", HttpStatus.BAD_REQUEST),
 
     // Finance & Payment Module Errors (8000s)
     PAYMENT_NOT_FOUND(8001, "Không tìm thấy thông tin thanh toán", HttpStatus.NOT_FOUND),

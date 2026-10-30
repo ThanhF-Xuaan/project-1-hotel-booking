@@ -101,6 +101,10 @@ export interface RoomInstanceDto {
   roomTypeName: string
   roomNumber: string
   currentStatus: 'READY' | 'OCCUPIED' | 'CLEANING' | 'MAINTENANCE'
+  maxAdults?: number
+  maxChildren?: number
+  maxTotalGuests?: number
+  maxBeds?: number
   createdAt: string
   updatedAt: string
 }

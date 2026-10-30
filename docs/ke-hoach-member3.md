@@ -161,18 +161,9 @@
 
 ---
 
-### 🟡 SPRINT 3 — U12: Excel Rooming List Import (2.5 ngày — Cải tiến 1)
 
-- Branch: `feature/U12-excel-rooming-list`
-- 📘 Học: Apache POI (`XSSFWorkbook`), map row → BookingGuest/StayGuest.
-- BE: thêm POI vào `pom.xml` → `ExcelParserService` → `POST /api/v1/bookings/{id}/rooming-list/import`.
-- Xử lý lỗi từng row (dòng sai → báo đúng dòng đó, không fail cả file) — test theo **BVA** (file 0 dòng, file 0 cột, file >500 dòng).
-- FE: upload → **bảng preview** → confirm (cascade: types → service → upload component → route).
-- ✅ Chuẩn bị file Excel mẫu (hợp lệ + file lỗi) để test.
 
-**DoD U12:** import 20 dòng → đúng 20 bản ghi; file lỗi → báo đúng dòng lỗi.
 
----
 
 ### 🟡 SPRINT 4 — U24: System Optimization & Security Audit (2.5 ngày — Cải tiến 2)
 

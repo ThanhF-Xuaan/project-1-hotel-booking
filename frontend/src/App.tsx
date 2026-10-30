@@ -10,6 +10,7 @@ import PricingRuleListPage from './modules/pricing/pages/PricingRuleListPage'
 import CampaignListPage from './modules/pricing/pages/CampaignListPage'
 import BookingListPage from './modules/booking/pages/BookingListPage'
 import WalkInBookingPage from './modules/booking/pages/WalkInBookingPage'
+import RoomingListImportPage from './modules/booking/pages/RoomingListImportPage'
 import FolioPaymentPage from './modules/finance/pages/FolioPaymentPage'
 import PaymentResultPage from './modules/finance/pages/PaymentResultPage'
 import { MenuListPage } from './modules/operation/pages/MenuListPage'
@@ -53,6 +54,7 @@ export function App() {
             </Route>
             <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
               <Route path="booking/walk-in" element={<WalkInBookingPage />} />
+              <Route path="booking/rooming-list" element={<RoomingListImportPage />} />
             </Route>
 
             {/* Phân hệ Vận hành & Nhà hàng */}
