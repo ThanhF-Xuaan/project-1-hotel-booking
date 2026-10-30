@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, X, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Printer, X, ShieldCheck, CheckCircle2, Receipt } from 'lucide-react';
 import Button from '../../../../core/components/ui/Button';
 import { formatCurrency } from '../../../../core/utils/currency';
 import type { BookingResponse } from '../../../booking/types/booking.types';
@@ -62,9 +62,11 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
     stayNights = 1;
   }
 
-  // ── 2. BẢNG KÊ TẤT CẢ CÁC DỊCH VỤ SỬ DỤNG ─────────────────────────────────
+  // ── 2. BẢNG KÊ TẤT CẢ CÁC DỊCH VỤ SỬ DỤNG THEO TỪNG PHÒNG ─────────────────
   interface FolioItem {
     id: number | string;
+    roomNumber?: string;
+    roomTypeName?: string;
     name: string;
     category: string;
     quantity: number;
@@ -75,21 +77,36 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
     totalAmount: number;
   }
 
+  interface RoomFolioGroup {
+    roomKey: string;
+    roomNumber?: string;
+    roomTypeName?: string;
+    guestNames?: string[];
+    items: FolioItem[];
+    subtotal: number;
+    vatAmount: number;
+    totalAmount: number;
+  }
+
   const serviceItems: FolioItem[] = [];
 
   if (invoice?.details && invoice.details.length > 0) {
     // Nếu đã có chi tiết hóa đơn chính thức, lấy chính xác từ hóa đơn
     invoice.details.forEach((d, idx) => {
+      const match = d.description.match(/(?:Phòng|P\.)\s*([A-Za-z0-9\-]+)/i);
+      const extractedRoom = match ? match[1] : undefined;
+
       serviceItems.push({
         id: d.id || idx + 1,
+        roomNumber: extractedRoom,
         name: d.description,
         category:
           d.lineType === 'ROOM_RATE'
             ? 'Tiền phòng'
             : d.lineType === 'PRODUCT'
-              ? 'Minibar / Đồ dùng'
+              ? 'Ẩm thực / Minibar'
               : d.lineType === 'SERVICE'
-                ? 'Dịch vụ / Ẩm thực'
+                ? 'Dịch vụ / Ăn uống'
                 : 'Phụ phí',
         quantity: d.quantity,
         unitPrice: Number(d.unitPrice),
@@ -100,42 +117,97 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
       });
     });
   } else {
-    // Phân tích từ booking
+    // Phân tích chi tiết từ booking theo từng phòng
     let counter = 1;
     booking.bookingDetails?.forEach((detail) => {
-      const roomCount = detail.bookingRooms?.length || detail.quantity || 1;
-      const baseSubtotal = Number(booking.subtotalAmount) || 1250000;
-      const unit = roomCount > 0 ? Math.round(baseSubtotal / roomCount) : baseSubtotal;
-      const vat = Math.round(baseSubtotal * 0.08);
+      const roomTypeName = detail.roomTypeName || 'Phòng Khách sạn';
+      const assignedRoomsInDetail = detail.bookingRooms || [];
 
-      serviceItems.push({
-        id: counter++,
-        name: `Tiền phòng: ${detail.roomTypeName || 'Phòng Khách sạn'} (${detail.checkInDate} ➔ ${detail.checkOutDate})`,
-        category: 'Tiền phòng',
-        quantity: roomCount,
-        unitPrice: unit,
-        vatRate: 8,
-        vatAmount: vat,
-        subtotal: baseSubtotal,
-        totalAmount: baseSubtotal + vat,
-      });
+      if (assignedRoomsInDetail.length > 0) {
+        assignedRoomsInDetail.forEach((rm) => {
+          const roomNum = rm.roomNumber;
 
-      // Các khoản phụ phí / dịch vụ phòng
-      detail.bookingRooms?.forEach((rm) => {
-        rm.charges?.forEach((ch) => {
-          serviceItems.push({
-            id: counter++,
-            name: `${ch.itemName} (${rm.roomNumber ? `P.${rm.roomNumber}` : 'Dịch vụ phòng'})`,
-            category: 'Dịch vụ / Phụ phí',
-            quantity: ch.quantity || 1,
-            unitPrice: Number(ch.unitPrice),
-            vatRate: Number(ch.vatRate || 8),
-            vatAmount: Number(ch.vatAmount || 0),
-            subtotal: Number(ch.subtotal || ch.unitPrice),
-            totalAmount: Number(ch.totalAmount),
+          // Tiền phòng cho phòng vật lý này
+          if (rm.dailyRates && rm.dailyRates.length > 0) {
+            rm.dailyRates.forEach((dr) => {
+              const sub = Number(dr.netPrice) || 0;
+              const vat = Math.round(sub * (Number(dr.vatPercent || 8) / 100));
+              serviceItems.push({
+                id: counter++,
+                roomNumber: roomNum,
+                roomTypeName: roomTypeName,
+                name: `Tiền phòng: ${roomTypeName} (${dr.stayDate})`,
+                category: 'Tiền phòng',
+                quantity: 1,
+                unitPrice: sub,
+                vatRate: Number(dr.vatPercent || 8),
+                vatAmount: vat,
+                subtotal: sub,
+                totalAmount: sub + vat,
+              });
+            });
+          } else {
+            const roomCount = assignedRoomsInDetail.length || 1;
+            const baseSubtotal = Number(booking.subtotalAmount) || 1250000;
+            const unit = Math.round(baseSubtotal / roomCount);
+            const vat = Math.round(unit * 0.08);
+
+            serviceItems.push({
+              id: counter++,
+              roomNumber: roomNum,
+              roomTypeName: roomTypeName,
+              name: `Tiền phòng: ${roomTypeName} (${detail.checkInDate} ➔ ${detail.checkOutDate})`,
+              category: 'Tiền phòng',
+              quantity: 1,
+              unitPrice: unit,
+              vatRate: 8,
+              vatAmount: vat,
+              subtotal: unit,
+              totalAmount: unit + vat,
+            });
+          }
+
+          // Các khoản dịch vụ ăn uống, minibar, giặt là của phòng này
+          rm.charges?.forEach((ch) => {
+            const chType = String(ch.chargeType);
+            const cat =
+              chType === 'RESTAURANT' || chType === 'MINIBAR'
+                ? 'Ẩm thực / Minibar'
+                : chType === 'LAUNDRY' || chType === 'SPA'
+                  ? 'Dịch vụ phòng'
+                  : 'Phụ phí';
+
+            serviceItems.push({
+              id: counter++,
+              roomNumber: roomNum,
+              roomTypeName: roomTypeName,
+              name: ch.itemName || 'Dịch vụ phòng',
+              category: cat,
+              quantity: ch.quantity || 1,
+              unitPrice: Number(ch.unitPrice),
+              vatRate: Number(ch.vatRate || 8),
+              vatAmount: Number(ch.vatAmount || 0),
+              subtotal: Number(ch.subtotal || ch.unitPrice),
+              totalAmount: Number(ch.totalAmount),
+            });
           });
         });
-      });
+      } else {
+        // Chưa xếp phòng cụ thể
+        const sub = Number(booking.subtotalAmount || booking.totalAmount || 1000000);
+        const vat = Math.round(sub * 0.08);
+        serviceItems.push({
+          id: counter++,
+          name: `Tiền phòng: ${roomTypeName} (${detail.checkInDate} ➔ ${detail.checkOutDate})`,
+          category: 'Tiền phòng',
+          quantity: detail.quantity || 1,
+          unitPrice: sub,
+          vatRate: 8,
+          vatAmount: vat,
+          subtotal: sub,
+          totalAmount: sub + vat,
+        });
+      }
     });
 
     if (serviceItems.length === 0) {
@@ -154,6 +226,47 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
       });
     }
   }
+
+  // Nhóm các dịch vụ theo từng phòng
+  const roomGroupsMap = new Map<string, RoomFolioGroup>();
+
+  serviceItems.forEach((item) => {
+    const rKey = item.roomNumber ? `Phòng ${item.roomNumber}` : 'Dịch vụ chung đoàn / Khác';
+    if (!roomGroupsMap.has(rKey)) {
+      const guestsInRoom = item.roomNumber
+        ? booking.bookingDetails
+            ?.flatMap((d) => d.bookingRooms || [])
+            .find((r) => r.roomNumber === item.roomNumber)
+            ?.bookingGuests?.map((g) => g.fullName || `${g.firstName} ${g.lastName}`.trim())
+            .filter(Boolean) || []
+        : [];
+
+      const matchedRoomTypeName = item.roomTypeName || (item.roomNumber
+        ? booking.bookingDetails
+            ?.find((d) => d.bookingRooms?.some((r) => r.roomNumber === item.roomNumber))
+            ?.roomTypeName
+        : undefined);
+
+      roomGroupsMap.set(rKey, {
+        roomKey: rKey,
+        roomNumber: item.roomNumber,
+        roomTypeName: matchedRoomTypeName,
+        guestNames: guestsInRoom,
+        items: [],
+        subtotal: 0,
+        vatAmount: 0,
+        totalAmount: 0,
+      });
+    }
+
+    const g = roomGroupsMap.get(rKey)!;
+    g.items.push(item);
+    g.subtotal += item.subtotal;
+    g.vatAmount += item.vatAmount;
+    g.totalAmount += item.totalAmount;
+  });
+
+  const roomGroups = Array.from(roomGroupsMap.values());
 
   // ── 3. TÍNH TOÁN DÒNG TIỀN VÀ THUẾ PHÍ ──────────────────────────────────────
   const baseSubtotal =
@@ -368,48 +481,82 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
             </div>
           </div>
 
-          {/* BẢNG KÊ CHI TIẾT TẤT CẢ DỊCH VỤ ĐÃ DÙNG */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-700">
-                Bảng kê chi tiết các dịch vụ đã sử dụng ({serviceItems.length} hạng mục)
-              </h3>
+          {/* BẢNG KÊ CHI TIẾT TẤT CẢ DỊCH VỤ ĐƯỢC HIỂN THỊ THEO TỪNG PHÒNG */}
+          <div className="mb-6 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 pb-2">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+                  <Receipt className="w-4 h-4 text-red-600" />
+                  Bảng kê chi tiết theo từng phòng ({roomGroups.length} nhóm phòng/khu vực • {serviceItems.length} hạng mục)
+                </h3>
+                <p className="text-[11px] text-neutral-500 mt-0.5">
+                  Chi phí phòng và các dịch vụ ăn uống, phụ phí được phân bổ hiển thị chi tiết theo từng phòng.
+                </p>
+              </div>
+              <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                1 Hóa đơn Master Folio gom về khách đại diện
+              </span>
             </div>
 
-            <div className="border border-neutral-300 rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-neutral-100 text-neutral-800 font-bold border-b border-neutral-300">
-                  <tr>
-                    <th className="p-2.5 text-center w-10">STT</th>
-                    <th className="p-2.5">Hạng mục / Dịch vụ</th>
-                    <th className="p-2.5 text-center">Phân loại</th>
-                    <th className="p-2.5 text-center w-12">SL</th>
-                    <th className="p-2.5 text-right">Đơn giá</th>
-                    <th className="p-2.5 text-center w-16">VAT</th>
-                    <th className="p-2.5 text-right">Tiền thuế</th>
-                    <th className="p-2.5 text-right">Thành tiền</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-200">
-                  {serviceItems.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-neutral-50/50">
-                      <td className="p-2.5 text-center font-medium text-neutral-500">{index + 1}</td>
-                      <td className="p-2.5 font-semibold text-neutral-900">{item.name}</td>
-                      <td className="p-2.5 text-center text-neutral-600">
-                        <span className="px-1.5 py-0.5 rounded bg-neutral-100 text-[11px]">
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="p-2.5 text-center font-bold text-neutral-800">{item.quantity}</td>
-                      <td className="p-2.5 text-right text-neutral-700">{formatCurrency(item.unitPrice)}</td>
-                      <td className="p-2.5 text-center text-neutral-600">{item.vatRate}%</td>
-                      <td className="p-2.5 text-right text-neutral-600">{formatCurrency(item.vatAmount)}</td>
-                      <td className="p-2.5 text-right font-bold text-neutral-900">{formatCurrency(item.totalAmount)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {roomGroups.map((group) => (
+              <div key={group.roomKey} className="border border-neutral-300 rounded-xl overflow-hidden shadow-2xs bg-white">
+                <div className="bg-neutral-100/90 px-3.5 py-2 border-b border-neutral-300 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold font-mono text-xs px-2.5 py-0.5 rounded bg-neutral-900 text-white">
+                      {group.roomNumber ? `PHÒNG ${group.roomNumber}` : group.roomKey}
+                    </span>
+                    {group.roomTypeName && (
+                      <span className="text-xs font-semibold text-neutral-800">
+                        • {group.roomTypeName}
+                      </span>
+                    )}
+                    {group.guestNames && group.guestNames.length > 0 && (
+                      <span className="text-[11px] text-neutral-600 font-medium">
+                        (Khách: <strong className="text-neutral-900">{group.guestNames.join(', ')}</strong>)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs font-semibold text-neutral-600">
+                    Cộng tiền phòng này: <strong className="text-red-600 font-bold">{formatCurrency(group.totalAmount)}</strong>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-neutral-50 text-neutral-600 font-semibold border-b border-neutral-200 text-[11px]">
+                      <tr>
+                        <th className="p-2 w-10 text-center">STT</th>
+                        <th className="p-2">Hạng mục / Dịch vụ</th>
+                        <th className="p-2 text-center w-32">Phân loại</th>
+                        <th className="p-2 text-center w-12">SL</th>
+                        <th className="p-2 text-right w-24">Đơn giá</th>
+                        <th className="p-2 text-center w-14">VAT</th>
+                        <th className="p-2 text-right w-24">Tiền thuế</th>
+                        <th className="p-2 text-right w-28">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100">
+                      {group.items.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-neutral-50/50">
+                          <td className="p-2 text-center font-medium text-neutral-400">{idx + 1}</td>
+                          <td className="p-2 font-medium text-neutral-900">{item.name}</td>
+                          <td className="p-2 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 text-neutral-700">
+                              {item.category}
+                            </span>
+                          </td>
+                          <td className="p-2 text-center font-bold text-neutral-800">{item.quantity}</td>
+                          <td className="p-2 text-right text-neutral-600">{formatCurrency(item.unitPrice)}</td>
+                          <td className="p-2 text-center text-neutral-500">{item.vatRate}%</td>
+                          <td className="p-2 text-right text-neutral-500">{formatCurrency(item.vatAmount)}</td>
+                          <td className="p-2 text-right font-bold text-neutral-900">{formatCurrency(item.totalAmount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* BẢNG TỔNG KẾT TÀI CHÍNH & PHƯƠNG THỨC THANH TOÁN */}

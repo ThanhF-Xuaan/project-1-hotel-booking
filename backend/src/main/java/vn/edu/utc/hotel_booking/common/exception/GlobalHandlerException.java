@@ -21,6 +21,16 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 @ControllerAdvice
 @Slf4j
 public class GlobalHandlerException {
+    @ExceptionHandler(value = org.springframework.dao.DataIntegrityViolationException.class)
+    ResponseEntity<ApiResponse> handlingDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException exception) {
+        log.error("DataIntegrityViolationException: ", exception);
+        String msg = exception.getRootCause() != null ? exception.getRootCause().getMessage() : exception.getMessage();
+        return ResponseEntity.badRequest().body(ApiResponse.builder()
+                .code(400)
+                .message("Lỗi ràng buộc dữ liệu: " + msg)
+                .build());
+    }
+
     @ExceptionHandler(value = RuntimeException.class)
     ResponseEntity<ApiResponse> handlingRuntimeException(RuntimeException exception) {
         log.error("Exception: ", exception);
