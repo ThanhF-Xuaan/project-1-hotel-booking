@@ -1,0 +1,44 @@
+# ==============================================================================
+# VÍ DỤ CẤU HÌNH PRODUCTION CHO NGINX (SERVE STATIC BUILD THAY VÌ VITE DEV)
+# ==============================================================================
+# Trong môi trường Production, Frontend React được build thành static files
+# (npm run build -> /dist) và được copy vào /usr/share/nginx/html.
+# Container Node.js không cần phải chạy runtime, Nginx trực tiếp serve static.
+#
+# Cách sử dụng: Đổi tên file này thành prod.conf và thay thế location / trong common_locations.conf
+
+# server {
+#     listen 80;
+#     server_name hotel.utc.edu.vn;
+#     return 301 https://$host$request_uri;
+# }
+
+# server {
+#     listen 443 ssl;
+#     http2 on;
+#     server_name hotel.utc.edu.vn;
+#
+#     ssl_certificate     /etc/letsencrypt/live/hotel.utc.edu.vn/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/hotel.utc.edu.vn/privkey.pem;
+#
+#     # OWASP Security Headers
+#     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+#     add_header X-Content-Type-Options nosniff always;
+#     add_header X-Frame-Options SAMEORIGIN always;
+#     add_header X-XSS-Protection "1; mode=block" always;
+#
+#     # 1. API, Swagger, Keycloak, Storage: Include tương tự common_locations.conf
+#
+#     # 2. Production Static SPA:
+#     location / {
+#         root /usr/share/nginx/html;
+#         index index.html index.htm;
+#         try_files $uri $uri/ /index.html;
+#
+#         # Cache dài hạn cho static assets có hash (CSS, JS, Fonts, Images)
+#         location ~* \.(?:css|js|woff2?|eot|ttf|otf|ico|png|jpg|jpeg|svg|webp)$ {
+#             expires 30d;
+#             add_header Cache-Control "public, max-age=2592000, immutable";
+#         }
+#     }
+# }

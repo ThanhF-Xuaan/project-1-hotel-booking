@@ -2,6 +2,10 @@
 # 1. ẨN FILE BIẾN MÔI TRƯỜNG CHỨA MẬT KHẨU
 # ==========================================
 .env
+.env.prod
+.env.local
+.env.*.local
+
 
 # ==========================================
 # 2. ẨN CẤU HÌNH CỦA CÁC IDE (VS Code, IntelliJ)

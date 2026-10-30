@@ -1,7 +1,12 @@
 import axios, { type AxiosError, type AxiosInstance, type AxiosRequestConfig, type AxiosResponse } from 'axios'
 import type { ApiResponse } from './types'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const rawBaseUrl =
+  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080'
+
+// Chuẩn hóa: Tự động loại bỏ hậu tố '/api' hoặc '/api/' nếu có từ biến môi trường
+// do toàn bộ service trong frontend đều đã tự định nghĩa prefix '/api/v1/...'
+const API_BASE_URL = rawBaseUrl.replace(/\/api\/?$/, '')
 
 // ── Keycloak (lấy/làm mới token) ─────────────────────────────────────────────
 const KEYCLOAK_BASE =

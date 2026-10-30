@@ -77,12 +77,15 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // CHỈ ĐỊNH ĐÍCH DANH CỔNG CỦA FRONTEND (Docker: 3000, Local Dev: 5173 + Configured Deployment Origins)
+        // CHỈ ĐỊNH ĐÍCH DANH CỔNG CỦA FRONTEND (Nginx: 80/443, Docker: 3000, Local Dev: 5173 + Configured Deployment Origins)
         List<String> allowedOrigins = new ArrayList<>(List.of(
+                "http://localhost",
                 "http://localhost:3000",
                 "http://localhost:5173",
+                "http://127.0.0.1",
                 "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "https://localhost"
         ));
         if (customAllowedOrigins != null && !customAllowedOrigins.isBlank()) {
             Arrays.stream(customAllowedOrigins.split(","))

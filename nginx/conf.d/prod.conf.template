@@ -1,0 +1,171 @@
+# ==============================================================================
+# HỆ THỐNG QUẢN LÝ KHÁCH SẠN UTC - CẤU HÌNH NGINX PRODUCTION (HTTPS + DOMAIN)
+# ==============================================================================
+
+# Upstream Definitions (Sử dụng internal Docker network)
+upstream frontend_upstream {
+    server frontend:80;
+    keepalive 32;
+}
+
+upstream backend_upstream {
+    server backend:8080;
+    keepalive 32;
+}
+
+upstream keycloak_upstream {
+    server keycloak:8080;
+    keepalive 32;
+}
+
+upstream minio_storage_upstream {
+    server minio:9000;
+    keepalive 32;
+}
+
+# ==============================================================================
+# 1. HTTP SERVER (CỔNG 80)
+# - Phục vụ Let's Encrypt HTTP-01 ACME Challenge
+# - Tự động chuyển hướng vĩnh viễn (301) sang HTTPS
+# ==============================================================================
+server {
+    listen 80;
+    listen [::]:80;
+    server_name hotel.utc.edu.vn;
+
+    # Healthcheck nội bộ
+    location = /nginx-health {
+        access_log off;
+        default_type text/plain;
+        return 200 "healthy\n";
+    }
+
+    # ACME Challenge cho Certbot tự động cấp/gia hạn chứng chỉ
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri =404;
+    }
+
+    # Chuyển hướng toàn bộ truy cập còn lại sang HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ==============================================================================
+# 2. HTTPS SERVER (CỔNG 443) - SSL/TLS TERMINATION & OWASP SECURITY
+# ==============================================================================
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name hotel.utc.edu.vn;
+
+    # Đường dẫn chứng chỉ Let's Encrypt (được mount từ Persistent Volume)
+    ssl_certificate     /etc/letsencrypt/live/hotel.utc.edu.vn/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/hotel.utc.edu.vn/privkey.pem;
+
+    # Cấu hình SSL/TLS bảo mật cao (Modern Profile)
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_tickets off;
+
+    # OWASP Security Headers
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # Hạn mức Body 50MB (Phục vụ hợp đồng PDF 25MB & tệp xuất BI 50MB)
+    client_max_body_size 50M;
+
+    # Healthcheck endpoint
+    location = /nginx-health {
+        access_log off;
+        default_type text/plain;
+        return 200 "healthy\n";
+    }
+
+    # --------------------------------------------------------------------------
+    # 2.1. REST API BACKEND
+    # --------------------------------------------------------------------------
+    location /api/ {
+        proxy_pass http://backend_upstream/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port $server_port;
+
+        # Timeout cho các tác vụ BI Báo cáo & Hợp đồng nặng
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 120s;
+        proxy_read_timeout 120s;
+    }
+
+    # --------------------------------------------------------------------------
+    # 2.2. KEYCLOAK IAM (OIDC Endpoints)
+    # --------------------------------------------------------------------------
+    location /realms/ {
+        proxy_pass http://keycloak_upstream/realms/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port $server_port;
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+    }
+
+    location /resources/ {
+        proxy_pass http://keycloak_upstream/resources/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # --------------------------------------------------------------------------
+    # 2.3. S3 STATIC ASSET GATEWAY (MinIO Reverse Proxy - READ-ONLY)
+    # Chỉ cho phép phương thức GET và HEAD. Chặn đứng PUT/POST/DELETE từ ngoài.
+    # --------------------------------------------------------------------------
+    location /storage/ {
+        limit_except GET HEAD {
+            deny all;
+        }
+
+        proxy_pass http://minio_storage_upstream/hotel-booking-storage/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        
+        # Ẩn các header nhạy cảm của MinIO
+        proxy_hide_header x-amz-request-id;
+        proxy_hide_header x-minio-deployment-id;
+        proxy_hide_header Server;
+
+        # Client-side cache 1 ngày cho hình ảnh và tệp tĩnh công khai
+        add_header Cache-Control "public, max-age=86400, immutable";
+    }
+
+    # --------------------------------------------------------------------------
+    # 2.4. FRONTEND REACT SPA (Phục vụ qua Nginx Static Container)
+    # --------------------------------------------------------------------------
+    location / {
+        proxy_pass http://frontend_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

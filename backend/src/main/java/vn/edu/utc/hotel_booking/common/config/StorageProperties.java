@@ -41,6 +41,8 @@ public class StorageProperties {
         private boolean autoCreateBucket = true;
         /** URL CDN công khai phục vụ truy cập nhanh ảnh public (nếu có) */
         private String cdnPublicBaseUrl;
+        /** Endpoint công khai dành riêng cho S3Presigner để URL hợp lệ với client bên ngoài (tránh lộ host minio:9000) */
+        private String publicEndpoint;
     }
 
     @Getter

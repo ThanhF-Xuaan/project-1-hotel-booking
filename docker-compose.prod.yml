@@ -1,0 +1,354 @@
+# ==============================================================================
+#        HỆ THỐNG QUẢN LÝ KHÁCH SẠN UTC - CẤU HÌNH STANDALONE PRODUCTION
+#                            (docker-compose.prod.yml)
+#
+# LƯU Ý TRIỂN KHAI OCI:
+# 1. Chạy với tệp biến môi trường production:
+#    docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+# 2. Toàn bộ Secrets bắt buộc phải được khai báo trong .env.prod, Compose sẽ dừng
+#    ngay lập tức nếu phát hiện biến bị thiếu hoặc để trống.
+# 3. CHỈ DUY NHẤT Nginx mở cổng 80 & 443 ra Internet. Các cổng nội bộ DB/Redis/MinIO
+#    được cô lập hoàn toàn trong mạng Docker nội bộ.
+# ==============================================================================
+
+services:
+  # ==========================================
+  # 1. DATABASE (POSTGRESQL 16)
+  # ==========================================
+  postgres_db:
+    image: postgres:16-alpine
+    container_name: hotel_prod_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: "${DB_NAME:?LOI: DB_NAME bat buoc phai khai bao trong .env.prod}"
+      POSTGRES_USER: "${DB_USER:?LOI: DB_USER bat buoc phai khai bao trong .env.prod}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?LOI: DB_PASSWORD bat buoc phai khai bao trong .env.prod}"
+    expose:
+      - "5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================
+  # 2. CACHE & SESSION (REDIS 7)
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: hotel_prod_redis
+    restart: always
+    command: redis-server --appendonly yes
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================
+  # 3. IAM / SECURITY (KEYCLOAK 24 QUARKUS)
+  # ==========================================
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.4
+    container_name: hotel_prod_keycloak
+    restart: always
+    command: start --optimized --import-realm
+    environment:
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:?LOI: KEYCLOAK_ADMIN bat buoc phai khai bao}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?LOI: KEYCLOAK_ADMIN_PASSWORD bat buoc phai khai bao}"
+      # Hostname Configuration chuẩn Keycloak 24 (Phục vụ qua Nginx HTTPS Ingress)
+      KC_HOSTNAME: "${DOMAIN_NAME:?LOI: DOMAIN_NAME bat buoc phai khai bao}"
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "false"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: "xforwarded"
+      KC_HEALTH_ENABLED: "true"
+      # Database Backend
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres_db
+      KC_DB_URL_PORT: 5432
+      KC_DB_URL_DATABASE: ${DB_NAME}
+      KC_DB_USERNAME: ${DB_USER}
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+    expose:
+      - "8080"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - keycloak_data:/opt/keycloak/data
+    networks:
+      - frontend_net
+      - backend_net
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080;echo -e \"GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n\" >&3;grep \"HTTP/1.1 200 OK\" <&3"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================
+  # 4. DATABASE MIGRATION RUNNER (LIQUIBASE)
+  # ==========================================
+  liquibase:
+    image: liquibase/liquibase:4.31-alpine
+    container_name: hotel_prod_liquibase
+    restart: "no"
+    environment:
+      LIQUIBASE_SEARCH_PATH: /liquibase/changelog
+      LIQUIBASE_COMMAND_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
+      LIQUIBASE_COMMAND_USERNAME: ${DB_USER}
+      LIQUIBASE_COMMAND_PASSWORD: ${DB_PASSWORD}
+      LIQUIBASE_COMMAND_CHANGELOG_FILE: db/db-changelog-root.xml
+      LIQUIBASE_COMMAND_CONTEXTS: master-data
+      LIQUIBASE_LOG_LEVEL: INFO
+    command: --search-path=/liquibase/changelog --changelog-file=db/db-changelog-root.xml update
+    volumes:
+      - ./backend/src/main/resources/db:/liquibase/changelog/db:ro
+    networks:
+      - backend_net
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+  # ==========================================
+  # 5. OBJECT STORAGE (MINIO S3-COMPATIBLE)
+  # ==========================================
+  minio:
+    image: cgr.dev/chainguard/minio@sha256:268d68a2a3b6fc65f905a61f84d7eab6345ce6bff14f551e2b028ec31e6a1341
+    container_name: hotel_prod_minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?LOI: MINIO_ROOT_USER bat buoc phai khai bao}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?LOI: MINIO_ROOT_PASSWORD bat buoc phai khai bao}"
+    expose:
+      - "9000" # S3 API endpoint nội bộ
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - frontend_net
+      - backend_net
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && exec 3>&-"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================
+  # 6. SPRING BOOT BACKEND
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: hotel_backend:prod
+    container_name: hotel_prod_backend
+    restart: always
+    expose:
+      - "8080"
+    environment:
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_LIQUIBASE_ENABLED: "false"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SPRING_REDIS_HOST: redis
+      # Keycloak Security
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-hotel-realm}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-hotel-backend}
+      KEYCLOAK_CLIENT_SECRET: "${KEYCLOAK_CLIENT_SECRET:?LOI: KEYCLOAK_CLIENT_SECRET bat buoc phai khai bao}"
+      KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID:-admin-cli}
+      KEYCLOAK_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      # JWT Issuer khớp URL công khai, JWKS tải qua mạng nội bộ Docker
+      KEYCLOAK_ISSUER_URI: "https://${DOMAIN_NAME}/realms/${KEYCLOAK_REALM:-hotel-realm}"
+      KEYCLOAK_JWK_SET_URI: "http://keycloak:8080/realms/${KEYCLOAK_REALM:-hotel-realm}/protocol/openid-connect/certs"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: "https://${DOMAIN_NAME}/realms/${KEYCLOAK_REALM:-hotel-realm}"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: "http://keycloak:8080/realms/${KEYCLOAK_REALM:-hotel-realm}/protocol/openid-connect/certs"
+      # MinIO Object Storage
+      HOTEL_STORAGE_TYPE: ${HOTEL_STORAGE_TYPE:-s3}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: "${S3_ACCESS_KEY:?LOI: S3_ACCESS_KEY bat buoc phai khai bao}"
+      S3_SECRET_KEY: "${S3_SECRET_KEY:?LOI: S3_SECRET_KEY bat buoc phai khai bao}"
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-hotel-booking-storage}
+      S3_PATH_STYLE_ACCESS: "true"
+      S3_CDN_PUBLIC_BASE_URL: "https://${DOMAIN_NAME}/storage"
+      S3_PUBLIC_ENDPOINT: "https://${DOMAIN_NAME}/storage"
+      # AI & Secrets
+      HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET: "${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET:?LOI: Bat buoc khai bao AI anon secret}"
+      HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET:-}
+      # Payment Gateway Keys
+      VNPAY_TMN_ID: ${VNPAY_TMN_ID:-}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-}
+      VNPAY_FE_RESULT_URL: ${VNPAY_FE_RESULT_URL:-}
+      MOMO_PARTNER_CODE: ${MOMO_PARTNER_CODE:-}
+      MOMO_ACCESS_KEY: ${MOMO_ACCESS_KEY:-}
+      MOMO_SECRET_KEY: ${MOMO_SECRET_KEY:-}
+    networks:
+      - frontend_net
+      - backend_net
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      liquibase:
+        condition: service_completed_successfully
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================
+  # 7. REACT SPA FRONTEND (NGINX STATIC BUILD)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_KEYCLOAK_URL: https://${DOMAIN_NAME}
+        VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-hotel-realm}
+        VITE_KEYCLOAK_CLIENT_ID: hotel-frontend
+    image: hotel_frontend:prod
+    container_name: hotel_prod_frontend
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - frontend_net
+    depends_on:
+      - backend
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================
+  # 8. INGRESS GATEWAY & REVERSE PROXY (NGINX)
+  # ==========================================
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: hotel_prod_nginx
+    restart: always
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_SSL_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot_certs:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    networks:
+      - frontend_net
+    depends_on:
+      frontend:
+        condition: service_started
+      backend:
+        condition: service_started
+      keycloak:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:80/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ==========================================
+  # 9. CERTBOT (LET'S ENCRYPT AUTOMATION)
+  # ==========================================
+  certbot:
+    image: certbot/certbot:latest
+    container_name: hotel_prod_certbot
+    restart: unless-stopped
+    volumes:
+      - certbot_certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
+    networks:
+      - frontend_net
+
+# ==========================================
+# KHAI BÁO MẠNG NỘI BỘ (NETWORK SEGMENTATION)
+# ==========================================
+networks:
+  frontend_net:
+    name: hotel_prod_frontend_net
+    driver: bridge
+  backend_net:
+    name: hotel_prod_backend_net
+    driver: bridge
+
+# ==========================================
+# PERSISTENT VOLUMES (TOÀN VẸN DỮ LIỆU OCI)
+# ==========================================
+volumes:
+  pg_data:
+    name: hotel_prod_pg_data
+  redis_data:
+    name: hotel_prod_redis_data
+  keycloak_data:
+    name: hotel_prod_keycloak_data
+  minio_data:
+    name: hotel_prod_minio_data
+  certbot_certs:
+    name: hotel_prod_certbot_certs
+  certbot_www:
+    name: hotel_prod_certbot_www

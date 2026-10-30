@@ -46,8 +46,12 @@ public class S3ClientConfig {
                 .pathStyleAccessEnabled(s3Props.isPathStyleAccess())
                 .build();
 
+        String presignerEndpoint = (s3Props.getPublicEndpoint() != null && !s3Props.getPublicEndpoint().isBlank())
+                ? s3Props.getPublicEndpoint()
+                : s3Props.getEndpoint();
+
         return S3Presigner.builder()
-                .endpointOverride(URI.create(s3Props.getEndpoint()))
+                .endpointOverride(URI.create(presignerEndpoint))
                 .region(Region.of(s3Props.getRegion()))
                 .credentialsProvider(StaticCredentialsProvider.create(credentials))
                 .serviceConfiguration(serviceConfiguration)
