@@ -18,6 +18,7 @@
 ## Allowlist, slices and rollback
 
 - `.github/workflows/member1-ci.yml`: two bounded jobs, ephemeral Redis, explicit dependencies, minimal artifact.
+- `.gitattributes`: added after actual Linux CI reproduced CRLF-frozen source/governance/evaluation hash failures. Preserve exactly the existing frozen CRLF bytes for enumerated paths; do not edit protected file contents, manifests, assertions, gold answers or minimum count. This scope adjustment uses the user's existing implementation/fix authority.
 - `tools/ci/requirements.txt`, `tools/ci/verify_surefire.py`, `tools/ci/test_verify_surefire.py`: CI tooling and fail-closed evidence guard.
 - `docs/member1/plans/m1-ci-baseline-2026-10-31.md`, `docs/member1/acceptance/m1-ci-baseline-2026-10-31.md`: plan, scope and observed delivery evidence.
 - Canonical local handoff/plan: append a delivery receipt after verification, preserving all previous entries.
