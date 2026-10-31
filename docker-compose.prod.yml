@@ -69,7 +69,10 @@ services:
   # 3. IAM / SECURITY (KEYCLOAK 24 QUARKUS)
   # ==========================================
   keycloak:
-    image: quay.io/keycloak/keycloak:24.0.4
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+    image: hotel_keycloak:prod
     container_name: hotel_prod_keycloak
     restart: always
     command: start --optimized --import-realm
@@ -182,6 +185,7 @@ services:
     environment:
       DB_HOST: postgres_db
       DB_PORT: 5432
+      FRONTEND_URL: "https://${DOMAIN_NAME}"
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -254,7 +258,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
       args:
-        VITE_API_BASE_URL: ""
+        VITE_API_BASE_URL: /api
+        VITE_API_URL: ""
         VITE_KEYCLOAK_URL: https://${DOMAIN_NAME}
         VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-hotel-realm}
         VITE_KEYCLOAK_CLIENT_ID: hotel-frontend

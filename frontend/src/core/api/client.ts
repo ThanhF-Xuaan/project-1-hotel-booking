@@ -2,7 +2,7 @@ import axios, { type AxiosError, type AxiosInstance, type AxiosRequestConfig, ty
 import type { ApiResponse } from './types'
 
 const rawBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080'
+  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || ''
 
 // Chuẩn hóa: Tự động loại bỏ hậu tố '/api' hoặc '/api/' nếu có từ biến môi trường
 // do toàn bộ service trong frontend đều đã tự định nghĩa prefix '/api/v1/...'
