@@ -1,0 +1,117 @@
+name: Member 1 CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: member1-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend selected tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7.4@sha256:b6b6e3dc0c0952737748e55d5d885272840c7e42ba41ab1d5489f693419882f5
+        ports: ['16379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      TESSERACT_EXE: /usr/bin/tesseract
+      T12_REDIS_IT: 'true'
+      T12_REDIS_EXCLUSIVE_VERIFIED: 'true'
+      T12_REDIS_HOST: 127.0.0.1
+      T12_REDIS_PORT: '16379'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Install local OCR engine
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie
+          tesseract --version
+          tesseract --list-langs
+      - name: Verify exclusive empty Redis
+        env:
+          REDIS_CONTAINER: ${{ job.services.redis.id }}
+        run: |
+          test "$(docker exec "$REDIS_CONTAINER" redis-cli ping)" = PONG
+          test "$(docker exec "$REDIS_CONTAINER" redis-cli dbsize)" = 0
+      - name: Backend regression (explicit CI scope)
+        working-directory: backend
+        run: >-
+          bash ./mvnw --batch-mode --no-transfer-progress
+          '-Dtest=*Test,!HotelBookingApplicationTests,!LodgingExportPostgresTest,!OcrMultipartServletRuntimeTest'
+          -DfailIfNoTests=true test
+      - name: Require complete selected test evidence
+        if: always()
+        run: >-
+          python3 tools/ci/verify_surefire.py backend/target/surefire-reports
+          --minimum 1391
+          --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.TesseractOcrVisionAdapterTest
+          --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.controller.IdentityDocumentOcrControllerTest
+          --require-suite vn.edu.utc.hotel_booking.modules.ai.advisor.session.RedisRoomAdvisorSessionStoreRealRedisTest
+          --output "${{ runner.temp }}/member1-ci/backend-summary.json"
+      - name: Upload aggregate evidence only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: member1-backend-summary
+          path: ${{ runner.temp }}/member1-ci/backend-summary.json
+          if-no-files-found: error
+          retention-days: 7
+
+  contracts-frontend:
+    name: Contracts and frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Install CI dependencies
+        run: |
+          python -m pip install -r tools/ci/requirements.txt
+          npm ci --prefix frontend
+      - name: Test CI report guard
+        run: python -m unittest discover -s tools/ci -p 'test*.py' -v
+      - name: Validate contracts and current source provenance
+        run: |
+          python tools/t12/validate_r1_contracts.py --reviewed-widget-sources
+          python -m unittest discover -s tools/t12 -p 'test*.py' -v
+          python tools/t12/verify_current_core_reaudit.py
+          node tools/t12/verify_lazy_route_reaudit.cjs
+          node tools/t12/verify_u14_source_reaudit.cjs
+      - name: Frontend lint, build and high-severity dependency audit
+        working-directory: frontend
+        run: |
+          npm run lint -- --max-warnings=0
+          npm run build
+          npm audit --audit-level=high
