@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Lazy;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.*;
 import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagScopeType;
@@ -27,7 +28,7 @@ public class RagKnowledgeLifecycleService {
     public RagKnowledgeLifecycleService(
             RagCorpusGovernanceValidator governanceValidator,
             RagEmbeddingPort embeddingPort,
-            RagVectorStorePort vectorStore
+            @Lazy RagVectorStorePort vectorStore
     ) {
         this.governanceValidator = governanceValidator;
         this.embeddingPort = embeddingPort;
@@ -35,6 +36,11 @@ public class RagKnowledgeLifecycleService {
     }
 
     public RagIngestResultDto ingestAndStage(RagIngestRequestDto request, int version) {
+        if (request != null && ((request.getContent() != null && request.getContent().length() > 64_000)
+                || (request.getTitle() != null && request.getTitle().length() > 500)
+                || (request.getSourceId() != null && request.getSourceId().length() > 128))) {
+            return rejectedLimit(version);
+        }
         // 1. Corpus governance validation (T12-V2-036)
         CorpusValidationResult val = governanceValidator.validateForIngestion(request);
         if (!val.isValid()) {
@@ -52,6 +58,9 @@ public class RagKnowledgeLifecycleService {
 
         // 2. Semantic paragraph chunking
         String[] rawChunks = raw.split("(?m)^\\s*\\n\\s*");
+        if (Arrays.stream(rawChunks).filter(part -> !part.isBlank()).limit(257).count() > 256) {
+            return rejectedLimit(version);
+        }
         List<KnowledgeChunk> chunks = new ArrayList<>();
         int chunkIdx = 0;
 
@@ -170,5 +179,10 @@ public class RagKnowledgeLifecycleService {
         } catch (Exception e) {
             return UUID.randomUUID().toString();
         }
+    }
+
+    private RagIngestResultDto rejectedLimit(int version) {
+        return RagIngestResultDto.builder().version(version).status(RagVersionStatus.REJECTED)
+                .errorMessage("REJECTED_INPUT_LIMIT: Corpus input exceeds the bounded local limits").build();
     }
 }

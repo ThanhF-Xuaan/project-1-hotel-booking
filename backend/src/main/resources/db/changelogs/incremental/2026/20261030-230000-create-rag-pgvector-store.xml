@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261030-230000-rag-vector-extension" author="member1" context="@rag-pgvector">
+        <sql>CREATE EXTENSION IF NOT EXISTS vector;</sql>
+        <!-- Extension may be shared; an application rollback must not drop it. -->
+        <rollback><sql>SELECT 1;</sql></rollback>
+    </changeSet>
+    <changeSet id="20261030-230001-rag-vector-tables" author="member1" context="@rag-pgvector">
+        <sqlFile path="db/sqlFile/incremental/2026/20261030-230000-create-rag-pgvector-store.sql" relativeToChangelogFile="false"/>
+        <rollback>
+            <sql>DROP TABLE rag_chunks; DROP TABLE rag_document_versions; DROP TABLE rag_sources; DROP TABLE rag_store_config;</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -4,6 +4,7 @@ const path = require('node:path');
 const cp = require('node:child_process');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const { PATHS, PRIOR, reconcile } = require('./reconcile_widget_search.cjs');
 
 const root = path.resolve(__dirname, '../..');
 const auditPath = 'docs/t12/re-audits/2026-10-26-u14-local-v1-source.json';
@@ -16,7 +17,7 @@ const readGit = (commit, file) => cp.execFileSync('git', ['show', `${commit}:${f
   { cwd: root, encoding: 'utf8' });
 const readWorktree = file => fs.readFileSync(path.join(root, file), 'utf8');
 const gitDiff = file => cp.execFileSync('git', ['diff', '--no-ext-diff', '--binary',
-  audit.comparisonCommit, '--', file], { cwd: root });
+  audit.comparisonCommit, ...(PATHS.includes(file) ? [PRIOR] : []), '--', file], { cwd: root });
 
 assert.equal(audit.status, 'WORKING_TREE_SOURCE_RECONCILED');
 assert.equal(manifest.gitSha, audit.manifestGitSha, 'Historical contract baseline changed');
@@ -53,7 +54,7 @@ const newPomDependency =
 for (const item of audit.files) {
   const base = lf(readGit(audit.comparisonCommit, item.path));
   const implementationBase = lf(readGit(audit.implementationBaseCommit, item.path));
-  const current = lf(readWorktree(item.path));
+  const current = reconcile(root, item.path, lf(readWorktree(item.path)));
   assert.equal(implementationBase, base,
     `${item.path} differs in the implementation base before this working-tree change`);
   assert.equal(hash(base), item.baseHashes.unixLfSha256, `${item.path} base LF hash mismatch`);

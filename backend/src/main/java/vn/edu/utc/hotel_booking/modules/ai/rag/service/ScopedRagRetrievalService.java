@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.annotation.Lazy;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagCitationDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort;
@@ -20,7 +21,7 @@ public class ScopedRagRetrievalService {
     private final RagVectorStorePort vectorStore;
     private final RagEmbeddingPort embeddingPort;
 
-    public ScopedRagRetrievalService(RagVectorStorePort vectorStore, RagEmbeddingPort embeddingPort) {
+    public ScopedRagRetrievalService(@Lazy RagVectorStorePort vectorStore, RagEmbeddingPort embeddingPort) {
         this.vectorStore = vectorStore;
         this.embeddingPort = embeddingPort;
     }
@@ -31,7 +32,7 @@ public class ScopedRagRetrievalService {
         }
 
         LocalDate asOfDate = request.getAsOfDate() != null ? request.getAsOfDate() : LocalDate.now();
-        int topK = (request.getTopK() != null && request.getTopK() > 0) ? request.getTopK() : 5;
+        int topK = Math.min(5, (request.getTopK() != null && request.getTopK() > 0) ? request.getTopK() : 5);
 
         // 1. Candidate selection with strict tenant scope and date window
         List<KnowledgeChunk> candidates = vectorStore.findCandidateChunks(
@@ -39,6 +40,8 @@ public class ScopedRagRetrievalService {
                 request.getHotelId(),
                 asOfDate
         );
+        if (candidates == null) throw new IllegalStateException("RAG candidate dependency unavailable");
+        candidates = candidates.stream().filter(chunk -> isEligibleEvidence(chunk, request.getHotelId(), asOfDate)).toList();
 
         if (candidates.isEmpty()) {
             return Collections.emptyList();
@@ -90,12 +93,24 @@ public class ScopedRagRetrievalService {
 
 
         // 5. Rank descending by similarity
-        scoredList.sort((a, b) -> Double.compare(b.similarity, a.similarity));
+        scoredList.sort(Comparator.comparingDouble(ScoredChunk::getSimilarity).reversed()
+                .thenComparing(sc -> sc.getChunk().getSourceId()).thenComparingInt(sc -> sc.getChunk().getChunkIndex())
+                .thenComparing(sc -> sc.getChunk().getChunkId()));
 
         if (scoredList.size() > topK) {
             return scoredList.subList(0, topK);
         }
         return scoredList;
+    }
+
+    public static boolean isEligibleEvidence(KnowledgeChunk chunk, Integer hotel, LocalDate date) {
+        return chunk != null && chunk.getChunkId() != null && chunk.getDocumentId() != null && chunk.getSourceId() != null
+                && !chunk.getSourceId().isBlank() && chunk.getVersion() > 0 && chunk.getCategory() != null
+                && (chunk.getStatus() == RagVersionStatus.ACTIVE || chunk.getStatus() == RagVersionStatus.SUPERSEDED)
+                && ((chunk.getScopeType() == RagScopeType.CHAIN_PUBLIC && chunk.getHotelId() == null)
+                    || (chunk.getScopeType() == RagScopeType.HOTEL_SCOPED && hotel != null && hotel.equals(chunk.getHotelId())))
+                && (chunk.getEffectiveFrom() == null || !chunk.getEffectiveFrom().isAfter(date))
+                && (chunk.getEffectiveTo() == null || !chunk.getEffectiveTo().isBefore(date));
     }
 
     private double computeCosineSimilarity(float[] a, float[] b) {

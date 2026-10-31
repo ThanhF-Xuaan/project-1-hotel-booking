@@ -1,0 +1,35 @@
+# U22-03 — Utility anomaly local v1, 31/10/2026
+
+## Quyết định và nguồn trước implementation/test
+
+CONFIRMED: user cho phép tự quyết và triển khai phần liên quan của Member 1/team. Base vừa fetch `origin/develop@20e06e5135def269b91531b3997b784b271e17c8`; managed worktree mới m1-u22-anomaly sạch trước task. Bảo toàn GIT/U22/T12 patches và contract C01 lịch sử. Không giả member sign-off hoặc nguồn dữ liệu thật.
+
+CONFIRMED: UtilityReading có readingDate LocalDate, numeric(12,3), isMeterReset; UtilityMeter chỉ có ELECTRICITY/WATER, chưa có unit/counter epoch hoặc replacement history. T04 response usage dùng current value khi reset/thiếu previous, còn lại delta bị clamp không âm; previous có thể cách nhiều ngày. T04 search scope dùng trusted staff hotel/region, không cho client selector tự cấp quyền. Các facts này từ entity/service/repository/controller/tests tại base, không suy units từ tên meter type.
+
+UNKNOWN: unit thực, thời điểm chốt ngày, rollover/replacement/counter provenance và adapter IAM/read-only đã được xác minh cho anomaly. **Không nối live T04 usage vào detector hoặc sửa T04/schema**. Chốt normalized synthetic semantics dưới đây theo ủy quyền user; business integration vẫn NOT READY về evidence dữ liệu. C01 analytics A01–A05 giữ nguyên; đây là self-review local, không xác nhận production.
+
+## Contract local và allowlist
+
+- Request một hotel/meter và1–42calendar days inclusive. Timezone Asia/Ho_Chi_Minh từ một instant server Clock. Chỉ ngày đã hoàn tất; end=today được cắt về yesterday, future end/start>=today hoặc range>42 bị INVALID_REQUEST. Không tự mở endpoint/bean/scheduler.
+- Authorization port giải quyết hotel/region/meter/unit từ trusted context trước read; selector không là quyền. Empty=denied, null/exception/scope sai=dependency unavailable. Kiểm lại trước return; revoke/unit/scope change không trả points.
+- History port trả COMPLETE snapshot của query, mode SYNTHETIC, basis SYNTHETIC_CUMULATIVE_DAILY_V1, đúng scope. COMPLETE là query không truncate, không có nghĩa đủ reading mọi ngày; empty COMPLETE là thiếu dữ liệu, khác partial/null/exception=dependency unavailable.
+- Explicit units KWH/M3 chỉ là token local synthetic, không mapping đã xác nhận của MeterType. Không đổi unit hoặc trộn hotel/meter. Counter epoch opaque1–64ASCII; đổi epoch phải có RESET/REPLACEMENT marker. Không suy epoch mới hoặc rollover từ chỉ số giảm.
+- Tối đa43raw readings:42ngày và đúng một anchor tại start-1 nếu có. Anchor không là ngày được score. Không duplicate/out-of-window/null field/mixed unit/scope; invalid snapshot không trả partial points. Numeric bounded theo T04: tối đa9integer/3fractional digits, không float/NaN; negative raw trong bound là quality exclusion, không clamp thành0.
+- Daily usage chỉ là current minus previous-calendar-day raw value cùng scope/unit/epoch; không dùng mapped T04 usage. Thiếu current/previous thì EXCLUDED, không nội suy/phân bổ delta nhiều ngày. RESET/REPLACEMENT day bị loại và clear reference; marker day là anchor mới nếu raw không âm. Negative raw/delta clear reference, loại điểm đó; invalid predecessor cũng loại điểm tiếp theo. Sau barrier phải có lại28valid usage points trước khi score, không dùng lịch sử trước reset/replacement/drop.
+- Một point đang đánh giá không vào reference. Tối đa41prior valid usages trong42day window, cùng segment/meter/unit. Cả NORMAL và NEEDS_REVIEW hợp lệ trước đó vẫn vào reference, không dùng labels để điều chỉnh baseline. Gap không thành zero; calendar positions giữ nguyên.
+- Với >=28prior: median m, MAD=median(abs(x-m)), threshold=max(3.5×1.4826×MAD,0.2×abs(m),0.001), cùng unit. BigDecimal exact, median even là mean2giá trị giữa. Flag khi abs(current-m)>threshold; bằng threshold không flag. Không sửa constants sau fixture run.
+- Point outcomes NORMAL/NEEDS_REVIEW/EXCLUDED/INSUFFICIENT_COVERAGE, kèm usage/refCount/median/MAD/threshold/reason. Chỉ NEEDS_REVIEW có nhãn “Cần kiểm tra”; không kết luận gian lận/kỷ luật hoặc tác động pricing. Warmup/excluded không giả normal hoặc metric0. Response có evaluated/valid/excluded/insufficient counts và source marker/version; ANALYZED khi có ít nhất một scored point, nếu không INSUFFICIENT_COVERAGE. Error scope/dependency/invalid không có points/unit/provenance giả.
+
+File mới trong modules/ai/forecast: model/UtilityReadingSample.java; port/UtilityReadingAuthorizationPort.java, UtilityReadingHistoryPort.java; dto/UtilityAnomalyResponse.java; service/UtilityAnomalyDetectionService.java. Tests UtilityAnomalyDetectionServiceTest, UtilityAnomalyFixtureTest, UtilityAnomalyReadOnlyBoundaryTest; resource ai/u22/utility-readings-42-days.csv. Contract này và report u22-03-anomaly-2026-10-31.md. Không sửa Core/JPA/network dependencies hoặc gold.
+
+Integration slice chốt trước test đầu: nhập22file U22-01/02 đã kiểm chứng bằng core.autocrlf=false, xác minh byte hash trước sửa. Chỉ cập nhật allowlist import ở OccupancyReadOnlyBoundaryTest để thêm java.math cho BigDecimal arithmetic; giữ mọi guard Core/SQL/network/wiring và assertions khác. Source tại worktree U22 cũ không sửa. Đây là compatibility cần thiết để chạy regression chung, không đổi oracle/business/security contract hoặc copy T12/GIT patch.
+
+## Oracle/evaluation chốt trước lần run đầu
+
+C01 A01:28reference10,target13 →median10/MAD0/threshold2/flag; A02 target12 hoặc10 không flag; A03 reference0,target0.001 bằng floor không flag. Thiếu28reference hoặc gap/reset/replacement/âm/đổi unit phải coverage/quality/failure rõ ràng, không spike giả. Thêm nonzero MAD/even median, mutation future target, ordering, exact equality/decimal limits, max42+anchor, permissions/revoke/outage và zero-write.
+
+Fixture synthetic cố định42ngày/series +anchor, gồm electrical/water flat, spikes/dips, zero-floor boundary, noise, gap, reset, replacement, negative drop và low coverage. CSV có explicit unit/epoch/raw/marker và labels ANCHOR/WARMUP/NORMAL/ANOMALY/EXCLUDED; blank raw là missing reading. Labels được tạo theo scenario đã định, không đọc detector output; freeze hash trước test đầu và giữ nguyên.
+
+Gate giữ plan/C01: recall TP/(TP+FN)>=90%, false-positive FP/(FP+TN)<=5%, phải có cả positive/negative được score. ANOMALY không được score phải tính FN, không loại để tăng recall; NORMAL không được score ghi unevaluated và gate fail. Warmup/excluded không vào confusion matrix nhưng phải đúng quality oracle và được đếm. Mẫu số0=NOT_EVALUABLE, không PASS. Metric chỉ có giá trị cho fixture, không calibration hoặc runtime alert acceptance thật.
+
+Targeted Maven UtilityAnomalyDetectionServiceTest,UtilityAnomalyFixtureTest,UtilityAnomalyReadOnlyBoundaryTest; regression thêm UtilityReadingServiceTest/UtilityMeterServiceTest/controllers và T12 zero-write architecture. Commands/logs/Surefire/fixture hash/actual confusion counts, diff/lint/allowlist/protected checks và portable patch là evidence. Không DB/API/Keycloak/browser/model calls khi không có live provider. Rollback không wire service mới; không DB/schema/data mutation. Chưa stage/commit/push/merge trong slice này.

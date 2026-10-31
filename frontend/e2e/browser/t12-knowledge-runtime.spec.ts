@@ -3,9 +3,17 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { getKeycloakToken, BACKEND_URL } from '../helpers/auth.helper';
 test.skip(process.env.T12_FULL_RUNTIME !== 'true', 'Explicit synthetic sandbox only');
+function postgres() {
+  const project = process.env.T12_ACCEPTANCE_PROJECT || 'hotel-ocr02-final';
+  if (!['hotel-ocr02-final', 'hotel-m1-acceptance'].includes(project)) throw new Error('Unapproved synthetic sandbox');
+  const pg = execFileSync('docker', ['ps', '--filter', `label=com.docker.compose.project=${project}`, '--filter', 'label=com.docker.compose.service=acceptance_postgres', '--format', '{{.ID}}'], { encoding: 'utf8' }).trim();
+  if (!/^[a-f0-9]+$/.test(pg)) throw new Error('Synthetic sandbox required');
+  const binding = execFileSync('docker', ['port', pg, '5432/tcp'], { encoding: 'utf8' }).trim();
+  if (project === 'hotel-m1-acceptance' && binding !== '127.0.0.1:15432') throw new Error('Unexpected database binding');
+  return pg;
+}
 function databaseDigest() {
-  const pg = execFileSync('docker', ['ps', '--filter', 'label=com.docker.compose.project=hotel-ocr02-final', '--filter', 'label=com.docker.compose.service=acceptance_postgres', '--format', '{{.ID}}'], { encoding: 'utf8' }).trim();
-  if (!pg) throw new Error('Synthetic sandbox required');
+  const pg = postgres();
   const dump = execFileSync('docker', ['exec', pg, 'pg_dump', '--data-only', '--no-owner', '--no-privileges', '-U', 'postgres', '-d', 'hotel_acceptance_db'], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   const slash = String.fromCharCode(92);
   const normalized = dump.split(String.fromCharCode(10)).filter(line => !line.startsWith(slash + 'restrict ') && !line.startsWith(slash + 'unrestrict ')).join(String.fromCharCode(10));
@@ -51,8 +59,7 @@ test('real portal widget retrieves scoped citations, rejects inactive scope and 
 
 test('real R1 search returns verified rooms on missing inventory days without generating rows', async ({ request }) => {
   const countMissingRange = () => {
-    const pg = execFileSync('docker', ['ps', '--filter', 'label=com.docker.compose.project=hotel-ocr02-final', '--filter', 'label=com.docker.compose.service=acceptance_postgres', '--format', '{{.ID}}'], { encoding: 'utf8' }).trim();
-    if (!pg) throw new Error('Synthetic sandbox required');
+    const pg = postgres();
     return execFileSync('docker', ['exec', pg, 'psql', '-U', 'postgres', '-d', 'hotel_acceptance_db', '-Atc',
       "SELECT count(*) FROM room_availability WHERE date BETWEEN DATE '2027-01-10' AND DATE '2027-01-11'"], { encoding: 'utf8' }).trim();
   };

@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.ai.advisor.llm;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.BudgetDto;
@@ -14,14 +15,23 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.BudgetCoverage;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Flow;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,7 +39,30 @@ import java.util.regex.Pattern;
 @Service
 public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final URI GEMINI_ENDPOINT = URI.create(
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
+    static final int MAX_RESPONSE_BYTES = 65_536;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final AdvisorProviderProperties provider;
+    private final HttpClient httpClient;
+    private final Supplier<String> apiKey;
+
+    /** Offline construction for deterministic callers and evaluation. */
+    public HybridRoomAdvisorLlmService() {
+        this(new AdvisorProviderProperties());
+    }
+
+    @Autowired
+    public HybridRoomAdvisorLlmService(AdvisorProviderProperties provider) {
+        this(provider, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
+                .followRedirects(HttpClient.Redirect.NEVER).build(), () -> System.getenv("GEMINI_API_KEY"));
+    }
+
+    HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, HttpClient httpClient, Supplier<String> apiKey) {
+        this.provider = Objects.requireNonNull(provider);
+        this.httpClient = Objects.requireNonNull(httpClient);
+        this.apiKey = Objects.requireNonNull(apiKey);
+    }
 
     private static final Pattern ISO_DATE_PATTERN = Pattern.compile("\\b(\\d{4}-\\d{2}-\\d{2})\\b");
     private static final Pattern VN_DATE_PATTERN = Pattern.compile("\\b(\\d{1,2})[/.-](\\d{1,2})[/.-](\\d{4})\\b");
@@ -64,16 +97,14 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     public CriteriaPatchDto extractCriteriaPatch(String message, RoomSearchCriteriaDto currentCriteria) {
         String redactedMessage = PiiRedactionUtil.redact(message);
 
-        // Attempt Gemini API extraction if key is present
-        String geminiApiKey = System.getenv("GEMINI_API_KEY");
-        if (geminiApiKey != null && !geminiApiKey.isBlank()) {
-            try {
+        // Check opt-in before even reading credentials. No provider retry on failure.
+        if (provider.permitsExternalCall() && !Thread.currentThread().isInterrupted()) {
+            String geminiApiKey = apiKey.get();
+            if (geminiApiKey != null && !geminiApiKey.isBlank()) {
                 CriteriaPatchDto geminiResult = callGeminiExtraction(redactedMessage, geminiApiKey);
                 if (geminiResult != null) {
                     return geminiResult;
                 }
-            } catch (Exception e) {
-                log.warn("Gemini LLM extraction failed or timed out, falling back to deterministic extraction: {}", e.getMessage());
             }
         }
 
@@ -331,40 +362,86 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     }
 
     private CriteriaPatchDto callGeminiExtraction(String text, String apiKey) {
+        CompletableFuture<HttpResponse<String>> pending = null;
         try {
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(3))
-                    .build();
-
             String prompt = "Extract hotel room search criteria from user message into JSON with keys: locationKeyword, checkInDate (yyyy-MM-dd), checkOutDate (yyyy-MM-dd), adults, children, infants, extraBeds, roomsCount, preferredFeatureCodes (array), budget (object with amount, currency, basis, coverage, hard). Return ONLY valid JSON: " + text;
 
             Map<String, Object> reqBody = Map.of(
                     "contents", List.of(
                             Map.of("parts", List.of(Map.of("text", prompt)))
-                    )
+                    ),
+                    "generationConfig", Map.of(
+                            "candidateCount", 1,
+                            "maxOutputTokens", provider.getMaxOutputTokens(),
+                            "responseMimeType", "application/json")
             );
 
             String jsonPayload = objectMapper.writeValueAsString(reqBody);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + apiKey))
+                    .uri(GEMINI_ENDPOINT)
                     .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(4))
+                    .header("x-goog-api-key", apiKey)
+                    .timeout(Duration.ofMillis(provider.getTimeoutMillis()))
                     .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
                     .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            pending = httpClient.sendAsync(request, responseInfo -> new BoundedBodySubscriber());
+            HttpResponse<String> response = pending.get(provider.getTimeoutMillis(), TimeUnit.MILLISECONDS);
             if (response.statusCode() == 200) {
                 JsonNode root = objectMapper.readTree(response.body());
-                JsonNode candidateText = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
-                if (!candidateText.isMissingNode()) {
+                JsonNode candidate = root.path("candidates").path(0);
+                JsonNode candidateText = candidate.path("content").path("parts").path(0).path("text");
+                if ("STOP".equals(candidate.path("finishReason").asText()) && candidateText.isTextual()) {
                     String rawJson = candidateText.asText().replaceAll("```json", "").replaceAll("```", "").trim();
-                    return objectMapper.readValue(rawJson, CriteriaPatchDto.class);
+                    CriteriaPatchDto patch = objectMapper.readValue(rawJson, CriteriaPatchDto.class);
+                    if (patch != null && !objectMapper.valueToTree(patch).isEmpty()) return patch;
                 }
             }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } catch (Exception e) {
-            log.debug("Gemini extraction error: {}", e.getMessage());
+            // Provider exceptions may contain a key, URL, prompt or response body.
+            log.warn("Gemini extraction unavailable; using deterministic extraction");
+        } finally {
+            if (pending != null && !pending.isDone()) pending.cancel(true);
         }
         return null;
+    }
+
+    /** Bounds bytes while receiving, including error responses; no file or unbounded body buffer. */
+    static final class BoundedBodySubscriber implements HttpResponse.BodySubscriber<String> {
+        private final CompletableFuture<String> body = new CompletableFuture<>();
+        private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        private Flow.Subscription subscription;
+
+        @Override public CompletionStage<String> getBody() { return body; }
+
+        @Override public void onSubscribe(Flow.Subscription subscription) {
+            if (this.subscription != null) {
+                subscription.cancel();
+                return;
+            }
+            this.subscription = subscription;
+            subscription.request(1);
+        }
+
+        @Override public void onNext(List<ByteBuffer> buffers) {
+            if (body.isDone()) return;
+            for (ByteBuffer buffer : buffers) {
+                if (buffer.remaining() > MAX_RESPONSE_BYTES - bytes.size()) {
+                    subscription.cancel();
+                    body.completeExceptionally(new IOException("Provider response exceeded limit"));
+                    return;
+                }
+                byte[] chunk = new byte[buffer.remaining()];
+                buffer.get(chunk);
+                bytes.writeBytes(chunk);
+            }
+            subscription.request(1);
+        }
+
+        @Override public void onError(Throwable error) { body.completeExceptionally(error); }
+        @Override public void onComplete() { body.complete(bytes.toString(StandardCharsets.UTF_8)); }
     }
 }

@@ -1,0 +1,5925 @@
+{
+  "schemaVersion": "u22-occupancy-local-v1",
+  "dataMode": "SYNTHETIC",
+  "description": "Generated synthetic room-night aggregates. No real hotels, guests or bookings.",
+  "generatorVersion": "weekday-capacity-v1",
+  "fromInclusive": "2025-09-05",
+  "toInclusive": "2026-10-29",
+  "referenceInstant": "2026-10-29T17:00:00Z",
+  "generationRules": {
+    "capacityChangesAtIndexes": [
+      140,
+      280
+    ],
+    "zeroCapacityIndex": 59,
+    "missingIndexes": [
+      123,
+      321
+    ],
+    "weekdayPercentMonToSun": [
+      45,
+      48,
+      52,
+      55,
+      65,
+      80,
+      70
+    ],
+    "hotel2PercentOffset": 5,
+    "rounding": "integer floor of capacity * percent / 100"
+  },
+  "hotels": [
+    {
+      "hotelId": 1,
+      "regionId": 10,
+      "samples": [
+        {
+          "hotelId": 1,
+          "date": "2025-09-05",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-06",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-07",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-08",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-09",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-10",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-11",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-12",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-13",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-14",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-15",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-16",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-17",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-18",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-19",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-20",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-21",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-22",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-23",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-24",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-25",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-26",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-27",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-28",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-29",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-09-30",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-01",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-02",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-03",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-04",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-05",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-06",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-07",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-08",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-09",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-10",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-11",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-12",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-13",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-14",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-15",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-16",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-17",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-18",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-19",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-20",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-21",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-22",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-23",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-24",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-25",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-26",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-27",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-28",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-29",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-30",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-10-31",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-01",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-02",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-03",
+          "occupiedRooms": 0,
+          "capacityRooms": 0,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-04",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-05",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-06",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-07",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-08",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-09",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-10",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-11",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-12",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-13",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-14",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-15",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-16",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-17",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-18",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-19",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-20",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-21",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-22",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-23",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-24",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-25",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-26",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-27",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-28",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-29",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-11-30",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-01",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-02",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-03",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-04",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-05",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-06",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-07",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-08",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-09",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-10",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-11",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-12",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-13",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-14",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-15",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-16",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-17",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-18",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-19",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-20",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-21",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-22",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-23",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-24",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-25",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-26",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-27",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-28",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-29",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-30",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2025-12-31",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-01",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-02",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-03",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-04",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-05",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-06",
+          "occupiedRooms": null,
+          "capacityRooms": null,
+          "coverage": "MISSING"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-07",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-08",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-09",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-10",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-11",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-12",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-13",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-14",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-15",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-16",
+          "occupiedRooms": 65,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-17",
+          "occupiedRooms": 80,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-18",
+          "occupiedRooms": 70,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-19",
+          "occupiedRooms": 45,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-20",
+          "occupiedRooms": 48,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-21",
+          "occupiedRooms": 52,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-22",
+          "occupiedRooms": 55,
+          "capacityRooms": 100,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-23",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-24",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-25",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-26",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-27",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-28",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-29",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-30",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-01-31",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-01",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-02",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-03",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-04",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-05",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-06",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-07",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-08",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-09",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-10",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-11",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-12",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-13",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-14",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-15",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-16",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-17",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-18",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-19",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-20",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-21",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-22",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-23",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-24",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-25",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-26",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-27",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-02-28",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-01",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-02",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-03",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-04",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-05",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-06",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-07",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-08",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-09",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-10",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-11",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-12",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-13",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-14",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-15",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-16",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-17",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-18",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-19",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-20",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-21",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-22",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-23",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-24",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-25",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-26",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-27",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-28",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-29",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-30",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-03-31",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-01",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-02",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-03",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-04",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-05",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-06",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-07",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-08",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-09",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-10",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-11",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-12",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-13",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-14",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-15",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-16",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-17",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-18",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-19",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-20",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-21",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-22",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-23",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-24",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-25",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-26",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-27",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-28",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-29",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-04-30",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-01",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-02",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-03",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-04",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-05",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-06",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-07",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-08",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-09",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-10",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-11",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-12",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-13",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-14",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-15",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-16",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-17",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-18",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-19",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-20",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-21",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-22",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-23",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-24",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-25",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-26",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-27",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-28",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-29",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-30",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-05-31",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-01",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-02",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-03",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-04",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-05",
+          "occupiedRooms": 78,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-06",
+          "occupiedRooms": 96,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-07",
+          "occupiedRooms": 84,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-08",
+          "occupiedRooms": 54,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-09",
+          "occupiedRooms": 57,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-10",
+          "occupiedRooms": 62,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-11",
+          "occupiedRooms": 66,
+          "capacityRooms": 120,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-12",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-13",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-14",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-15",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-16",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-17",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-18",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-19",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-20",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-21",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-22",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-23",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-24",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-25",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-26",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-27",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-28",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-29",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-06-30",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-01",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-02",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-03",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-04",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-05",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-06",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-07",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-08",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-09",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-10",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-11",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-12",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-13",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-14",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-15",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-16",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-17",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-18",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-19",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-20",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-21",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-22",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-23",
+          "occupiedRooms": null,
+          "capacityRooms": null,
+          "coverage": "MISSING"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-24",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-25",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-26",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-27",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-28",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-29",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-30",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-07-31",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-01",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-02",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-03",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-04",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-05",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-06",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-07",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-08",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-09",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-10",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-11",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-12",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-13",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-14",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-15",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-16",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-17",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-18",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-19",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-20",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-21",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-22",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-23",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-24",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-25",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-26",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-27",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-28",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-29",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-30",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-08-31",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-01",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-02",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-03",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-04",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-05",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-06",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-07",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-08",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-09",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-10",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-11",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-12",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-13",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-14",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-15",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-16",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-17",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-18",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-19",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-20",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-21",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-22",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-23",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-24",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-25",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-26",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-27",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-28",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-29",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-09-30",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-01",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-02",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-03",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-04",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-05",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-06",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-07",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-08",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-09",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-10",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-11",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-12",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-13",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-14",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-15",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-16",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-17",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-18",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-19",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-20",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-21",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-22",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-23",
+          "occupiedRooms": 58,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-24",
+          "occupiedRooms": 72,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-25",
+          "occupiedRooms": 63,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-26",
+          "occupiedRooms": 40,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-27",
+          "occupiedRooms": 43,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-28",
+          "occupiedRooms": 46,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 1,
+          "date": "2026-10-29",
+          "occupiedRooms": 49,
+          "capacityRooms": 90,
+          "coverage": "COMPLETE"
+        }
+      ]
+    },
+    {
+      "hotelId": 2,
+      "regionId": 20,
+      "samples": [
+        {
+          "hotelId": 2,
+          "date": "2025-09-05",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-06",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-07",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-08",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-09",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-10",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-11",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-12",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-13",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-14",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-15",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-16",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-17",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-18",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-19",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-20",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-21",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-22",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-23",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-24",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-25",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-26",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-27",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-28",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-29",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-09-30",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-01",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-02",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-03",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-04",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-05",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-06",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-07",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-08",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-09",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-10",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-11",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-12",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-13",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-14",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-15",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-16",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-17",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-18",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-19",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-20",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-21",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-22",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-23",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-24",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-25",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-26",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-27",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-28",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-29",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-30",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-10-31",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-01",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-02",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-03",
+          "occupiedRooms": 0,
+          "capacityRooms": 0,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-04",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-05",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-06",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-07",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-08",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-09",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-10",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-11",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-12",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-13",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-14",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-15",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-16",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-17",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-18",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-19",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-20",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-21",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-22",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-23",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-24",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-25",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-26",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-27",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-28",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-29",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-11-30",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-01",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-02",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-03",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-04",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-05",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-06",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-07",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-08",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-09",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-10",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-11",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-12",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-13",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-14",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-15",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-16",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-17",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-18",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-19",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-20",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-21",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-22",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-23",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-24",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-25",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-26",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-27",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-28",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-29",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-30",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2025-12-31",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-01",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-02",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-03",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-04",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-05",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-06",
+          "occupiedRooms": null,
+          "capacityRooms": null,
+          "coverage": "MISSING"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-07",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-08",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-09",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-10",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-11",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-12",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-13",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-14",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-15",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-16",
+          "occupiedRooms": 28,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-17",
+          "occupiedRooms": 34,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-18",
+          "occupiedRooms": 30,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-19",
+          "occupiedRooms": 20,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-20",
+          "occupiedRooms": 21,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-21",
+          "occupiedRooms": 22,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-22",
+          "occupiedRooms": 24,
+          "capacityRooms": 40,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-23",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-24",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-25",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-26",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-27",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-28",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-29",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-30",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-01-31",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-01",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-02",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-03",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-04",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-05",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-06",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-07",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-08",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-09",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-10",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-11",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-12",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-13",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-14",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-15",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-16",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-17",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-18",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-19",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-20",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-21",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-22",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-23",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-24",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-25",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-26",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-27",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-02-28",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-01",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-02",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-03",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-04",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-05",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-06",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-07",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-08",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-09",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-10",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-11",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-12",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-13",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-14",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-15",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-16",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-17",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-18",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-19",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-20",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-21",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-22",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-23",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-24",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-25",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-26",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-27",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-28",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-29",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-30",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-03-31",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-01",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-02",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-03",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-04",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-05",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-06",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-07",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-08",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-09",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-10",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-11",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-12",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-13",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-14",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-15",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-16",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-17",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-18",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-19",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-20",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-21",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-22",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-23",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-24",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-25",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-26",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-27",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-28",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-29",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-04-30",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-01",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-02",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-03",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-04",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-05",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-06",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-07",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-08",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-09",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-10",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-11",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-12",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-13",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-14",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-15",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-16",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-17",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-18",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-19",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-20",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-21",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-22",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-23",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-24",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-25",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-26",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-27",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-28",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-29",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-30",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-05-31",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-01",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-02",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-03",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-04",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-05",
+          "occupiedRooms": 42,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-06",
+          "occupiedRooms": 51,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-07",
+          "occupiedRooms": 45,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-08",
+          "occupiedRooms": 30,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-09",
+          "occupiedRooms": 31,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-10",
+          "occupiedRooms": 34,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-11",
+          "occupiedRooms": 36,
+          "capacityRooms": 60,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-12",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-13",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-14",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-15",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-16",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-17",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-18",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-19",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-20",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-21",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-22",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-23",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-24",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-25",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-26",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-27",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-28",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-29",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-06-30",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-01",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-02",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-03",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-04",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-05",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-06",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-07",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-08",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-09",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-10",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-11",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-12",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-13",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-14",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-15",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-16",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-17",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-18",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-19",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-20",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-21",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-22",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-23",
+          "occupiedRooms": null,
+          "capacityRooms": null,
+          "coverage": "MISSING"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-24",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-25",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-26",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-27",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-28",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-29",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-30",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-07-31",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-01",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-02",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-03",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-04",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-05",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-06",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-07",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-08",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-09",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-10",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-11",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-12",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-13",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-14",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-15",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-16",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-17",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-18",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-19",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-20",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-21",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-22",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-23",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-24",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-25",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-26",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-27",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-28",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-29",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-30",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-08-31",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-01",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-02",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-03",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-04",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-05",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-06",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-07",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-08",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-09",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-10",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-11",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-12",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-13",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-14",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-15",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-16",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-17",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-18",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-19",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-20",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-21",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-22",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-23",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-24",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-25",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-26",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-27",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-28",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-29",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-09-30",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-01",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-02",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-03",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-04",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-05",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-06",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-07",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-08",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-09",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-10",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-11",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-12",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-13",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-14",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-15",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-16",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-17",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-18",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-19",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-20",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-21",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-22",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-23",
+          "occupiedRooms": 35,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-24",
+          "occupiedRooms": 42,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-25",
+          "occupiedRooms": 37,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-26",
+          "occupiedRooms": 25,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-27",
+          "occupiedRooms": 26,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-28",
+          "occupiedRooms": 28,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        },
+        {
+          "hotelId": 2,
+          "date": "2026-10-29",
+          "occupiedRooms": 30,
+          "capacityRooms": 50,
+          "coverage": "COMPLETE"
+        }
+      ]
+    }
+  ]
+}

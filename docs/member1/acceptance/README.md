@@ -161,3 +161,15 @@ powershell -File tools/acceptance/Stop.ps1
 - **Branch:** `codex/m1-acceptance-stabilization`
 - **Base HEAD:** `a6b2088f55d2326a51e895ff2cfffbb4fe70831e`
 - **Remote / Commit Status:** This evidence predates the local delivery commit. No push, rebase, or external PR merge has been performed.
+
+
+## Cập nhật nghiệm thu Member 1 — 31/10/2026
+
+CONFIRMED — technical acceptance local/synthetic PASS; V03 business data integration vẫn NOT READY. Báo cáo hiện tại: [m1-feature-completion-report-2026-10-31.md](m1-feature-completion-report-2026-10-31.md), [benchmark](m1-latency-benchmark.md), [SAFE](safe-01-local-2026-10-31.md) và [V02](v02-t04-t05-regression-2026-10-31.md). Các phần bên trên là lịch sử, không thay kết quả hiện tại.
+
+Lệnh đầy đủ: `.\tools\acceptance\Verify.ps1 -IncludeM1Benchmark -IncludeM1AdditionalTests`. Profile lần này khai báo HOTEL_AI_OCR_ENABLED=true, TESSERACT_EXE trỏ executable có vie+eng và ACCEPTANCE_VOLUME_PREFIX riêng trong runtime local được Git ignore; không áp vào production. Benchmark kiểm volume khớp prefix, không dùng lại dữ liệu ngoài sandbox. Pgvector opt-in chạy riêng và restore riêng; main HTTP dùng in-memory. Hướng dẫn này không biến các optional test chưa chạy thành PASS.
+
+
+## GitHub delivery review - 31/10/2026
+
+Latest review/fix evidence and Git authorization: [m1-github-delivery-review-2026-10-31.md](m1-github-delivery-review-2026-10-31.md). Earlier local reports retain their historical Git status. Actual delivery is recorded in the PR and post-merge receipt. Business data/official-format gates remain NOT READY.

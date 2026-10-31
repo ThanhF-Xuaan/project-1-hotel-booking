@@ -62,6 +62,23 @@ $env:T12_REDIS_HOST = '127.0.0.1'
 $env:T12_REDIS_PORT = '16379'
 $env:T12_REDIS_EXCLUSIVE_VERIFIED = 'true'
 
+if ([string]$Config.HOTEL_AI_OCR_ENABLED -eq 'true') {
+    if (-not (Test-Path -LiteralPath ([string]$Config.TESSERACT_EXE) -PathType Leaf)) { throw 'Missing local Tesseract.' }
+    $env:TESSERACT_EXE = [string]$Config.TESSERACT_EXE
+    $env:OCR_KEYCLOAK_ISSUER = "$($Config.KEYCLOAK_SERVER_URL)/realms/$($Config.KEYCLOAK_REALM)"
+    foreach ($Fixture in @(
+        @{ User = 'reception_h1'; Variable = 'OCR_KEYCLOAK_RECEPTION_TOKEN' },
+        @{ User = 'test_customer'; Variable = 'OCR_KEYCLOAK_DENIED_TOKEN' }
+    )) {
+        # Public synthetic fixture credentials, same as frontend/e2e/helpers/auth.helper.ts.
+        $Token = Invoke-RestMethod -Method Post -Uri "$env:OCR_KEYCLOAK_ISSUER/protocol/openid-connect/token" `
+            -Body @{ grant_type = 'password'; client_id = 'hotel-frontend'; username = $Fixture.User; password = 'Password123!' }
+        if (-not $Token.access_token) { throw 'Missing synthetic fixture token.' }
+        [Environment]::SetEnvironmentVariable($Fixture.Variable, $Token.access_token, 'Process')
+    }
+    Remove-Variable Token
+}
+
 Push-Location (Join-Path $ProjectRoot 'backend')
 try {
     & .\mvnw.cmd clean test

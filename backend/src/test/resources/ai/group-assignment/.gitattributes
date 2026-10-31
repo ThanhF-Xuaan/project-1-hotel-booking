@@ -1,0 +1,2 @@
+# SHA-256 is calculated over the frozen fixture bytes.
+preview-cases.json -text

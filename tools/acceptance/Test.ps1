@@ -25,6 +25,11 @@ $env:BACKEND_URL = $BackendUrl
 $env:VITE_API_URL = $BackendUrl
 $env:VITE_BASE_URL = $FrontendUrl
 $env:KEYCLOAK_SERVER_URL = [string]$EnvConfig.KEYCLOAK_SERVER_URL
+$env:OCR_IMAGE_ENABLED = if ([string]$EnvConfig.HOTEL_AI_OCR_ENABLED -eq 'true') { 'true' } else { 'false' }
+$env:OCR_FULL_APP = $env:OCR_IMAGE_ENABLED
+$env:OCR_ACCEPTANCE_PROJECT = 'hotel-m1-acceptance'
+$env:T12_FULL_RUNTIME = 'true'
+$env:T12_ACCEPTANCE_PROJECT = 'hotel-m1-acceptance'
 
 # Reject reused evidence paths before any API tests can mutate the sandbox.
 $ReportDir = "$ProjectRoot/docs/member1/acceptance"
@@ -142,12 +147,12 @@ if ($SkipContract) {
             # Native commands update the global automatic variable. A script-local
             # assignment would shadow it and make later successful suites look failed.
             $global:LASTEXITCODE = $null
-            $valOut = & $pythonExecutable.Source tools/t12/validate_r1_contracts.py
+            $valOut = & $pythonExecutable.Source tools/t12/validate_r1_contracts.py --reviewed-widget-sources
             $contractExitCode = $global:LASTEXITCODE
             $sw1.Stop()
             if ($contractExitCode -eq 0) {
                 Write-Host "  -> T12 Contract Schemas: PASS ($($sw1.Elapsed.TotalSeconds.ToString('F1'))s)" -ForegroundColor Green
-                Record-Result "Contracts" "T12 Contract Schema" "python tools/t12/validate_r1_contracts.py" "PASS" $sw1.Elapsed.TotalSeconds "184 instances, 74 cases, 23 protected hashes matched"
+                Record-Result "Contracts" "T12 Contract Schema" "python tools/t12/validate_r1_contracts.py --reviewed-widget-sources" "PASS" $sw1.Elapsed.TotalSeconds "Reviewed-source reconciliation and frozen contract validation passed; detailed counters in validator output"
             } else {
                 Write-Host "  -> T12 Contract Schemas: FAIL" -ForegroundColor Red
                 Record-Result "Contracts" "T12 Contract Schema" "python tools/t12/validate_r1_contracts.py" "FAIL" $sw1.Elapsed.TotalSeconds "Contract validation failed or Python could not start"
