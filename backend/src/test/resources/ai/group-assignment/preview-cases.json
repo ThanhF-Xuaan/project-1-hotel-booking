@@ -1,0 +1,1045 @@
+{
+  "dataMode": "SYNTHETIC",
+  "schemaVersion": "group-preview-local-v1",
+  "asOf": "2026-10-31T02:00:00Z",
+  "source": "C01 reviewed quota oracles; no real guests or rooms",
+  "c01Sha256": "cc7ef3ebbdb23e60edb09be52f0db5a33f2d7f72b8b007830ee07b8f8dc5ad48",
+  "cases": [
+    {
+      "id": "P01",
+      "request": {
+        "hotelId": 1,
+        "contractId": 501,
+        "checkInDate": "2026-11-01",
+        "checkOutDate": "2026-11-03",
+        "demands": [
+          {
+            "demandKey": "A",
+            "persons": 2,
+            "requiredBedUnits": 1
+          },
+          {
+            "demandKey": "B",
+            "persons": 3,
+            "requiredBedUnits": 2
+          }
+        ]
+      },
+      "snapshot": {
+        "scope": {
+          "hotelId": 1,
+          "regionId": 10,
+          "contractId": 501
+        },
+        "snapshotId": "synthetic-P01",
+        "observedAt": "2026-10-31T01:59:55Z",
+        "validUntil": "2026-10-31T02:00:55Z",
+        "basis": "SYNTHETIC_PREVIEWABLE_ROOMS_V1",
+        "dataMode": "SYNTHETIC",
+        "coverage": "COMPLETE",
+        "candidates": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "capacityPersons": 4,
+            "bedUnits": 2,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 13,
+            "hotelId": 1,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "capacityPersons": 4,
+            "bedUnits": 2,
+            "floorNumber": 2,
+            "eligibleForEntireStay": true
+          }
+        ],
+        "quotaRows": [
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 1
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 2
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 1
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 2
+          }
+        ],
+        "nightEligibility": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 13,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 13,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          }
+        ]
+      },
+      "expected": {
+        "assignments": [
+          {
+            "demandKey": "A",
+            "roomInstanceId": 11
+          },
+          {
+            "demandKey": "B",
+            "roomInstanceId": 12
+          }
+        ],
+        "unmetKeys": [],
+        "assignedCount": 2,
+        "bedWaste": 0,
+        "floorSpan": 0
+      }
+    },
+    {
+      "id": "P11_QUOTA_ONE",
+      "request": {
+        "hotelId": 1,
+        "contractId": 501,
+        "checkInDate": "2026-11-01",
+        "checkOutDate": "2026-11-03",
+        "demands": [
+          {
+            "demandKey": "A",
+            "persons": 2,
+            "requiredBedUnits": 1
+          },
+          {
+            "demandKey": "B",
+            "persons": 2,
+            "requiredBedUnits": 1
+          }
+        ]
+      },
+      "snapshot": {
+        "scope": {
+          "hotelId": 1,
+          "regionId": 10,
+          "contractId": 501
+        },
+        "snapshotId": "synthetic-P11_QUOTA_ONE",
+        "observedAt": "2026-10-31T01:59:55Z",
+        "validUntil": "2026-10-31T02:00:55Z",
+        "basis": "SYNTHETIC_PREVIEWABLE_ROOMS_V1",
+        "dataMode": "SYNTHETIC",
+        "coverage": "COMPLETE",
+        "candidates": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          }
+        ],
+        "quotaRows": [
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 1
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 1
+          }
+        ],
+        "nightEligibility": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          }
+        ]
+      },
+      "expected": {
+        "assignments": [
+          {
+            "demandKey": "A",
+            "roomInstanceId": 11
+          }
+        ],
+        "unmetKeys": [
+          "B"
+        ],
+        "assignedCount": 1,
+        "bedWaste": 0,
+        "floorSpan": 0
+      }
+    },
+    {
+      "id": "P12_MIDDLE_BOTTLENECK",
+      "request": {
+        "hotelId": 1,
+        "contractId": 501,
+        "checkInDate": "2026-11-01",
+        "checkOutDate": "2026-11-04",
+        "demands": [
+          {
+            "demandKey": "A",
+            "persons": 2,
+            "requiredBedUnits": 1
+          },
+          {
+            "demandKey": "B",
+            "persons": 2,
+            "requiredBedUnits": 1
+          }
+        ]
+      },
+      "snapshot": {
+        "scope": {
+          "hotelId": 1,
+          "regionId": 10,
+          "contractId": 501
+        },
+        "snapshotId": "synthetic-P12_MIDDLE_BOTTLENECK",
+        "observedAt": "2026-10-31T01:59:55Z",
+        "validUntil": "2026-10-31T02:00:55Z",
+        "basis": "SYNTHETIC_PREVIEWABLE_ROOMS_V1",
+        "dataMode": "SYNTHETIC",
+        "coverage": "COMPLETE",
+        "candidates": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          }
+        ],
+        "quotaRows": [
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 2
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 1
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "previewableRoomCount": 2
+          }
+        ],
+        "nightEligibility": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "state": "ELIGIBLE"
+          }
+        ]
+      },
+      "expected": {
+        "assignments": [
+          {
+            "demandKey": "A",
+            "roomInstanceId": 11
+          }
+        ],
+        "unmetKeys": [
+          "B"
+        ],
+        "assignedCount": 1,
+        "bedWaste": 0,
+        "floorSpan": 0
+      }
+    },
+    {
+      "id": "P14_ZERO",
+      "request": {
+        "hotelId": 1,
+        "contractId": 501,
+        "checkInDate": "2026-11-01",
+        "checkOutDate": "2026-11-04",
+        "demands": [
+          {
+            "demandKey": "A",
+            "persons": 2,
+            "requiredBedUnits": 1
+          },
+          {
+            "demandKey": "B",
+            "persons": 2,
+            "requiredBedUnits": 1
+          }
+        ]
+      },
+      "snapshot": {
+        "scope": {
+          "hotelId": 1,
+          "regionId": 10,
+          "contractId": 501
+        },
+        "snapshotId": "synthetic-P14_ZERO",
+        "observedAt": "2026-10-31T01:59:55Z",
+        "validUntil": "2026-10-31T02:00:55Z",
+        "basis": "SYNTHETIC_PREVIEWABLE_ROOMS_V1",
+        "dataMode": "SYNTHETIC",
+        "coverage": "COMPLETE",
+        "candidates": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          }
+        ],
+        "quotaRows": [
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 2
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 0
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "previewableRoomCount": 2
+          }
+        ],
+        "nightEligibility": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "state": "ELIGIBLE"
+          }
+        ]
+      },
+      "expected": {
+        "assignments": [],
+        "unmetKeys": [
+          "A",
+          "B"
+        ],
+        "assignedCount": 0,
+        "bedWaste": 0,
+        "floorSpan": 0
+      }
+    },
+    {
+      "id": "P14_CONTROL",
+      "request": {
+        "hotelId": 1,
+        "contractId": 501,
+        "checkInDate": "2026-11-01",
+        "checkOutDate": "2026-11-04",
+        "demands": [
+          {
+            "demandKey": "A",
+            "persons": 2,
+            "requiredBedUnits": 1
+          },
+          {
+            "demandKey": "B",
+            "persons": 2,
+            "requiredBedUnits": 1
+          }
+        ]
+      },
+      "snapshot": {
+        "scope": {
+          "hotelId": 1,
+          "regionId": 10,
+          "contractId": 501
+        },
+        "snapshotId": "synthetic-P14_CONTROL",
+        "observedAt": "2026-10-31T01:59:55Z",
+        "validUntil": "2026-10-31T02:00:55Z",
+        "basis": "SYNTHETIC_PREVIEWABLE_ROOMS_V1",
+        "dataMode": "SYNTHETIC",
+        "coverage": "COMPLETE",
+        "candidates": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          }
+        ],
+        "quotaRows": [
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 2
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 2
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "previewableRoomCount": 2
+          }
+        ],
+        "nightEligibility": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-03",
+            "state": "ELIGIBLE"
+          }
+        ]
+      },
+      "expected": {
+        "assignments": [
+          {
+            "demandKey": "A",
+            "roomInstanceId": 11
+          },
+          {
+            "demandKey": "B",
+            "roomInstanceId": 12
+          }
+        ],
+        "unmetKeys": [],
+        "assignedCount": 2,
+        "bedWaste": 0,
+        "floorSpan": 0
+      }
+    },
+    {
+      "id": "P14_NO_TRANSFER_roomBlockId",
+      "request": {
+        "hotelId": 1,
+        "contractId": 501,
+        "checkInDate": "2026-11-01",
+        "checkOutDate": "2026-11-03",
+        "demands": [
+          {
+            "demandKey": "A",
+            "persons": 2,
+            "requiredBedUnits": 1
+          },
+          {
+            "demandKey": "B",
+            "persons": 2,
+            "requiredBedUnits": 1
+          }
+        ]
+      },
+      "snapshot": {
+        "scope": {
+          "hotelId": 1,
+          "regionId": 10,
+          "contractId": 501
+        },
+        "snapshotId": "synthetic-P14_NO_TRANSFER_roomBlockId",
+        "observedAt": "2026-10-31T01:59:55Z",
+        "validUntil": "2026-10-31T02:00:55Z",
+        "basis": "SYNTHETIC_PREVIEWABLE_ROOMS_V1",
+        "dataMode": "SYNTHETIC",
+        "coverage": "COMPLETE",
+        "candidates": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          }
+        ],
+        "quotaRows": [
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 0
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 2
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 0
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 2
+          }
+        ],
+        "nightEligibility": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 602,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          }
+        ]
+      },
+      "expected": {
+        "assignments": [
+          {
+            "demandKey": "A",
+            "roomInstanceId": 12
+          }
+        ],
+        "unmetKeys": [
+          "B"
+        ],
+        "assignedCount": 1,
+        "bedWaste": 0,
+        "floorSpan": 0
+      }
+    },
+    {
+      "id": "P14_NO_TRANSFER_hotelRoomTypeId",
+      "request": {
+        "hotelId": 1,
+        "contractId": 501,
+        "checkInDate": "2026-11-01",
+        "checkOutDate": "2026-11-03",
+        "demands": [
+          {
+            "demandKey": "A",
+            "persons": 2,
+            "requiredBedUnits": 1
+          },
+          {
+            "demandKey": "B",
+            "persons": 2,
+            "requiredBedUnits": 1
+          }
+        ]
+      },
+      "snapshot": {
+        "scope": {
+          "hotelId": 1,
+          "regionId": 10,
+          "contractId": 501
+        },
+        "snapshotId": "synthetic-P14_NO_TRANSFER_hotelRoomTypeId",
+        "observedAt": "2026-10-31T01:59:55Z",
+        "validUntil": "2026-10-31T02:00:55Z",
+        "basis": "SYNTHETIC_PREVIEWABLE_ROOMS_V1",
+        "dataMode": "SYNTHETIC",
+        "coverage": "COMPLETE",
+        "candidates": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 102,
+            "capacityPersons": 2,
+            "bedUnits": 1,
+            "floorNumber": 1,
+            "eligibleForEntireStay": true
+          }
+        ],
+        "quotaRows": [
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 0
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-01",
+            "previewableRoomCount": 2
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 0
+          },
+          {
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-02",
+            "previewableRoomCount": 2
+          }
+        ],
+        "nightEligibility": [
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-01",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 11,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 101,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          },
+          {
+            "roomInstanceId": 12,
+            "hotelId": 1,
+            "contractId": 501,
+            "roomBlockId": 601,
+            "hotelRoomTypeId": 102,
+            "stayDate": "2026-11-02",
+            "state": "ELIGIBLE"
+          }
+        ]
+      },
+      "expected": {
+        "assignments": [
+          {
+            "demandKey": "A",
+            "roomInstanceId": 12
+          }
+        ],
+        "unmetKeys": [
+          "B"
+        ],
+        "assignedCount": 1,
+        "bedWaste": 0,
+        "floorSpan": 0
+      }
+    }
+  ]
+}

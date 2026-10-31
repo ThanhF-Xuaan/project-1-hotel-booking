@@ -4,8 +4,12 @@ import { getKeycloakToken, BACKEND_URL } from '../helpers/auth.helper';
 
 test.skip(process.env.OCR_FULL_APP !== 'true', 'Explicit isolated OCR sandbox only');
 function sql(query: string): string {
-  const container = execFileSync('docker', ['ps', '--filter', 'label=com.docker.compose.project=hotel-ocr02-final', '--filter', 'label=com.docker.compose.service=acceptance_postgres', '--format', '{{.ID}}'], { encoding: 'utf8' }).trim();
-  if (!container) throw new Error('Dedicated OCR sandbox is required');
+  const project = process.env.OCR_ACCEPTANCE_PROJECT || 'hotel-ocr02-final';
+  if (!['hotel-ocr02-final', 'hotel-m1-acceptance'].includes(project)) throw new Error('Unapproved OCR sandbox');
+  const container = execFileSync('docker', ['ps', '--filter', `label=com.docker.compose.project=${project}`, '--filter', 'label=com.docker.compose.service=acceptance_postgres', '--format', '{{.ID}}'], { encoding: 'utf8' }).trim();
+  if (!/^[a-f0-9]+$/.test(container)) throw new Error('Dedicated OCR sandbox is required');
+  const binding = execFileSync('docker', ['port', container, '5432/tcp'], { encoding: 'utf8' }).trim();
+  if (project === 'hotel-m1-acceptance' && binding !== '127.0.0.1:15432') throw new Error('Unexpected database binding');
   return execFileSync('docker', ['exec', container, 'psql', '-U', 'postgres', '-d', 'hotel_acceptance_db', '-v', 'ON_ERROR_STOP=1', '-Atc', query], { encoding: 'utf8' }).trim();
 }
 
@@ -31,8 +35,9 @@ test('real OCR draft is editable and persists only after human verification and 
   expect(sql('SELECT count(*) FROM stay_guests')).toBe(before);
   await expect(page.getByRole('button', { name: 'Lưu khách lưu trú' })).toBeDisabled();
   await page.getByPlaceholder('NGUYỄN VĂN A').fill('OCR SYNTHETIC REVIEWED');
-  await page.getByLabel('Giờ nhận phòng', { exact: true }).fill('2026-10-29T14:00');
-  await page.getByLabel('Giờ dự kiến trả phòng').fill('2026-10-30T12:00');
+  const dates = JSON.parse(sql("SELECT json_build_object('arrival', (CURRENT_DATE+1)::text, 'departure', (CURRENT_DATE+2)::text)")) as { arrival: string; departure: string };
+  await page.getByLabel('Giờ nhận phòng', { exact: true }).fill(`${dates.arrival}T14:00`);
+  await page.getByLabel('Giờ dự kiến trả phòng').fill(`${dates.departure}T12:00`);
   await page.getByRole('checkbox').check();
   expect(sql('SELECT count(*) FROM stay_guests')).toBe(before);
   const created = page.waitForResponse(r => r.url().endsWith('/stay-guests/create'));

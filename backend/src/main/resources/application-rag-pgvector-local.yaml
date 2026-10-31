@@ -1,0 +1,15 @@
+# Operator must provision/migrate the dedicated RAG target explicitly first.
+# Start the JVM with -Duser.timezone=Asia/Ho_Chi_Minh; minimal images may omit the Asia/Saigon alias.
+spring:
+  liquibase:
+    enabled: false
+hotel:
+  ai:
+    rag:
+      store-type: pgvector
+      demo-corpus:
+        enabled: false
+      pgvector:
+        jdbc-url: ${RAG_PGVECTOR_JDBC_URL}
+        username: ${RAG_PGVECTOR_USERNAME}
+        password: ${RAG_PGVECTOR_PASSWORD}

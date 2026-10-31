@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.store;
 
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagScopeType;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagVersionStatus;
@@ -15,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 @Component
+@ConditionalOnProperty(prefix = "hotel.ai.rag", name = "store-type", havingValue = "in-memory", matchIfMissing = true)
 public class InMemoryScopedVectorStore implements RagVectorStorePort {
 
     private final int expectedDimension;

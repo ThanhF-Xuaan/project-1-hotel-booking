@@ -10,36 +10,46 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.text.Normalizer;
 
 @Component
 public class RagCorpusGovernanceValidator {
 
     // PII patterns
     private static final Pattern CCCD_PATTERN = Pattern.compile(
-            "(?i)(?:(?:cccd|cmnd|căn\\s*cước|định\\s*danh|số\\s*giấy\\s*tờ)\\s*[:#-]?\\s*\\b\\d{9,12}\\b|\\b0\\d{11}\\b)"
+            "(?iuU)(?:(?:cccd|cmnd|căn\\s*cước|định\\s*danh|số\\s*giấy\\s*tờ)\\s*[:#-]?\\s*\\b\\d{9,12}\\b|\\b0\\d{11}\\b)"
     );
-    private static final Pattern PASSPORT_PATTERN = Pattern.compile("(?i)(?:hộ\\s*chiếu|passport)\\s*[:#-]?\\s*\\b([A-Z]\\d{7,8})\\b");
-    private static final Pattern PHONE_PATTERN = Pattern.compile("(?i)(?:sđt|điện\\s*thoại|phone|tel|mobile)?\\s*[:#-]?\\s*\\b(0|\\+84)(?:3|5|7|8|9)\\d{8}\\b");
+    private static final Pattern PASSPORT_PATTERN = Pattern.compile("(?iuU)(?:hộ\\s*chiếu|passport)\\s*[:#-]?\\s*\\b([A-Z]\\d{7,8})\\b");
+    private static final Pattern PHONE_PATTERN = Pattern.compile("(?iuU)(?:sđt|điện\\s*thoại|phone|tel|mobile)?\\s*[:#-]?\\s*\\b(0|\\+84)(?:3|5|7|8|9)\\d{8}\\b");
     private static final Pattern EMAIL_PATTERN = Pattern.compile("\\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\\b");
-    private static final Pattern PAYROLL_PATTERN = Pattern.compile("(?i)\\b(payroll|bảng\\s*lương|net_salary|gross_salary|tiền\\s*lương|hệ\\s*số\\s*lương|thu\\s*nhập\\s*tháng)\\b");
+    private static final Pattern PAYROLL_PATTERN = Pattern.compile("(?iuU)\\b(payroll|salary|salaries|bảng\\s*lương|net_salary|gross_salary|tiền\\s*lương|hệ\\s*số\\s*lương|thu\\s*nhập\\s*tháng)\\b");
 
     // Confidential patterns
     private static final Pattern CONFIDENTIAL_PATTERN = Pattern.compile(
-            "(?i)\\b(INTERNAL_ONLY|CONFIDENTIAL|LƯU\\s*HÀNH\\s*NỘI\\s*BỘ|NỘI\\s*BỘ|TÀI\\s*LIỆU\\s*MẬT|TỐI\\s*MẬT|TUYỆT\\s*MẬT|api_key|secret_key|private_key|bearer\\s+[A-Za-z0-9._-]{20,}|password\\s*[:=]|mật\\s*khẩu\\s*[:=])\\b"
+            "(?iuU)\\b(INTERNAL_ONLY|CONFIDENTIAL|LƯU\\s*HÀNH\\s*NỘI\\s*BỘ|NỘI\\s*BỘ|TÀI\\s*LIỆU\\s*MẬT|TỐI\\s*MẬT|TUYỆT\\s*MẬT|api_key|secret_key|private_key|bearer\\s+[A-Za-z0-9._-]{20,}|password\\s*[:=]|mật\\s*khẩu\\s*[:=])\\b"
     );
 
+    private static final Pattern CREDENTIAL_ASSIGNMENT_PATTERN = Pattern.compile(
+            "(?iuU)\\b(?:password|mật\\s*khẩu)\\s*[:=]");
+
     // Guest / live booking data patterns
-    private static final Pattern GUEST_BOOKING_PATTERN = Pattern.compile("(?i)\\b(booking_id|guest_id|khách\\s*đang\\s*ở\\s*phòng\\s*\\d+|danh\\s*sách\\s*khách\\s*lưu\\s*trú)\\b");
+    private static final Pattern GUEST_BOOKING_PATTERN = Pattern.compile("(?iuU)\\b(booking_id|guest_id|khách\\s*đang\\s*ở\\s*phòng\\s*\\d+|danh\\s*sách\\s*khách\\s*lưu\\s*trú)\\b");
 
     // Indirect prompt injection patterns in static content
     private static final Pattern INDIRECT_INJECTION_PATTERN = Pattern.compile(
-            "(?i)(bỏ\\s*qua\\s*(mọi|các)?\\s*(hướng\\s*dẫn|lệnh|quy\\s*tắc|yêu\\s*cầu)|ignore\\s*(all)?\\s*(previous|prior)?\\s*instructions|disregard\\s*(all)?\\s*(previous|prior)?\\s*instructions|print\\s*(your)?\\s*(system\\s*prompt|api\\s*key)|output\\s*(your)?\\s*(system\\s*prompt)|hãy\\s*nói\\s*rằng|system\\s*prompt)"
+            "(?iuU)(bỏ\\s*qua\\s*(mọi|các)?\\s*(hướng\\s*dẫn|lệnh|quy\\s*tắc|yêu\\s*cầu)|ignore\\s*(all)?\\s*(previous|prior)?\\s*instructions|disregard\\s*(all)?\\s*(previous|prior)?\\s*instructions|print\\s*(your)?\\s*(system\\s*prompt|api\\s*key)|output\\s*(your)?\\s*(system\\s*prompt)|hãy\\s*nói\\s*rằng|system\\s*prompt)"
     );
 
     // Static price claim patterns in static corpus
     private static final Pattern STATIC_PRICE_CLAIM_PATTERN = Pattern.compile(
-            "(?i)(báo\\s*giá\\s*1\\s*(đồng|đ|vnd)|giá\\s*phòng\\s*(hiện\\s*tại\\s*là|chỉ|từ)?\\s*\\d+([.,]\\d+)*\\s*(đ|đồng|vnd|k|usd|\\$)|price\\s*(is|starts\\s*at)?\\s*\\$?\\d+([.,]\\d+)*)"
+            "(?iuU)(báo\\s*giá\\s*1\\s*(đồng|đ|vnd)|giá\\s*phòng\\s*(hiện\\s*tại\\s*là|chỉ|từ)?\\s*\\d+([.,]\\d+)*\\s*(đ|đồng|vnd|k|usd|\\$)|price\\s*(is|starts\\s*at)?\\s*\\$?\\d+([.,]\\d+)*)"
     );
+    private static final Pattern LIVE_AVAILABILITY_PATTERN = Pattern.compile(
+            "(?iuU)(\\d+\\s+rooms?\\s+(?:are\\s+)?available\\s+(?:today|tonight|now)|còn\\s+\\d+\\s+phòng.*(?:hôm\\s*nay|tối\\s*nay|hiện\\s*tại))");
+
+    public static String canonicalSafetyText(String text) {
+        return text == null ? "" : Normalizer.normalize(text, Normalizer.Form.NFKC).replaceAll("\\p{Cf}", "");
+    }
 
     public CorpusValidationResult validateForIngestion(RagIngestRequestDto request) {
         if (request == null) {
@@ -74,7 +84,7 @@ public class RagCorpusGovernanceValidator {
 
         String content = request.getContent() != null ? request.getContent() : "";
         String title = request.getTitle() != null ? request.getTitle() : "";
-        String combined = title + "\n" + content;
+        String combined = canonicalSafetyText(title + "\n" + content);
 
         // PII checks
         if (CCCD_PATTERN.matcher(combined).find() || PASSPORT_PATTERN.matcher(combined).find()) {
@@ -99,7 +109,7 @@ public class RagCorpusGovernanceValidator {
         }
 
         // Confidentiality checks
-        if (CONFIDENTIAL_PATTERN.matcher(combined).find()) {
+        if (CONFIDENTIAL_PATTERN.matcher(combined).find() || CREDENTIAL_ASSIGNMENT_PATTERN.matcher(combined).find()) {
             return CorpusValidationResult.builder()
                     .valid(false)
                     .rejectionReason("REJECTED_CONFIDENTIAL_CONTENT: Internal-only, confidential documents or credentials cannot be ingested")
@@ -130,25 +140,29 @@ public class RagCorpusGovernanceValidator {
         }
 
         boolean injectionFound = false;
-        boolean priceClaimFound = false;
+        boolean priceClaimFound = STATIC_PRICE_CLAIM_PATTERN.matcher(canonicalSafetyText(text)).find();
         List<String> warnings = new ArrayList<>();
 
         // 1. Sanitize indirect prompt injection
-        Matcher injMatcher = INDIRECT_INJECTION_PATTERN.matcher(text);
-        String cleaned = text;
-        if (injMatcher.find()) {
-            injectionFound = true;
-            cleaned = injMatcher.replaceAll("[LỆNH ĐÃ BỊ LOẠI BỎ]");
-            warnings.add("INDIRECT_INJECTION_STRIPPED");
+        List<String> safeLines = new ArrayList<>();
+        for (String line : canonicalSafetyText(text).split("\\R", -1)) {
+            if (INDIRECT_INJECTION_PATTERN.matcher(line).find()) {
+                injectionFound = true; safeLines.add("[LỆNH ĐÃ BỊ LOẠI BỎ]");
+            } else if (LIVE_AVAILABILITY_PATTERN.matcher(line).find()) {
+                safeLines.add("[TÌNH TRẠNG PHÒNG: Vui lòng tra cứu hệ thống Core Booking]");
+                warnings.add("LIVE_AVAILABILITY_STRIPPED_DEFER_TO_CORE");
+            } else safeLines.add(line);
         }
+        String cleaned = String.join("\n", safeLines);
+        if (injectionFound) warnings.add("INDIRECT_INJECTION_STRIPPED");
 
         // 2. Sanitize static price claims that could conflict with live core prices
         Matcher priceMatcher = STATIC_PRICE_CLAIM_PATTERN.matcher(cleaned);
         if (priceMatcher.find()) {
             priceClaimFound = true;
             cleaned = priceMatcher.replaceAll("[THÔNG TIN GIÁ PHÒNG: Vui lòng tra cứu trực tiếp từ hệ thống đặt phòng Core Booking]");
-            warnings.add("PRICE_CLAIMS_STRIPPED_DEFER_TO_CORE");
         }
+        if (priceClaimFound) warnings.add("PRICE_CLAIMS_STRIPPED_DEFER_TO_CORE");
 
         return SanitizedContentResult.builder()
                 .sanitizedText(cleaned.trim())

@@ -4,6 +4,7 @@ const path = require('node:path');
 const cp = require('node:child_process');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const { reconcile } = require('./reconcile_widget_search.cjs');
 const root = path.resolve(__dirname, '../..');
 const ts = require(path.join(root, 'frontend/node_modules/typescript'));
 const audit = JSON.parse(fs.readFileSync(path.join(root,
@@ -126,7 +127,7 @@ for (const [name, entry] of Object.entries(oldImports)) {
     const previous = readGit(audit.comparisonCommit, modulePath);
     const reviewed = readGit(audit.acceptedDevelopCommit, modulePath);
     assert.equal(lf(previous), lf(reviewed));
-    let currentModule = lf(fs.readFileSync(path.join(root, modulePath), 'utf8'));
+    let currentModule = reconcile(root, modulePath, lf(fs.readFileSync(path.join(root, modulePath), 'utf8')));
     if (modulePath === 'frontend/src/modules/booking-portal/pages/SearchPage.tsx') {
       assert.equal(currentModule.split(approvedU14SearchLink).length - 1, 1,
         'Expected exactly one approved U14 entry link in SearchPage');

@@ -47,6 +47,15 @@ function Initialize-AcceptanceRuntime {
         '-p', 'hotel-m1-acceptance',
         '-f', (Join-Path $projectRoot 'docker-compose.acceptance.yml')
     )
+    # Optional per-run volume names keep a fresh disposable sandbox separate from retained evidence.
+    if ($environment.ACCEPTANCE_VOLUME_PREFIX) {
+        $prefix = [string]$environment.ACCEPTANCE_VOLUME_PREFIX
+        if ($prefix -notmatch '^[a-z][a-z0-9-]{0,62}$') { throw 'Invalid acceptance volume prefix.' }
+        $overrideFile = Join-Path $runtimeDirectory 'volumes.override.yml'
+        $volumeYaml = "volumes:`n  acceptance_pg_data:`n    name: ${prefix}-pg`n  acceptance_redis_data:`n    name: ${prefix}-redis`n  acceptance_kc_data:`n    name: ${prefix}-kc`n"
+        [IO.File]::WriteAllText($overrideFile, $volumeYaml, (New-Object System.Text.UTF8Encoding($false)))
+        $composeArguments += @('-f', $overrideFile)
+    }
 
     return [PSCustomObject]@{
         RuntimeDirectory = $runtimeDirectory

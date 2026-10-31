@@ -1,6 +1,6 @@
 # One-command local technical acceptance. Requires an idle, disposable acceptance sandbox.
 [CmdletBinding()]
-param()
+param([switch]$IncludeM1Benchmark, [switch]$IncludeM1AdditionalTests)
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -107,7 +107,8 @@ try {
     $env:CI = 'true'
     $BaseSha = (git -C $ProjectRoot rev-parse HEAD).Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Không xác định được Git SHA.' }
-    $Branch = (git -C $ProjectRoot branch --show-current).Trim()
+    $Branch = git -C $ProjectRoot branch --show-current
+    if (-not $Branch) { $Branch = '(detached HEAD)' }
     $GitStatus = @(git -C $ProjectRoot status --short)
     $ScriptHashes = @(Get-ChildItem -LiteralPath $ScriptDir -Filter '*.ps1' | ForEach-Object {
         [PSCustomObject]@{ file = $_.Name; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
@@ -139,14 +140,19 @@ try {
     Invoke-ScriptStage -Name 'maven' -Script 'Run-BackendTests.ps1' -Arguments @('-EvidenceDirectory', $RunDir)
     $Backend = Get-Content -LiteralPath (Join-Path $RunDir 'backend.json') -Raw | ConvertFrom-Json
     if ($Backend.status -ne 'PASS' -or $Backend.tests -lt 1) { throw 'Thiếu evidence Maven PASS.' }
+    if ($IncludeM1AdditionalTests) {
+        Invoke-ScriptStage -Name 'additional-postgres' -Script 'Run-M1AdditionalTests.ps1' -Arguments @('-EvidenceDirectory', $RunDir)
+    }
     Invoke-Stage -Name 'source-audit' -Executable (Get-Command node -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_lazy_route_reaudit.cjs'))
     Invoke-Stage -Name 'u14-source-audit' -Executable (Get-Command node -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_u14_source_reaudit.cjs'))
     Invoke-Stage -Name 'core-source-audit' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
-        -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_core_reaudit.py'))
+        -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_current_core_reaudit.py'))
     Invoke-Stage -Name 'core-source-audit-tests' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/test_core_reaudit.py'))
+    Invoke-Stage -Name 'current-source-audit-tests' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
+        -Arguments @((Join-Path $ProjectRoot 'tools/t12/test_current_core_reaudit.py'))
     Push-Location (Join-Path $ProjectRoot 'frontend')
     try {
         Invoke-Stage -Name 'dependency-audit' -Executable (Get-Command npm.cmd -CommandType Application | Select-Object -First 1).Source `
@@ -167,8 +173,13 @@ try {
         $ExpectedStatus = if ($Suite.Suite -eq 'Maven Core Modules') { 'SKIPPED' } else { 'PASS' }
         if ($Suite.Status -ne $ExpectedStatus) { throw "Suite $($Suite.Suite) có trạng thái $($Suite.Status)." }
     }
+    if ($IncludeM1Benchmark) {
+        Invoke-ScriptStage -Name 'm1-benchmark-smoke' -Script 'Benchmark-M1.ps1' -Arguments @('-OutputDirectory', (Join-Path $RunDir 'benchmark-smoke'), '-Smoke')
+        Invoke-ScriptStage -Name 'm1-benchmark' -Script 'Benchmark-M1.ps1' -Arguments @('-OutputDirectory', (Join-Path $RunDir 'benchmark'))
+    }
 } catch {
     $Problems.Add($_.Exception.Message)
+    Write-Warning $_.ScriptStackTrace
     Write-Warning $_.Exception.Message
 } finally {
     if ($OwnedInfrastructure) {

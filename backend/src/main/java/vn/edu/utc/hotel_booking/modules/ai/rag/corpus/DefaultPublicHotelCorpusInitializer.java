@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Lazy;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagActivationRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagDocumentCategory;
@@ -25,7 +26,7 @@ public class DefaultPublicHotelCorpusInitializer {
 
     public DefaultPublicHotelCorpusInitializer(
             RagKnowledgeLifecycleService lifecycleService,
-            RagVectorStorePort vectorStore,
+            @Lazy RagVectorStorePort vectorStore,
             @Value("${hotel.ai.rag.demo-corpus.enabled:false}") boolean demoCorpusEnabled
     ) {
         this.lifecycleService = lifecycleService;

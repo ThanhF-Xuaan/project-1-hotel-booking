@@ -1,0 +1,3 @@
+# Preserve exact approved fixture bytes on Windows and Unix checkouts.
+occupancy-history-420-days.json -text
+utility-readings-42-days.csv -text

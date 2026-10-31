@@ -38,7 +38,25 @@ $env:SPRING_LIQUIBASE_ENABLED = 'false'
 $env:LIQUIBASE_CONTEXTS = 'master-data'
 $env:HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET = [string]$runtime.HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET
 # The acceptance sandbox must use deterministic extraction even when the host has a Gemini key.
+$env:HOTEL_AI_ADVISOR_PROVIDER_GEMINIENABLED = 'false'
+$env:HOTEL_AI_ADVISOR_PROVIDER_GEMINI_ENABLED = 'false'
 Remove-Item Env:GEMINI_API_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:GOOGLE_API_KEY -ErrorAction SilentlyContinue
+if ([string]$runtime.HOTEL_AI_OCR_ENABLED -eq 'true') {
+    if (-not $runtime.TESSERACT_EXE -or -not (Test-Path -LiteralPath ([string]$runtime.TESSERACT_EXE) -PathType Leaf)) {
+        throw 'Enabled OCR acceptance requires a verified Tesseract executable.'
+    }
+    $env:SPRING_PROFILES_ACTIVE = 'ocr-local'
+    $env:HOTEL_AI_OCR_ENABLED = 'true'
+    $env:TESSERACT_EXE = [string]$runtime.TESSERACT_EXE
+} else {
+    $env:HOTEL_AI_OCR_ENABLED = 'false'
+    Remove-Item Env:SPRING_PROFILES_ACTIVE -ErrorAction SilentlyContinue
+}
+$env:HOTEL_AI_RAG_DEMO_CORPUS_ENABLED = 'true'
+$env:HOTEL_AI_RAG_DEMOCORPUS_ENABLED = 'true'
+$env:HOTEL_AI_RAG_STORETYPE = 'in-memory'
+$env:HOTEL_AI_RAG_STORE_TYPE = 'in-memory'
 
 if ($Component -eq 'backend') {
     $backendDirectory = Join-Path $ProjectRoot 'backend'
