@@ -6,7 +6,7 @@ WORKDIR /app
 
 # Khai báo Build Arguments cho biến môi trường Vite (Bake vào Bundle lúc build)
 ARG VITE_API_BASE_URL=""
-ARG VITE_KEYCLOAK_URL=https://hotel.utc.edu.vn
+ARG VITE_KEYCLOAK_URL=https://smartstay.space
 ARG VITE_KEYCLOAK_REALM=hotel-realm
 ARG VITE_KEYCLOAK_CLIENT_ID=hotel-frontend
 

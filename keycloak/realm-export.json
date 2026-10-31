@@ -77,6 +77,8 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "redirectUris": [
+        "https://smartstay.space/*",
+        "https://www.smartstay.space/*",
         "http://localhost/*",
         "http://localhost:3000/*",
         "http://localhost:5173/*",
@@ -87,6 +89,8 @@
       ],
       "webOrigins": [
         "+",
+        "https://smartstay.space",
+        "https://www.smartstay.space",
         "http://localhost",
         "http://localhost:3000",
         "http://localhost:5173",

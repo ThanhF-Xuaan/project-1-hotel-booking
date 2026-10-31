@@ -35,10 +35,10 @@ export const Header: React.FC = () => {
         </div>
         <div>
           <h1 className="text-base md:text-lg font-bold text-neutral-900 tracking-tight leading-none">
-            UTC HOTEL SYSTEM
+            SMARTSTAY SYSTEM
           </h1>
           <span className="text-[11px] font-medium text-red-600 uppercase tracking-wider">
-            Modular Monolith Enterprise
+            Smart Hospitality & AI Advisor
           </span>
         </div>
       </div>
@@ -79,7 +79,7 @@ export const Header: React.FC = () => {
                         {userProfile?.name || 'Người dùng'}
                       </h4>
                       <p className="text-xs text-neutral-500 truncate mt-0.5">
-                        {userProfile?.email || 'user@hotel.utc.edu.vn'}
+                        {userProfile?.email || 'user@smartstay.space'}
                       </p>
                       <div className="mt-2 flex items-center gap-1.5">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold bg-red-50 text-red-600 rounded-md border border-red-100">

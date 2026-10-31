@@ -1,5 +1,5 @@
 # ==============================================================================
-# HỆ THỐNG QUẢN LÝ KHÁCH SẠN UTC - CẤU HÌNH NGINX PRODUCTION (HTTPS + DOMAIN)
+# HỆ THỐNG QUẢN LÝ KHÁCH SẠN SMARTSTAY - CẤU HÌNH NGINX PRODUCTION (HTTPS)
 # ==============================================================================
 
 # Upstream Definitions (Sử dụng internal Docker network)
@@ -26,44 +26,63 @@ upstream minio_storage_upstream {
 # ==============================================================================
 # 1. HTTP SERVER (CỔNG 80)
 # - Phục vụ Let's Encrypt HTTP-01 ACME Challenge
-# - Tự động chuyển hướng vĩnh viễn (301) sang HTTPS
+# - Tự động chuyển hướng vĩnh viễn (301) sang HTTPS domain canonical
 # ==============================================================================
 server {
     listen 80;
     listen [::]:80;
-    server_name hotel.utc.edu.vn;
+    server_name smartstay.space www.smartstay.space;
 
-    # Healthcheck nội bộ
+    # Healthcheck nội bộ cho Docker Container
     location = /nginx-health {
         access_log off;
         default_type text/plain;
         return 200 "healthy\n";
     }
 
-    # ACME Challenge cho Certbot tự động cấp/gia hạn chứng chỉ
+    # ACME Challenge cho Certbot tự động gia hạn chứng chỉ định kỳ
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
         try_files $uri =404;
     }
 
-    # Chuyển hướng toàn bộ truy cập còn lại sang HTTPS
+    # Chuyển hướng toàn bộ truy cập còn lại sang HTTPS canonical
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://smartstay.space$request_uri;
     }
 }
 
 # ==============================================================================
-# 2. HTTPS SERVER (CỔNG 443) - SSL/TLS TERMINATION & OWASP SECURITY
+# 2. HTTPS SERVER REDIRECT WWW SANG NON-WWW (CANONICAL DOMAIN)
 # ==============================================================================
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
-    server_name hotel.utc.edu.vn;
+    server_name www.smartstay.space;
+
+    ssl_certificate     /etc/letsencrypt/live/smartstay.space/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/smartstay.space/privkey.pem;
+
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    return 301 https://smartstay.space$request_uri;
+}
+
+# ==============================================================================
+# 3. HTTPS SERVER CHÍNH (CỔNG 443) - SSL/TLS TERMINATION & OWASP SECURITY
+# ==============================================================================
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name smartstay.space;
 
     # Đường dẫn chứng chỉ Let's Encrypt (được mount từ Persistent Volume)
-    ssl_certificate     /etc/letsencrypt/live/hotel.utc.edu.vn/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/hotel.utc.edu.vn/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/smartstay.space/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/smartstay.space/privkey.pem;
 
     # Cấu hình SSL/TLS bảo mật cao (Modern Profile)
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -73,8 +92,8 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_session_tickets off;
 
-    # OWASP Security Headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    # OWASP Security Headers (Cấu hình an toàn, không vội vàng bật preload)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options SAMEORIGIN always;
     add_header X-XSS-Protection "1; mode=block" always;
@@ -92,7 +111,7 @@ server {
     }
 
     # --------------------------------------------------------------------------
-    # 2.1. REST API BACKEND
+    # 3.1. REST API BACKEND (Spring Boot)
     # --------------------------------------------------------------------------
     location /api/ {
         proxy_pass http://backend_upstream/api/;
@@ -110,7 +129,7 @@ server {
     }
 
     # --------------------------------------------------------------------------
-    # 2.2. KEYCLOAK IAM (OIDC Endpoints)
+    # 3.2. KEYCLOAK IAM (OIDC Endpoints & Assets)
     # --------------------------------------------------------------------------
     location /realms/ {
         proxy_pass http://keycloak_upstream/realms/;
@@ -136,7 +155,7 @@ server {
     }
 
     # --------------------------------------------------------------------------
-    # 2.3. S3 STATIC ASSET GATEWAY (MinIO Reverse Proxy - READ-ONLY)
+    # 3.3. S3 STATIC ASSET GATEWAY (MinIO Reverse Proxy - READ-ONLY)
     # Chỉ cho phép phương thức GET và HEAD. Chặn đứng PUT/POST/DELETE từ ngoài.
     # --------------------------------------------------------------------------
     location /storage/ {
@@ -158,7 +177,7 @@ server {
     }
 
     # --------------------------------------------------------------------------
-    # 2.4. FRONTEND REACT SPA (Phục vụ qua Nginx Static Container)
+    # 3.4. FRONTEND REACT SPA (Phục vụ qua Nginx Static Container trên port 80)
     # --------------------------------------------------------------------------
     location / {
         proxy_pass http://frontend_upstream;
