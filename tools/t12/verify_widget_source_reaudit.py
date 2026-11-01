@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from reconcile_deploy_source import reconcile as reconcile_deploy
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'member1'))
 from reconcile_u22_route import APP as U22_APP, reconcile as reconcile_u22
@@ -76,7 +77,9 @@ def verify_reconciliation(audit=None, read_working=None):
     from verify_core_reaudit import verify_existing_errors
     audit = load_audit() if audit is None else audit
     original_reader = (lambda path: (ROOT / path).read_bytes()) if read_working is None else read_working
-    read_working = lambda path: reconcile_u22(original_reader(path)) if path == U22_APP else original_reader(path)
+    def read_working(path):
+        raw = reconcile_deploy(path, original_reader(path))
+        return reconcile_u22(raw) if path == U22_APP else raw
     require(audit['status'] == 'REVIEWED_SOURCE_ONLY', 'Unexpected audit status')
     require(audit['manifestPath'] == MANIFEST and audit['frozenCommit'] == FROZEN_COMMIT
             and audit['reviewedCodeCommit'] == CODE_COMMIT, 'Unreviewed audit identity')

@@ -1,0 +1,36 @@
+{
+  "status": "REVIEWED_SOURCE_ONLY",
+  "baseCommit": "a70b833f8d138621e539fdbcade595eb56165a4c",
+  "reviewedCommit": "7d8ee514b1cbc4e6a4aa4889817620a57e80b513",
+  "authority": "User-authorized integration and AI self-review; no human peer or production/security approval claimed",
+  "files": [
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/config/SecurityConfig.java",
+      "beforeLfSha256": "88d6258c602dcd769bc6176f8119c3506f038a822db3cfb62f02e980b5541dcb",
+      "afterLfSha256": "3a7d261eb075b76c9a9da5b82d45580a86251a57715d3c5e44cbb094d857059c",
+      "patchLfSha256": "8f137468c45ad619caabd13bb902f0e4ba057d59a4d345cfd0366fe025550144",
+      "review": "Adds explicit local CORS origins for nginx; authentication, method security and tenant authorization logic are unchanged. Source-only review, not production IAM approval."
+    },
+    {
+      "path": "backend/pom.xml",
+      "beforeLfSha256": "f2fac42a9457192e657cc0700c507399d76ae0ce6589e18f8da15233a0800f0b",
+      "afterLfSha256": "69a6b8fb9f260d1512f85ba93cab640c1c77a8d2d651e6a6a42564a045d18ba5",
+      "patchLfSha256": "9abd3f99eec3c3c1ea1f300e9ca5cf65f1507065cd156ffe388a9e46f328f065",
+      "review": "Replaces explicitly versioned Spring Boot3 AOP starter with managed Spring Boot4 AspectJ starter. No dependency resolution or runtime compatibility claim before verification."
+    },
+    {
+      "path": "docker-compose.yml",
+      "beforeLfSha256": "730038471762011d8bf45e2810be5c94f433e14db58192cff32b564141a3816e",
+      "afterLfSha256": "eb02f4f84000628f53c1d2230d2eec2ba78b20eb04dca480b64a008374e34d3d",
+      "patchLfSha256": "2ab57a4803aa98253a018e6bbf07494d953998bf8dd85b4a5b3a390466167cef",
+      "review": "Moves service ports to internal expose, adds nginx gateway and proxy headers, loopback MinIO console and frontend ingress defaults. Acceptance uses its own dedicated Compose; this receipt does not validate production deployment or secrets."
+    },
+    {
+      "path": "frontend/src/modules/booking-portal/pages/SearchPage.tsx",
+      "beforeLfSha256": "6a4b6b5857814b36d2b873b1ab3be5e157126cb142a65d46f17a34ffeb924f86",
+      "afterLfSha256": "f9f6039817f6d443f4e909bdf5f7ddac1aeb218386b21374693600f537d8eede",
+      "patchLfSha256": "d5c9e4b2e0ae0040dc83d67381087371a1b6e33c42490dfdb6ba9cdec818a34b",
+      "review": "Adds only PublicFooter import/render. Existing advisor callback, criteria/search/booking navigation and U14 consent link are unchanged."
+    }
+  ]
+}
