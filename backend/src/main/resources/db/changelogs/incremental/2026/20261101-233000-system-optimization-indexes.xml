@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261101-233000-system-optimization-indexes" author="utc-hotel-team">
+        <comment>Sprint 4 U24: Bo sung cac index hieu nang cao cho Booking, Room Availability, Pricing, Payment, Transactions</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261101-233000-system-optimization-indexes.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+        <rollback>
+            <sql>
+                DROP INDEX IF EXISTS idx_bookings_hotel_id;
+                DROP INDEX IF EXISTS idx_booking_details_hotel_room_type;
+                DROP INDEX IF EXISTS idx_booking_rooms_room_instance;
+                DROP INDEX IF EXISTS idx_room_slots_maintenance_block;
+                DROP INDEX IF EXISTS idx_room_slots_booking_room;
+                DROP INDEX IF EXISTS idx_room_instances_hotel_status;
+                DROP INDEX IF EXISTS idx_payments_txn_ref;
+                DROP INDEX IF EXISTS idx_payments_status;
+                DROP INDEX IF EXISTS idx_transactions_booking_id;
+                DROP INDEX IF EXISTS idx_transactions_payment_id;
+                DROP INDEX IF EXISTS idx_pricing_rules_lookup;
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
+
