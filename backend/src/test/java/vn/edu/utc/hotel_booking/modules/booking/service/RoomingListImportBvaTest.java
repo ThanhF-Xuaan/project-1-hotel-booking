@@ -423,4 +423,38 @@ class RoomingListImportBvaTest {
         assertThat(result2.getImportedCount()).isEqualTo(0);
         assertThat(result2.getSkippedCount()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("BVA-13: Nhận diện phòng theo quy chuẩn hậu tố (101A, 101-A, 101 A, 101, 101 - STD)")
+    void testBva13_suffixRoomNumberResolution() throws IOException {
+        when(bookingRepository.findById(100L)).thenReturn(Optional.of(sampleBooking));
+        when(stayGuestRepository.findByBookingRoomId(any())).thenReturn(List.of());
+
+        // Đổi phòng trong sampleBooking thành phòng hậu tố "101A"
+        sampleBooking.getBookingDetails().get(0).getBookingRooms().get(0).getRoomInstance().setRoomNumber("101A");
+
+        List<String[]> data = List.<String[]>of(
+                new String[]{"Khách Một", "Nam", "10/10/1990", "Việt Nam", "001200000001", "0901234501", "k1@test.com", "101A", "Đúng hậu tố"},
+                new String[]{"Khách Hai", "Nữ", "11/11/1991", "Việt Nam", "001200000002", "0901234502", "k2@test.com", "101-A", "Dấu gạch ngang"},
+                new String[]{"Khách Ba", "Nam", "12/12/1992", "Việt Nam", "001200000003", "0901234503", "k3@test.com", "101 A", "Dấu cách"},
+                new String[]{"Khách Bốn", "Nữ", "01/01/1993", "Việt Nam", "001200000004", "0901234504", "k4@test.com", "101", "Chỉ số phòng"},
+                new String[]{"Khách Lỗi", "Nam", "02/02/1994", "Việt Nam", "001200000005", "0901234505", "k5@test.com", "999Z", "Phòng không tồn tại"}
+        );
+
+        byte[] bytes = createWorkbookBytes("RoomingList", STANDARD_HEADERS, data);
+        MockMultipartFile file = new MockMultipartFile("file", "test-suffix.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes);
+
+        RoomingListPreviewResponse preview = bookingService.previewRoomingList(100L, file);
+
+        assertThat(preview.getRows()).hasSize(5);
+        // 4 dòng đầu hợp lệ vì nhận diện đúng phòng 101A (trừ cảnh báo quá tải nếu vượt sức chứa, nhưng các phòng đều được nhận diện thuộc đơn)
+        assertThat(preview.getRows().get(0).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
+        assertThat(preview.getRows().get(1).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
+        assertThat(preview.getRows().get(2).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
+        assertThat(preview.getRows().get(3).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
+
+        // Dòng 5 (999Z) phải bị báo lỗi không thuộc đơn đặt phòng
+        assertThat(preview.getRows().get(4).getErrors()).anyMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
+    }
 }

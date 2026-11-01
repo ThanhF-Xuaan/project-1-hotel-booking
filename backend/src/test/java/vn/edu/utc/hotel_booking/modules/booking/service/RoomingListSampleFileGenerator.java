@@ -59,7 +59,7 @@ class RoomingListSampleFileGenerator {
             sampleRow.createCell(4).setCellValue("001090001234");
             sampleRow.createCell(5).setCellValue("0912345678");
             sampleRow.createCell(6).setCellValue("mau.nguyen@example.com");
-            sampleRow.createCell(7).setCellValue("101 - STD");
+            sampleRow.createCell(7).setCellValue("101A");
             sampleRow.createCell(8).setCellValue("Khách mẫu (có thể xóa dòng này để nhập khách của bạn)");
 
             // Tạo các dòng trống để người dùng nhập tiếp

@@ -1218,7 +1218,7 @@ export const RoomingListImportPage: React.FC = () => {
                       <td className="p-2 border-r border-neutral-200">001088001234</td>
                       <td className="p-2 border-r border-neutral-200">0912345601</td>
                       <td className="p-2 border-r border-neutral-200 font-sans">an.nguyen@example.com</td>
-                      <td className="p-2 border-r border-neutral-200 font-bold text-emerald-700 whitespace-nowrap">101 - STD</td>
+                      <td className="p-2 border-r border-neutral-200 font-bold text-emerald-700 whitespace-nowrap">101A</td>
                       <td className="p-2 font-sans text-neutral-600">Trưởng đoàn</td>
                     </tr>
                     <tr className="bg-white">
@@ -1230,7 +1230,7 @@ export const RoomingListImportPage: React.FC = () => {
                       <td className="p-2 border-r border-neutral-200">001190002345</td>
                       <td className="p-2 border-r border-neutral-200">0912345602</td>
                       <td className="p-2 border-r border-neutral-200 font-sans">bich.tran@example.com</td>
-                      <td className="p-2 border-r border-neutral-200 font-bold text-emerald-700 whitespace-nowrap">101 - STD</td>
+                      <td className="p-2 border-r border-neutral-200 font-bold text-emerald-700 whitespace-nowrap">101A</td>
                       <td className="p-2 font-sans text-neutral-600">Thành viên đoàn</td>
                     </tr>
                   </tbody>
@@ -1311,8 +1311,8 @@ export const RoomingListImportPage: React.FC = () => {
                   <tr>
                     <td className="p-2.5 font-mono font-bold text-neutral-900">Room Number</td>
                     <td className="p-2.5 text-center text-neutral-400">Không</td>
-                    <td className="p-2.5 font-bold text-emerald-700 font-mono">101 - STD, 101 - SUP...</td>
-                    <td className="p-2.5 text-neutral-600">Số phòng kèm mã loại phòng (VD: <strong>101 - STD</strong>, <strong>101 - SUP</strong>, <strong>101 - DLX</strong>...) để phân biệt chính xác giữa các hạng phòng. Hệ thống cũng chấp nhận số phòng ngắn (VD: 101). Có thể để trống nếu chưa xếp phòng.</td>
+                    <td className="p-2.5 font-bold text-emerald-700 font-mono">101A, 101B, 101C...</td>
+                    <td className="p-2.5 text-neutral-600">Số phòng kèm hậu tố tòa/hạng phòng (VD: <strong>101A</strong>, <strong>101B</strong>, <strong>101C</strong>...). Tòa A (STD), Tòa B (SUP), Tòa C (DLX), Tòa D (STE), Tòa E (EXE), Tòa F (FAM). Hệ thống cũng tương thích với 101-A, 101 - STD hoặc 101. Có thể để trống nếu chưa xếp phòng.</td>
                   </tr>
                   <tr>
                     <td className="p-2.5 font-mono font-bold text-neutral-900">Note</td>
@@ -1394,7 +1394,7 @@ export const RoomingListImportPage: React.FC = () => {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
               <input
                 type="text"
-                placeholder="Tìm theo số phòng (VD: 101 STD, 101 - SUP), hạng phòng..."
+                placeholder="Tìm theo số phòng (VD: 101A, 101B, 101C), hạng phòng..."
                 value={availableRoomsSearch}
                 onChange={(e) => setAvailableRoomsSearch(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-neutral-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -1519,7 +1519,7 @@ export const RoomingListImportPage: React.FC = () => {
 
           <div className="flex justify-between items-center pt-2 border-t border-neutral-200">
             <span className="text-neutral-500 text-[11px]">
-              Mẹo: Các phòng được sắp xếp theo Mã loại phòng (STD &rarr; SUP &rarr; DLX &rarr; STE &rarr; EXE &rarr; FAM) rồi đến Số phòng. Bấm <strong>Chép số</strong> để dán vào file Excel.
+              Mẹo: Các phòng được sắp xếp theo Mã loại phòng (STD &rarr; SUP &rarr; DLX &rarr; STE &rarr; EXE &rarr; FAM) rồi đến Số phòng theo quy chuẩn hậu tố (101A, 101B, 101C...). Bấm <strong>Chép số</strong> để dán vào file Excel.
             </span>
             <Button variant="outline" onClick={() => setIsAvailableRoomsModalOpen(false)}>
               Đóng

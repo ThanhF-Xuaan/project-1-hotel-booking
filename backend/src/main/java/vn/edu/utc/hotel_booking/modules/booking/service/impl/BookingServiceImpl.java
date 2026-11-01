@@ -731,7 +731,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void validateBookingRoomCapacityAndStatus(Booking booking, RoomingListPreviewResponse preview) {
-        Map<String, BookingRoom> assignedRoomsMap = new HashMap<>();
+        Map<String, BookingRoom> assignedRoomsMap = buildAssignedRoomsMap(booking);
         Map<String, Integer> capacityMap = new HashMap<>();
         Map<String, String> typeNameMap = new HashMap<>();
         Map<String, Integer> existingGuestsCountMap = new HashMap<>();
@@ -752,22 +752,8 @@ public class BookingServiceImpl implements BookingService {
             for (BookingRoom br : detail.getBookingRooms()) {
                 if (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null) {
                     String fullNum = br.getRoomInstance().getRoomNumber().trim().toLowerCase();
-                    assignedRoomsMap.put(fullNum, br);
                     capacityMap.put(fullNum, maxCap);
                     typeNameMap.put(fullNum, typeName);
-
-                    // Thêm alias hỗ trợ nhập dạng viết liền "101std" hoặc chỉ nhập số phòng "101"
-                    String compact = fullNum.replaceAll("[\\s-_()]", "");
-                    assignedRoomsMap.put(compact, br);
-                    capacityMap.put(compact, maxCap);
-                    typeNameMap.put(compact, typeName);
-
-                    String base = fullNum.split(" - ")[0].trim();
-                    if (!assignedRoomsMap.containsKey(base)) {
-                        assignedRoomsMap.put(base, br);
-                        capacityMap.put(base, maxCap);
-                        typeNameMap.put(base, typeName);
-                    }
 
                     List<StayGuest> existing = stayGuestRepository.findByBookingRoomId(br.getId());
                     int c = existing != null ? (int) existing.stream().filter(g -> !Boolean.TRUE.equals(g.getIsDeleted())).count() : 0;
@@ -780,16 +766,10 @@ public class BookingServiceImpl implements BookingService {
         Map<String, Integer> fileCounts = new HashMap<>();
         for (RoomingListRowDto row : preview.getRows()) {
             if (row.getRoomNumber() != null && !row.getRoomNumber().isBlank()) {
-                String input = row.getRoomNumber().trim().toLowerCase();
-                String canonicalKey = input;
-                if (assignedRoomsMap.containsKey(input)) {
-                    canonicalKey = assignedRoomsMap.get(input).getRoomInstance().getRoomNumber().trim().toLowerCase();
-                } else if (assignedRoomsMap.containsKey(input.replaceAll("[\\s-_()]", ""))) {
-                    canonicalKey = assignedRoomsMap.get(input.replaceAll("[\\s-_()]", "")).getRoomInstance().getRoomNumber().trim().toLowerCase();
-                } else if (assignedRoomsMap.containsKey(input.split(" - ")[0].trim())) {
-                    canonicalKey = assignedRoomsMap.get(input.split(" - ")[0].trim()).getRoomInstance().getRoomNumber().trim().toLowerCase();
+                String canonicalKey = resolveCanonicalRoomKey(row.getRoomNumber(), assignedRoomsMap);
+                if (canonicalKey != null) {
+                    fileCounts.put(canonicalKey, fileCounts.getOrDefault(canonicalKey, 0) + 1);
                 }
-                fileCounts.put(canonicalKey, fileCounts.getOrDefault(canonicalKey, 0) + 1);
             }
         }
 
@@ -799,17 +779,10 @@ public class BookingServiceImpl implements BookingService {
                 continue; // Chưa gán phòng: cho phép lưu tạm để lễ tân xếp sau
             }
 
-            String rNum = row.getRoomNumber().trim().toLowerCase();
             String displayNum = row.getRoomNumber().trim();
+            String canonicalKey = resolveCanonicalRoomKey(row.getRoomNumber(), assignedRoomsMap);
 
-            String canonicalKey = rNum;
-            if (assignedRoomsMap.containsKey(rNum)) {
-                canonicalKey = assignedRoomsMap.get(rNum).getRoomInstance().getRoomNumber().trim().toLowerCase();
-            } else if (assignedRoomsMap.containsKey(rNum.replaceAll("[\\s-_()]", ""))) {
-                canonicalKey = assignedRoomsMap.get(rNum.replaceAll("[\\s-_()]", "")).getRoomInstance().getRoomNumber().trim().toLowerCase();
-            } else if (assignedRoomsMap.containsKey(rNum.split(" - ")[0].trim())) {
-                canonicalKey = assignedRoomsMap.get(rNum.split(" - ")[0].trim()).getRoomInstance().getRoomNumber().trim().toLowerCase();
-            } else {
+            if (canonicalKey == null || !assignedRoomsMap.containsKey(canonicalKey)) {
                 row.setIsValid(false);
                 String validList = assignedRoomsMap.values().stream()
                         .map(b -> b.getRoomInstance().getRoomNumber())
@@ -857,6 +830,76 @@ public class BookingServiceImpl implements BookingService {
         preview.setErrorCount(errorCount);
     }
 
+    private Map<String, BookingRoom> buildAssignedRoomsMap(Booking booking) {
+        Map<String, BookingRoom> map = new HashMap<>();
+        if (booking == null || booking.getBookingDetails() == null) return map;
+
+        for (BookingDetail detail : booking.getBookingDetails()) {
+            HotelRoomType hrt = detail.getHotelRoomType();
+            String code = (hrt != null && hrt.getRoomType() != null && hrt.getRoomType().getCode() != null)
+                    ? hrt.getRoomType().getCode().trim().toLowerCase() : null;
+
+            for (BookingRoom br : detail.getBookingRooms()) {
+                if (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null) {
+                    String fullNum = br.getRoomInstance().getRoomNumber().trim().toLowerCase();
+                    String compact = fullNum.replaceAll("[\\s-_()]", "");
+                    String digitsOnly = fullNum.replaceAll("[^0-9]", "");
+
+                    map.put(fullNum, br);
+                    map.put(compact, br);
+
+                    if (!digitsOnly.isBlank() && !map.containsKey(digitsOnly)) {
+                        map.put(digitsOnly, br);
+                    }
+
+                    String base = fullNum.split(" - ")[0].trim();
+                    if (!map.containsKey(base)) {
+                        map.put(base, br);
+                    }
+
+                    // Suffix variants: e.g. "101 - a", "101-a", "101 a"
+                    if (fullNum.matches("^[0-9]+[a-z]$")) {
+                        String numPart = fullNum.substring(0, fullNum.length() - 1);
+                        String sfx = fullNum.substring(fullNum.length() - 1);
+                        map.put(numPart + " - " + sfx, br);
+                        map.put(numPart + "-" + sfx, br);
+                        map.put(numPart + " " + sfx, br);
+                    }
+
+                    // Code variants: e.g. "101 - std", "101std", "101-std"
+                    if (code != null && !digitsOnly.isBlank()) {
+                        map.put(digitsOnly + code, br);
+                        map.put(digitsOnly + " - " + code, br);
+                        map.put(digitsOnly + "-" + code, br);
+                        map.put(digitsOnly + " " + code, br);
+                    }
+                }
+            }
+        }
+        return map;
+    }
+
+    private String resolveCanonicalRoomKey(String input, Map<String, BookingRoom> assignedRoomsMap) {
+        if (input == null || input.isBlank() || assignedRoomsMap == null) return null;
+        String raw = input.trim().toLowerCase();
+        if (assignedRoomsMap.containsKey(raw)) {
+            return assignedRoomsMap.get(raw).getRoomInstance().getRoomNumber().trim().toLowerCase();
+        }
+        String compact = raw.replaceAll("[\\s-_()]", "");
+        if (assignedRoomsMap.containsKey(compact)) {
+            return assignedRoomsMap.get(compact).getRoomInstance().getRoomNumber().trim().toLowerCase();
+        }
+        String digitsOnly = raw.replaceAll("[^0-9]", "");
+        if (!digitsOnly.isBlank() && assignedRoomsMap.containsKey(digitsOnly)) {
+            return assignedRoomsMap.get(digitsOnly).getRoomInstance().getRoomNumber().trim().toLowerCase();
+        }
+        String hyphenSplit = raw.split(" - ")[0].trim();
+        if (assignedRoomsMap.containsKey(hyphenSplit)) {
+            return assignedRoomsMap.get(hyphenSplit).getRoomInstance().getRoomNumber().trim().toLowerCase();
+        }
+        return null;
+    }
+
     private RoomingListImportResultResponse saveRoomingListGuests(Booking booking,
                                                                  List<RoomingListRowDto> rows,
                                                                  int totalRows,
@@ -878,6 +921,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         Short hotelId = booking.getHotel() != null ? booking.getHotel().getId() : null;
+        Map<String, BookingRoom> assignedRoomsMap = buildAssignedRoomsMap(booking);
 
         for (RoomingListRowDto row : rows) {
             if (Boolean.FALSE.equals(row.getIsValid())) {
@@ -895,27 +939,12 @@ public class BookingServiceImpl implements BookingService {
                 }
             }
 
-            // Tìm BookingRoom tương ứng theo roomNumber nếu có (hỗ trợ cả 101 - STD, 101, 101std)
+            // Tìm BookingRoom tương ứng theo roomNumber nếu có (hỗ trợ cả 101A, 101-A, 101 A, 101 - STD, 101, 101std)
             BookingRoom targetBookingRoom = null;
             if (row.getRoomNumber() != null && !row.getRoomNumber().isBlank()) {
-                String targetNum = row.getRoomNumber().trim().toLowerCase();
-                String targetBase = targetNum.split(" - ")[0].trim();
-                String targetCompact = targetNum.replaceAll("[\\s-_()]", "");
-
-                for (BookingDetail detail : booking.getBookingDetails()) {
-                    for (BookingRoom br : detail.getBookingRooms()) {
-                        if (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null) {
-                            String brNum = br.getRoomInstance().getRoomNumber().trim().toLowerCase();
-                            String brBase = brNum.split(" - ")[0].trim();
-                            String brCompact = brNum.replaceAll("[\\s-_()]", "");
-
-                            if (targetNum.equalsIgnoreCase(brNum) || targetCompact.equalsIgnoreCase(brCompact) || targetBase.equalsIgnoreCase(brBase)) {
-                                targetBookingRoom = br;
-                                break;
-                            }
-                        }
-                    }
-                    if (targetBookingRoom != null) break;
+                String canonicalKey = resolveCanonicalRoomKey(row.getRoomNumber(), assignedRoomsMap);
+                if (canonicalKey != null && assignedRoomsMap.containsKey(canonicalKey)) {
+                    targetBookingRoom = assignedRoomsMap.get(canonicalKey);
                 }
             }
 
