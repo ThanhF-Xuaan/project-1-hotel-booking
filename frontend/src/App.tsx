@@ -32,6 +32,7 @@ const RoomDetailsPage = lazy(() => import('./modules/booking-portal/pages/RoomDe
 const PersonalizationPage = lazy(() => import('./modules/booking-portal/pages/PersonalizationPage'))
 const PrivacyPage = lazy(() => import('./modules/booking-portal/pages/PrivacyPage'))
 const OccupancyDemoPage = lazy(() => import('./modules/analytics/pages/OccupancyDemoPage'))
+const UtilityDemoPage = lazy(() => import('./modules/analytics/pages/UtilityDemoPage'))
 
 export function App() {
   return (
@@ -64,6 +65,10 @@ export function App() {
 
           <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
             <Route path="/ai/demo/occupancy" element={<OccupancyDemoPage />} />
+          </Route>
+
+          <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
+            <Route path="/ai/demo/utility-anomalies" element={<UtilityDemoPage />} />
           </Route>
 
           {/* Internal Hotel Staff & Executive Admin Console (bắt buộc đăng nhập) */}

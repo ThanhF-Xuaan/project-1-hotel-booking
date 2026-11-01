@@ -16,6 +16,7 @@ const ROUTE = "          <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']}
   '          </Route>\n\n';
 const lf = text => text.replace(/\r\n/g, '\n');
 function reconcile(actual) {
+  actual = require('./reconcile_utility_route.cjs').reconcile(actual);
   const base = lf(cp.execFileSync('git', ['show', `${BASE}:${APP}`], { cwd: ROOT, encoding: 'utf8' }));
   assert.equal(crypto.createHash('sha256').update(base).digest('hex'), SHA, 'Pre-U22 App hash drift');
   cp.execFileSync('git', ['merge-base', '--is-ancestor', BASE, 'HEAD'], { cwd: ROOT });
