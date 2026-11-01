@@ -2,39 +2,105 @@ name: Deploy to OCI Production (smartstay.space)
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ develop, deploy-OCI ]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
 
 concurrency:
   group: production-deployment
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy to OCI Virtual Machine
+  build-and-push:
+    name: Build & Push Images to GHCR
     runs-on: ubuntu-latest
-    environment: production
     timeout-minutes: 25
 
     steps:
-      - name: Validate deployment branch (workflow_dispatch guard)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Convert repository name to lowercase
         run: |
-          if [ "${{ github.ref }}" != "refs/heads/develop" ]; then
-            echo "❌ LỖI: Chỉ được phép deploy thủ công từ nhánh 'develop'!"
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "REPO_LOWER=$REPO_LOWER" >> $GITHUB_ENV
+
+      - name: Build and push Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/hotel_backend:latest
+            ghcr.io/${{ env.REPO_LOWER }}/hotel_backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          build-args: |
+            VITE_API_BASE_URL=/api
+            VITE_API_URL=
+            VITE_KEYCLOAK_URL=https://smartstay.space
+            VITE_KEYCLOAK_REALM=hotel-realm
+            VITE_KEYCLOAK_CLIENT_ID=hotel-frontend
+          push: true
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/hotel_frontend:latest
+            ghcr.io/${{ env.REPO_LOWER }}/hotel_frontend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy via SSH to OCI VM
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Validate SSH Secrets
+        run: |
+          if [ -z "${{ secrets.OCI_SSH_HOST }}" ]; then
+            echo "❌ LỖI: Secret OCI_SSH_HOST chưa được thiết lập hoặc bị rỗng!"
             exit 1
           fi
+          if [ -z "${{ secrets.OCI_SSH_PRIVATE_KEY }}" ]; then
+            echo "❌ LỖI: Secret OCI_SSH_PRIVATE_KEY chưa được thiết lập hoặc bị rỗng!"
+            exit 1
+          fi
+          echo "✅ SSH secrets đã sẵn sàng. Target user: ${{ (secrets.OCI_SSH_USERNAME != '' && secrets.OCI_SSH_USERNAME != 'OCI_SSH_USERNAME') && secrets.OCI_SSH_USERNAME || 'ubuntu' }}"
 
       - name: Deploy via SSH to OCI VM
         uses: appleboy/ssh-action@v1.2.0
         env:
-          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TARGET_BRANCH: ${{ github.ref_name }}
+          IMAGE_TAG: ${{ github.sha }}
         with:
           host: ${{ secrets.OCI_SSH_HOST }}
-          username: ${{ secrets.OCI_SSH_USERNAME }}
+          username: ${{ (secrets.OCI_SSH_USERNAME != '' && secrets.OCI_SSH_USERNAME != 'OCI_SSH_USERNAME') && secrets.OCI_SSH_USERNAME || 'ubuntu' }}
           key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
           port: 22
-          envs: PROD_ENV_FILE
+          envs: GITHUB_TOKEN,GITHUB_ACTOR,GITHUB_REPOSITORY,TARGET_BRANCH,IMAGE_TAG
           script_stop: true
           script: |
             set -Eeuo pipefail
@@ -42,7 +108,12 @@ jobs:
             DEPLOY_DIR="$HOME/hotel-booking-repo"
             cd "$DEPLOY_DIR"
 
-            # 1. Ghi nhận commit đang hoạt động ổn định trước khi deploy
+            REPO_LOWER=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+            BACKEND_IMAGE="ghcr.io/${REPO_LOWER}/hotel_backend:${IMAGE_TAG}"
+            FRONTEND_IMAGE="ghcr.io/${REPO_LOWER}/hotel_frontend:${IMAGE_TAG}"
+            export BACKEND_IMAGE FRONTEND_IMAGE
+
+            # 1. Ghi nhận commit đang chạy ổn định trước khi deploy
             PREVIOUS_COMMIT=$(git rev-parse HEAD || echo "")
             echo "📌 Commit hiện tại đang chạy trên server: ${PREVIOUS_COMMIT:-none}"
 
@@ -53,62 +124,63 @@ jobs:
               if [ -n "$PREVIOUS_COMMIT" ]; then
                 echo "🔄 [ROLLBACK] Bắt đầu khôi phục về commit cũ: $PREVIOUS_COMMIT..."
                 git reset --hard "$PREVIOUS_COMMIT" || true
-                sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build frontend
-                sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build backend
                 sudo docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
                 echo "✅ [ROLLBACK HOÀN TẤT] Hệ thống đã trở về phiên bản an toàn trước đó."
               else
                 echo "❌ Không có commit trước đó để rollback."
               fi
-              # Luôn trả về exit code 1 để GitHub Actions đánh dấu step là FAILED
               exit 1
             }
 
             trap 'rollback $LINENO' ERR
 
-            echo "=== 1. KÉO CODE MỚI NHẤT TỪ GITHUB ==="
-            git fetch origin develop
-            git checkout -B develop origin/develop
-            git reset --hard origin/develop
+            echo "=== 1. KÉO CẤU HÌNH MỚI NHẤT TỪ GITHUB ==="
+            git fetch origin "$TARGET_BRANCH"
+            git checkout -B "$TARGET_BRANCH" "origin/$TARGET_BRANCH"
+            git reset --hard "origin/$TARGET_BRANCH"
             NEW_COMMIT=$(git rev-parse HEAD)
             echo "Đã đồng bộ lên commit mới: $NEW_COMMIT"
 
-            echo "=== 2. CẬP NHẬT TỆP .env.prod AN TOÀN ==="
-            if [ -n "$PROD_ENV_FILE" ]; then
-              printf '%s' "$PROD_ENV_FILE" > .env.prod
-              chmod 600 .env.prod
-              echo "Đã đồng bộ .env.prod từ GitHub Secrets."
-            else
-              echo "Sử dụng .env.prod hiện có trên server OCI."
+            echo "=== 2. KIỂM TRA TỆP .env.prod BẢO MẬT ==="
+            if [ ! -f .env.prod ]; then
+              echo "❌ LỖI: Tệp .env.prod không tồn tại trên máy chủ OCI!"
+              exit 1
             fi
+            echo "✅ Tệp .env.prod đang hoạt động ổn định trên OCI."
 
-            echo "=== 3. KIỂM TRA TÍNH HỢP LỆ DOCKER COMPOSE CONFIG ==="
-            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml config --quiet
+            echo "=== 3. ĐĂNG NHẬP GHCR TRÊN MÁY CHỦ OCI ==="
+            echo "$GITHUB_TOKEN" | sudo docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-            echo "=== 4. BUILD TỪNG SERVICE TUẦN TỰ (TỐI ƯU CHO 1 OCPU) ==="
-            # Build tuần tự để tránh nghẽn CPU và hết RAM trên VM 1 OCPU
-            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build frontend
-            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build backend
+            echo "=== 4. KÉO DOCKER IMAGES MỚI NHẤT TỪ GHCR ==="
+            sudo docker pull "$BACKEND_IMAGE"
+            sudo docker pull "$FRONTEND_IMAGE"
 
-            echo "=== 5. RESTART CÁC CONTAINER MỚI ==="
+            # Gắn tag latest nội bộ để tương thích với docker compose
+            sudo docker tag "$BACKEND_IMAGE" "ghcr.io/${REPO_LOWER}/hotel_backend:latest"
+            sudo docker tag "$FRONTEND_IMAGE" "ghcr.io/${REPO_LOWER}/hotel_frontend:latest"
+
+            echo "=== 5. CHẠY DATABASE LIQUIBASE MIGRATION ==="
+            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml run --rm liquibase
+
+            echo "=== 6. RESTART CÁC CONTAINER VỚI IMAGES MỚI ==="
             sudo docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
 
-            echo "=== 6. KIỂM TRA HEALTHCHECK 3 TẦNG (RETRY TRONG 60 GIÂY) ==="
+            echo "=== 7. KIỂM TRA HEALTHCHECK 3 TẦNG (RETRY TRONG 90 GIÂY) ==="
             HEALTHY=false
-            for i in $(seq 1 12); do
-              echo "Kiểm tra trạng thái hệ thống (lần $i/12)..."
+            for i in $(seq 1 18); do
+              echo "Kiểm tra trạng thái hệ thống (lần $i/18)..."
               
               # Tầng 1: Nginx Ingress Gateway
-              NGINX_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/nginx-health || true)
+              NGINX_CODE=$(curl -k -s -o /dev/null -w "%{http_code}" -H "Host: smartstay.space" https://127.0.0.1/nginx-health || true)
               
-              # Tầng 2: Spring Boot Application Context & Web Server
-              DOCS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/v3/api-docs || true)
+              # Tầng 2: Spring Boot Application Context qua OpenAPI Docs
+              DOCS_CODE=$(curl -k -s -o /dev/null -w "%{http_code}" -H "Host: smartstay.space" https://127.0.0.1/v3/api-docs || true)
 
               # Tầng 3: Database Query thực tế vào PostgreSQL qua Public Search API
-              DB_RES=$(curl -s http://127.0.0.1:80/api/v1/public/booking-search/destinations || true)
+              DB_RES=$(curl -k -s -H "Host: smartstay.space" https://127.0.0.1/api/v1/public/booking-search/destinations || true)
               
               if [ "$NGINX_CODE" = "200" ] && [ "$DOCS_CODE" = "200" ] && [[ "$DB_RES" =~ "\"code\":200" ]]; then
-                echo "✅ Nginx Gateway (200), Spring Boot Context (200) và PostgreSQL Query (code: 200) đều hoạt động tốt!"
+                echo "✅ Tầng 1 Nginx (200), Tầng 2 Spring Boot Context (200) và Tầng 3 PostgreSQL Query (code: 200) đều hoạt động xuất sắc!"
                 HEALTHY=true
                 break
               fi
@@ -116,13 +188,11 @@ jobs:
             done
 
             if [ "$HEALTHY" != "true" ]; then
-              echo "❌ Healthcheck không đạt yêu cầu sau 60 giây!"
-              # Gọi rollback thủ công vì vòng lặp for không tự kích hoạt ERR trap
+              echo "❌ Healthcheck không đạt yêu cầu sau 90 giây! Chi tiết: Nginx=$NGINX_CODE, Docs=$DOCS_CODE"
               rollback "$LINENO"
             fi
 
-            echo "=== 7. DỌN DẸP DANGLING IMAGES ĐỂ TIẾT KIỆM Ổ ĐĨA 50GB ==="
+            echo "=== 8. DỌN DẸP DANGLING IMAGES ĐỂ TIẾT KIỆM Ổ ĐĨA 50GB ==="
             sudo docker image prune -f
 
             echo "🎉 DEPLOYMENT THÀNH CÔNG TRÊN HTTPS://SMARTSTAY.SPACE!"
-
