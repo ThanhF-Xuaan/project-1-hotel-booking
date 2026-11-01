@@ -53,6 +53,12 @@ const navGroups: NavGroup[] = [
         icon: <TrendingUp aria-hidden="true" className="w-5 h-5" />,
         roles: ['CHAIN_ADMIN'],
       },
+      {
+        label: 'Điện/nước bất thường (Demo)',
+        to: '/ai/demo/utility-anomalies',
+        icon: <TrendingUp aria-hidden="true" className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN'],
+      },
     ],
   },
   {

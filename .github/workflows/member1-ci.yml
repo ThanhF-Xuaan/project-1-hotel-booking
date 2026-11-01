@@ -137,4 +137,4 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://localhost:13000/ > /dev/null
-          npx playwright test e2e/browser/u22-demo-ui.spec.ts
+          npx playwright test e2e/browser/u22-demo-ui.spec.ts e2e/browser/u22-utility-ui.spec.ts

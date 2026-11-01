@@ -189,3 +189,7 @@ CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-
 ## U22-D03 — API utility anomaly demo, 01/11/2026
 
 [Báo cáo API điện/nước](u22-utility-demo-api-2026-11-01.md):12kịch bản fixed-clock, CHAIN_ADMIN/dual gate độc lập occupancy, resource synthetic không có oracle, giữ engine và quality states. Bằng chứng runtime/CI/Git delivery theo report/PR/receipt/handoff; UI utility là subtask kế tiếp, dữ liệu thật vẫn riêng.
+
+## U22-D04 — UI utility anomaly demo, 01/11/2026
+
+[Báo cáo giao diện điện/nước](u22-utility-demo-ui-2026-11-01.md): admin chọn12kịch bản, chart/tham chiếu/marker và bảng42ngày, coverage/reset/decimal đúng contract. Response validation, safe errors và không business writes; local mock khác Keycloak/runtime thật, Git delivery theo PR/receipt/handoff. Dữ liệu thật và business integration vẫn riêng.
