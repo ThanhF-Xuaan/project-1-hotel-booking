@@ -72,10 +72,25 @@ jobs:
     name: Deploy via SSH to OCI VM
     needs: build-and-push
     runs-on: ubuntu-latest
-    environment: production
     timeout-minutes: 20
 
     steps:
+      - name: Validate SSH Secrets
+        run: |
+          if [ -z "${{ secrets.OCI_SSH_HOST }}" ]; then
+            echo "❌ LỖI: Secret OCI_SSH_HOST chưa được thiết lập hoặc bị rỗng!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.OCI_SSH_USERNAME }}" ]; then
+            echo "❌ LỖI: Secret OCI_SSH_USERNAME chưa được thiết lập hoặc bị rỗng!"
+            exit 1
+          fi
+          if [ -z "${{ secrets.OCI_SSH_PRIVATE_KEY }}" ]; then
+            echo "❌ LỖI: Secret OCI_SSH_PRIVATE_KEY chưa được thiết lập hoặc bị rỗng!"
+            exit 1
+          fi
+          echo "✅ Tất cả SSH secrets (Host, Username, Private Key) đều đã được cung cấp."
+
       - name: Deploy via SSH to OCI VM
         uses: appleboy/ssh-action@v1.2.0
         env:
