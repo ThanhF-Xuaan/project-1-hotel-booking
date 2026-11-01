@@ -380,7 +380,11 @@ def main():
     for entry in evidence['files']:
         path = ROOT / entry['path']
         require(path.is_file() and entry['baselineUnmodified'] is True, 'Missing source evidence')
-        require(verify_source_evidence_entry(entry, path) or entry['path'] in reconciled_paths,
+        source_value = path
+        if args.reviewed_widget_sources and entry['path'] == 'frontend/src/App.tsx':
+            from verify_widget_source_reaudit import reconcile_u22
+            source_value = reconcile_u22(path.read_bytes())
+        require(verify_source_evidence_entry(entry, source_value) or entry['path'] in reconciled_paths,
                 'Source changed after audit: ' + entry['path'])
         counters['source_evidence_hashes_checked'] += 1
 

@@ -47,6 +47,12 @@ const navGroups: NavGroup[] = [
         to: '/dashboard',
         icon: <LayoutDashboard className="w-5 h-5" />,
       },
+      {
+        label: 'Dự báo lấp đầy (Demo)',
+        to: '/ai/demo/occupancy',
+        icon: <TrendingUp aria-hidden="true" className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN'],
+      },
     ],
   },
   {

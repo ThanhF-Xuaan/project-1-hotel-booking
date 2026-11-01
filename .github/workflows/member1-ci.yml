@@ -102,6 +102,8 @@ jobs:
           npm ci --prefix frontend
       - name: Test CI report guard
         run: python -m unittest discover -s tools/ci -p 'test*.py' -v
+      - name: Verify additive U22 route and tamper rejection
+        run: python -m unittest discover -s tools/member1 -p 'test*.py' -v
       - name: Test isolated RAG runtime configuration
         shell: pwsh
         run: ./tools/acceptance/Test-RagRuntimeConfiguration.ps1
@@ -120,3 +122,18 @@ jobs:
           npm run lint -- --max-warnings=0
           npm run build
           npm audit --audit-level=high
+      - name: Install browser for isolated U22 UI checks
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: U22 synthetic UI states, authorization and request races
+        working-directory: frontend
+        run: |
+          npm run dev -- --host 127.0.0.1 --port 13000 --strictPort > "$RUNNER_TEMP/u22-vite.log" 2>&1 &
+          vite_pid=$!
+          trap 'kill "$vite_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://localhost:13000/ > /dev/null; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://localhost:13000/ > /dev/null
+          npx playwright test e2e/browser/u22-demo-ui.spec.ts
