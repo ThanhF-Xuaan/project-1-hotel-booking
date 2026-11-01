@@ -780,7 +780,7 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
                   <tbody className="divide-y divide-neutral-200 font-mono text-[11px]">
                     <tr className="hover:bg-neutral-50 divide-x divide-neutral-200">
                       <td className="p-2 text-center bg-neutral-100 text-neutral-500 font-sans">Dòng 2</td>
-                      <td className="p-2 text-neutral-800 font-sans font-bold text-emerald-700">101 - STD</td>
+                      <td className="p-2 text-neutral-800 font-sans font-bold text-emerald-700">101A</td>
                       <td className="p-2 font-bold text-neutral-900 font-sans">Nguyễn Văn An</td>
                       <td className="p-2 font-sans">Nam</td>
                       <td className="p-2">15/05/1990</td>
@@ -792,7 +792,7 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
                     </tr>
                     <tr className="hover:bg-neutral-50 divide-x divide-neutral-200">
                       <td className="p-2 text-center bg-neutral-100 text-neutral-500 font-sans">Dòng 3</td>
-                      <td className="p-2 text-neutral-800 font-sans font-bold text-emerald-700">101 - STD</td>
+                      <td className="p-2 text-neutral-800 font-sans font-bold text-emerald-700">101A</td>
                       <td className="p-2 font-bold text-neutral-900 font-sans">Trần Thị Bình</td>
                       <td className="p-2 font-sans">Nữ</td>
                       <td className="p-2">20/10/1992</td>
@@ -804,7 +804,7 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
                     </tr>
                     <tr className="hover:bg-neutral-50 divide-x divide-neutral-200">
                       <td className="p-2 text-center bg-neutral-100 text-neutral-500 font-sans">Dòng 4</td>
-                      <td className="p-2 text-neutral-800 font-sans font-bold text-emerald-700">102 - SUP</td>
+                      <td className="p-2 text-neutral-800 font-sans font-bold text-emerald-700">101B</td>
                       <td className="p-2 font-bold text-neutral-900 font-sans">Lê Hoàng Cường</td>
                       <td className="p-2 font-sans">Nam</td>
                       <td className="p-2">02/09/1988</td>
@@ -848,7 +848,7 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
                   </span>
                 </div>
                 <p className="text-neutral-600">
-                  Số phòng kèm mã loại phòng (VD: <code>101 - STD</code>, <code>101 - SUP</code>, <code>101 - DLX</code> hoặc điền <code>101</code>). Nếu để trống, lễ tân có thể gán sau khi check-in.
+                  Số phòng theo quy chuẩn hậu tố tòa/hạng phòng (VD: <code>101A</code>, <code>101B</code>, <code>101C</code> hoặc <code>101</code>, <code>101-A</code>, <code>101 - STD</code>). Nếu để trống, lễ tân có thể gán sau khi check-in.
                 </p>
               </div>
 
