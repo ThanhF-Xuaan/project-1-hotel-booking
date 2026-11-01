@@ -105,6 +105,7 @@ hotel:
       path-style-access: ${S3_PATH_STYLE_ACCESS:true}
       auto-create-bucket: true
       cdn-public-base-url: ${S3_CDN_PUBLIC_BASE_URL:}
+      public-endpoint: ${S3_PUBLIC_ENDPOINT:}
     contracts:
       base-path: ${CONTRACT_STORAGE_PATH:uploads/contracts}
   ai:

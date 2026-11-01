@@ -1,0 +1,35 @@
+# ==============================================================================
+# HỆ THỐNG QUẢN LÝ KHÁCH SẠN - DOCKER COMPOSE DEV OVERRIDE (docker-compose.dev.yml)
+# ==============================================================================
+# Sử dụng tệp này khi lập trình viên cần mở cổng trực tiếp ra localhost (127.0.0.1)
+# phục vụ các công cụ quản trị (DBeaver, RedisInsight, Postman debug direct).
+#
+# Lệnh chạy:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# ==============================================================================
+
+services:
+  # 1. Mở cổng PostgreSQL cho DBeaver / pgAdmin (chỉ bind localhost 127.0.0.1)
+  postgres_db:
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+
+  # 2. Mở cổng Redis cho RedisInsight / redis-cli (mặc định 6380 trên host để tránh xung đột với Redis Windows cục bộ)
+  redis:
+    ports:
+      - "127.0.0.1:${DEV_REDIS_PORT:-6380}:6379"
+
+  # 3. Mở cổng Backend Spring Boot trực tiếp cho debugger
+  backend:
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
+
+  # 4. Mở cổng Keycloak trực tiếp cho Keycloak Admin Console
+  keycloak:
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8081}:8080"
+
+  # 5. Mở cổng MinIO S3 API trực tiếp cho các tool S3 CLI / Cyberduck
+  minio:
+    ports:
+      - "127.0.0.1:9000:9000"

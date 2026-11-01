@@ -81,10 +81,10 @@ export const LoginPage: React.FC = () => {
             </div>
             <div>
               <h1 className="text-xl font-bold text-neutral-900 tracking-tight leading-none">
-                UTC HOTEL SYSTEM
+                SMARTSTAY SYSTEM
               </h1>
               <span className="text-[11px] font-semibold text-red-600 uppercase tracking-widest">
-                Modular Monolith Enterprise
+                Smart Hospitality & AI Advisor
               </span>
             </div>
           </div>
@@ -103,7 +103,7 @@ export const LoginPage: React.FC = () => {
                 </span>
               </div>
               <div>
-                <span className="text-xs text-neutral-300 font-light">UTC Grand Hà Nội</span>
+                <span className="text-xs text-neutral-300 font-light">SmartStay Grand Hotel</span>
                 <h3 className="text-base font-bold leading-tight">Phòng Tổng Thống Hạng Sang</h3>
               </div>
             </div>
@@ -161,8 +161,8 @@ export const LoginPage: React.FC = () => {
               <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-neutral-900 leading-none">UTC HOTEL SYSTEM</h2>
-              <span className="text-[10px] font-semibold text-red-600 uppercase">Modular Monolith</span>
+              <h2 className="text-lg font-bold text-neutral-900 leading-none">SMARTSTAY SYSTEM</h2>
+              <span className="text-[10px] font-semibold text-red-600 uppercase">Smart Hospitality</span>
             </div>
           </div>
 
@@ -273,7 +273,7 @@ export const LoginPage: React.FC = () => {
 
           <button
             type="button"
-            onClick={() => alert('Hệ thống quản lý nội bộ dành riêng cho Cán bộ & Nhân viên chuỗi khách sạn UTC. Khách hàng vui lòng truy cập cổng đặt phòng công khai.')}
+            onClick={() => alert('Hệ thống quản lý nội bộ dành riêng cho Cán bộ & Nhân viên chuỗi khách sạn SmartStay. Khách hàng vui lòng truy cập cổng đặt phòng công khai.')}
             className="w-full h-[48px] rounded-xl border border-neutral-300 hover:bg-neutral-50 text-neutral-800 text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
           >
             <HelpCircle className="w-4 h-4 text-neutral-500" />
@@ -281,7 +281,7 @@ export const LoginPage: React.FC = () => {
           </button>
           <div className="mt-8 text-center">
             <p className="text-[11px] text-neutral-400">
-              © 2026 UTC Hotel System • Được bảo vệ bởi Keycloak IAM & Spring Security
+              © 2026 SmartStay • Đồ án Tốt nghiệp (UTC) • Bảo vệ bởi Keycloak IAM & Spring Security
             </p>
           </div>
         </div>
