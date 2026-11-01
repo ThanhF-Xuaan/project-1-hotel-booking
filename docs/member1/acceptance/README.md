@@ -201,3 +201,7 @@ CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-
 ## GROUP-D02 — Giao diện Group preview demo, 01/11/2026
 
 [Báo cáo giao diện Group](group-demo-ui-2026-11-01.md): admin sidebar/deep link, bảy kịch bản, ba bảng yêu cầu/phòng/quota từng đêm, COMPLETE khác đủ phương án. Kiểm response trước render, safe errors/abort/no-write và nhãn synthetic/fixed replay. Report ghi rõ file Member4/shared đã sửa và lý do; kết quả test/CI/Git cuối theo PR/receipt/handoff. Dữ liệu thật và production deployment vẫn là các gate riêng.
+
+## V03-D01 — Kiểm chứng gói mock sau khi chia sẻ, 01/11/2026
+
+[Báo cáo verifier](v03-pack-verifier-2026-11-01.md) và [cách dùng](m1-v03-mock-data-guide-2026-10-31.md): offline/read-only kiểm đúng24files của canonical synthetic export; không tin manifest tự khai, không nhận relabel/rehash/path-link/size drift. PASS giữ productionReady=false và không đóng data/IAM/official-format gates. File/lý do, portability review/fix và bằng chứng local/CI/Git được ghi riêng.
