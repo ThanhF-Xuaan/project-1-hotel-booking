@@ -15,9 +15,10 @@ const hash = value => crypto.createHash('sha256').update(value).digest('hex');
 const crlf = text => lf(text).replace(/\n/g, '\r\n');
 const readGit = (commit, file) => cp.execFileSync('git', ['show', `${commit}:${file}`],
   { cwd: root, encoding: 'utf8' });
-const readWorktree = file => fs.readFileSync(path.join(root, file), 'utf8');
+const u22 = require('../member1/reconcile_u22_route.cjs');
+const readWorktree = file => file === u22.APP ? u22.reconcile(fs.readFileSync(path.join(root, file), 'utf8')) : fs.readFileSync(path.join(root, file), 'utf8');
 const gitDiff = file => cp.execFileSync('git', ['diff', '--no-ext-diff', '--binary',
-  audit.comparisonCommit, ...(PATHS.includes(file) ? [PRIOR] : []), '--', file], { cwd: root });
+  audit.comparisonCommit, ...(file === u22.APP ? [u22.BASE] : PATHS.includes(file) ? [PRIOR] : []), '--', file], { cwd: root });
 
 assert.equal(audit.status, 'WORKING_TREE_SOURCE_RECONCILED');
 assert.equal(manifest.gitSha, audit.manifestGitSha, 'Historical contract baseline changed');

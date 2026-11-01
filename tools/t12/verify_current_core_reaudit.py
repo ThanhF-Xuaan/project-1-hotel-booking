@@ -10,6 +10,8 @@ def verify_current():
     reviewed = widget.verify_reconciliation()
 
     def source(path):
+        if path == widget.U22_APP:
+            return widget.reconcile_u22((core.ROOT / path).read_bytes())
         if path in (core.ERRORS, core.AVAILABILITY):
             return core.git('show', f'{core.ACCEPTED}:{path}')
         if path in core.U14_SOURCE_PATHS and path in widget.PRIOR_COMMITS:
@@ -17,7 +19,7 @@ def verify_current():
         return (core.ROOT / path).read_bytes()
 
     def patch(comparison, path):
-        revision = widget.PRIOR_COMMITS.get(path)
+        revision = '35fb85a830b2f2315469faf289b303f795bf9380' if path == widget.U22_APP else widget.PRIOR_COMMITS.get(path)
         args = ['diff', '--no-ext-diff', '--binary', comparison]
         if revision:
             args.append(revision)

@@ -62,7 +62,7 @@ function lazyImports(source) {
 
 const before = readGit(audit.comparisonCommit, audit.path);
 const accepted = readGit(audit.acceptedDevelopCommit, audit.path);
-const current = lf(fs.readFileSync(path.join(root, audit.path), 'utf8'));
+const current = require('../member1/reconcile_u22_route.cjs').reconcile(fs.readFileSync(path.join(root, audit.path), 'utf8'));
 const approvedU14Extension = [
   "const PersonalizationPage = lazy(() => import('./modules/booking-portal/pages/PersonalizationPage'))\n",
   "const PrivacyPage = lazy(() => import('./modules/booking-portal/pages/PrivacyPage'))\n",
@@ -159,4 +159,5 @@ assert.equal(currentEntry.previousReconciledUnixLfSha256, audit.currentHashes.un
 assert.equal(currentEntry.previousReconciledSha256, audit.currentHashes.windowsCrlfSha256);
 assert.equal(currentEntry.reconciliationEvidence, u14AuditPath);
 console.log(`PASS: ${currentRoutes.length} T12 Route nodes and ${Object.keys(lazy).length} T12 lazy components reconcile exactly; U14 adds a lazy CUSTOMER-only personalization route and a public privacy route; ${aliases.length} default aliases verified.`);
-console.log(`Current App.tsx LF SHA-256: ${hash(current)}; CRLF SHA-256: ${hash(current.replace(/\n/g, '\r\n'))}.`);
+console.log(`Pre-U22 reconciled App.tsx LF SHA-256: ${hash(current)}; CRLF SHA-256: ${hash(current.replace(/\n/g, '\r\n'))}.`);
+console.log(`PASS: exact additive CHAIN_ADMIN U22 route verified; actual App.tsx LF SHA-256: ${hash(lf(fs.readFileSync(path.join(root, audit.path), 'utf8')))}.`);
