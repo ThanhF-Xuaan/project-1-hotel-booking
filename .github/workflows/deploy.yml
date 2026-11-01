@@ -1,0 +1,128 @@
+name: Deploy to OCI Production (smartstay.space)
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to OCI Virtual Machine
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 25
+
+    steps:
+      - name: Validate deployment branch (workflow_dispatch guard)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/develop" ]; then
+            echo "❌ LỖI: Chỉ được phép deploy thủ công từ nhánh 'develop'!"
+            exit 1
+          fi
+
+      - name: Deploy via SSH to OCI VM
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        with:
+          host: ${{ secrets.OCI_SSH_HOST }}
+          username: ${{ secrets.OCI_SSH_USERNAME }}
+          key: ${{ secrets.OCI_SSH_PRIVATE_KEY }}
+          port: 22
+          envs: PROD_ENV_FILE
+          script_stop: true
+          script: |
+            set -Eeuo pipefail
+
+            DEPLOY_DIR="$HOME/hotel-booking-repo"
+            cd "$DEPLOY_DIR"
+
+            # 1. Ghi nhận commit đang hoạt động ổn định trước khi deploy
+            PREVIOUS_COMMIT=$(git rev-parse HEAD || echo "")
+            echo "📌 Commit hiện tại đang chạy trên server: ${PREVIOUS_COMMIT:-none}"
+
+            # Hàm rollback tự động khi gặp sự cố
+            rollback() {
+              local failed_line="$1"
+              echo "⚠️ [ALERT] Lệnh tại dòng $failed_line thất bại!"
+              if [ -n "$PREVIOUS_COMMIT" ]; then
+                echo "🔄 [ROLLBACK] Bắt đầu khôi phục về commit cũ: $PREVIOUS_COMMIT..."
+                git reset --hard "$PREVIOUS_COMMIT" || true
+                sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build frontend
+                sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build backend
+                sudo docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+                echo "✅ [ROLLBACK HOÀN TẤT] Hệ thống đã trở về phiên bản an toàn trước đó."
+              else
+                echo "❌ Không có commit trước đó để rollback."
+              fi
+              # Luôn trả về exit code 1 để GitHub Actions đánh dấu step là FAILED
+              exit 1
+            }
+
+            trap 'rollback $LINENO' ERR
+
+            echo "=== 1. KÉO CODE MỚI NHẤT TỪ GITHUB ==="
+            git fetch origin develop
+            git checkout -B develop origin/develop
+            git reset --hard origin/develop
+            NEW_COMMIT=$(git rev-parse HEAD)
+            echo "Đã đồng bộ lên commit mới: $NEW_COMMIT"
+
+            echo "=== 2. CẬP NHẬT TỆP .env.prod AN TOÀN ==="
+            if [ -n "$PROD_ENV_FILE" ]; then
+              printf '%s' "$PROD_ENV_FILE" > .env.prod
+              chmod 600 .env.prod
+              echo "Đã đồng bộ .env.prod từ GitHub Secrets."
+            else
+              echo "Sử dụng .env.prod hiện có trên server OCI."
+            fi
+
+            echo "=== 3. KIỂM TRA TÍNH HỢP LỆ DOCKER COMPOSE CONFIG ==="
+            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml config --quiet
+
+            echo "=== 4. BUILD TỪNG SERVICE TUẦN TỰ (TỐI ƯU CHO 1 OCPU) ==="
+            # Build tuần tự để tránh nghẽn CPU và hết RAM trên VM 1 OCPU
+            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build frontend
+            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml build backend
+
+            echo "=== 5. RESTART CÁC CONTAINER MỚI ==="
+            sudo docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+
+            echo "=== 6. KIỂM TRA HEALTHCHECK 3 TẦNG (RETRY TRONG 60 GIÂY) ==="
+            HEALTHY=false
+            for i in $(seq 1 12); do
+              echo "Kiểm tra trạng thái hệ thống (lần $i/12)..."
+              
+              # Tầng 1: Nginx Ingress Gateway
+              NGINX_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/nginx-health || true)
+              
+              # Tầng 2: Spring Boot Application Context & Web Server
+              DOCS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:80/v3/api-docs || true)
+
+              # Tầng 3: Database Query thực tế vào PostgreSQL qua Public Search API
+              DB_RES=$(curl -s http://127.0.0.1:80/api/v1/public/booking-search/destinations || true)
+              
+              if [ "$NGINX_CODE" = "200" ] && [ "$DOCS_CODE" = "200" ] && [[ "$DB_RES" =~ "\"code\":200" ]]; then
+                echo "✅ Nginx Gateway (200), Spring Boot Context (200) và PostgreSQL Query (code: 200) đều hoạt động tốt!"
+                HEALTHY=true
+                break
+              fi
+              sleep 5
+            done
+
+            if [ "$HEALTHY" != "true" ]; then
+              echo "❌ Healthcheck không đạt yêu cầu sau 60 giây!"
+              # Gọi rollback thủ công vì vòng lặp for không tự kích hoạt ERR trap
+              rollback "$LINENO"
+            fi
+
+            echo "=== 7. DỌN DẸP DANGLING IMAGES ĐỂ TIẾT KIỆM Ổ ĐĨA 50GB ==="
+            sudo docker image prune -f
+
+            echo "🎉 DEPLOYMENT THÀNH CÔNG TRÊN HTTPS://SMARTSTAY.SPACE!"
+
