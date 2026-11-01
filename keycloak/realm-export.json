@@ -77,13 +77,27 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "redirectUris": [
+        "https://smartstay.space/*",
+        "https://www.smartstay.space/*",
+        "http://localhost/*",
         "http://localhost:3000/*",
         "http://localhost:5173/*",
+        "http://127.0.0.1/*",
         "http://127.0.0.1:3000/*",
-        "http://127.0.0.1:5173/*"
+        "http://127.0.0.1:5173/*",
+        "https://localhost/*"
       ],
       "webOrigins": [
-        "+"
+        "+",
+        "https://smartstay.space",
+        "https://www.smartstay.space",
+        "http://localhost",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "https://localhost"
       ],
       "fullScopeAllowed": true
     },

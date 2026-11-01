@@ -1,0 +1,9 @@
+# ==============================================================================
+# VÍ DỤ CẤU HÌNH PRODUCTION CHO NGINX (SMARTSTAY.SPACE)
+# ==============================================================================
+# Trong môi trường Production, Frontend React được build thành static files
+# (npm run build -> /dist) và được copy vào container nginx:1.27-alpine.
+# Nginx Gateway nhận request từ người dùng và proxy tới các service nội bộ.
+#
+# Cấu hình mẫu chi tiết xem tại: nginx/conf.d/prod.conf.template
+# Script kích hoạt tự động: nginx/ssl/bootstrap-certs.sh

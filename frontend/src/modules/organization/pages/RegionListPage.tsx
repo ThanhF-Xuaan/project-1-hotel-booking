@@ -180,7 +180,7 @@ export const RegionListPage: React.FC = () => {
             Quản lý Khu vực & Vùng
           </h2>
           <p className="text-sm text-neutral-500 mt-1">
-            Quản lý cơ cấu phân vùng hoạt động của chuỗi khách sạn UTC (Miền Bắc, Miền Trung, Miền Nam)
+            Quản lý cơ cấu phân vùng hoạt động của chuỗi khách sạn SmartStay (Miền Bắc, Miền Trung, Miền Nam)
           </p>
         </div>
       </div>

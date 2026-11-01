@@ -13,6 +13,7 @@ import {
   FileSearch,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
+import PublicFooter from '../../../core/components/layout/PublicFooter';
 import type { CustomerSearchCriteria, AvailableRoomOffer } from '../types/portal.types';
 import { RoomAdvisorWidget } from '../components/RoomAdvisor/RoomAdvisorWidget';
 import type { AdvisorRecommendation, AdvisorSearchCriteria } from '../types/roomAdvisor.types';
@@ -337,6 +338,8 @@ export const SearchPage: React.FC = () => {
         onOpenExternal={() => setIsAdvisorOpen(true)}
         onViewRoomDetails={handleAdvisorViewDetails}
       />
+
+      <PublicFooter />
     </div>
   );
 };

@@ -34,10 +34,13 @@ class SecurityConfigTest {
         assertThat(corsConfig).isNotNull();
         assertThat(corsConfig.getAllowCredentials()).isTrue();
         assertThat(corsConfig.getAllowedOrigins()).containsExactlyInAnyOrder(
+                "http://localhost",
                 "http://localhost:3000",
                 "http://localhost:5173",
+                "http://127.0.0.1",
                 "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "https://localhost"
         );
         assertThat(corsConfig.getAllowedMethods()).containsExactlyInAnyOrder(
                 "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
