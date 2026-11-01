@@ -59,6 +59,12 @@ const navGroups: NavGroup[] = [
         icon: <TrendingUp aria-hidden="true" className="w-5 h-5" />,
         roles: ['CHAIN_ADMIN'],
       },
+      {
+        label: 'Phân phòng Group (Demo)',
+        to: '/ai/demo/group-room-assignment',
+        icon: <BedDouble aria-hidden="true" className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN'],
+      },
     ],
   },
   {

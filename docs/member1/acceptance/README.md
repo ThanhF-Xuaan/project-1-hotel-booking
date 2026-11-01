@@ -197,3 +197,7 @@ CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-
 ## GROUP-D01 — API Group preview demo, 01/11/2026
 
 [Báo cáo API phân phòng giả lập](group-demo-api-2026-11-01.md): bảy kịch bản fixed-clock, CHAIN_ADMIN và dual gate độc lập occupancy/utility; giữ engine quota mọi đêm/giường/tầng, phân biệt COMPLETE với đủ assignment. Resource không oracle, chỉ preview và không ghi nghiệp vụ. Report ghi cụ thể file frontend test/tooling/CI dùng chung đã sửa cùng lý do; CI/Git delivery theo PR/receipt/handoff. GROUP-D02 UI là bước sau; dữ liệu thật vẫn riêng.
+
+## GROUP-D02 — Giao diện Group preview demo, 01/11/2026
+
+[Báo cáo giao diện Group](group-demo-ui-2026-11-01.md): admin sidebar/deep link, bảy kịch bản, ba bảng yêu cầu/phòng/quota từng đêm, COMPLETE khác đủ phương án. Kiểm response trước render, safe errors/abort/no-write và nhãn synthetic/fixed replay. Report ghi rõ file Member4/shared đã sửa và lý do; kết quả test/CI/Git cuối theo PR/receipt/handoff. Dữ liệu thật và production deployment vẫn là các gate riêng.

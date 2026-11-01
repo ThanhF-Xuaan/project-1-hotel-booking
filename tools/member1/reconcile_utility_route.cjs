@@ -14,6 +14,7 @@ const ANCHOR = '          {/* Internal Hotel Staff & Executive Admin Console (bá
 const ROUTE = "          <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>\n" +
   '            <Route path="/ai/demo/utility-anomalies" element={<UtilityDemoPage />} />\n          </Route>\n\n';
 function reconcile(raw) {
+  raw = require('./reconcile_group_route.cjs').reconcile(raw);
   const base = cp.execFileSync('git', ['show', `${BASE}:${APP}`], { cwd: ROOT, encoding: 'utf8' }).replace(/\r\n/g, '\n');
   assert.equal(crypto.createHash('sha256').update(base).digest('hex'), SHA);
   cp.execFileSync('git', ['merge-base', '--is-ancestor', BASE, 'HEAD'], { cwd: ROOT });
