@@ -381,6 +381,9 @@ def main():
         path = ROOT / entry['path']
         require(path.is_file() and entry['baselineUnmodified'] is True, 'Missing source evidence')
         source_value = path
+        if args.reviewed_widget_sources:
+            from reconcile_deploy_source import reconcile as reconcile_deploy
+            source_value = reconcile_deploy(entry['path'], path.read_bytes())
         if args.reviewed_widget_sources and entry['path'] == 'frontend/src/App.tsx':
             from verify_widget_source_reaudit import reconcile_u22
             source_value = reconcile_u22(path.read_bytes())

@@ -11,6 +11,7 @@ const REVIEWED = '3f0cb2eacab3a5a2ca8c1155f187ff1ae6640afb';
 const ADDITION = '        onOpenExternal={() => setIsAdvisorOpen(true)}\n';
 const lf = text => text.replace(/\r\n/g, '\n');
 function reconcile(root, file, actual) {
+  actual = require('./reconcile_deploy_source.cjs').reconcile(root, file, actual);
   if (!PATHS.includes(file)) return actual;
   const audit = JSON.parse(fs.readFileSync(path.join(root,
     'docs/member1/contracts/t12-01-source-reaudit-2026-10-29.json'), 'utf8'));

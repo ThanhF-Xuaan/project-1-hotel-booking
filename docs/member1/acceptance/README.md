@@ -193,3 +193,7 @@ CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-
 ## U22-D04 — UI utility anomaly demo, 01/11/2026
 
 [Báo cáo giao diện điện/nước](u22-utility-demo-ui-2026-11-01.md): admin chọn12kịch bản, chart/tham chiếu/marker và bảng42ngày, coverage/reset/decimal đúng contract. Response validation, safe errors và không business writes; local mock khác Keycloak/runtime thật, Git delivery theo PR/receipt/handoff. Dữ liệu thật và business integration vẫn riêng.
+
+## GROUP-D01 — API Group preview demo, 01/11/2026
+
+[Báo cáo API phân phòng giả lập](group-demo-api-2026-11-01.md): bảy kịch bản fixed-clock, CHAIN_ADMIN và dual gate độc lập occupancy/utility; giữ engine quota mọi đêm/giường/tầng, phân biệt COMPLETE với đủ assignment. Resource không oracle, chỉ preview và không ghi nghiệp vụ. Report ghi cụ thể file frontend test/tooling/CI dùng chung đã sửa cùng lý do; CI/Git delivery theo PR/receipt/handoff. GROUP-D02 UI là bước sau; dữ liệu thật vẫn riêng.

@@ -55,6 +55,24 @@ export const PrivacyPage: FC = () => {
         </div>
 
         <div className="mt-7 space-y-6 text-sm leading-7 text-neutral-700">
+          <section aria-labelledby="u14-local-privacy" className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+            <span className="text-xs font-bold">Demo — dữ liệu giả lập</span>
+            <h2 id="u14-local-privacy" className="mt-2 text-base font-bold">Quyền riêng tư trong demo U14</h2>
+            <p className="mt-2">
+              Riêng demo U14 local, khi bạn đồng ý, hệ thống dùng lịch sử booking FIT một phòng đã hoàn tất,
+              đứng tên hồ sơ được liên kết, tại khách sạn bạn chọn trong 12 tháng gần nhất để xếp hạng hạng phòng.
+              Phân tích chỉ chạy khi consent còn hiệu lực; lịch sử trước thời điểm cấp consent cũng nằm trong phạm vi này.
+            </p>
+            <p className="mt-2">
+              Fixture giả lập nằm trong PostgreSQL và Keycloak của sandbox acceptance local, không phải dữ liệu khách thật.
+              Dữ liệu có thể còn trong Docker volume sau khi dừng ứng dụng, tới khi sandbox được reset hoặc khôi phục từ snapshot.
+              Gợi ý chỉ mang tính tham khảo; không thay đổi giá, khuyến mại, tình trạng phòng hoặc đặt phòng.
+            </p>
+            <p className="mt-2 font-semibold">
+              Phần hướng dẫn demo U14 này không phải chính sách quyền riêng tư cho khách hàng thật.
+            </p>
+          </section>
+
           <section>
             <h2 className="font-bold text-neutral-900 text-base">1. Mục đích thu thập và phạm vi xử lý dữ liệu</h2>
             <p>
@@ -87,12 +105,12 @@ export const PrivacyPage: FC = () => {
           <section>
             <h2 className="font-bold text-neutral-900 text-base">4. Quyền của chủ thể dữ liệu (Cấp và Rút Consent)</h2>
             <p>
-              Bạn có toàn quyền rút lại sự đồng ý (Consent) phân tích lịch sử đặt phòng bất cứ lúc nào tại trang{' '}
+              Trong demo U14, bạn có thể rút consent bất cứ lúc nào tại trang{' '}
               <Link
                 className="font-semibold text-red-600 underline underline-offset-2 hover:text-red-700"
                 to={hotelId === null ? '/portal/search' : `/portal/personalization?hotelId=${hotelId}`}
               >
-                Gợi ý hạng phòng cá nhân hóa
+                gợi ý hạng phòng cá nhân hóa
               </Link>
               . Sau khi rút, hệ thống lập tức ngừng đọc lịch sử đặt phòng để tạo gợi ý mới.
             </p>
