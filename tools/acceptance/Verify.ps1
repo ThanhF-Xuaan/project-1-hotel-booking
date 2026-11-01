@@ -1,6 +1,6 @@
 # One-command local technical acceptance. Requires an idle, disposable acceptance sandbox.
 [CmdletBinding()]
-param([switch]$IncludeM1Benchmark, [switch]$IncludeM1AdditionalTests)
+param([switch]$IncludeM1Benchmark, [switch]$IncludeM1AdditionalTests, [switch]$IncludePersistentRag)
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -176,6 +176,13 @@ try {
     if ($IncludeM1Benchmark) {
         Invoke-ScriptStage -Name 'm1-benchmark-smoke' -Script 'Benchmark-M1.ps1' -Arguments @('-OutputDirectory', (Join-Path $RunDir 'benchmark-smoke'), '-Smoke')
         Invoke-ScriptStage -Name 'm1-benchmark' -Script 'Benchmark-M1.ps1' -Arguments @('-OutputDirectory', (Join-Path $RunDir 'benchmark'))
+    }
+    if ($IncludePersistentRag) {
+        Invoke-ScriptStage -Name 'persistent-rag-http' -Script 'Test-PersistentRag.ps1' -Arguments @('-EvidenceDirectory', $RunDir)
+        $Persistent = Get-Content -LiteralPath (Join-Path $RunDir 'persistent-rag.json') -Raw | ConvertFrom-Json
+        if ($Persistent.status -ne 'PASS' -or -not $Persistent.restored -or -not $Persistent.businessUnchanged) {
+            throw 'Persistent RAG evidence or cleanup incomplete.'
+        }
     }
 } catch {
     $Problems.Add($_.Exception.Message)

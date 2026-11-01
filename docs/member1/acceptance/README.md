@@ -173,3 +173,7 @@ Lệnh đầy đủ: `.\tools\acceptance\Verify.ps1 -IncludeM1Benchmark -Include
 ## GitHub delivery review - 31/10/2026
 
 Latest review/fix evidence and Git authorization: [m1-github-delivery-review-2026-10-31.md](m1-github-delivery-review-2026-10-31.md). Earlier local reports retain their historical Git status. Actual delivery is recorded in the PR and post-merge receipt. Business data/official-format gates remain NOT READY.
+
+## Persistent RAG HTTP và mock V03 — 31/10/2026
+
+CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-31.md) và [hướng dẫn mock V03](m1-v03-mock-data-guide-2026-10-31.md). User yêu cầu dùng mock trước, dữ liệu thật sẽ cung cấp sau. Pack có nhãn SYNTHETIC, không chứa oracle hoặc dữ liệu khách thật; lodging draft chưa là mẫu BCA chính thức. Full Boot/Keycloak/PostgreSQL restart/outage/recovery và browser đã kiểm local; CI/Git delivery theo receipt/handoff mới nhất. Các gate dữ liệu thật vẫn tách riêng.
