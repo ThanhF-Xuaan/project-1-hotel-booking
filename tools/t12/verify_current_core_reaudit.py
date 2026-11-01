@@ -2,6 +2,7 @@
 import json
 import verify_core_reaudit as core
 import verify_widget_source_reaudit as widget
+from reconcile_deploy_source import reconcile as reconcile_deploy
 
 
 def verify_current():
@@ -16,7 +17,7 @@ def verify_current():
             return core.git('show', f'{core.ACCEPTED}:{path}')
         if path in core.U14_SOURCE_PATHS and path in widget.PRIOR_COMMITS:
             return core.git('show', f'{widget.PRIOR_COMMITS[path]}:{path}')
-        return (core.ROOT / path).read_bytes()
+        return reconcile_deploy(path, (core.ROOT / path).read_bytes())
 
     def patch(comparison, path):
         revision = '35fb85a830b2f2315469faf289b303f795bf9380' if path == widget.U22_APP else widget.PRIOR_COMMITS.get(path)

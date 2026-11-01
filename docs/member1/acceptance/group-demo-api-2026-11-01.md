@@ -20,7 +20,7 @@ Main resource `ai/demo/group-preview-v1.json` là projection25487bytes/7cases c�
 
 | Kiểm tra thực chạy | Kết quả |
 |---|---|
-| `backend/.\\mvnw.cmd -Dtest=GroupDemoApiTest,*GroupRoomAssignment*Test,GroupPreview*Test -DfailIfNoTests=true test` với JDK21 | PASS85/85:29test mới +56test Group cũ;0failure/error/skip |
+| Trong `backend/`: `.\mvnw.cmd '-Dtest=GroupDemoApiTest,*GroupRoomAssignment*Test,GroupPreview*Test' '-DfailIfNoTests=true' test` với JDK21 | PASS85/85:29test mới +56test Group cũ;0failure/error/skip |
 | `pwsh -NoProfile -File tools/acceptance/Verify.ps1` với cả ba demo bật | [PASS run20261101-163255-118-6a39a95e](runs/acceptance-20261101-163255-118-6a39a95e.md):1480backend,39API,69browser;0failure/error/skip trong executions |
 | Source/contract/portability/lint/build/audit trong Verify | PASS; npm audit còn12moderate tooling advisories baseline,0high/critical; không thay dependency |
 | Targeted ESLint/actionlint/PowerShell parse/`git diff --check` | PASS |
@@ -43,6 +43,7 @@ Logs, source hashes, backups, harness và receipt ở `C:/Users/admin/.codex/out
 | `backend/src/main/resources/ai/demo/group-preview-v1.json`, `.gitattributes` | Corpus giả lập không oracle; giữ byte/hash nhất quán Windows/Linux |
 | `backend/src/test/java/vn/edu/utc/hotel_booking/modules/ai/demo/group/GroupDemoApiTest.java` |29test mới, giữ nguyên oracle/engine cũ |
 | `frontend/e2e/api/group-demo.spec.ts` | File mới trong frontend test area thường do Member4 quản lý: kiểm API với Keycloak local và digest; không sửa frontend business logic/UI/routes |
+| `frontend/src/modules/booking-portal/pages/PrivacyPage.tsx` | File UI Member4 sửa thêm khi tích hợp: upstream bỏ nội dung consent U14 local làm browser gate FAIL; bổ sung lại scope/disclaimer và lời dẫn rút consent, giữ bố cục/cảnh báo mới, không sửa test hoặc general policy claims |
 | `tools/acceptance/Run-Application.ps1`, `tools/acceptance/Test.ps1` | Tooling acceptance dùng chung: bật Group đúng config, mặc định false; truyền trạng thái cờ cho E2E |
 | `.github/workflows/member1-ci.yml` | CI dùng chung: minimum1443→1472 đúng29test mới và require-suite GroupDemoApiTest; giữ các gate cũ |
 | Contract này, report, acceptance README, generated run report | Lưu contract, bằng chứng và giới hạn để review |
@@ -54,3 +55,33 @@ Không sửa file nghiệp vụ của Member2/3/4, SecurityConfig/IAM, shared sc
 Trong sandbox synthetic đã chuẩn bị, thêm `HOTEL_AI_DEMO_GROUP_ENABLED="true"` vào config local Git-ignore, chạy launcher acceptance và gọi GET bằng bearer CHAIN_ADMIN. Không opt-in thì API tắt. Tắt flag/profile hoặc revert scoped PR để rollback; không DB/schema rollback. Không production/paid-provider call.
 
 GROUP-D02 UI là subtask tiếp theo. Physical beds/floors/quota/all-night availability provider và IAM scope nghiệp vụ thật vẫn PENDING_INPUT; official BCA cũng chưa có mẫu xác minh. Dữ liệu mock không đóng các gate này. OCR-02 đã hoàn tất ở PR40; report này không tuyên bố toàn feature/SRS/production hoàn tất.
+
+## Tích hợp develop mới trong lúc thực hiện
+
+CONFIRMED: sau commit API `0217111`, `develop` tiến tới `7d8ee514b1cbc4e6a4aa4889817620a57e80b513` với deployment/config/frontend changes. Merge vào nhánh feature tại `2375cee1a2da96b084806f898de75bf626f4fd4d` không conflict; giữ nguyên upstream, không reset/rebase hoặc ghi đè. So sánh PR với base mới tách các thay đổi upstream khỏi thay đổi do agent thực hiện.
+
+Provenance gate thực sự FAIL trước fix: bốn file upstream khác snapshot cũ. Thêm [receipt source-only](../contracts/deploy-source-reaudit-2026-11-01.json) pin base/reviewed commit, before/after LF hashes, Git patch và review cho đúng bốn file. Reconciler xác minh current bytes khớp Git object đã review rồi mới cấp snapshot trước deployment cho validator lịch sử. Không sửa manifest/audit/gold, không bỏ source check; source drift, receipt/patch/commit drift vẫn bị từ chối. Default validator không bật explicit reviewed mode vẫn từ chối historical drift.
+
+| File agent sửa/thêm để tích hợp | Lý do |
+|---|---|
+| `tools/t12/reconcile_deploy_source.py`, `reconcile_deploy_source.cjs` | Hai reader pin cùng receipt và exact four-path scope cho Python/Node |
+| `tools/t12/verify_widget_source_reaudit.py`, `verify_current_core_reaudit.py`, `validate_r1_contracts.py`, `reconcile_widget_search.cjs` | Nối reviewed deployment delta trước chuỗi audit hiện hữu; giữ các semantic/negative checks |
+| `tools/t12/test_deploy_source_reaudit.py` |8test mới: LF/CRLF, mỗi source bị sửa, rollback source cũ, receipt tamper, patch tamper, Node/Python parity và unlisted-path passthrough |
+| `tools/t12/test_portability_validation.py` | Sửa nguồn fixture của hai positive newline cases sang historical Git bytes và thêm1test yêu cầu current source qua exact reconciliation; giữ hash/assertion/tamper oracle cũ |
+| Contract/report và generated integration run report | Ghi scope bổ sung, FAIL/fix/PASS và baseline mới |
+
+Bốn file được review nhưng **không do agent sửa nội dung**: `backend/.../common/config/SecurityConfig.java` thêm local CORS origins; `backend/pom.xml` đổi Boot3 AOP starter sang managed Boot4 AspectJ starter; `docker-compose.yml` chuyển cổng/proxy/nginx; `frontend/.../booking-portal/pages/SearchPage.tsx` chỉ thêm PublicFooter import/render. Các thay đổi này đã nằm trên develop của team. Receipt không phê duyệt IAM/production deployment hoặc mọi thay đổi ngoài bốn source files.
+
+Lần đầu test reconciler dùng nhầm raw CRLF receipt hash thay vì LF hash nên FAIL; sửa constant về SHA256 của cùng nội dung chuẩn LF, không sửa receipt/gold theo test. Lần tiếp theo còn2positive portability failures do disk source đã khác mốc lịch sử; sửa fixture source đúng Git snapshot và thêm current-source rejection test như trên. Các log trước/sau được giữ riêng. Không gọi các lượt FAIL là PASS.
+
+Workflow deployment mới của upstream tự chạy khi push/merge develop; trạng thái deployment được ghi riêng trong delivery receipt, không dùng local acceptance hoặc source-only audit để khẳng định production đã an toàn. Những file `.env.prod.*`/private-key có tên trong upstream tree không thuộc PR delta này; không đọc/in nội dung credential files. Production secret hygiene/rotation cần kiểm tra riêng; UNKNOWN về nội dung/thực trạng credential, không phải finding của API Group mới.
+
+GitHub baseline evidence: Member1 CI run41312340201 tại develop7d8ee51 có backend PASS nhưng Contracts/frontend FAIL ở `Validate contracts and current source provenance`, log báo `Reconciliation must cover exactly the historical source drift`. Đây là drift upstream đã có trước PR Group. Deployment run41312340236 cũng đã FAIL tại `Deploy via SSH to OCI VM`; receipt này không sửa hoặc kết luận nguyên nhân remote SSH/production.
+
+Full integration run [20261101-210756-643-ccd195fb](runs/acceptance-20261101-210756-643-ccd195fb.md) **FAIL**:1480backend/39API PASS,68/69browser PASS; failure là PrivacyPage upstream thiếu hướng dẫn U14 local. Bổ sung section có aria heading, nhãn giả lập, FIT một phòng hoàn tất/12tháng/linked profile/hotel scope, PostgreSQL/Keycloak local/volume/snapshot và nonbinding disclaimer; khôi phục lời dẫn rút consent/link. Giữ bố cục/cảnh báo và general policy upstream; không sửa test/assertion hoặc tạo retention/legal claim mới. Targeted existing `npx playwright test e2e/browser/u14-personalization.spec.ts` **7/7PASS**, desktop1280/mobile390 hiển thị đầy đủ, không overflow; ảnh ở output directory. Bộ provenance `python -m unittest discover -s tools/t12 -p 'test*.py' -v` **58/58PASS**, gồm9test mới;49test cũ còn nguyên assertions, chỉ portability fixture reader đổi như đã nêu.
+
+Đọc log baseline deployment chỉ phân loại lỗi, không in credential/host/key: có SSH authentication failure; không có dấu hiệu remote build failure trong log này. Không tự tạo/đổi SSH credentials hoặc truy cập server. Đây là vấn đề deployment upstream tách khỏi API Group, cần credential thực hợp lệ nếu muốn sửa deployment.
+
+Final integration Verify [20261101-211952-326-9cab7bbb](runs/acceptance-20261101-211952-326-9cab7bbb.md) **PASS:1480backend/39API/69browser**,0failure/error/skip trong executions. Cùng upstream baseline và source fixes đã nêu; restore snapshot và stop owned services PASS. Lượt FAIL trước giữ nguyên để đối chiếu. Targeted7U14/85Group là subset,58provenance checks là Python tooling riêng; không cộng lặp các lần chạy. Main corpus raw hash và19non-doc changed source LF hashes được khóa trong evidence trước final run, không sửa source sau đó.
+
+Final matrix trên baseline tích hợp **PASS36executions**: Group-off/occupancy+utility-on18/18 vàGroup-only18/18, Keycloak thật, API/UI cũ, RBAC/selector/digest và flag isolation. Lặp lại matrix do source/security/frontend upstream thay đổi; không cộng72checks thành coverage mới hoặc cộng vào39API/69browser. Snapshot restore PASS; original env.json khôi phục nguyên byte, compose regenerated, owned apps/containers/listeners/manifest đã dừng. Review cuối **PASS trong scope GROUP-D01 và integration fixes**, không còn finding chặn; total PR delta26files/19non-doc+7docs/evidence. Deployment SSH authentication và real-data/official-format gates giữ riêng.

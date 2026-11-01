@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'tools/t12'))
 
 from validate_r1_contracts import verify_protected_file_entry, verify_source_evidence_entry
 from verify_core_reaudit import ACCEPTED, git
+from reconcile_deploy_source import BASE as DEPLOY_BASE, reconcile as reconcile_deploy
 
 
 class TestPortabilityValidation(unittest.TestCase):
@@ -26,8 +27,9 @@ class TestPortabilityValidation(unittest.TestCase):
         cls.sec_entry = cls.entries['backend/src/main/java/vn/edu/utc/hotel_booking/common/config/SecurityConfig.java']
         cls.unaffected_entry = cls.entries['backend/src/main/java/vn/edu/utc/hotel_booking/common/dto/ApiResponse.java']
 
-        # Real disk content
-        sec_disk = (ROOT / cls.sec_entry['path']).read_bytes()
+        # Portability applies to the immutable bytes recorded in the historical manifest.
+        # Current deployment deltas are checked separately before reconciliation.
+        sec_disk = git('show', f"{DEPLOY_BASE}:{cls.sec_entry['path']}")
         cls.sec_crlf = sec_disk if b'\r\n' in sec_disk else sec_disk.replace(b'\n', b'\r\n')
         cls.sec_lf = sec_disk.replace(b'\r\n', b'\n')
 
@@ -46,6 +48,14 @@ class TestPortabilityValidation(unittest.TestCase):
     def test_security_config_crlf_passes(self):
         """Legitimate Windows CRLF bytes for SecurityConfig.java must pass."""
         self.assertTrue(verify_source_evidence_entry(self.sec_entry, self.sec_crlf))
+
+    def test_current_security_config_requires_exact_reviewed_deployment_reconciliation(self):
+        path = self.sec_entry['path']
+        current = (ROOT / path).read_bytes()
+        self.assertFalse(verify_source_evidence_entry(self.sec_entry, current))
+        self.assertTrue(verify_source_evidence_entry(self.sec_entry, reconcile_deploy(path, current)))
+        with self.assertRaisesRegex(ValueError, 'reviewed deployment commit'):
+            reconcile_deploy(path, current + b'\n// unreviewed\n')
 
     def test_security_config_canonical_lf_passes(self):
         """Legitimate Canonical LF bytes for SecurityConfig.java must pass."""
