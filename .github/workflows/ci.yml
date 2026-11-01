@@ -1,0 +1,92 @@
+name: Codebase CI Quality Gate
+
+on:
+  pull_request:
+    branches: [ develop, main, deploy-OCI ]
+  push:
+    branches: [ develop, main, deploy-OCI ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codebase-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-verification:
+    name: Backend Unit & Slice Tests (Java 21)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      TESSERACT_EXE: /usr/bin/tesseract
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: '6379'
+      SPRING_REDIS_HOST: 127.0.0.1
+      SPRING_REDIS_PORT: '6379'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Install Tesseract OCR (for AI OCR module tests)
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie
+          tesseract --version
+
+      - name: Run Backend Tests across all modules
+        working-directory: backend
+        run: >-
+          bash ./mvnw --batch-mode --no-transfer-progress
+          '-Dtest=*Test,!HotelBookingApplicationTests,!LodgingExportPostgresTest,!OcrMultipartServletRuntimeTest'
+          test
+
+  frontend-verification:
+    name: Frontend Lint & Typecheck (Node 22 / Vite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: ESLint Code Quality
+        working-directory: frontend
+        run: npm run lint
+
+      - name: TypeScript Compile & Vite Build Validation
+        working-directory: frontend
+        run: npm run build
+

@@ -177,7 +177,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: hotel_backend:prod
+    image: ${BACKEND_IMAGE:-ghcr.io/thanhf-xuaan/project-1-hotel-booking/hotel_backend:latest}
     container_name: hotel_prod_backend
     restart: always
     expose:
@@ -222,6 +222,8 @@ services:
       # AI & Secrets
       HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET: "${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET:?LOI: Bat buoc khai bao AI anon secret}"
       HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      HOTEL_AI_ADVISOR_SESSION_STORE_TYPE: ${HOTEL_AI_ADVISOR_SESSION_STORE_TYPE:-redis}
       # Payment Gateway Keys
       VNPAY_TMN_ID: ${VNPAY_TMN_ID:-}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-}
@@ -263,7 +265,7 @@ services:
         VITE_KEYCLOAK_URL: https://${DOMAIN_NAME}
         VITE_KEYCLOAK_REALM: ${KEYCLOAK_REALM:-hotel-realm}
         VITE_KEYCLOAK_CLIENT_ID: hotel-frontend
-    image: hotel_frontend:prod
+    image: ${FRONTEND_IMAGE:-ghcr.io/thanhf-xuaan/project-1-hotel-booking/hotel_frontend:latest}
     container_name: hotel_prod_frontend
     restart: always
     expose:
