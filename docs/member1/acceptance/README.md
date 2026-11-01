@@ -185,3 +185,7 @@ CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-
 ## U22-D02 — Giao diện occupancy demo, 01/11/2026
 
 [Báo cáo UI demo](u22-demo-ui-2026-11-01.md): admin sidebar/deep link, chọn A/B, biểu đồ có biên sai số và bảng history/forecast; kiểm response và nhãn synthetic, không ghi nghiệp vụ. Full local verification, review/fix và giới hạn CI/runtime được ghi riêng trong report; Git delivery theo PR/receipt/handoff cuối. Dữ liệu thật và official BCA vẫn PENDING_INPUT.
+
+## U22-D03 — API utility anomaly demo, 01/11/2026
+
+[Báo cáo API điện/nước](u22-utility-demo-api-2026-11-01.md):12kịch bản fixed-clock, CHAIN_ADMIN/dual gate độc lập occupancy, resource synthetic không có oracle, giữ engine và quality states. Bằng chứng runtime/CI/Git delivery theo report/PR/receipt/handoff; UI utility là subtask kế tiếp, dữ liệu thật vẫn riêng.

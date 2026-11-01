@@ -65,10 +65,11 @@ jobs:
         if: always()
         run: >-
           python3 tools/ci/verify_surefire.py backend/target/surefire-reports
-          --minimum 1410
+          --minimum 1443
           --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.TesseractOcrVisionAdapterTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.controller.IdentityDocumentOcrControllerTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.advisor.session.RedisRoomAdvisorSessionStoreRealRedisTest
+          --require-suite vn.edu.utc.hotel_booking.modules.ai.demo.utility.UtilityDemoApiTest
           --output "${{ runner.temp }}/member1-ci/backend-summary.json"
       - name: Upload aggregate evidence only
         if: always()

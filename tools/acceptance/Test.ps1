@@ -31,6 +31,7 @@ $env:OCR_ACCEPTANCE_PROJECT = 'hotel-m1-acceptance'
 $env:T12_FULL_RUNTIME = 'true'
 $env:T12_ACCEPTANCE_PROJECT = 'hotel-m1-acceptance'
 $env:U22_DEMO_ENABLED = if ([string]$EnvConfig.HOTEL_AI_DEMO_FORECAST_ENABLED -ceq 'true') { 'true' } else { 'false' }
+$env:U22_UTILITY_DEMO_ENABLED = if ([string]$EnvConfig.HOTEL_AI_DEMO_UTILITY_ENABLED -ceq 'true') { 'true' } else { 'false' }
 
 # Reject reused evidence paths before any API tests can mutate the sandbox.
 $ReportDir = "$ProjectRoot/docs/member1/acceptance"
