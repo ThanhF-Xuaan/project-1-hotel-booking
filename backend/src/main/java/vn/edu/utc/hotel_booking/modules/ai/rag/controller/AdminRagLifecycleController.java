@@ -17,7 +17,7 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.service.RagKnowledgeLifecycleServ
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/ai/admin/knowledge")
-@PreAuthorize("hasRole('ROLE_CHAIN_ADMIN')")
+@PreAuthorize("hasRole('CHAIN_ADMIN')")
 @RequiredArgsConstructor
 public class AdminRagLifecycleController {
 

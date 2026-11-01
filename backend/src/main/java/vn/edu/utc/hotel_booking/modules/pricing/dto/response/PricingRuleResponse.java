@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -13,7 +14,9 @@ import java.time.OffsetDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-public class PricingRuleResponse {
+public class PricingRuleResponse implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Schema(description = "ID quy tắc giá", example = "1")
     Integer id;

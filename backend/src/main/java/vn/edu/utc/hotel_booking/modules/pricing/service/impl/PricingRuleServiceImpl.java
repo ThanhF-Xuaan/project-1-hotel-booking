@@ -3,6 +3,8 @@ package vn.edu.utc.hotel_booking.modules.pricing.service.impl;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +45,7 @@ public class PricingRuleServiceImpl implements PricingRuleService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "ratePlans", allEntries = true)
     public PricingRuleResponse createPricingRule(PricingRuleCreateRequest request) {
         HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdAndIsDeletedFalse(request.getHotelRoomTypeId())
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND,
@@ -69,6 +72,7 @@ public class PricingRuleServiceImpl implements PricingRuleService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "ratePlans", allEntries = true)
     public PricingRuleResponse updatePricingRule(Integer id, PricingRuleUpdateRequest request) {
         PricingRule pricingRule = pricingRuleRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRICING_RULE_NOT_FOUND,
@@ -89,6 +93,7 @@ public class PricingRuleServiceImpl implements PricingRuleService {
     }
 
     @Override
+    @Cacheable(value = "ratePlans", key = "#id")
     public PricingRuleResponse getPricingRuleById(Integer id) {
         PricingRule pricingRule = pricingRuleRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRICING_RULE_NOT_FOUND,
@@ -126,6 +131,7 @@ public class PricingRuleServiceImpl implements PricingRuleService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "ratePlans", allEntries = true)
     public void deletePricingRules(List<Integer> ids) {
         if (ids != null && !ids.isEmpty()) {
             pricingRuleRepository.softDeleteByIds(ids);
