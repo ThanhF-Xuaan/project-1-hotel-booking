@@ -90,3 +90,44 @@ jobs:
         working-directory: frontend
         run: npm run build
 
+  docker-validation:
+    name: Docker Packaging & Compose Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose Configuration
+        run: |
+          cp .env.prod.example .env.prod
+          docker compose --env-file .env.prod -f docker-compose.prod.yml config --quiet
+          echo "✅ Docker Compose production configuration syntax is valid!"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test Build Backend Docker Image (Validation)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: hotel_backend:test
+          cache-from: type=gha
+
+      - name: Test Build Frontend Docker Image (Validation)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile.prod
+          build-args: |
+            VITE_API_BASE_URL=/api
+            VITE_API_URL=
+            VITE_KEYCLOAK_URL=https://smartstay.space
+            VITE_KEYCLOAK_REALM=hotel-realm
+            VITE_KEYCLOAK_CLIENT_ID=hotel-frontend
+          push: false
+          tags: hotel_frontend:test
+          cache-from: type=gha
