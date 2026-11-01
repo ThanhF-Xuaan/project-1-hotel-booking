@@ -7,6 +7,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $runtime = Get-Content -LiteralPath $RuntimeFile -Raw | ConvertFrom-Json
+. (Join-Path $PSScriptRoot 'Rag-Runtime.ps1')
+$ragRuntime = Resolve-AcceptanceRagRuntime $runtime
+$profiles = [System.Collections.Generic.List[string]]::new()
+if ($ragRuntime.Profile) { $profiles.Add($ragRuntime.Profile) }
 $backendPort = [int]$runtime.BACKEND_PORT
 $frontendPort = [int]$runtime.FRONTEND_PORT
 $keycloakRoot = ([string]$runtime.KEYCLOAK_SERVER_URL).TrimEnd('/')
@@ -46,17 +50,23 @@ if ([string]$runtime.HOTEL_AI_OCR_ENABLED -eq 'true') {
     if (-not $runtime.TESSERACT_EXE -or -not (Test-Path -LiteralPath ([string]$runtime.TESSERACT_EXE) -PathType Leaf)) {
         throw 'Enabled OCR acceptance requires a verified Tesseract executable.'
     }
-    $env:SPRING_PROFILES_ACTIVE = 'ocr-local'
+    $profiles.Add('ocr-local')
     $env:HOTEL_AI_OCR_ENABLED = 'true'
     $env:TESSERACT_EXE = [string]$runtime.TESSERACT_EXE
 } else {
     $env:HOTEL_AI_OCR_ENABLED = 'false'
-    Remove-Item Env:SPRING_PROFILES_ACTIVE -ErrorAction SilentlyContinue
 }
-$env:HOTEL_AI_RAG_DEMO_CORPUS_ENABLED = 'true'
-$env:HOTEL_AI_RAG_DEMOCORPUS_ENABLED = 'true'
-$env:HOTEL_AI_RAG_STORETYPE = 'in-memory'
-$env:HOTEL_AI_RAG_STORE_TYPE = 'in-memory'
+if ($profiles.Count -gt 0) { $env:SPRING_PROFILES_ACTIVE = $profiles -join ',' }
+else { Remove-Item Env:SPRING_PROFILES_ACTIVE -ErrorAction SilentlyContinue }
+$env:HOTEL_AI_RAG_DEMO_CORPUS_ENABLED = $ragRuntime.Demo
+$env:HOTEL_AI_RAG_DEMOCORPUS_ENABLED = $ragRuntime.Demo
+$env:HOTEL_AI_RAG_STORETYPE = $ragRuntime.Mode
+$env:HOTEL_AI_RAG_STORE_TYPE = $ragRuntime.Mode
+foreach ($item in @('JDBC_URL', 'USERNAME', 'PASSWORD')) {
+    $property = @{ JDBC_URL = 'Url'; USERNAME = 'Username'; PASSWORD = 'Password' }[$item]
+    $value = if ($Component -eq 'backend') { $ragRuntime[$property] } else { $null }
+    [Environment]::SetEnvironmentVariable("RAG_PGVECTOR_$item", $value, 'Process')
+}
 
 if ($Component -eq 'backend') {
     $backendDirectory = Join-Path $ProjectRoot 'backend'
@@ -67,7 +77,9 @@ if ($Component -eq 'backend') {
 
     Push-Location $backendDirectory
     try {
-        & $mavenWrapper 'spring-boot:run'
+        $mavenArguments = @('spring-boot:run')
+        if ($ragRuntime.JvmArguments) { $mavenArguments += "-Dspring-boot.run.jvmArguments=$($ragRuntime.JvmArguments)" }
+        & $mavenWrapper @mavenArguments
         exit $LASTEXITCODE
     } finally {
         Pop-Location

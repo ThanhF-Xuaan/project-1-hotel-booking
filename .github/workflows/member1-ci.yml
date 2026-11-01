@@ -102,6 +102,11 @@ jobs:
           npm ci --prefix frontend
       - name: Test CI report guard
         run: python -m unittest discover -s tools/ci -p 'test*.py' -v
+      - name: Test isolated RAG runtime configuration
+        shell: pwsh
+        run: ./tools/acceptance/Test-RagRuntimeConfiguration.ps1
+      - name: Test synthetic V03 mock export
+        run: python -m unittest discover -s tools/acceptance -p 'test*.py' -v
       - name: Validate contracts and current source provenance
         run: |
           python tools/t12/validate_r1_contracts.py --reviewed-widget-sources
