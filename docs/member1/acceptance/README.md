@@ -177,3 +177,7 @@ Latest review/fix evidence and Git authorization: [m1-github-delivery-review-202
 ## Persistent RAG HTTP và mock V03 — 31/10/2026
 
 CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-31.md) và [hướng dẫn mock V03](m1-v03-mock-data-guide-2026-10-31.md). User yêu cầu dùng mock trước, dữ liệu thật sẽ cung cấp sau. Pack có nhãn SYNTHETIC, không chứa oracle hoặc dữ liệu khách thật; lodging draft chưa là mẫu BCA chính thức. Full Boot/Keycloak/PostgreSQL restart/outage/recovery và browser đã kiểm local; CI/Git delivery theo receipt/handoff mới nhất. Các gate dữ liệu thật vẫn tách riêng.
+
+## U22-D01 — API occupancy demo, 01/11/2026
+
+[Báo cáo API demo](u22-demo-api-2026-11-01.md): CHAIN_ADMIN đọc lịch sử và forecast replay có nhãn SYNTHETIC khi profile/cờ demo cùng bật; default/prod vô hiệu. Full Boot/Keycloak và read-only digest đã kiểm cả mode bật/tắt. UI là subtask sau; dữ liệu thật/BCA vẫn riêng. Xem PR và canonical handoff để xác nhận delivery cuối.

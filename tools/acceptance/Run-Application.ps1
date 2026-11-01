@@ -11,6 +11,11 @@ $runtime = Get-Content -LiteralPath $RuntimeFile -Raw | ConvertFrom-Json
 $ragRuntime = Resolve-AcceptanceRagRuntime $runtime
 $profiles = [System.Collections.Generic.List[string]]::new()
 if ($ragRuntime.Profile) { $profiles.Add($ragRuntime.Profile) }
+$env:HOTEL_AI_DEMO_FORECAST_ENABLED = 'false'
+if ([string]$runtime.HOTEL_AI_DEMO_FORECAST_ENABLED -ceq 'true') {
+    $profiles.Add('m1-demo')
+    $env:HOTEL_AI_DEMO_FORECAST_ENABLED = 'true'
+}
 $backendPort = [int]$runtime.BACKEND_PORT
 $frontendPort = [int]$runtime.FRONTEND_PORT
 $keycloakRoot = ([string]$runtime.KEYCLOAK_SERVER_URL).TrimEnd('/')
