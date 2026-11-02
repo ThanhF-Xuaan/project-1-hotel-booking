@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261102-181500-seed-sample-bookings-and-guests" author="utc-hotel-team" context="dev-seed" runOnChange="true">
+        <comment>Khởi tạo dữ liệu mẫu: Danh sách khách hàng, Đơn đặt phòng (Bookings), Khách lưu trú (Stay Guests) gắn trực tiếp với các phòng có sẵn (101A, 102A, 101B, 101C, 201D, 301E) và Hóa đơn Folio</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261102-181500-seed-sample-bookings-and-guests.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>
