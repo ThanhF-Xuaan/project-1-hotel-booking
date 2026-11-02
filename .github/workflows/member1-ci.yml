@@ -105,9 +105,12 @@ jobs:
           subprocess.run(['docker','run','-d','--name','m1-analytics-ci','--label','com.docker.compose.project=hotel-m1-acceptance','--label','com.docker.compose.service=acceptance_postgres','-e','POSTGRES_DB=m1_analytics_test','-e','POSTGRES_USER=postgres','-e','POSTGRES_PASSWORD='+password,'-p','127.0.0.1:15435:5432','postgres:16-alpine'],check=True,capture_output=True)
           with open(os.environ['GITHUB_ENV'],'a') as f:
               f.write('M1_DEMO_DB_URL=jdbc:postgresql://localhost:15435/m1_analytics_test\nM1_DEMO_IT_USER=postgres\nM1_DEMO_IT_PASSWORD='+password+'\n')
+          readiness_env=os.environ.copy()
+          readiness_env['PGPASSWORD']=password
           for attempt in range(40):
-              r=subprocess.run(['docker','exec','m1-analytics-ci','pg_isready','-U','postgres','-d','m1_analytics_test'],capture_output=True)
-              if r.returncode==0: break
+              # The image's initialization server accepts Unix sockets before final TCP startup.
+              r=subprocess.run(['docker','exec','-e','PGPASSWORD','m1-analytics-ci','psql','-X','-qAt','-h','127.0.0.1','-U','postgres','-d','m1_analytics_test','-v','ON_ERROR_STOP=1','-c','SELECT 1'],capture_output=True,text=True,env=readiness_env,timeout=5)
+              if r.returncode==0 and r.stdout.strip()=='1': break
               time.sleep(1)
           else: raise RuntimeError('PostgreSQL unavailable')
       - name: Provision synthetic schema and restricted reader

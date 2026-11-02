@@ -38,6 +38,7 @@ Runner yêu cầu sandbox idle/fixedloopback vànamespace m1_demo chưa tồn t�
 - Cleanup PASS: DB `m1_analytics_test` và hai role thử nghiệm đã được dọn sau khi xác minh không connection/dữ liệu khác. Sandbox dataset/role/schema được rollback, snapshot restore và apps/containers dừng. Original env.json giữ nguyên byte, compose config được tái tạo. DB người dùng `hotel_booking_db` giữ schema demo và Utility; `hotel_postgres` được giữ chạy để DBeaver sử dụng.
 - Trước resume, một lệnh chưa được thực thi vì automatic approval review gặp giới hạn sử dụng; sau continue đã qua cùng cơ chế. DB local lúc resume dừng nên guard từ chối trước mutation; đã xác minh đúng volume rồi khởi động lại. Không coi hai tình huống này là test PASS hoặc lỗi ứng dụng.
 - Git/CI sau commit được ghi trong PR và receipt delivery; local PASS chưa tự chứng minh CI hoặc merge. Không gọi AI self-review là peer approval.
+- CI lượt đầu trên PR #53: 5 check PASS; job PostgreSQL FAIL tại provision với `DATABASE_OPERATION_FAILED`, trước khi chạy IT. Log không đủ để khẳng định nguyên nhân chính xác. Bước readiness dùng socket có thể nhận server khởi tạo tạm; đã chuyển sang `SELECT 1` có xác thực qua TCP đến đúng database. Chạy nguyên bước workflow đã sửa trên container mới: seed PASS, 6 PostgreSQL IT PASS, 6 provisioning checks PASS và container được dọn. YAML và 6 CI guards PASS. Chỉ workflow và báo cáo thay đổi sau full Verify cuối; kết quả CI của commit sửa được theo dõi riêng trong PR.
 
 ## Files và ownership
 
