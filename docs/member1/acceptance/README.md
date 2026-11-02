@@ -205,3 +205,7 @@ CONFIRMED: [persistent full HTTP/browser report](m1-persistent-rag-http-2026-10-
 ## V03-D01 — Kiểm chứng gói mock sau khi chia sẻ, 01/11/2026
 
 [Báo cáo verifier](v03-pack-verifier-2026-11-01.md) và [cách dùng](m1-v03-mock-data-guide-2026-10-31.md): offline/read-only kiểm đúng24files của canonical synthetic export; không tin manifest tự khai, không nhận relabel/rehash/path-link/size drift. PASS giữ productionReady=false và không đóng data/IAM/official-format gates. File/lý do, portability review/fix và bằng chứng local/CI/Git được ghi riêng.
+
+## Occupancy/Group — PostgreSQL demo, 02/11/2026
+
+[Báo cáo và cách dùng](analytics-demo-db-2026-11-02.md): schema m1_demo tách Core, seed có provenance/digest/rollback và account chỉ đọc; giữ API/UI demo, fixed clocks và nhãn SYNTHETIC. Bằng chứng fixture/DB parity, provisioning, PostgreSQL/Keycloak/API/browser và Git delivery được ghi theo từng lượt; không thay nghiệm thu dữ liệu vận hành thật hoặc mẫu BCA chính thức.
