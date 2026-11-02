@@ -1,14 +1,18 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   DollarSign,
   Search,
   RefreshCw,
   CheckCircle,
   Receipt,
+  Printer,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import CurrencyInput from '../../../core/components/ui/CurrencyInput';
 import Modal from '../../../core/components/ui/Modal';
+import { formatCurrency } from '../../../core/utils/currency';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
 import { isSessionExpiredError } from '../../../core/api/client';
 import financeService from '../services/finance.service';
@@ -16,6 +20,8 @@ import bookingService from '../../booking/services/booking.service';
 import CheckoutModal from '../components/payment/CheckoutModal';
 import PaymentErrorModal from '../components/payment/PaymentErrorModal';
 import PaymentStatusBadge from '../components/payment/PaymentStatusBadge';
+import InvoicePaymentFlowModal from '../components/payment/InvoicePaymentFlowModal';
+import HotelFolioReceipt from '../components/payment/HotelFolioReceipt';
 import type {
   PaymentResponse,
   InvoiceResponse,
@@ -41,9 +47,11 @@ const REFERENCE_CONFIG: Record<
   OTHER: { label: 'Mã tham chiếu / Biên lai', required: false, placeholder: 'VD: HD-001' },
 };
 
-const isGatewayMethod = (m: PaymentMethod): m is GatewayMethod => m === 'VNPAY' || m === 'MOMO';
+const isGatewayMethod = (m: PaymentMethod): m is GatewayMethod => m === 'VNPAY';
 
 export const FolioPaymentPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const urlBookingId = searchParams.get('bookingId');
   const [bookingNumberInput, setBookingNumberInput] = useState('');
   const [currentBooking, setCurrentBooking] = useState<BookingResponse | null>(null);
   const [payments, setPayments] = useState<PaymentResponse[]>([]);
@@ -52,8 +60,13 @@ export const FolioPaymentPage: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // In ấn biên lai Folio
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [selectedReceiptPayment, setSelectedReceiptPayment] = useState<PaymentResponse | null>(null);
+
   // Payment Modal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isInvoicePaymentFlowOpen, setIsInvoicePaymentFlowOpen] = useState(false);
   const [payAmount, setPayAmount] = useState<number>(0);
   const [payMethod, setPayMethod] = useState<PaymentMethod>('CASH');
   const [payPurpose, setPayPurpose] = useState<PaymentPurpose>('FULL_PAYMENT');
@@ -200,11 +213,59 @@ export const FolioPaymentPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchBookingList();
-    }, 0);
-    return () => clearTimeout(timer);
+    let isMounted = true;
+    const init = async () => {
+      if (isMounted) {
+        await fetchBookingList();
+      }
+    };
+    void init();
+    return () => {
+      isMounted = false;
+    };
   }, [fetchBookingList]);
+
+  // Tự động load đơn theo bookingId từ query param (khi thanh toán VNPay chuyển hướng về)
+  useEffect(() => {
+    if (!urlBookingId) return;
+    const bid = Number(urlBookingId);
+    if (!bid || isNaN(bid)) return;
+
+    let isMounted = true;
+    const loadBookingFromParam = async () => {
+      try {
+        setIsLoading(true);
+        const res = await bookingService.getById(bid);
+        if (res.result && isMounted) {
+          setBookingNumberInput(res.result.bookingNumber);
+          setCurrentBooking(res.result);
+          // Load payments
+          const pRes = await financeService.getPaymentsByBookingId(res.result.id);
+          if (pRes.result && isMounted) {
+            setPayments(pRes.result);
+          }
+          // Load invoice
+          try {
+            const invRes = await financeService.getInvoiceByBookingId(res.result.id);
+            if (invRes.result && isMounted) {
+              setInvoice(invRes.result);
+            }
+          } catch {
+            if (isMounted) setInvoice(null);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi tự động tải booking theo urlParam bookingId:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    void loadBookingFromParam();
+    return () => {
+      isMounted = false;
+    };
+  }, [urlBookingId]);
 
   // Lọc realtime danh sách booking theo cả MÃ BOOKING và SỐ PHÒNG (nhập từng số nhảy tìm kiếm luôn)
   const filteredBookingList = useMemo(() => {
@@ -373,7 +434,7 @@ export const FolioPaymentPage: React.FC = () => {
   const handleOpenPaymentModal = () => {
     if (!currentBooking) return;
     setPayAmount(Math.max(0, balanceDue));
-    setIsPaymentModalOpen(true);
+    setIsInvoicePaymentFlowOpen(true);
   };
 
   const handleSubmitPayment = async (e: React.FormEvent) => {
@@ -396,13 +457,14 @@ export const FolioPaymentPage: React.FC = () => {
     try {
       if (isGatewayMethod(payMethod)) {
         // D3 — tạo phiên thanh toán online → mở CheckoutModal (countdown + link gateway)
-        const create =
-          payMethod === 'VNPAY'
-            ? financeService.createVnPayPayment
-            : financeService.createMoMoPayment;
-        const res = await create({ bookingId: currentBooking.id, method: payMethod });
+        const res = await financeService.createVnPayPayment({
+          bookingId: currentBooking.id,
+          method: 'VNPAY',
+          bankCode: 'NCB',
+          amount: payAmount,
+        });
         if (res.result) {
-          setActiveGateway(payMethod);
+          setActiveGateway('VNPAY');
           setGatewaySession(res.result);
           setIsPaymentModalOpen(false);
           setIsCheckoutModalOpen(true);
@@ -620,15 +682,15 @@ export const FolioPaymentPage: React.FC = () => {
             {bookingNumberInput.trim()
               ? `Không tìm thấy đơn đặt phòng nào khớp mã "${bookingNumberInput}"`
               : listFilterKeyword.trim()
-              ? `Không tìm thấy đơn đặt phòng nào cho số phòng "${listFilterKeyword}"`
-              : 'Chưa có đơn đặt phòng nào — hãy tạo đơn ở mục Đặt phòng'}
+                ? `Không tìm thấy đơn đặt phòng nào cho số phòng "${listFilterKeyword}"`
+                : 'Chưa có đơn đặt phòng nào — hãy tạo đơn ở mục Đặt phòng'}
           </div>
         ) : (
           <div className="overflow-auto max-h-80">
             <table className="w-full text-left border-collapse text-sm">
               <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
                 <tr>
-                  <th className="p-3">Mã đơn</th>
+                  <th className="p-3">Phòng vật lý / Mã đơn</th>
                   <th className="p-3">Khách hàng</th>
                   <th className="p-3">Khách sạn</th>
                   <th className="p-3 text-right">Tổng tiền</th>
@@ -652,12 +714,43 @@ export const FolioPaymentPage: React.FC = () => {
                           handleSelectBooking(b);
                         }
                       }}
-                      className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${
-                        isActive ? 'bg-red-50' : 'hover:bg-neutral-50'
-                      }`}
+                      className={`cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 ${isActive ? 'bg-red-50' : 'hover:bg-neutral-50'
+                        }`}
                     >
-                      <td className="p-3 font-mono text-xs font-semibold text-neutral-800">
-                        {b.bookingNumber}
+                      <td className="p-3">
+                        {(() => {
+                          const assignedRooms = b.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+                          const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber);
+                          if (roomsWithInfo.length > 0) {
+                            return (
+                              <div className="space-y-0.5">
+                                <div className="flex flex-wrap gap-1">
+                                  {roomsWithInfo.map((r, idx) => (
+                                    <span
+                                      key={r.id || idx}
+                                      className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200"
+                                    >
+                                      Phòng {r.roomNumber}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="text-[11px] font-mono text-neutral-400">
+                                  {b.bookingNumber}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div>
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-neutral-100 text-neutral-600">
+                                Chưa xếp phòng
+                              </span>
+                              <div className="text-[11px] font-mono text-neutral-400 mt-0.5">
+                                {b.bookingNumber}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="p-3">
                         <div className="font-medium text-neutral-900">
@@ -669,7 +762,7 @@ export const FolioPaymentPage: React.FC = () => {
                       </td>
                       <td className="p-3 text-neutral-700">{b.hotelName}</td>
                       <td className="p-3 text-right font-semibold text-neutral-900">
-                        {new Intl.NumberFormat('vi-VN').format(Number(b.totalAmount))} đ
+                        {formatCurrency(b.totalAmount)}
                       </td>
                       <td className="p-3 text-center">{bookingStatusBadge(b.status)}</td>
                       <td className="p-3 text-right">
@@ -695,6 +788,50 @@ export const FolioPaymentPage: React.FC = () => {
 
       {currentBooking && (
         <div className="space-y-6">
+          {/* THÔNG TIN PHÒNG VẬT LÝ & KHÁCH HÀNG CỦA HÓA ĐƠN FOLIO */}
+          <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="space-y-1">
+                <span className="text-xs text-neutral-500 font-medium block">Phòng nhận hóa đơn / lưu trú:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {(() => {
+                    const assignedRooms = currentBooking.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+                    const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber);
+                    if (roomsWithInfo.length > 0) {
+                      return roomsWithInfo.map((r, idx) => (
+                        <span
+                          key={r.id || idx}
+                          className="inline-flex items-center px-3 py-1 rounded-xl text-sm font-bold bg-red-50 text-red-700 border border-red-200"
+                        >
+                          Phòng {r.roomNumber}
+                        </span>
+                      ));
+                    }
+                    return (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-neutral-100 text-neutral-600">
+                        Chưa xếp phòng vật lý
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="h-8 w-px bg-neutral-200 hidden sm:block mx-2" />
+
+              <div className="text-sm">
+                <div className="font-bold text-neutral-900">{currentBooking.guestName || currentBooking.guestPhone}</div>
+                <div className="text-xs text-neutral-500">
+                  SĐT: <span className="font-medium text-neutral-700">{currentBooking.guestPhone}</span> • Khách sạn: <span className="font-medium text-neutral-700">{currentBooking.hotelName}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right text-xs text-neutral-500">
+              <div>Mã đơn đặt phòng: <strong className="font-mono text-neutral-800">{currentBooking.bookingNumber}</strong></div>
+              <div>Trạng thái đơn: <span className="font-semibold text-neutral-800">{currentBooking.status}</span></div>
+            </div>
+          </div>
+
           {/* FOLIO SUMMARY CARDS */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs">
@@ -702,7 +839,7 @@ export const FolioPaymentPage: React.FC = () => {
                 Tổng phát sinh (Charges)
               </span>
               <p className="text-2xl font-bold text-neutral-900 mt-1">
-                {new Intl.NumberFormat('vi-VN').format(totalCharges)} đ
+                {formatCurrency(totalCharges)}
               </p>
               <span className="text-xs text-neutral-400 mt-1 block">
                 Bao gồm tiền phòng, phí dịch vụ & VAT
@@ -714,7 +851,7 @@ export const FolioPaymentPage: React.FC = () => {
                 Đã thanh toán (Paid)
               </span>
               <p className="text-2xl font-bold text-emerald-600 mt-1">
-                {new Intl.NumberFormat('vi-VN').format(totalPaid)} đ
+                {formatCurrency(totalPaid)}
               </p>
               <span className="text-xs text-neutral-400 mt-1 block">
                 {payments.filter((p) => p.status === 'SUCCESS').length} giao dịch thành công
@@ -726,7 +863,7 @@ export const FolioPaymentPage: React.FC = () => {
                 Còn lại cần thu (Balance Due)
               </span>
               <p className={`text-2xl font-bold mt-1 ${balanceDue > 0 ? 'text-red-600' : 'text-neutral-900'}`}>
-                {new Intl.NumberFormat('vi-VN').format(balanceDue)} đ
+                {formatCurrency(balanceDue)}
               </p>
               <span className="text-xs text-neutral-400 mt-1 block">
                 {balanceDue <= 0 ? 'Đã quyết toán toàn bộ' : 'Chưa tất toán'}
@@ -758,6 +895,18 @@ export const FolioPaymentPage: React.FC = () => {
                 Phát hành hóa đơn ({invoice.invoiceNumber})
               </Button>
             )}
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedReceiptPayment(payments.find((p) => p.status === 'SUCCESS') || null);
+                setIsReceiptModalOpen(true);
+              }}
+              className="border-neutral-300 hover:bg-neutral-50 text-neutral-800"
+            >
+              <Printer className="w-4 h-4 mr-2 text-neutral-600" />
+              Xem &amp; In Biên lai Folio
+            </Button>
 
             <Button
               variant="outline"
@@ -805,7 +954,7 @@ export const FolioPaymentPage: React.FC = () => {
                         <td className="p-4 text-neutral-700">{p.paymentMethod}</td>
                         <td className="p-4 text-neutral-600">{p.paymentPurpose}</td>
                         <td className="p-4 text-right font-bold text-neutral-900">
-                          {new Intl.NumberFormat('vi-VN').format(p.totalAmount)} đ
+                          {formatCurrency(p.totalAmount)}
                         </td>
                         <td className="p-4 text-center">
                           <PaymentStatusBadge status={p.status} />
@@ -814,14 +963,31 @@ export const FolioPaymentPage: React.FC = () => {
                           {p.paidAt ? new Date(p.paidAt).toLocaleString('vi-VN') : 'N/A'}
                         </td>
                         <td className="p-4 text-center">
-                          {p.status === 'SUCCESS' && (
-                            <button
-                              onClick={() => handleOpenRefundModal(p)}
-                              className="text-xs text-amber-600 hover:text-amber-800 font-semibold px-2 py-1 rounded-md hover:bg-amber-50"
-                            >
-                              Hoàn tiền
-                            </button>
-                          )}
+                          <div className="flex items-center justify-center gap-1.5">
+                            {p.status === 'SUCCESS' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedReceiptPayment(p);
+                                    setIsReceiptModalOpen(true);
+                                  }}
+                                  className="text-xs text-neutral-700 hover:text-neutral-900 font-semibold px-2 py-1 rounded-md hover:bg-neutral-100 flex items-center gap-1 border border-neutral-200 cursor-pointer"
+                                  title="In biên lai cho giao dịch này"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-neutral-600" />
+                                  Biên lai
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRefundModal(p)}
+                                  className="text-xs text-amber-600 hover:text-amber-800 font-semibold px-2 py-1 rounded-md hover:bg-amber-50 cursor-pointer"
+                                >
+                                  Hoàn tiền
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -833,20 +999,66 @@ export const FolioPaymentPage: React.FC = () => {
 
           {/* CHI TIẾT HÓA ĐƠN GTGT (NẾU ĐÃ TẠO) */}
           {invoice && (
-            <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs p-6 space-y-4">
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setIsInvoicePaymentFlowOpen(true)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setIsInvoicePaymentFlowOpen(true);
+                }
+              }}
+              className="bg-white rounded-2xl border border-neutral-200 shadow-xs p-6 space-y-4 cursor-pointer hover:border-red-400 hover:shadow-md transition-all group"
+            >
               <div className="flex justify-between items-start border-b border-neutral-100 pb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-neutral-900">Hóa đơn GTGT: {invoice.invoiceNumber}</h3>
-                  <span className="text-xs text-neutral-500">
-                    Trạng thái: <b className="text-neutral-800">{invoice.status}</b> | Ngày lập:{' '}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-bold text-neutral-900 group-hover:text-red-600 transition-colors">
+                      Hóa đơn GTGT: {invoice.invoiceNumber}
+                    </h3>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
+                      <Receipt className="w-3.5 h-3.5" />
+                      Nhấp để thanh toán hóa đơn
+                    </span>
+                    {(() => {
+                      const assignedRooms = currentBooking?.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
+                      const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber);
+                      if (roomsWithInfo.length > 0) {
+                        return roomsWithInfo.map((r, idx) => (
+                          <span
+                            key={r.id || idx}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold bg-neutral-100 text-neutral-700"
+                          >
+                            Phòng {r.roomNumber}
+                          </span>
+                        ));
+                      }
+                      return null;
+                    })()}
+                  </div>
+                  <span className="text-xs text-neutral-500 mt-1 block">
+                    Đơn đặt phòng: <b className="font-mono text-neutral-800">{currentBooking?.bookingNumber}</b> | Khách hàng: <b className="text-neutral-800">{currentBooking?.guestName}</b> | Trạng thái: <b className="text-neutral-800">{invoice.status}</b> | Ngày lập:{' '}
                     {new Date(invoice.createdAt).toLocaleDateString('vi-VN')}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex flex-col items-end gap-1">
                   <span className="text-xs text-neutral-500">Tổng thanh toán hóa đơn</span>
                   <p className="text-xl font-bold text-red-600">
-                    {new Intl.NumberFormat('vi-VN').format(invoice.grandTotal)} đ
+                    {formatCurrency(invoice.grandTotal)}
                   </p>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsInvoicePaymentFlowOpen(true);
+                    }}
+                    className="mt-1"
+                  >
+                    <Receipt className="w-4 h-4 mr-1.5" />
+                    Thanh toán hóa đơn này
+                  </Button>
                 </div>
               </div>
 
@@ -868,11 +1080,11 @@ export const FolioPaymentPage: React.FC = () => {
                       <tr key={d.id}>
                         <td className="p-3 font-medium text-neutral-800">{d.description}</td>
                         <td className="p-3 text-center">{d.quantity}</td>
-                        <td className="p-3 text-right">{new Intl.NumberFormat('vi-VN').format(d.unitPrice)} đ</td>
+                        <td className="p-3 text-right">{formatCurrency(d.unitPrice)}</td>
                         <td className="p-3 text-right">{d.vatRate}%</td>
-                        <td className="p-3 text-right">{new Intl.NumberFormat('vi-VN').format(d.vatAmount)} đ</td>
+                        <td className="p-3 text-right">{formatCurrency(d.vatAmount)}</td>
                         <td className="p-3 text-right font-bold text-neutral-900">
-                          {new Intl.NumberFormat('vi-VN').format(d.totalAmount)} đ
+                          {formatCurrency(d.totalAmount)}
                         </td>
                       </tr>
                     ))}
@@ -893,11 +1105,13 @@ export const FolioPaymentPage: React.FC = () => {
         <form onSubmit={handleSubmitPayment} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">Số tiền thanh toán (VNĐ) *</label>
-            <Input
-              type="number"
+            <CurrencyInput
               value={payAmount}
-              onChange={(e) => setPayAmount(Number(e.target.value))}
+              onChangeValue={(val) => setPayAmount(val)}
+              placeholder="0"
               required
+              className="font-bold text-neutral-900"
+              suffix="VNĐ"
             />
           </div>
 
@@ -909,12 +1123,8 @@ export const FolioPaymentPage: React.FC = () => {
                 value={payMethod}
                 onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
               >
-                <option value="CASH">Tiền mặt (Cash)</option>
-                <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
-                <option value="CREDIT_CARD">Thẻ tín dụng (Credit Card)</option>
-                <option value="DEBIT_CARD">Thẻ ghi nợ (Debit Card)</option>
-                <option value="VNPAY">VNPAY QR</option>
-                <option value="MOMO">Ví MoMo</option>
+                <option value="CASH">Tiền mặt tại quầy (Trực tiếp)</option>
+                <option value="VNPAY">Thẻ ATM nội địa (Cổng VNPAY)</option>
               </select>
             </div>
             <div>
@@ -932,12 +1142,12 @@ export const FolioPaymentPage: React.FC = () => {
           </div>
 
           {isGatewayMethod(payMethod) ? (
-            // D2 — VNPAY/MOMO: KHÔNG nhập tay mã tham chiếu (webhook tự ghi) + hiện số tiền theo tổng đơn
+            // D2 — VNPAY: KHÔNG nhập tay mã tham chiếu (webhook tự ghi) + hiện số tiền theo tổng đơn
             <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl p-4 text-xs leading-relaxed">
-              Thanh toán qua <b>{payMethod === 'VNPAY' ? 'VNPay' : 'MoMo'}</b>: mã tham chiếu sẽ
+              Thanh toán qua <b>Cổng VNPay</b>: mã tham chiếu sẽ
               <b> tự động ghi từ webhook</b> của cổng thanh toán (không nhập tay).
               <br />
-              Số tiền thu theo <b>tổng tiền đơn</b>: <b className="text-blue-900">{new Intl.NumberFormat('vi-VN').format(Number(currentBooking?.totalAmount))} đ</b>{' '}
+              Số tiền thanh toán: <b className="text-blue-900">{formatCurrency(payAmount)}</b>{' '}
               — hệ thống tự mở phiên thanh toán có hiệu lực 10 phút.
             </div>
           ) : (
@@ -975,8 +1185,8 @@ export const FolioPaymentPage: React.FC = () => {
               {isProcessingPayment
                 ? 'Đang xử lý...'
                 : isGatewayMethod(payMethod)
-                ? 'Tạo phiên thanh toán'
-                : 'Xác nhận thu tiền'}
+                  ? 'Tạo phiên thanh toán'
+                  : 'Xác nhận thu tiền'}
             </Button>
           </div>
         </form>
@@ -991,10 +1201,11 @@ export const FolioPaymentPage: React.FC = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">Số tiền hoàn (VNĐ) *</label>
-            <Input
-              type="number"
+            <CurrencyInput
               value={refundAmount}
-              onChange={(e) => setRefundAmount(Number(e.target.value))}
+              onChangeValue={(val) => setRefundAmount(val)}
+              placeholder="0"
+              suffix="VNĐ"
             />
           </div>
 
@@ -1042,6 +1253,38 @@ export const FolioPaymentPage: React.FC = () => {
         onClose={() => setPaymentError(null)}
         isRetrying={isCancellingPayment}
       />
+
+      {/* MODAL HÓA ĐƠN & QUY TRÌNH THANH TOÁN SANDBOX 4 BƯỚC */}
+      <InvoicePaymentFlowModal
+        isOpen={isInvoicePaymentFlowOpen}
+        onClose={() => setIsInvoicePaymentFlowOpen(false)}
+        booking={currentBooking}
+        invoice={invoice}
+        initialPaidAmount={totalPaid}
+        initialBalanceDue={balanceDue}
+        onPaymentSuccess={(payment) => {
+          setSuccessMessage(
+            `Thanh toán ${payment.transactionReference || `PAY-${payment.id}`} đã được ghi nhận thành công!`
+          );
+          if (currentBooking) {
+            fetchFolioData(currentBooking.bookingNumber);
+          }
+        }}
+      />
+
+      {/* MODAL XEM VÀ IN BIÊN LAI FOLIO ĐẦY ĐỦ */}
+      {isReceiptModalOpen && (
+        <HotelFolioReceipt
+          isOpen={isReceiptModalOpen}
+          onClose={() => {
+            setIsReceiptModalOpen(false);
+            setSelectedReceiptPayment(null);
+          }}
+          booking={currentBooking}
+          invoice={invoice}
+          payment={selectedReceiptPayment}
+        />
+      )}
     </div>
   );
 };

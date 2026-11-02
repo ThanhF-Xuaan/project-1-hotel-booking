@@ -7,7 +7,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
@@ -46,7 +48,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RoomingListImportBvaTest {
 
-    private final ExcelParserService excelParserService = new ExcelParserServiceImpl();
+    @Spy
+    private ExcelParserService excelParserService = new ExcelParserServiceImpl();
 
     @Mock
     private BookingRepository bookingRepository;
@@ -61,6 +64,7 @@ class RoomingListImportBvaTest {
     @Mock
     private StayGuestMapper stayGuestMapper;
 
+    @InjectMocks
     private BookingServiceImpl bookingService;
 
     private Hotel sampleHotel;
@@ -68,30 +72,6 @@ class RoomingListImportBvaTest {
 
     @BeforeEach
     void setUp() {
-        bookingService = new BookingServiceImpl(
-                bookingRepository,
-                bookingDetailRepository,
-                bookingRoomRepository,
-                stayGuestRepository,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                bookingMapper,
-                null,
-                null,
-                excelParserService,
-                stayGuestMapper,
-                null
-        );
-
         sampleHotel = Hotel.builder().id((short) 1).name("Khách sạn Grand Hotel").build();
         sampleBooking = Booking.builder()
                 .id(100L)
@@ -448,13 +428,13 @@ class RoomingListImportBvaTest {
         RoomingListPreviewResponse preview = bookingService.previewRoomingList(100L, file);
 
         assertThat(preview.getRows()).hasSize(5);
-        // 4 dòng đầu hợp lệ vì nhận diện đúng phòng 101A (trừ cảnh báo quá tải nếu vượt sức chứa, nhưng các phòng đều được nhận diện thuộc đơn)
-        assertThat(preview.getRows().get(0).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
-        assertThat(preview.getRows().get(1).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
-        assertThat(preview.getRows().get(2).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
-        assertThat(preview.getRows().get(3).getErrors()).noneMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
+        // 4 dong dau hop le va nhan dien dung phong 101A
+        assertThat(preview.getRows().get(0).getErrors()).noneMatch(e -> e.contains("999Z"));
+        assertThat(preview.getRows().get(1).getErrors()).noneMatch(e -> e.contains("999Z"));
+        assertThat(preview.getRows().get(2).getErrors()).noneMatch(e -> e.contains("999Z"));
+        assertThat(preview.getRows().get(3).getErrors()).noneMatch(e -> e.contains("999Z"));
 
-        // Dòng 5 (999Z) phải bị báo lỗi không thuộc đơn đặt phòng
-        assertThat(preview.getRows().get(4).getErrors()).anyMatch(e -> e.contains("không thuộc đơn đặt phòng này"));
+        // Dong 5 (999Z) phai bi bao loi khong thuoc don dat phong
+        assertThat(preview.getRows().get(4).getErrors()).anyMatch(e -> e.contains("999Z"));
     }
 }

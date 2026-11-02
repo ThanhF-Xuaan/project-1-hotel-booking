@@ -14,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RoomingListSampleFileGenerator {
 
     private static final String TARGET_DIR = "../docs/test-data/U12/";
+    private static final String FRONTEND_DIR = "../frontend/public/test-data/";
 
     private static final String[] HEADERS = {
             "Full Name", "Gender", "Date of Birth", "Nationality", "ID Number", "Phone", "Email", "Room Number", "Note"
@@ -95,14 +96,14 @@ class RoomingListSampleFileGenerator {
             // Gán vào 3 phòng trống (102, 103, 105), mỗi phòng đúng 2 người (đúng theo sức chứa tối đa của phòng Deluxe)
             List<String[]> data = List.<String[]>of(
                     // Phòng 102 (Trống, tối đa 2 người lớn)
-                    new String[]{"Nguyễn Văn An", "Nam", "12/03/1988", "Việt Nam", "001088001234", "0912345601", "an.nguyen@example.com", "102", "Khách đại diện phòng 102"},
-                    new String[]{"Trần Thị Bích", "Nữ", "25/07/1990", "Việt Nam", "001190002345", "0912345602", "bich.tran@example.com", "102", "Thành viên đoàn"},
+                    new String[]{"Nguyễn Văn An", "Nam", "12/03/1988", "Việt Nam", "001088001234", "0912345601", "an.nguyen@example.com", "101A", "Khách đại diện phòng 102"},
+                    new String[]{"Trần Thị Bích", "Nữ", "25/07/1990", "Việt Nam", "001190002345", "0912345602", "bich.tran@example.com", "101A", "Thành viên đoàn"},
                     // Phòng 103 (Trống, tối đa 2 người lớn)
-                    new String[]{"Lê Hoàng Cường", "Nam", "05/11/1985", "Việt Nam", "001085003456", "0912345603", "cuong.le@example.com", "103", "Khách phòng 103"},
-                    new String[]{"Phạm Thu Dung", "Nữ", "19/09/1992", "Việt Nam", "001192004567", "0912345604", "dung.pham@example.com", "103", "Thành viên đoàn"},
+                    new String[]{"Lê Hoàng Cường", "Nam", "05/11/1985", "Việt Nam", "001085003456", "0912345603", "cuong.le@example.com", "102A", "Khách phòng 103"},
+                    new String[]{"Phạm Thu Dung", "Nữ", "19/09/1992", "Việt Nam", "001192004567", "0912345604", "dung.pham@example.com", "102A", "Thành viên đoàn"},
                     // Phòng 105 (Trống, tối đa 2 người lớn)
-                    new String[]{"Hoàng Minh Đức", "Nam", "30/01/1987", "Việt Nam", "001087005678", "0912345605", "duc.hoang@example.com", "105", "Trưởng nhóm phòng 105"},
-                    new String[]{"Vũ Mai Hương", "Nữ", "14/04/1994", "Việt Nam", "001194006789", "0912345606", "huong.vu@example.com", "105", "Thành viên đoàn"}
+                    new String[]{"Hoàng Minh Đức", "Nam", "30/01/1987", "Việt Nam", "001087005678", "0912345605", "duc.hoang@example.com", "103A", "Trưởng nhóm phòng 105"},
+                    new String[]{"Vũ Mai Hương", "Nữ", "14/04/1994", "Việt Nam", "001194006789", "0912345606", "huong.vu@example.com", "103A", "Thành viên đoàn"}
             );
 
             int rowIdx = 1;
@@ -138,14 +139,14 @@ class RoomingListSampleFileGenerator {
             // Gán vào 3 phòng Suite trống (202, 203, 204), mỗi phòng 2 người
             List<String[]> data = List.<String[]>of(
                     // Phòng 202 (Trống, tối đa 3 người lớn)
-                    new String[]{"Johnathan Smith", "Nam", "15/02/1984", "Hoa Kỳ", "B12345678", "0912345611", "john.smith@example.com", "202", "Chuyên gia nước ngoài"},
-                    new String[]{"Emily Johnson", "Nữ", "20/09/1986", "Hoa Kỳ", "B23456789", "0912345612", "emily.j@example.com", "202", "Khách tham quan"},
+                    new String[]{"Johnathan Smith", "Nam", "15/02/1984", "Hoa Kỳ", "B12345678", "0912345611", "john.smith@example.com", "201D", "Chuyên gia nước ngoài"},
+                    new String[]{"Emily Johnson", "Nữ", "20/09/1986", "Hoa Kỳ", "B23456789", "0912345612", "emily.j@example.com", "201D", "Khách tham quan"},
                     // Phòng 203 (Trống, tối đa 3 người lớn)
-                    new String[]{"Đỗ Hải Nam", "Nam", "17/06/1991", "Việt Nam", "001091009012", "0912345609", "nam.do@example.com", "203", "Đoàn công tác"},
-                    new String[]{"Ngô Phương Nga", "Nữ", "03/05/1996", "Việt Nam", "001196010123", "0912345610", "nga.ngo@example.com", "203", "Đoàn công tác"},
+                    new String[]{"Đỗ Hải Nam", "Nam", "17/06/1991", "Việt Nam", "001091009012", "0912345609", "nam.do@example.com", "202D", "Đoàn công tác"},
+                    new String[]{"Ngô Phương Nga", "Nữ", "03/05/1996", "Việt Nam", "001196010123", "0912345610", "nga.ngo@example.com", "202D", "Đoàn công tác"},
                     // Phòng 204 (Trống, tối đa 3 người lớn)
-                    new String[]{"Tanaka Kenji", "Nam", "10/12/1980", "Nhật Bản", "TZ8901234", "0912345619", "kenji.t@example.com", "204", "Khách đối tác"},
-                    new String[]{"Sato Yuka", "Nữ", "05/06/1985", "Nhật Bản", "TZ9012345", "0912345620", "yuka.s@example.com", "204", "Khách đối tác"}
+                    new String[]{"Tanaka Kenji", "Nam", "10/12/1980", "Nhật Bản", "TZ8901234", "0912345619", "kenji.t@example.com", "203D", "Khách đối tác"},
+                    new String[]{"Sato Yuka", "Nữ", "05/06/1985", "Nhật Bản", "TZ9012345", "0912345620", "yuka.s@example.com", "203D", "Khách đối tác"}
             );
 
             int rowIdx = 1;
@@ -181,16 +182,16 @@ class RoomingListSampleFileGenerator {
             List<String[]> data = List.<String[]>of(
                     new String[]{"Nguyễn Văn An", "Nam", "12/03/1988", "Việt Nam", "001088001234", "0912345601", "an.nguyen@example.com", "101", "Trưởng đoàn du lịch"},
                     new String[]{"Trần Thị Bích", "Nữ", "25/07/1990", "Việt Nam", "001190002345", "0912345602", "bich.tran@example.com", "101", "Thành viên đoàn"},
-                    new String[]{"Lê Hoàng Cường", "Nam", "05/11/1985", "Việt Nam", "001085003456", "0912345603", "cuong.le@example.com", "102", "Khách VIP"},
-                    new String[]{"Phạm Thu Dung", "Nữ", "19/09/1992", "Việt Nam", "001192004567", "0912345604", "dung.pham@example.com", "102", "Thành viên đoàn"},
-                    new String[]{"Hoàng Minh Đức", "Nam", "30/01/1987", "Việt Nam", "001087005678", "0912345605", "duc.hoang@example.com", "103", "Phó đoàn"},
-                    new String[]{"Vũ Mai Hương", "Nữ", "14/04/1994", "Việt Nam", "001194006789", "0912345606", "huong.vu@example.com", "103", "Thành viên đoàn"},
+                    new String[]{"Lê Hoàng Cường", "Nam", "05/11/1985", "Việt Nam", "001085003456", "0912345603", "cuong.le@example.com", "101A", "Khách VIP"},
+                    new String[]{"Phạm Thu Dung", "Nữ", "19/09/1992", "Việt Nam", "001192004567", "0912345604", "dung.pham@example.com", "101A", "Thành viên đoàn"},
+                    new String[]{"Hoàng Minh Đức", "Nam", "30/01/1987", "Việt Nam", "001087005678", "0912345605", "duc.hoang@example.com", "102A", "Phó đoàn"},
+                    new String[]{"Vũ Mai Hương", "Nữ", "14/04/1994", "Việt Nam", "001194006789", "0912345606", "huong.vu@example.com", "102A", "Thành viên đoàn"},
                     new String[]{"Đặng Quốc Khánh", "Nam", "22/08/1989", "Việt Nam", "001089007890", "0912345607", "khanh.dang@example.com", "201", "Khách hội nghị"},
                     new String[]{"Bùi Lan Linh", "Nữ", "08/12/1993", "Việt Nam", "001193008901", "0912345608", "linh.bui@example.com", "201", "Khách hội nghị"},
-                    new String[]{"Đỗ Hải Nam", "Nam", "17/06/1991", "Việt Nam", "001091009012", "0912345609", "nam.do@example.com", "202", "Đoàn công tác"},
-                    new String[]{"Ngô Phương Nga", "Nữ", "03/05/1996", "Việt Nam", "001196010123", "0912345610", "nga.ngo@example.com", "202", "Đoàn công tác"},
-                    new String[]{"Johnathan Smith", "Nam", "15/02/1984", "Hoa Kỳ", "B12345678", "0912345611", "john.smith@example.com", "203", "Chuyên gia nước ngoài"},
-                    new String[]{"Emily Johnson", "Nữ", "20/09/1986", "Hoa Kỳ", "B23456789", "0912345612", "emily.j@example.com", "203", "Khách tham quan"},
+                    new String[]{"Đỗ Hải Nam", "Nam", "17/06/1991", "Việt Nam", "001091009012", "0912345609", "nam.do@example.com", "201D", "Đoàn công tác"},
+                    new String[]{"Ngô Phương Nga", "Nữ", "03/05/1996", "Việt Nam", "001196010123", "0912345610", "nga.ngo@example.com", "201D", "Đoàn công tác"},
+                    new String[]{"Johnathan Smith", "Nam", "15/02/1984", "Hoa Kỳ", "B12345678", "0912345611", "john.smith@example.com", "202D", "Chuyên gia nước ngoài"},
+                    new String[]{"Emily Johnson", "Nữ", "20/09/1986", "Hoa Kỳ", "B23456789", "0912345612", "emily.j@example.com", "202D", "Khách tham quan"},
                     new String[]{"Trịnh Văn Phong", "Nam", "11/10/1983", "Việt Nam", "001083011234", "0912345613", "phong.trinh@example.com", "301", "Thành viên đoàn"},
                     new String[]{"Mai Thị Quyên", "Nữ", "28/03/1995", "Việt Nam", "001195012345", "0912345614", "quyen.mai@example.com", "301", "Thành viên đoàn"},
                     new String[]{"Phan Trọng Sơn", "Nam", "09/07/1989", "Việt Nam", "001089013456", "0912345615", "son.phan@example.com", "302", "Thành viên đoàn"},
@@ -237,23 +238,23 @@ class RoomingListSampleFileGenerator {
                     // Dòng 3: Thiếu họ tên
                     new String[]{"", "Nam", "25/07/1990", "Việt Nam", "001190099002", "0912345602", "thieuten@example.com", "101", "Lỗi: thiếu họ tên"},
                     // Dòng 4: Email sai định dạng
-                    new String[]{"Trần Văn Ba", "Nam", "05/11/1985", "Việt Nam", "001085099003", "0912345603", "email_sai_dinh_dang", "102", "Lỗi: email sai format"},
+                    new String[]{"Trần Văn Ba", "Nam", "05/11/1985", "Việt Nam", "001085099003", "0912345603", "email_sai_dinh_dang", "101A", "Lỗi: email sai format"},
                     // Dòng 5: Ngày sinh không hợp lệ (31/02)
-                    new String[]{"Lê Thị Bốn", "Nữ", "31/02/1995", "Việt Nam", "001195099004", "0912345604", "bon.le@example.com", "102", "Lỗi: ngày sinh không tồn tại"},
+                    new String[]{"Lê Thị Bốn", "Nữ", "31/02/1995", "Việt Nam", "001195099004", "0912345604", "bon.le@example.com", "101A", "Lỗi: ngày sinh không tồn tại"},
                     // Dòng 6: Hợp lệ
-                    new String[]{"Phạm Văn Năm", "Nam", "30/01/1987", "Việt Nam", "001087099005", "0912345605", "nam.pham@example.com", "103", "Dòng hợp lệ"},
+                    new String[]{"Phạm Văn Năm", "Nam", "30/01/1987", "Việt Nam", "001087099005", "0912345605", "nam.pham@example.com", "102A", "Dòng hợp lệ"},
                     // Dòng 7: Giới tính không được hỗ trợ
-                    new String[]{"Hoàng Thị Sáu", "KhongXacDinh", "14/04/1994", "Việt Nam", "001194099006", "0912345606", "sau.hoang@example.com", "103", "Lỗi: giới tính không hỗ trợ"},
+                    new String[]{"Hoàng Thị Sáu", "KhongXacDinh", "14/04/1994", "Việt Nam", "001194099006", "0912345606", "sau.hoang@example.com", "102A", "Lỗi: giới tính không hỗ trợ"},
                     // Dòng 8: Số điện thoại sai định dạng
                     new String[]{"Vũ Văn Bảy", "Nam", "22/08/1989", "Việt Nam", "001089099007", "012345", "bay.vu@example.com", "201", "Lỗi: SĐT quá ngắn"},
                     // Dòng 9: Ngày sinh ở tương lai
                     new String[]{"Đỗ Thị Tám", "Nữ", "15/05/2099", "Việt Nam", "001199099008", "0912345608", "tam.do@example.com", "201", "Lỗi: ngày sinh tương lai"},
                     // Dòng 10: Hợp lệ
-                    new String[]{"Bùi Văn Chín", "Nam", "17/06/1991", "Việt Nam", "001091099009", "0912345609", "chin.bui@example.com", "202", "Dòng hợp lệ (CCCD gốc)"},
+                    new String[]{"Bùi Văn Chín", "Nam", "17/06/1991", "Việt Nam", "001091099009", "0912345609", "chin.bui@example.com", "201D", "Dòng hợp lệ (CCCD gốc)"},
                     // Dòng 11: Trùng số giấy tờ với dòng 10 trong cùng file
-                    new String[]{"Ngô Thị Mười", "Nữ", "03/05/1996", "Việt Nam", "001091099009", "0912345610", "muoi.ngo@example.com", "202", "Lỗi: trùng số giấy tờ với dòng 10"},
+                    new String[]{"Ngô Thị Mười", "Nữ", "03/05/1996", "Việt Nam", "001091099009", "0912345610", "muoi.ngo@example.com", "201D", "Lỗi: trùng số giấy tờ với dòng 10"},
                     // Dòng 12: Hợp lệ
-                    new String[]{"Đinh Văn Mười Một", "Nam", "10/10/1992", "Việt Nam", "001092099011", "0912345611", "muoimot@example.com", "203", "Dòng hợp lệ"}
+                    new String[]{"Đinh Văn Mười Một", "Nam", "10/10/1992", "Việt Nam", "001092099011", "0912345611", "muoimot@example.com", "202D", "Dòng hợp lệ"}
             );
 
             int rowIdx = 1;

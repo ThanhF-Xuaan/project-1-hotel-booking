@@ -16,7 +16,9 @@ import {
   Receipt,
   UserPlus,
   UserX,
+  FileSpreadsheet,
 } from 'lucide-react';
+import RoomingListImportModal from '../components/RoomingListImportModal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
@@ -48,6 +50,7 @@ export const BookingListPage: React.FC = () => {
 
   // Filters
   const [searchBookingNumber, setSearchBookingNumber] = useState('');
+  const [searchRoomNumber, setSearchRoomNumber] = useState('');
   const [searchStatus, setSearchStatus] = useState<BookingStatus | ''>('');
   const [assignedTab, setAssignedTab] = useState<'ALL' | 'UNASSIGNED' | 'ASSIGNED'>('ALL');
 
@@ -64,6 +67,10 @@ export const BookingListPage: React.FC = () => {
     roomId?: number;
     roomNumber?: string;
   } | null>(null);
+
+  // Rooming List Import Modal
+  const [isRoomingListModalOpen, setIsRoomingListModalOpen] = useState(false);
+  const [roomingListBooking, setRoomingListBooking] = useState<{ id: number; bookingNumber: string } | null>(null);
 
   // Assign Room Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -142,8 +149,13 @@ export const BookingListPage: React.FC = () => {
       const isAssignedParam =
         assignedTab === 'ALL' ? undefined : assignedTab === 'ASSIGNED';
 
+      const cleanRoom = searchRoomNumber
+        ? searchRoomNumber.replace(/^(phòng|phong|room)\s*/i, '').trim()
+        : undefined;
+
       const res = await bookingService.filter({
         bookingNumber: searchBookingNumber ? searchBookingNumber.trim() : undefined,
+        roomNumber: cleanRoom || undefined,
         status: searchStatus || undefined,
         isAssigned: isAssignedParam,
         page: page + 1,
@@ -160,7 +172,7 @@ export const BookingListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, searchBookingNumber, searchStatus, assignedTab]);
+  }, [page, pageSize, searchBookingNumber, searchRoomNumber, searchStatus, assignedTab]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -611,12 +623,32 @@ export const BookingListPage: React.FC = () => {
       </div>
 
       {/* HÀNG 1: SEARCH & FILTER BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap gap-4 items-center">
-        <div className="flex-1 min-w-[240px]">
+      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-[200px]">
           <Input
             placeholder="Tìm theo mã đặt phòng (VD: BK...)"
             value={searchBookingNumber}
             onChange={(e) => setSearchBookingNumber(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setPage(0);
+                loadData();
+              }
+            }}
+          />
+        </div>
+
+        <div className="flex-1 min-w-[200px]">
+          <Input
+            placeholder="🔍 Tìm theo số phòng (VD: 101, 201C...)"
+            value={searchRoomNumber}
+            onChange={(e) => setSearchRoomNumber(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                setPage(0);
+                loadData();
+              }
+            }}
           />
         </div>
 
@@ -624,7 +656,10 @@ export const BookingListPage: React.FC = () => {
           <select
             className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600"
             value={searchStatus}
-            onChange={(e) => setSearchStatus(e.target.value as BookingStatus | '')}
+            onChange={(e) => {
+              setSearchStatus(e.target.value as BookingStatus | '');
+              setPage(0);
+            }}
           >
             <option value="">Tất cả trạng thái</option>
             <option value="CONFIRMED">Đã xác nhận</option>
@@ -642,6 +677,7 @@ export const BookingListPage: React.FC = () => {
           variant="outline"
           onClick={() => {
             setSearchBookingNumber('');
+            setSearchRoomNumber('');
             setSearchStatus('');
             setAssignedTab('ALL');
             setPage(0);
@@ -657,6 +693,16 @@ export const BookingListPage: React.FC = () => {
           Tổng số: <span className="font-bold text-neutral-900">{totalElements}</span> đơn đặt phòng
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.location.href = '/booking/rooming-list';
+            }}
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1.5 text-red-600" />
+            Import Excel Rooming List
+          </Button>
           <Button
             variant="primary"
             size="sm"
@@ -725,7 +771,30 @@ export const BookingListPage: React.FC = () => {
                         )}
                       </td>
                       <td className="p-4 text-neutral-700">
-                        {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
+                        <div className="font-medium text-neutral-900">
+                          {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
+                        </div>
+                        {(() => {
+                          const assignedRooms =
+                            booking.bookingDetails
+                              ?.flatMap((d) => d.bookingRooms || [])
+                              .filter((r) => r.roomNumber) || [];
+                          if (assignedRooms.length > 0) {
+                            return (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {assignedRooms.map((r, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-200"
+                                  >
+                                    Phòng {r.roomNumber}
+                                  </span>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </td>
                       <td className="p-4 text-neutral-600 text-xs">
                         {booking.bookingDetails?.[0] ? (
@@ -759,6 +828,17 @@ export const BookingListPage: React.FC = () => {
                             title="Xem chi tiết đơn"
                           >
                             <Eye className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setRoomingListBooking({ id: booking.id, bookingNumber: booking.bookingNumber });
+                              setIsRoomingListModalOpen(true);
+                            }}
+                            className="p-1.5 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg"
+                            title="Import Rooming List (Excel)"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
                           </button>
 
                           {booking.status === 'CONFIRMED' && (
@@ -1457,6 +1537,25 @@ export const BookingListPage: React.FC = () => {
           }
         }}
       />
+
+      {/* ROOMING LIST IMPORT MODAL */}
+      {roomingListBooking && (
+        <RoomingListImportModal
+          isOpen={isRoomingListModalOpen}
+          onClose={() => {
+            setIsRoomingListModalOpen(false);
+            setRoomingListBooking(null);
+          }}
+          bookingId={roomingListBooking.id}
+          bookingNumber={roomingListBooking.bookingNumber}
+          onSuccess={(result) => {
+            setActionSuccessMessage(
+              `Đã import thành công ${result.importedCount} khách vào đơn đặt phòng ${roomingListBooking.bookingNumber}!`
+            );
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 };

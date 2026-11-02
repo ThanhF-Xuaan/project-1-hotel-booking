@@ -1,5 +1,6 @@
 import { apiClient } from '../../../core/api/client';
 import type { PageResponse } from '../../../core/api/types';
+import type { RoomInstanceDto } from '../../inventory/types/inventory.types';
 import type {
   BookingCreateRequest,
   BookingSearchDto,
@@ -14,6 +15,9 @@ import type {
   BookingCancelPreviewResponse,
   BookingCancelRequest,
   BookingCancelResponse,
+  RoomingListPreviewResponse,
+  RoomingListImportResultResponse,
+  RoomingListConfirmRequest,
 } from '../types/booking.types';
 
 const BASE_URL = '/api/v1/bookings';
@@ -84,6 +88,37 @@ export const bookingService = {
 
   cancelPublicBooking: (bookingNumber: string, data: BookingCancelRequest) =>
     apiClient.post<BookingCancelResponse>(`/api/v1/public/bookings/${bookingNumber}/cancel`, data),
+
+  previewRoomingList: (bookingId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post<RoomingListPreviewResponse>(
+      `${BASE_URL}/${bookingId}/rooming-list/preview`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
+
+  importRoomingList: (bookingId: number, file: File, confirm: boolean = false) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post<RoomingListImportResultResponse>(
+      `${BASE_URL}/${bookingId}/rooming-list/import?confirm=${confirm}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+  },
+
+  confirmRoomingList: (bookingId: number, data: RoomingListConfirmRequest) =>
+    apiClient.post<RoomingListImportResultResponse>(
+      `${BASE_URL}/${bookingId}/rooming-list/confirm`,
+      data
+    ),
+
+  getVacantRooms: (hotelId?: number) =>
+    apiClient.get<RoomInstanceDto[]>(
+      `${BASE_URL}/vacant-rooms${hotelId ? `?hotelId=${hotelId}` : ''}`
+    ),
 };
 
 export default bookingService;

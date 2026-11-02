@@ -12,6 +12,7 @@ const PricingRuleListPage = lazy(() => import('./modules/pricing/pages/PricingRu
 const CampaignListPage = lazy(() => import('./modules/pricing/pages/CampaignListPage'))
 const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPage'))
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
+const RoomingListImportPage = lazy(() => import('./modules/booking/pages/RoomingListImportPage'))
 const PolicyManagementPage = lazy(() => import('./modules/booking/pages/PolicyManagementPage'))
 const FolioPaymentPage = lazy(() => import('./modules/finance/pages/FolioPaymentPage'))
 const PaymentResultPage = lazy(() => import('./modules/finance/pages/PaymentResultPage'))
@@ -88,6 +89,7 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
                 <Route path="/booking/walk-in" element={<WalkInBookingPage />} />
+                <Route path="/booking/rooming-list" element={<RoomingListImportPage />} />
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="booking/policies" element={<PolicyManagementPage />} />

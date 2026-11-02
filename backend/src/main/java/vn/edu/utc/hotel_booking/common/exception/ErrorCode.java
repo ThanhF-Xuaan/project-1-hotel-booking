@@ -61,6 +61,10 @@ public enum ErrorCode {
     ROOM_NOT_AVAILABLE(5031, "Không đủ phòng trống trong khoảng thời gian yêu cầu", HttpStatus.CONFLICT),
     BOOKING_DATE_OUT_OF_HORIZON(5032, "Ngày lưu trú nằm ngoài chân trời mở bán của khách sạn", HttpStatus.BAD_REQUEST),
 
+    MAINTENANCE_BLOCK_NOT_FOUND(5041, "Không tìm thấy thông tin khóa phòng", HttpStatus.NOT_FOUND),
+    ROOM_ALREADY_BLOCKED(5042, "Phòng đã bị khóa hoặc đang có khách lưu trú trong khoảng thời gian này", HttpStatus.CONFLICT),
+    MAINTENANCE_BLOCK_TIME_INVALID(5043, "Khoảng thời gian khóa phòng không hợp lệ", HttpStatus.BAD_REQUEST),
+
     // Pricing Module Errors
     PRICING_RULE_NOT_FOUND(6001, "Không tìm thấy quy tắc giá", HttpStatus.NOT_FOUND),
     CAMPAIGN_NOT_FOUND(6011, "Không tìm thấy chiến dịch khuyến mại", HttpStatus.NOT_FOUND),
@@ -90,6 +94,11 @@ public enum ErrorCode {
     BOOKING_ALREADY_CANCELLED(7062, "Đơn đặt phòng này đã được hủy trước đó", HttpStatus.BAD_REQUEST),
     CANCELLATION_NOT_ALLOWED_AFTER_CHECKIN(7063, "Không thể hủy toàn bộ đơn đặt phòng do đã có phòng hoàn tất nhận phòng hoặc đã kết thúc lưu trú", HttpStatus.BAD_REQUEST),
     BOOKING_ROOM_NOT_ELIGIBLE_FOR_CANCELLATION(7064, "Phòng này không ở trạng thái hợp lệ (EXPECTED) để thực hiện hủy", HttpStatus.BAD_REQUEST),
+    EXCEL_INVALID_FILE(7071, "Định dạng file không hợp lệ. Chỉ chấp nhận tệp Excel (.xlsx)", HttpStatus.BAD_REQUEST),
+    EXCEL_FILE_SIZE_EXCEEDED(7072, "Dung lượng file vượt quá giới hạn tối đa cho phép", HttpStatus.BAD_REQUEST),
+    EXCEL_EMPTY_FILE(7073, "File Excel không chứa dòng dữ liệu nào", HttpStatus.BAD_REQUEST),
+    EXCEL_INVALID_STRUCTURE(7074, "Cấu trúc file Excel không hợp lệ", HttpStatus.BAD_REQUEST),
+    EXCEL_MAX_ROWS_EXCEEDED(7075, "Số lượng dòng dữ liệu vượt quá giới hạn tối đa cho phép", HttpStatus.BAD_REQUEST),
 
     // Finance & Payment Module Errors (8000s)
     PAYMENT_NOT_FOUND(8001, "Không tìm thấy thông tin thanh toán", HttpStatus.NOT_FOUND),

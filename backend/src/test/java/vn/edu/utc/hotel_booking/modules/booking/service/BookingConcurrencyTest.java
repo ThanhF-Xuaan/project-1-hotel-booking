@@ -29,6 +29,9 @@ import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceReposit
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomMaintenanceBlockRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomSlotRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingRoomService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.impl.RoomAvailabilityServiceImpl;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 
@@ -57,6 +60,9 @@ class BookingConcurrencyTest {
     @InjectMocks private RoomAvailabilityServiceImpl roomAvailabilityService;
 
     // --- Mock dependencies cho BookingService assignRoom ---
+    @Mock private BookingRoomService bookingRoomService;
+    @Mock private RoomInstanceService roomInstanceService;
+    @Mock private RoomSlotService roomSlotService;
     @Mock private BookingRoomRepository bookingRoomRepository;
     @Mock private RoomInstanceRepository roomInstanceRepository;
     @Mock private RoomSlotRepository roomSlotRepository;
@@ -121,6 +127,18 @@ class BookingConcurrencyTest {
                 return null;
             }
         }).when(roomAvailabilityRepository).save(any(RoomAvailability.class));
+
+        when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDateWithLock(eq(1), eq(checkIn)))
+                .thenAnswer(invocation -> Optional.of(RoomAvailability.builder()
+                        .id(1L)
+                        .hotelRoomType(sampleHotelRoomType)
+                        .date(checkIn)
+                        .totalRooms(1)
+                        .bookedRooms(1 - remainingRooms.get())
+                        .lockedRooms(0)
+                        .oooRooms(0)
+                        .version(0L)
+                        .build()));
 
         when(roomAvailabilityRepository.findByHotelRoomTypeIdAndDate(eq(1), eq(checkIn)))
                 .thenAnswer(invocation -> Optional.of(RoomAvailability.builder()
@@ -195,14 +213,13 @@ class BookingConcurrencyTest {
                 .checkOutDate(checkOut)
                 .build();
 
-        when(roomInstanceRepository.findByIdWithLock(101)).thenReturn(Optional.of(sampleRoomInstance));
-        when(roomMaintenanceBlockRepository.isRoomBlockedBetween(eq(101), any(), any())).thenReturn(false);
+        when(roomInstanceService.getEntityById(101)).thenReturn(sampleRoomInstance);
         when(bookingMapper.toResponse(any())).thenReturn(new BookingResponse());
 
         // Mô phỏng atomic pessimistic serialization: luồng đầu tiên chiếm phòng 101A
         AtomicReference<BookingRoom> assignedOwner = new AtomicReference<>(null);
 
-        when(bookingRoomRepository.findOverlappingAssignedRooms(eq(101), any(), any()))
+        when(bookingRoomService.findOverlappingAssignedRooms(eq(101), any(), any()))
                 .thenAnswer(inv -> {
                     synchronized (assignedOwner) {
                         BookingRoom owner = assignedOwner.get();
@@ -222,7 +239,7 @@ class BookingConcurrencyTest {
                     .id(id)
                     .bookingDetail(detail)
                     .build();
-            when(bookingRoomRepository.findById(id)).thenReturn(Optional.of(br));
+            when(bookingRoomService.getEntityById(id)).thenReturn(br);
         }
 
         for (int i = 0; i < concurrency; i++) {
