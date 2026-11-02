@@ -27,11 +27,11 @@ public interface BookingGuestRepository extends JpaRepository<BookingGuest, Long
     boolean existsByPhoneAndIsDeletedFalse(String phone);
 
     @Query("SELECT g FROM BookingGuest g WHERE g.isDeleted = false " +
-            "AND (:identityType IS NULL OR g.identityType = :identityType) " +
-            "AND (:status IS NULL OR g.status = :status) " +
-            "AND (:keyword IS NULL OR g.phone LIKE CONCAT('%', :keyword, '%') " +
-            "    OR LOWER(g.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR g.identityNumber LIKE CONCAT('%', :keyword, '%'))")
+            "AND (CAST(:identityType AS string) IS NULL OR g.identityType = :identityType) " +
+            "AND (CAST(:status AS string) IS NULL OR g.status = :status) " +
+            "AND (CAST(:keyword AS string) IS NULL OR g.phone LIKE CONCAT('%', CAST(:keyword AS string), '%') " +
+            "    OR LOWER(g.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR g.identityNumber LIKE CONCAT('%', CAST(:keyword AS string), '%'))")
     Page<BookingGuest> searchGuests(@Param("keyword") String keyword,
                                     @Param("identityType") String identityType,
                                     @Param("status") String status,

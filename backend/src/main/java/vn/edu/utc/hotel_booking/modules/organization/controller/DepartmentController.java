@@ -47,7 +47,7 @@ public class DepartmentController {
                 .build();
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Lấy chi tiết phòng ban theo ID")
     public ApiResponse<DepartmentResponse> getById(@PathVariable Short id) {
@@ -70,7 +70,7 @@ public class DepartmentController {
                 .build();
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     @PreAuthorize("hasRole('CHAIN_ADMIN')")
     @Operation(summary = "Cập nhật thông tin phòng ban (Chỉ Chain Admin)")
     public ApiResponse<DepartmentResponse> update(@PathVariable Short id,

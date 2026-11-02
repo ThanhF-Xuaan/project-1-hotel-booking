@@ -36,8 +36,8 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
             "WHERE r.isDeleted = false " +
             "AND (:hotelId IS NULL OR r.hotel.id = :hotelId) " +
             "AND (:hotelRoomTypeId IS NULL OR r.hotelRoomType.id = :hotelRoomTypeId) " +
-            "AND (:roomNumber IS NULL OR LOWER(r.roomNumber) LIKE LOWER(CONCAT('%', :roomNumber, '%'))) " +
-            "AND (:currentStatus IS NULL OR r.currentStatus = :currentStatus)")
+            "AND (CAST(:roomNumber AS string) IS NULL OR LOWER(r.roomNumber) LIKE LOWER(CONCAT('%', CAST(:roomNumber AS string), '%'))) " +
+            "AND (CAST(:currentStatus AS string) IS NULL OR r.currentStatus = :currentStatus)")
     Page<RoomInstance> filterRooms(
             @Param("hotelId") Short hotelId,
             @Param("hotelRoomTypeId") Integer hotelRoomTypeId,
@@ -54,7 +54,7 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
             "JOIN FETCH hrt.roomType rt " +
             "WHERE r.isDeleted = false " +
             "AND r.hotel.id = :hotelId " +
-            "AND (:status IS NULL OR UPPER(r.currentStatus) = UPPER(:status))")
+            "AND (CAST(:status AS string) IS NULL OR UPPER(r.currentStatus) = UPPER(CAST(:status AS string)))")
     List<RoomInstance> findByHotelIdAndCurrentStatus(@Param("hotelId") Short hotelId, @Param("status") String status);
 
     @Query("SELECT COUNT(r) FROM RoomInstance r WHERE r.isDeleted = false AND r.hotel.id = :hotelId AND UPPER(r.currentStatus) = 'OCCUPIED'")

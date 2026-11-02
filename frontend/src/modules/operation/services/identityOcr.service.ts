@@ -5,7 +5,7 @@ const field = <T extends z.ZodType>(value: T) => z.object({
   value: value.nullable(), confidence: z.number().min(0).max(1), valid: z.boolean(),
 });
 const draftSchema = z.object({
-  fullName: field(z.string()), dateOfBirth: field(z.iso.date()),
+  fullName: field(z.string()), dateOfBirth: field(z.string()),
   gender: field(z.enum(['MALE', 'FEMALE', 'OTHER'])), nationality: field(z.string()),
   documentType: field(z.enum(['CCCD', 'PASSPORT', 'CMND', 'DRIVER_LICENSE', 'OTHER'])),
   documentNumber: field(z.string()), permanentAddress: field(z.string()),

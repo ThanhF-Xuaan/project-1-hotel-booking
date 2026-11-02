@@ -19,8 +19,14 @@ import type {
   OccupancyTrendDto,
   RevenueTrendDto,
 } from '../types/dashboard.types';
+import hotelService from '../../organization/services/hotel.service';
+import regionService from '../../organization/services/region.service';
+import type { HotelDto, RegionDto } from '../../organization/types/organization.types';
 
 export const ManagementDashboard: React.FC = () => {
+  const [regions, setRegions] = useState<RegionDto[]>([]);
+  const [hotels, setHotels] = useState<HotelDto[]>([]);
+  const [selectedRegionId, setSelectedRegionId] = useState<number | ''>('');
   const [hotelId, setHotelId] = useState<number>(1);
   const [targetDate, setTargetDate] = useState<string>(
     new Date().toISOString().split('T')[0]
@@ -30,7 +36,49 @@ export const ManagementDashboard: React.FC = () => {
   const [occupancyTrends, setOccupancyTrends] = useState<OccupancyTrendDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Load Regions and Hotels
+  useEffect(() => {
+    let isMounted = true;
+    regionService
+      .filter({ pageSize: 100, status: 'ACTIVE' })
+      .then((res) => {
+        if (isMounted && res.result?.content) {
+          setRegions(res.result.content);
+        }
+      })
+      .catch((err) => console.error('Failed to load regions:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    hotelService
+      .filter({
+        pageSize: 100,
+        status: 'ACTIVE',
+        regionId: selectedRegionId ? Number(selectedRegionId) : undefined,
+      })
+      .then((res) => {
+        if (isMounted && res.result?.content) {
+          const loadedHotels = res.result.content;
+          setHotels(loadedHotels);
+          if (loadedHotels.length > 0) {
+            setHotelId((prev) => (prev && loadedHotels.some((h) => h.id === prev) ? prev : loadedHotels[0].id));
+          }
+        }
+      })
+      .catch((err) => console.error('Failed to load hotels:', err));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedRegionId]);
+
   const fetchDashboardData = useCallback(async () => {
+    if (!hotelId) return;
     setIsLoading(true);
     try {
       const [kpiRes, revRes, occRes] = await Promise.all([
@@ -75,15 +123,40 @@ export const ManagementDashboard: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Region filter */}
+          <div className="w-48">
+            <select
+              value={selectedRegionId}
+              onChange={(e) => setSelectedRegionId(e.target.value ? Number(e.target.value) : '')}
+              aria-label="Lọc theo Vùng / Khu vực"
+              className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
+            >
+              <option value="">Toàn bộ Vùng</option>
+              {regions.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Hotel filter */}
           <div className="w-56">
             <select
               value={hotelId}
               onChange={(e) => setHotelId(Number(e.target.value))}
+              aria-label="Chọn Khách sạn cơ sở"
               className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
             >
-              <option value={1}>Khách sạn Grand Hà Nội</option>
-              <option value={2}>Khách sạn Premier Đà Nẵng</option>
-              <option value={3}>Khách sạn Boutique Sài Gòn</option>
+              {hotels.length === 0 ? (
+                <option value={hotelId}>Đang tải khách sạn...</option>
+              ) : (
+                hotels.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -93,6 +166,7 @@ export const ManagementDashboard: React.FC = () => {
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
               className="h-11"
+              aria-label="Ngày xem báo cáo"
             />
           </div>
 

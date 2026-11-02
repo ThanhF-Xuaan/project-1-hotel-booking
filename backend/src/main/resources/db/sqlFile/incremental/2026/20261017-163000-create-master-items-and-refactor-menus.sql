@@ -78,8 +78,8 @@ BEGIN
 END $$;
 
 -- 6. Xóa bỏ 2 bảng con 1-1 không cần thiết
-DROP TABLE IF EXISTS services;
-DROP TABLE IF EXISTS catalog_items;
+DROP TABLE IF EXISTS services CASCADE;
+DROP TABLE IF EXISTS catalog_items CASCADE;
 
 -- 7. Tạo Index cho master_item_id trên menus
 CREATE INDEX IF NOT EXISTS idx_menus_master_item ON menus(master_item_id);

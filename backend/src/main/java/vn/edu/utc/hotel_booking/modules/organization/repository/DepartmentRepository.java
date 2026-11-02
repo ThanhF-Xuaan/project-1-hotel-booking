@@ -24,9 +24,9 @@ public interface DepartmentRepository extends JpaRepository<Department, Short> {
     List<Department> findAllByStatusAndIsDeletedFalse(String status);
 
     @Query("SELECT d FROM Department d WHERE d.isDeleted = false " +
-            "AND (:status IS NULL OR d.status = :status) " +
-            "AND (:keyword IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR LOWER(d.code) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+            "AND (CAST(:status AS string) IS NULL OR d.status = :status) " +
+            "AND (CAST(:keyword AS string) IS NULL OR LOWER(d.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR LOWER(d.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<Department> searchDepartments(@Param("keyword") String keyword,
                                        @Param("status") String status,
                                        Pageable pageable);

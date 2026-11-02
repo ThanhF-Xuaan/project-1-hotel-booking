@@ -27,9 +27,9 @@ public interface RoleRepository extends JpaRepository<Role, Short> {
     boolean existsByCodeAndIdNotAndIsDeletedFalse(String code, Short id);
 
     @Query("SELECT r FROM Role r WHERE r.isDeleted = false " +
-            "AND (:status IS NULL OR r.status = :status) " +
-            "AND (:keyword IS NULL OR LOWER(r.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR LOWER(r.code) LIKE LOWER(CONCAT('%', :keyword, '%')))")
+            "AND (CAST(:status AS string) IS NULL OR r.status = :status) " +
+            "AND (CAST(:keyword AS string) IS NULL OR LOWER(r.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR LOWER(r.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<Role> searchRoles(@Param("keyword") String keyword,
                            @Param("status") String status,
                            Pageable pageable);

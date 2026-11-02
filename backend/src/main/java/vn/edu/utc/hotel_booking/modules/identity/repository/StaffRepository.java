@@ -38,23 +38,23 @@ public interface StaffRepository extends JpaRepository<Staff, Integer> {
     @Query(value = "SELECT s FROM Staff s LEFT JOIN FETCH s.role r LEFT JOIN FETCH s.department d WHERE s.isDeleted = false " +
             "AND (:roleId IS NULL OR r.id = :roleId) " +
             "AND (:departmentId IS NULL OR d.id = :departmentId) " +
-            "AND (:scopeType IS NULL OR s.scopeType = :scopeType) " +
+            "AND (CAST(:scopeType AS string) IS NULL OR s.scopeType = :scopeType) " +
             "AND (:scopeEntityId IS NULL OR s.scopeEntityId = :scopeEntityId) " +
-            "AND (:status IS NULL OR s.status = :status) " +
-            "AND (:keyword IS NULL OR LOWER(s.username) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR LOWER(s.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR LOWER(s.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR s.phone LIKE CONCAT('%', :keyword, '%'))",
+            "AND (CAST(:status AS string) IS NULL OR s.status = :status) " +
+            "AND (CAST(:keyword AS string) IS NULL OR LOWER(s.username) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR LOWER(s.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR LOWER(s.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR s.phone LIKE CONCAT('%', CAST(:keyword AS string), '%'))",
             countQuery = "SELECT COUNT(s) FROM Staff s WHERE s.isDeleted = false " +
             "AND (:roleId IS NULL OR s.role.id = :roleId) " +
             "AND (:departmentId IS NULL OR s.department.id = :departmentId) " +
-            "AND (:scopeType IS NULL OR s.scopeType = :scopeType) " +
+            "AND (CAST(:scopeType AS string) IS NULL OR s.scopeType = :scopeType) " +
             "AND (:scopeEntityId IS NULL OR s.scopeEntityId = :scopeEntityId) " +
-            "AND (:status IS NULL OR s.status = :status) " +
-            "AND (:keyword IS NULL OR LOWER(s.username) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR LOWER(s.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR LOWER(s.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR s.phone LIKE CONCAT('%', :keyword, '%'))")
+            "AND (CAST(:status AS string) IS NULL OR s.status = :status) " +
+            "AND (CAST(:keyword AS string) IS NULL OR LOWER(s.username) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR LOWER(s.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR LOWER(s.email) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR s.phone LIKE CONCAT('%', CAST(:keyword AS string), '%'))")
     Page<Staff> searchStaffs(@Param("keyword") String keyword,
                              @Param("roleId") Short roleId,
                              @Param("departmentId") Short departmentId,

@@ -26,6 +26,12 @@ public class BookingGuest extends BaseEntity {
     @Builder.Default
     UUID publicId = UUID.randomUUID();
 
+    @Column(name = "first_name", length = 100)
+    String firstName;
+
+    @Column(name = "last_name", length = 100)
+    String lastName;
+
     @Column(name = "full_name", length = 250)
     String fullName;
 

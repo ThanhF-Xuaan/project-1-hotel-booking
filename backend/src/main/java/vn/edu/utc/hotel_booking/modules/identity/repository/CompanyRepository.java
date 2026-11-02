@@ -22,11 +22,11 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
     boolean existsByTaxCodeAndIdNotAndIsDeletedFalse(String taxCode, Long id);
 
     @Query("SELECT c FROM Company c WHERE c.isDeleted = false " +
-            "AND (:status IS NULL OR c.status = :status) " +
-            "AND (:keyword IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR c.taxCode LIKE CONCAT('%', :keyword, '%') " +
-            "    OR LOWER(c.contactName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "    OR c.contactPhone LIKE CONCAT('%', :keyword, '%'))")
+            "AND (CAST(:status AS string) IS NULL OR c.status = :status) " +
+            "AND (CAST(:keyword AS string) IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR c.taxCode LIKE CONCAT('%', CAST(:keyword AS string), '%') " +
+            "    OR LOWER(c.contactName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "    OR c.contactPhone LIKE CONCAT('%', CAST(:keyword AS string), '%'))")
     Page<Company> searchCompanies(@Param("keyword") String keyword,
                                  @Param("status") String status,
                                  Pageable pageable);

@@ -39,9 +39,9 @@ public interface CampaignRepository extends JpaRepository<Campaign, Integer> {
             "JOIN FETCH c.hotel h " +
             "WHERE c.isDeleted = false " +
             "AND (:hotelId IS NULL OR c.hotel.id = :hotelId) " +
-            "AND (:name IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :name, '%'))) " +
+            "AND (CAST(:name AS string) IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', CAST(:name AS string), '%'))) " +
             "AND (:activeOnDate IS NULL OR (c.startDate <= :activeOnDate AND c.endDate >= :activeOnDate)) " +
-            "AND (:status IS NULL OR c.status = :status)")
+            "AND (CAST(:status AS string) IS NULL OR c.status = :status)")
     Page<Campaign> filterCampaigns(
             @Param("hotelId") Short hotelId,
             @Param("name") String name,

@@ -24,8 +24,8 @@ public interface RoomTypeRepository extends JpaRepository<RoomType, Short> {
     boolean existsByCodeAndIdNotAndIsDeletedFalse(String code, Short id);
 
     @Query("SELECT rt FROM RoomType rt WHERE rt.isDeleted = false " +
-            "AND (:keyword IS NULL OR LOWER(rt.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(rt.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:status IS NULL OR rt.status = :status)")
+            "AND (CAST(:keyword AS string) IS NULL OR LOWER(rt.code) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) OR LOWER(rt.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+            "AND (CAST(:status AS string) IS NULL OR rt.status = :status)")
     Page<RoomType> filterRoomTypes(
             @Param("keyword") String keyword,
             @Param("status") String status,

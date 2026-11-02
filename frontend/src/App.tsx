@@ -34,6 +34,12 @@ const PrivacyPage = lazy(() => import('./modules/booking-portal/pages/PrivacyPag
 const OccupancyDemoPage = lazy(() => import('./modules/analytics/pages/OccupancyDemoPage'))
 const UtilityDemoPage = lazy(() => import('./modules/analytics/pages/UtilityDemoPage'))
 const GroupDemoPage = lazy(() => import('./modules/analytics/pages/GroupDemoPage'))
+const DepartmentListPage = lazy(() => import('./modules/organization/pages/DepartmentListPage'))
+const StaffListPage = lazy(() => import('./modules/identity/pages/StaffListPage'))
+const RoleListPage = lazy(() => import('./modules/identity/pages/RoleListPage'))
+const GuestListPage = lazy(() => import('./modules/identity/pages/GuestListPage'))
+const CompanyListPage = lazy(() => import('./modules/identity/pages/CompanyListPage'))
+const AuditLogPage = lazy(() => import('./modules/identity/pages/AuditLogPage'))
 
 export function App() {
   return (
@@ -116,6 +122,24 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="/organization/hotels" element={<HotelListPage />} />
+                <Route path="/organization/departments" element={<DepartmentListPage />} />
+              </Route>
+
+              {/* Phân hệ Định danh & Phân quyền (IAM & CRM) */}
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
+                <Route path="/identity/staffs" element={<StaffListPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
+                <Route path="/identity/roles" element={<RoleListPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP']} />}>
+                <Route path="/identity/guests" element={<GuestListPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'SALES_GROUP']} />}>
+                <Route path="/identity/companies" element={<CompanyListPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE']} />}>
+                <Route path="/identity/audit-logs" element={<AuditLogPage />} />
               </Route>
 
               {/* Phân hệ Quản lý Tồn phòng */}

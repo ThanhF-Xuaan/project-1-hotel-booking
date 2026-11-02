@@ -153,6 +153,17 @@ public class GuestServiceImpl implements GuestService {
         if (request.getEmail() != null) {
             guest.setEmail(request.getEmail().trim().toLowerCase());
         }
+        if (!StringUtils.hasText(guest.getFirstName()) || !StringUtils.hasText(guest.getLastName())) {
+            String fn = guest.getFullName() != null ? guest.getFullName().trim() : "Khách";
+            int lastSpace = fn.lastIndexOf(' ');
+            if (lastSpace > 0) {
+                guest.setLastName(fn.substring(0, lastSpace));
+                guest.setFirstName(fn.substring(lastSpace + 1));
+            } else {
+                guest.setLastName(fn);
+                guest.setFirstName(fn);
+            }
+        }
 
         BookingGuest saved = guestRepository.save(guest);
         log.info("Đã tạo mới hồ sơ khách hàng: id={}, phone={}, publicId={}", saved.getId(), saved.getPhone(), saved.getPublicId());
@@ -169,6 +180,17 @@ public class GuestServiceImpl implements GuestService {
         guest.setPhone(request.getPhone().trim());
         if (request.getEmail() != null) {
             guest.setEmail(request.getEmail().trim().toLowerCase());
+        }
+        if (!StringUtils.hasText(guest.getFirstName()) || !StringUtils.hasText(guest.getLastName())) {
+            String fn = guest.getFullName() != null ? guest.getFullName().trim() : "Khách";
+            int lastSpace = fn.lastIndexOf(' ');
+            if (lastSpace > 0) {
+                guest.setLastName(fn.substring(0, lastSpace));
+                guest.setFirstName(fn.substring(lastSpace + 1));
+            } else {
+                guest.setLastName(fn);
+                guest.setFirstName(fn);
+            }
         }
 
         BookingGuest updated = guestRepository.save(guest);

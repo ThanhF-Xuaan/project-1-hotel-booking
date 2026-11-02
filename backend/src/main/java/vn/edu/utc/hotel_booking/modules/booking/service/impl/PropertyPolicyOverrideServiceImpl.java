@@ -228,9 +228,13 @@ public class PropertyPolicyOverrideServiceImpl implements PropertyPolicyOverride
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
+        String sortBy = (searchDto.getSortBy() != null && !searchDto.getSortBy().isBlank())
+                ? searchDto.getSortBy()
+                : "id";
+
         Sort sort = "ASC".equalsIgnoreCase(searchDto.getSortDirection())
-                ? Sort.by(searchDto.getSortBy()).ascending()
-                : Sort.by(searchDto.getSortBy()).descending();
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
 
         Pageable pageable = PageRequest.of(searchDto.getPage(), searchDto.getPageSize(), sort);
         Page<PropertyPolicyOverride> resultPage = propertyPolicyOverrideRepository.findAll(spec, pageable);

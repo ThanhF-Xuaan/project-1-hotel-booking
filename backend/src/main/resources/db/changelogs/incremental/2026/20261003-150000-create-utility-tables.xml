@@ -6,6 +6,8 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="20261003-150000-create-utility-tables" author="utc-hotel-team">
+        <validCheckSum>9:6f51782bfa5196345af4c7a21e630aae</validCheckSum>
+        <validCheckSum>9:cb654aa030c0e9f5280ef693779031cc</validCheckSum>
         <comment>Tạo bảng utility_meters, utility_readings và phân quyền cho quản lý điện nước (T04)</comment>
         <sqlFile path="db/sqlFile/incremental/2026/20261003-150000-create-utility-tables.sql"
                  relativeToChangelogFile="false"
