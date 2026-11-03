@@ -116,7 +116,7 @@ try {
     })
     if ($Reports.Count -eq 0) { throw 'Maven không tạo Surefire evidence.' }
     foreach ($Required in @(
-        @{ Name = 'LodgingExportPostgresTest'; Count = 3 },
+        @{ Name = 'LodgingExportPostgresTest'; Count = 10 },
         @{ Name = 'RedisRoomAdvisorSessionStoreRealRedisTest'; Count = 4 },
         @{ Name = 'HotelBookingApplicationTests'; Count = 1 }
     )) {

@@ -184,8 +184,9 @@ try {
     $ExpectedSuites = @('Maven Core Modules', 'T12 Contract Schema', 'Portability Validation',
         'ESLint Verification', 'Vite Build & Types', 'Playwright API Suite', 'Playwright Browser Suite')
     $ActualSuites = @($UiResults.suites | ForEach-Object { $_.Suite })
-    if ($UiResults.status -ne 'PARTIAL' -or $ActualSuites.Count -ne 7 -or
+    if ($ActualSuites.Count -ne 7 -or
         @(Compare-Object $ExpectedSuites $ActualSuites).Count -ne 0) { throw 'Danh sách suite không khớp kế hoạch.' }
+    if ($UiResults.status -ne 'PARTIAL') { throw "Application suites báo $($UiResults.status); xem application-suites.json và log." }
     foreach ($Suite in $UiResults.suites) {
         $ExpectedStatus = if ($Suite.Suite -eq 'Maven Core Modules') { 'SKIPPED' } else { 'PASS' }
         if ($Suite.Status -ne $ExpectedStatus) { throw "Suite $($Suite.Suite) có trạng thái $($Suite.Status)." }
@@ -252,7 +253,7 @@ $Lines = @('# Local technical acceptance', '', "- **Result:** $Status", "- **Run
 foreach ($Result in $Results) { $Lines += "| $($Result.stage) | $($Result.status) | $($Result.exitCode) | $($Result.seconds) |" }
 if ($Backend) {
     $Lines += @('', "Maven: $($Backend.tests) tests, $($Backend.skipped) skipped; actual class counts in backend.json.",
-        'PostgreSQL 3/3 and Redis 4/4 must execute without skips before Maven evidence is accepted.')
+        'PostgreSQL 10/10 and Redis 4/4 must execute without skips before Maven evidence is accepted.')
     foreach ($Skipped in @($Backend.suites | Where-Object skipped -gt 0)) {
         $Lines += "- Skipped: $($Skipped.name), $($Skipped.skipped) test(s)."
     }

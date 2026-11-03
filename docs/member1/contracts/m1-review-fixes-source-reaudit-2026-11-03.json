@@ -1,0 +1,141 @@
+{
+  "status": "AI_TECHNICAL_REVIEW_ONLY",
+  "baseCommit": "c0a375ee59be516dd589842ba9d0f79ae6c7ea05",
+  "reviewedCommit": "b8495f9ef74397bc74936dae1e240e7c4455fad5",
+  "humanPeerApproval": false,
+  "files": [
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
+      "beforeLfSha256": "25fe88ea082fddef55d5366b26ed7fa9a82441c855389873c5f7695cc41e3f72",
+      "afterLfSha256": "cff759ec8c93b9b91e0cfdd59edbc277a6d0da77b2a0fc108eea09dfd2e9da91",
+      "patchLfSha256": "6d93c2b53cb13debc300b4b828bd372d54bc98e6346b7e81820ee934c5cb1ce3",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/adapter/DestinationResolutionResult.java",
+      "beforeLfSha256": "5b47493f07c91e090f9cbd9de5da958544f35598ccc30b72a70447a479af59b1",
+      "afterLfSha256": "d4385f619372bb41a15daf1f3aae17c605fd5aa64af1b59c9376f0cbe578168a",
+      "patchLfSha256": "ee1a05df12748fe7ff7f5f8846e664e4b552f9e3fa2c6a43e2f2782ec627bad1",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/adapter/DestinationResolutionStatus.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "60f4c0d152c247c09f31562b85d1164b41ac113aa7f54ed578c9e6d5d7974a2a",
+      "patchLfSha256": "e23fc401c4ce4cc37c51f97f636732b634463c226b798bb1561c32ad199b410c",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/adapter/PublicBookingCoreAdapter.java",
+      "beforeLfSha256": "46e7c9113ba0e3b1f796c828d284b74aa9f716d1965f133b80e78939c54e078c",
+      "afterLfSha256": "97464bdb206ab4c194d513761b67e5036700968e2f865bda3cab0f77f9752a62",
+      "patchLfSha256": "256079bce8f56b6f5aec2dafcefdd2b24f969ad9a1480bdaf472495bdef64626",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/service/RoomAdvisorOrchestrationService.java",
+      "beforeLfSha256": "8d1e79e15a6ce5f294a5122b071c8194330fc6a49f417f9b7d9ebfa5a538ad3d",
+      "afterLfSha256": "3fe40cf1884c8adec6cc3a4a3dc01936f1dc4126934c78f49e50e1ee13647c0a",
+      "patchLfSha256": "ac888ea3ccc782b910e469fe93447a3b45e1ca7b9a2bf9ebca6ef11b19e95b38",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/repository/StayGuestRepository.java",
+      "beforeLfSha256": "391b801fa9436840715da5cdddb390d199154d3db3ecbcef784456c42b3a5080",
+      "afterLfSha256": "75b7fb499241320ae7e457978d36ac94bb53f92090541d9716fefedebb0f5f98",
+      "patchLfSha256": "93893f9a749e55b47afaba3546c0aa6b64fd85c584d0ee077b5ca1edcbb420d9",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/finance/service/impl/PayrollSummaryServiceImpl.java",
+      "beforeLfSha256": "3d888292198af8ca12ce73bc982e02f9e37149bfa783cfa73efcdc975a01241e",
+      "afterLfSha256": "b564665fcccb0ab30991d5727642977177fdf7171eaca49d86cc6c4951d37095",
+      "patchLfSha256": "c32be17f84e0d1358944accef1a6a53da6919272cf74689bb19c4a49f8ca1cd3",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/finance/service/support/PayrollMoneyValidator.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "3e9af8dc3af76b399668e4cde63acc303938aee6b3f445c6c6c0fa37f99160ba",
+      "patchLfSha256": "9641153cb66fda28ed66aa8125e5d9ec071851af8985f392c30625f141a2952d",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/repository/LodgingQueueRepository.java",
+      "beforeLfSha256": "6eac5afa290dcac12aabf182306698b590a65c67c4c1fccee3183eae7265ee47",
+      "afterLfSha256": "b5ca997e9407c2e36bc2e489d2cd5953b14af5d56ee8ad65c3ac6262a3c4bbb4",
+      "patchLfSha256": "ed2f7576a91ff6dddabb1cc1d5a363511c961705a96045adfda31444bdf03fca",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/security/OperationStaffScopeResolver.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "c2e6ee48be05f77385a5b0e9aef2648b020dc68067b5051b25a5fcc2a9bdc25a",
+      "patchLfSha256": "40cda24439524463eb75992622b22787dfab9b54af28be5845b90d2c6111745b",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/LodgingExportServiceImpl.java",
+      "beforeLfSha256": "ce356b70f98ce02bf2c9c288557b8c2b77a511b4469427a079478d041a641919",
+      "afterLfSha256": "dc6c2b4062efa78097ba7950b03845feed4272d2e5aed76073b75cf48814893e",
+      "patchLfSha256": "6ce619feaf8818863f7723c307b8f2f9ebb55b0df31a0bd1bb75846a602c61eb",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/LodgingQueueServiceImpl.java",
+      "beforeLfSha256": "eb61af25b924781ea20a4449ebcce998b47a1909c0d6ad608792c389d048ebc2",
+      "afterLfSha256": "e1b38124dee32ad999cbe86c484cb42650b6d137703451df4c22b2b8f639fbf2",
+      "patchLfSha256": "0b8578dd3089578ba022cf91136562456cb7288d5f226cab0dd9b6c7e47eefdc",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/StayGuestServiceImpl.java",
+      "beforeLfSha256": "24f4006b69badcfd9ec24fb3153c4797bcd74f1f095ffe06bd7b17fff63e2e53",
+      "afterLfSha256": "766a577fc834d9a88ca3bf8065a19337fac5640829f47603cf2866e40b0f57f2",
+      "patchLfSha256": "16f327efc9d52fa8c2994bfa4c3e4ec126f0cabf8cae98b14cc1552d931dbf56",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/UtilityMeterServiceImpl.java",
+      "beforeLfSha256": "84d163549bcfabbf5af6b00064e602f25e663a473476d59abb05859ca1a67265",
+      "afterLfSha256": "1632583dd251cb846a101450565e06a52410defdf06b290fc317709af6ce8eb1",
+      "patchLfSha256": "d15ef6bbedd3985b9ea0b795a2ddd5a2111794871badc2f964e37c8cce54bdbd",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/UtilityReadingServiceImpl.java",
+      "beforeLfSha256": "8ac3f1762a4e188dbb032623386aeb9611331676b6c7bda0d41b44b1f3f7de8c",
+      "afterLfSha256": "c65cbf611de068a60de985271c4fbd7ce59c0d51bb8b7f7e395598fc9af4caf4",
+      "patchLfSha256": "2f98d0d82542392ed5528066276bb910af07579fe0ab24e4070a34528a2553e1",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/support/LodgingExportStateGuard.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "96e41d236068f922b76927a759f70ed90f5a1e6899bfa7ffcfe0ad89a41cfbb2",
+      "patchLfSha256": "aa0bfbee4299891c6d74e535338a4580eb1e5b31d1e833e23046769d4c5676fc",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/support/StayGuestAssociationValidator.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "ec1ae27ae4916a40cdc1f75b002239d1f6800ff7c5945a7e0d490bd1c9ae0eb9",
+      "patchLfSha256": "9dd16e52b735d1c798cbcfbabb8109724db68d9013639f02142d8d1b73a0ff8b",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "frontend/src/modules/booking-portal/components/RoomAdvisor/RoomAdvisorWidget.tsx",
+      "beforeLfSha256": "5b8a89169e927bbef172eb974bfab79fb4159898f5da70e7ab9066e2051ca676",
+      "afterLfSha256": "e2b7359f9bfef6c8c59efa1aa93b951f38bd0baa89295a5b60b87dab5db1cbcd",
+      "patchLfSha256": "78f514e7e30c0934f3a7da7568b6986740ea8d071b9668f0b970ea613aab9ae4",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "frontend/src/modules/booking-portal/services/roomAdvisorService.ts",
+      "beforeLfSha256": "1dc60c9d72d36fa97c082af59e485f46113f5ca780698185385713d4a5fecf46",
+      "afterLfSha256": "26a099763812b3a4d2e2269add40685f002987aa305ac23a4e0114b8250d19c3",
+      "patchLfSha256": "7fb7a7b3819f8416b9b1b6190688fda9236cfb6dabcfbedd9fa17c3fdc49d2d5",
+      "review": "FIX-001..007 including export predicate recheck: see docs/member1/acceptance/m1-review-fixes-2026-11-03.md; AI technical review only."
+    }
+  ]
+}
