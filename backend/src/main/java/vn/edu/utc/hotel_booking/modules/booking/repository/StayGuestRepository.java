@@ -17,6 +17,8 @@ public interface StayGuestRepository extends JpaRepository<StayGuest, Long> {
 
     List<StayGuest> findByBookingRoomId(Long bookingRoomId);
 
+    List<StayGuest> findByBookingRoomIdAndHotelIdAndIsDeletedFalse(Long bookingRoomId, Short hotelId);
+
     Optional<StayGuest> findByHotelIdAndDocumentNumberAndIsDeletedFalse(Short hotelId, String documentNumber);
 
     Optional<StayGuest> findFirstByHotelIdAndBookingIdAndDocumentNumberAndIsDeletedFalse(Short hotelId, Long bookingId, String documentNumber);

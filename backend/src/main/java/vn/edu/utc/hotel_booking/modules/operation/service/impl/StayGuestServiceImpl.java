@@ -226,7 +226,14 @@ public class StayGuestServiceImpl implements StayGuestService {
         if (bookingRoomId == null) {
             return List.of();
         }
-        List<StayGuest> list = stayGuestRepository.findByBookingRoomId(bookingRoomId);
+        BookingRoom bookingRoom = bookingLookupService.getBookingRoomEntityById(bookingRoomId);
+        if (bookingRoom == null || bookingRoom.getBookingDetail() == null || bookingRoom.getBookingDetail().getBooking() == null
+                || bookingRoom.getBookingDetail().getBooking().getHotel() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Liên kết phòng đặt không hợp lệ");
+        }
+        Short hotelId = bookingRoom.getBookingDetail().getBooking().getHotel().getId();
+        validateStaffScope(hotelId);
+        List<StayGuest> list = stayGuestRepository.findByBookingRoomIdAndHotelIdAndIsDeletedFalse(bookingRoomId, hotelId);
         return list.stream()
                 .filter(g -> !Boolean.TRUE.equals(g.getIsDeleted()))
                 .map(stayGuestMapper::toResponse)
