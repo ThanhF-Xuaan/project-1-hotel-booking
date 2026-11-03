@@ -242,6 +242,12 @@ class T12Release1EvaluationSuiteTest {
             initSession.setCriteria(defaultCriteria);
         }
 
+        // Synthetic fixture seeding is explicit: store reads now return detached snapshots.
+        @SuppressWarnings("unchecked")
+        Map<UUID, RoomAdvisorSession> fixtureStore = (Map<UUID, RoomAdvisorSession>)
+                org.springframework.test.util.ReflectionTestUtils.getField(sessionStore, "store");
+        fixtureStore.put(explicitSessionId, initSession);
+
         AdvisorResultDto lastResult = null;
         Integer lastHttpStatus = null;
         String lastErrorReason = null;

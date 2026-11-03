@@ -28,6 +28,7 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.security.RoomAdvisorRateLimit
 import vn.edu.utc.hotel_booking.modules.ai.advisor.security.RoomAdvisorSessionCookieFactory;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.security.RoomAdvisorSessionTokenService;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.service.RoomAdvisorOrchestrationService;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.service.AdvisorDependencyUnavailableException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionNotFoundException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionSecurityException;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionStorageUnavailableException;
@@ -116,7 +117,7 @@ public class PublicRoomAdvisorController {
         return error(HttpStatus.CONFLICT, RoomAdvisorErrorResponse.Reason.SESSION_VERSION_CONFLICT);
     }
 
-    @ExceptionHandler(SessionStorageUnavailableException.class)
+    @ExceptionHandler({SessionStorageUnavailableException.class, AdvisorDependencyUnavailableException.class})
     public ResponseEntity<RoomAdvisorErrorResponse> handleStorageUnavailable() {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(RoomAdvisorErrorResponse.forReason(

@@ -220,7 +220,7 @@ public class RedisRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
                 }
 
                 long nextVersion = existing.getSessionVersion() + 1;
-                RoomAdvisorSession updated = RoomAdvisorSession.builder()
+                RoomAdvisorSession updated = RoomAdvisorSnapshots.committed(RoomAdvisorSession.builder()
                         .sessionId(existing.getSessionId())
                         .sessionVersion(nextVersion)
                         .ownerKey(existing.getOwnerKey())
@@ -230,7 +230,7 @@ public class RedisRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
                                         ? new ArrayList<>(existing.getCriteriaProvenance()) : new ArrayList<>()))
                         .lastResult(lastResult != null ? lastResult : existing.getLastResult())
                         .lastAccessedAt(Instant.now())
-                        .build();
+                        .build(), lastResult != null);
 
                 stringOps.multi();
                 stringOps.opsForValue().set(key, serialize(updated), SESSION_TTL);
@@ -241,7 +241,7 @@ public class RedisRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
                     return UpdateAttemptResult.aborted();
                 }
 
-                return UpdateAttemptResult.success(updated);
+                return UpdateAttemptResult.success(RoomAdvisorSnapshots.copy(updated));
             }
         });
     }

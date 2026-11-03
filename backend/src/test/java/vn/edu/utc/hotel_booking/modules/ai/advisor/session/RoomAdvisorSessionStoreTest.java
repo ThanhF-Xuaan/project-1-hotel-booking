@@ -190,8 +190,10 @@ class RoomAdvisorSessionStoreTest {
         RoomAdvisorSession session = store.getOrCreateSession(null, "user-123");
         UUID sid = session.getSessionId();
 
-        // Expire the session in-place
-        session.setLastAccessedAt(java.time.Instant.now().minus(java.time.Duration.ofHours(1)));
+        // Expire the internal test fixture, not the detached public snapshot.
+        @SuppressWarnings("unchecked")
+        var fixtureStore = (java.util.Map<UUID, RoomAdvisorSession>) org.springframework.test.util.ReflectionTestUtils.getField(store, "store");
+        fixtureStore.get(sid).setLastAccessedAt(java.time.Instant.now().minus(java.time.Duration.ofHours(1)));
 
         // Simulate concurrent thread recreating a fresh active session for sid
         RoomAdvisorSession newSession = store.getOrCreateSession(sid, "user-123");
@@ -201,7 +203,9 @@ class RoomAdvisorSessionStoreTest {
         Optional<RoomAdvisorSession> retrieved = store.getSession(sid, "user-123");
         assertThat(retrieved).isPresent();
         assertThat(retrieved.get().getSessionId()).isEqualTo(sid);
-        assertThat(retrieved.get()).isSameAs(newSession);
+        assertThat(retrieved.get()).isNotSameAs(newSession);
+        assertThat(retrieved.get().getSessionVersion()).isEqualTo(newSession.getSessionVersion());
+        assertThat(retrieved.get().getLastAccessedAt()).isEqualTo(newSession.getLastAccessedAt());
     }
 
     @Test

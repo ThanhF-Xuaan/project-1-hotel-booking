@@ -156,7 +156,7 @@ public class RoomAdvisorOrchestrationService {
         }
 
         // 7. Discover candidates & retrieve quotes
-        CoreCandidateDiscoveryResult discovery = corePort.discoverAndQuoteCandidates(
+        CoreCandidateDiscoveryResult discovery = discoverCandidates(
                 mergedCriteria,
                 dest.getRegionId(),
                 50
@@ -256,7 +256,7 @@ public class RoomAdvisorOrchestrationService {
             criteria.setHotelId(dest.getHotelId());
         }
 
-        CoreCandidateDiscoveryResult discovery = corePort.discoverAndQuoteCandidates(
+        CoreCandidateDiscoveryResult discovery = discoverCandidates(
                 criteria,
                 dest.getRegionId(),
                 50
@@ -306,7 +306,7 @@ public class RoomAdvisorOrchestrationService {
             }
         }
 
-        RoomSearchCriteriaDto criteria = session.getCriteria();
+        RoomSearchCriteriaDto criteria = vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSnapshots.copy(session.getCriteria());
         if (criteria == null) {
             return buildNeedInfoResult(
                     UUID.randomUUID(),
@@ -327,7 +327,7 @@ public class RoomAdvisorOrchestrationService {
         }
         if (dest.getHotelId() != null) criteria.setHotelId(dest.getHotelId());
 
-        CoreCandidateDiscoveryResult discovery = corePort.discoverAndQuoteCandidates(
+        CoreCandidateDiscoveryResult discovery = discoverCandidates(
                 criteria,
                 dest.getRegionId(),
                 50
@@ -362,6 +362,12 @@ public class RoomAdvisorOrchestrationService {
         refreshedResult.setSessionVersion(updatedSession.getSessionVersion());
 
         return refreshedResult;
+    }
+
+    private CoreCandidateDiscoveryResult discoverCandidates(RoomSearchCriteriaDto criteria, Short regionId, int limit) {
+        try { return corePort.discoverAndQuoteCandidates(criteria, regionId, limit); }
+        catch (org.springframework.security.access.AccessDeniedException denied) { throw denied; }
+        catch (RuntimeException unavailable) { throw new AdvisorDependencyUnavailableException(); }
     }
 
     private DestinationResolutionResult resolveDestination(RoomSearchCriteriaDto criteria) {

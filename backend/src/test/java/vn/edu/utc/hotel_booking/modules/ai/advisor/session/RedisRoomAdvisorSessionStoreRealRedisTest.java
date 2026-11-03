@@ -216,6 +216,12 @@ class RedisRoomAdvisorSessionStoreRealRedisTest {
         Optional<RoomAdvisorSession> finalSession = store.getSession(sid, ownerKey);
         assertThat(finalSession).isPresent();
         assertThat(finalSession.get().getSessionVersion()).isEqualTo(2L);
+        assertThat(finalSession.get().getLastResult().getSessionVersion()).isEqualTo(2L);
+        assertThat(finalSession.get().getLastResult().getSessionId()).isEqualTo(sid);
+        String committedReply = finalSession.get().getLastResult().getReply();
+        finalSession.get().getLastResult().setReply("MUTATED_DETACHED");
+        assertThat(store.getSession(sid, ownerKey).orElseThrow().getLastResult().getReply()).isEqualTo(committedReply);
+
     }
 
     @Test
