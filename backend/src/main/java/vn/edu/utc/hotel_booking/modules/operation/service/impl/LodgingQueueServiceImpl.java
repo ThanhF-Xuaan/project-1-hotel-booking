@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -138,20 +139,10 @@ public class LodgingQueueServiceImpl implements LodgingQueueService {
     }
 
     private Short resolvePropertyHotelId() {
-        Staff staff = resolveCurrentStaff();
-        Integer scopeId = staff.getScopeEntityId();
-        if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType())
-                || scopeId == null || scopeId <= 0 || scopeId > Short.MAX_VALUE) {
-            throw new AppException(ErrorCode.UNAUTHORIZED, "Không xác định được phạm vi khách sạn được phép truy cập");
-        }
-        return scopeId.shortValue();
+        return OperationStaffScopeResolver.requireScope(resolveCurrentStaff(), "PROPERTY");
     }
 
     private Staff resolveCurrentStaff() {
-        return SecurityUtils.getCurrentUserKeycloakId()
-                .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)
-                .or(() -> SecurityUtils.getCurrentUsername()
-                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse))
-                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+        return OperationStaffScopeResolver.resolve(staffRepository);
     }
 }

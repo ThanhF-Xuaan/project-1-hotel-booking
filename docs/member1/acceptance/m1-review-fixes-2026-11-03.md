@@ -17,3 +17,9 @@ Shared file `booking.repository.StayGuestRepository` được sửa để thêm 
 Tách StayGuestAssociationValidator kiểm tuple có hiệu lực trước mutation; suy booking/phòng từ BookingRoom rồi kiểm lại hotel, parent booking, physical room và roomNumber. Update walk-in gắn cả booking/phòng nhất quán. BookingRoom model không có soft-delete flag; physical room có và bị từ chối khi đã xóa. Không sửa model Core để giả định flag.
 
 FAIL trước fix: StayGuestReviewRegressionTest có 7 test/3 failure, đúng ba nhánh foreign BookingRoom create/update và physical room mismatch không ném lỗi. PASS sau fix: 46 test/3 suite, 0 failure/error/skip; gồm 11 regression mới và 35 existing StayGuest/scope tests. Bổ sung own-room create/update, roomNumber mismatch và parent missing. Giữ nguyên assertion/gold cũ. Logs: review-fix002-before/after/final.log trong ignored runtime. Review diff: không Core write mới, không thay schema, validation trước save và queue sync.
+
+## FIX-003
+
+OperationStaffScopeResolver dùng chung cho UtilityMeter, UtilityReading, StayGuest, LodgingQueue và LodgingExport. Resolve identity giữ thứ tự Keycloak ID rồi username; scope PROPERTY/REGION bắt buộc ID trong 1..32767 trước chuyển kiểu. Mỗi service giữ role policy hiện hữu; không thêm quyền hoặc đổi IAM. Helper static/narrow giữ nguyên constructor và không cache identity qua request.
+
+FAIL trước fix: ma trận Utility 30 test/6 failure, gồm PROPERTY_MANAGER/ENGINEERING/REGION_MANAGER và meter/reading với 65537 alias hotel/region1. PASS sau fix: 130 test/8 suite, 0 failure/error/skip, gồm 30 case null/0/âm/32768/65537 và regression của năm service. Logs: review-fix003-before/after.log. Get-by-ID vẫn lấy metadata tài nguyên để kiểm scope như trước, nhưng không trả payload khi actor/scope không hợp lệ; search kiểm scope trước query dữ liệu. Review: chỉ Operation helper/services/tests, không sửa SecurityUtils toàn hệ thống.

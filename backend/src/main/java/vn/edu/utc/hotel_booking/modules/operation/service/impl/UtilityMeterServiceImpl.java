@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -48,10 +49,11 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
             // Full chain-wide access
         } else if (SecurityUtils.hasRole("PROPERTY_MANAGER") || SecurityUtils.hasRole("ENGINEERING")) {
             Staff staff = resolveCurrentStaff();
+            OperationStaffScopeResolver.requireScopeId(staff);
             if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
             }
-            Short userHotelId = staff.getScopeEntityId().shortValue();
+            Short userHotelId = OperationStaffScopeResolver.requireScopeId(staff);
             if (request.getHotelId() != null && !request.getHotelId().equals(userHotelId)) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Không có quyền truy cập dữ liệu của khách sạn khác");
             }
@@ -59,10 +61,11 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
             effectiveRegionId = null;
         } else if (SecurityUtils.hasRole("REGION_MANAGER")) {
             Staff staff = resolveCurrentStaff();
+            OperationStaffScopeResolver.requireScopeId(staff);
             if (!"REGION".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
             }
-            Short userRegionId = staff.getScopeEntityId().shortValue();
+            Short userRegionId = OperationStaffScopeResolver.requireScopeId(staff);
             if (request.getRegionId() != null && !request.getRegionId().equals(userRegionId)) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Không có quyền truy cập dữ liệu của vùng khác");
             }
@@ -154,20 +157,22 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
         }
         if (SecurityUtils.hasRole("PROPERTY_MANAGER") || SecurityUtils.hasRole("ENGINEERING")) {
             Staff staff = resolveCurrentStaff();
+            OperationStaffScopeResolver.requireScopeId(staff);
             if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
             }
-            if (!meter.getHotel().getId().equals(staff.getScopeEntityId().shortValue())) {
+            if (!meter.getHotel().getId().equals(OperationStaffScopeResolver.requireScopeId(staff))) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Không có quyền truy cập đồng hồ thuộc khách sạn khác");
             }
             return;
         }
         if (SecurityUtils.hasRole("REGION_MANAGER")) {
             Staff staff = resolveCurrentStaff();
+            OperationStaffScopeResolver.requireScopeId(staff);
             if (!"REGION".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
             }
-            if (!meter.getHotel().getRegion().getId().equals(staff.getScopeEntityId().shortValue())) {
+            if (!meter.getHotel().getRegion().getId().equals(OperationStaffScopeResolver.requireScopeId(staff))) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Đồng hồ không thuộc vùng quản lý");
             }
             return;
@@ -181,6 +186,7 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
         }
         if (SecurityUtils.hasRole("PROPERTY_MANAGER") || SecurityUtils.hasRole("ENGINEERING")) {
             Staff staff = resolveCurrentStaff();
+            OperationStaffScopeResolver.requireScopeId(staff);
             if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType()) || staff.getScopeEntityId() == null) {
                 throw new AppException(ErrorCode.UNAUTHORIZED, "Cấu hình phạm vi quản lý của nhân viên không hợp lệ");
             }
@@ -196,11 +202,7 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
     }
 
     private Staff resolveCurrentStaff() {
-        return SecurityUtils.getCurrentUserKeycloakId()
-                .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)
-                .or(() -> SecurityUtils.getCurrentUsername()
-                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse))
-                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND, "Không tìm thấy thông tin nhân viên từ phiên đăng nhập"));
+        return OperationStaffScopeResolver.resolve(staffRepository);
     }
 
     private Pageable buildPageable(UtilityMeterSearchDto request) {

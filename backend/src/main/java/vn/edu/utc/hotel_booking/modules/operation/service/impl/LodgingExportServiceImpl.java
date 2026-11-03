@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -90,6 +91,7 @@ public class LodgingExportServiceImpl implements LodgingExportService {
 
         if (SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") || SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
             Staff currentStaff = resolveCurrentStaff();
+            OperationStaffScopeResolver.requireScope(currentStaff, "PROPERTY");
             Integer scopeId = currentStaff.getScopeEntityId();
             if (!"PROPERTY".equalsIgnoreCase(currentStaff.getScopeType())
                     || scopeId == null || scopeId <= 0 || scopeId > Short.MAX_VALUE
@@ -104,10 +106,6 @@ public class LodgingExportServiceImpl implements LodgingExportService {
     }
 
     private Staff resolveCurrentStaff() {
-        return SecurityUtils.getCurrentUserKeycloakId()
-                .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)
-                .or(() -> SecurityUtils.getCurrentUsername()
-                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse))
-                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+        return OperationStaffScopeResolver.resolve(staffRepository);
     }
 }
