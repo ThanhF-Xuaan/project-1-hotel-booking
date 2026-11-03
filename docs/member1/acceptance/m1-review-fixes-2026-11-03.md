@@ -33,3 +33,13 @@ Derived queue lookup dùng pessimistic write. Export dùng native SQL tham số 
 FAIL trước sửa: 14 test/3 failure đúng ba nhánh EXPORTED bị requeue. Lượt sau: 66 tests/3 wiring errors EntityManager trong unit; tiếp theo 80/1 mapper wiring error trong test mới. Đã sửa wiring, giữ nguyên assertions; 80/80 PASS. Lượt cuối trên source đã giữ tương thích legacy: **88/88 PASS, 0 failure/error/skip**, gồm 7 PostgreSQL test và81 unit/controller. 4 concurrency cases mới kiểm export/update và export/retry ở cả hai thứ tự, assert transaction chờ PostgreSQL lock và nội dung workbook/status đúng; 3 export atomicity/concurrency cũ giữ nguyên.
 
 Evidence ignored: `.runtime/review-fixes/pg004-20261103120932-020c72/` (snapshot trước seed, services/seed/tests/restore/stop logs). Chỉ sandbox hotel_acceptance_db:15432 với volume prefix m1-review mới, không hotel_booking_db. Restore và stop exit0; env.json khôi phục đúng byte. Lượt trước không chạy test vì Docker Desktop tắt; config đã khôi phục, không seed. Đã khởi động Docker Desktop ở nền; main containers tự lên theo restart policy, không chỉnh dữ liệu của chúng. Full HTTP/Keycloak cuối vẫn pending.
+
+## FIX-005
+
+PayrollMoneyValidator kiểm NUMERIC(15,2) trước công thức và trước persistence, không làm tròn. Kiểm precision/scale hiệu dụng trước setScale để chặn exponent cực lớn; giới hạn token tiền128ký tự. Giữ representation bộ nhớ của tiền đã có scale<=2 (1000 vẫn1000); chỉ bỏ trailing zeroes vượt scale bằng UNNECESSARY (1.2300→1.23). SQL lưu chính xác ở scale2. Dòng lỗi giữ row number, thông báo field cố định không echo tiền; các dòng hợp lệ khác tiếp tục batch như contract hiện hữu.
+
+FAIL trước fix: 2/2 regression, importer nhận 100.005 và số vượt13integerdigits. Lượt đầu sau fix: 27 test/3failure chỉ do representation1000.00 khác assertion cũ1000. Đã giữ representation hợp lệ như trước, không sửa assertion cũ; final unit/controller/security **27/27 PASS**. Regression mới11case gồm boundary max, trailing zeros, exponent, net và mixed-file.
+
+PostgreSQL cuối **116/116 PASS,0failure/error/skip**, gồm8PG cases và108unit/controller. Case mới round-trip max9999999999999.99 xác nhận công thức trong DB; CSV100.005+0.005=100.010 bị từ chối, không có rowinvalid. Case dùng staff1/period2099:11..12 sau kiểm tra trống, cleanup đúng các key test. 7PG queue/export cases cũ tiếp tục PASS.
+
+Evidence `.runtime/review-fixes/pg005-20261103122355-21f4f3/`; namespace mới, snapshot trước seed, restore/stop exit0. Không migration/entity/dependency thay đổi. HTTP payroll vẫn200 với ErrorRowDto; không chuyển sang atomic whole-file import. Source finance thuộc T05 Member1, không đổi Payment/Invoice.

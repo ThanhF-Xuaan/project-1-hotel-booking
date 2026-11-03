@@ -21,6 +21,13 @@ import vn.edu.utc.hotel_booking.modules.operation.service.impl.LodgingQueueServi
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestUpdateRequest;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import java.io.ByteArrayInputStream;
+import vn.edu.utc.hotel_booking.modules.finance.service.PayrollSummaryService;
+import vn.edu.utc.hotel_booking.modules.finance.service.impl.PayrollSummaryServiceImpl;
+import vn.edu.utc.hotel_booking.modules.finance.repository.PayrollSummaryRepository;
+import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
+import org.springframework.mock.web.MockMultipartFile;
+import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,6 +89,8 @@ class LodgingExportPostgresTest {
     @Autowired private FaultControl faults;
     @Autowired private StayGuestService guests;
     @Autowired private LodgingQueueService queues;
+    @Autowired private PayrollSummaryService payroll;
+    @Autowired private StaffRepository staffRepository;
     private Map<String, Object> originalQueue;
     private String originalName;
 
@@ -228,6 +237,28 @@ class LodgingExportPostgresTest {
         finally { SecurityContextHolder.clearContext(); }
     }
 
+    @Test void payrollRoundTripPreservesExactEquationAndRejectsLossyValues() {
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_summary WHERE staff_id=1 AND period_year=2099 AND period_month IN (11,12)",Integer.class)).isZero();
+        when(staffRepository.findAllById(any())).thenReturn(List.of(Staff.builder().id(1).build()));
+        try {
+            String header = "staff,month,year,base,bonus,deductions,net\n";
+            var valid = new MockMultipartFile("file","synthetic.csv","text/csv",
+                    (header+"1,11,2099,9999999999999.99,0,0,9999999999999.99\n").getBytes(StandardCharsets.UTF_8));
+            assertThat(payroll.importCsv(valid)).isEmpty();
+            var row = jdbc.queryForMap("SELECT base_salary,bonus,deductions,net_salary FROM payroll_summary WHERE staff_id=1 AND period_year=2099 AND period_month=11");
+            BigDecimal base = (BigDecimal)row.get("base_salary"), bonus = (BigDecimal)row.get("bonus");
+            assertThat((BigDecimal)row.get("net_salary")).isEqualByComparingTo(base.add(bonus).subtract((BigDecimal)row.get("deductions")));
+            assertThat(base).isEqualByComparingTo("9999999999999.99");
+            var invalid = new MockMultipartFile("file","synthetic.csv","text/csv",
+                    (header+"1,12,2099,100.005,0.005,0,100.010\n").getBytes(StandardCharsets.UTF_8));
+            assertThat(payroll.importCsv(invalid)).hasSize(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_summary WHERE staff_id=1 AND period_year=2099 AND period_month=12",Integer.class)).isZero();
+        } finally {
+            jdbc.update("DELETE FROM payroll_summary WHERE staff_id=1 AND period_year=2099 AND period_month IN (11,12)");
+            reset(staffRepository);
+        }
+    }
+
     private boolean awaitSecondQueryDisposition() throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() < deadline) {
@@ -348,6 +379,10 @@ class LodgingExportPostgresTest {
         @Bean StaffRepository staffRepository() { return mock(StaffRepository.class); }
         @Bean StayGuestRepository guestRepository(EntityManagerFactory factory) {
             return new JpaRepositoryFactory(SharedEntityManagerCreator.createSharedEntityManager(factory)).getRepository(StayGuestRepository.class);
+        }
+        @Bean PayrollSummaryService payrollService(EntityManagerFactory factory, StaffRepository staff) {
+            var repository = new JpaRepositoryFactory(SharedEntityManagerCreator.createSharedEntityManager(factory)).getRepository(PayrollSummaryRepository.class);
+            return new PayrollSummaryServiceImpl(repository,staff);
         }
         @Bean StayGuestMapper guestMapper() { return new StayGuestMapperImpl(); }
         @Bean LodgingQueueMapper queueMapper() { return new LodgingQueueMapperImpl(); }

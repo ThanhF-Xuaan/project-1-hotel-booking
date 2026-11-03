@@ -15,6 +15,7 @@ import vn.edu.utc.hotel_booking.modules.finance.dto.response.ErrorRowDto;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PayrollSummary;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PayrollSummaryRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PayrollSummaryService;
+import vn.edu.utc.hotel_booking.modules.finance.service.support.PayrollMoneyValidator;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 
@@ -88,10 +89,10 @@ public class PayrollSummaryServiceImpl implements PayrollSummaryService {
                         continue;
                     }
 
-                    BigDecimal baseSalary = new BigDecimal(record.get(3).replace(",", "").trim());
-                    BigDecimal bonus = new BigDecimal(record.get(4).replace(",", "").trim());
-                    BigDecimal deductions = new BigDecimal(record.get(5).replace(",", "").trim());
-                    BigDecimal netSalary = new BigDecimal(record.get(6).replace(",", "").trim());
+                    BigDecimal baseSalary = PayrollMoneyValidator.parse(record.get(3).replace(",", "").trim(), "baseSalary");
+                    BigDecimal bonus = PayrollMoneyValidator.parse(record.get(4).replace(",", "").trim(), "bonus");
+                    BigDecimal deductions = PayrollMoneyValidator.parse(record.get(5).replace(",", "").trim(), "deductions");
+                    BigDecimal netSalary = PayrollMoneyValidator.parse(record.get(6).replace(",", "").trim(), "netSalary");
 
                     if (baseSalary.compareTo(BigDecimal.ZERO) < 0 || bonus.compareTo(BigDecimal.ZERO) < 0 || deductions.compareTo(BigDecimal.ZERO) < 0) {
                         errors.add(new ErrorRowDto(rowNum, "Salary components (base, bonus, deductions) must be non-negative"));
