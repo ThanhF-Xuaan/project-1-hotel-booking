@@ -204,7 +204,9 @@ public class RedisRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
                     throw new SessionNotFoundException("Session not found or expired");
                 }
 
-                RoomAdvisorSession existing = deserialize(raw);
+                RoomAdvisorSession existing;
+                try { existing = deserialize(raw); }
+                catch (RuntimeException failure) { stringOps.unwatch(); throw failure; }
 
                 if (existing.getOwnerKey() != null && ownerKey != null && !existing.getOwnerKey().equals(ownerKey)) {
                     stringOps.unwatch();
@@ -220,7 +222,10 @@ public class RedisRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
                 }
 
                 long nextVersion = existing.getSessionVersion() + 1;
-                RoomAdvisorSession updated = RoomAdvisorSnapshots.committed(RoomAdvisorSession.builder()
+                RoomAdvisorSession updated;
+                String serialized;
+                try {
+                    updated = RoomAdvisorSnapshots.committed(RoomAdvisorSession.builder()
                         .sessionId(existing.getSessionId())
                         .sessionVersion(nextVersion)
                         .ownerKey(existing.getOwnerKey())
@@ -231,10 +236,21 @@ public class RedisRoomAdvisorSessionStore implements RoomAdvisorSessionStore {
                         .lastResult(lastResult != null ? lastResult : existing.getLastResult())
                         .lastAccessedAt(Instant.now())
                         .build(), lastResult != null);
+                    serialized = serialize(updated);
+                } catch (RuntimeException failure) {
+                    stringOps.unwatch();
+                    throw failure;
+                }
 
+                List<Object> execResult;
                 stringOps.multi();
-                stringOps.opsForValue().set(key, serialize(updated), SESSION_TTL);
-                List<Object> execResult = stringOps.exec();
+                try {
+                    stringOps.opsForValue().set(key, serialized, SESSION_TTL);
+                    execResult = stringOps.exec();
+                } catch (RuntimeException failure) {
+                    stringOps.discard();
+                    throw failure;
+                }
 
                 if (execResult == null || execResult.isEmpty()) {
                     // WATCH abort: another writer modified the session key concurrently

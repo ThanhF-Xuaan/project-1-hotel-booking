@@ -65,3 +65,6 @@ Shared/member khác: StayGuest entity/repository (Booking) thêm internal read-o
 Review bổ sung normalization document bằng đúng6ASCII whitespace (không strip ký tự điều khiển khác), timeout cho cả unknown/planned identity. Kiểm gộp cuối86test PASS,0 lỗi/skip gồm24operation PostgreSQL +10export PostgreSQL cũ +52StayGuest/HTTP (`followup-operation-final.log`).
 
 CI/local acceptance: Start.ps1 thêm context maintenance explicit trong sandbox; Run-BackendTests.ps1 bắt buộc chạy3operation IT với số case6/14/4, không chấp nhận skip. CI thêm job PostgreSQL disposable có password ngẫu nhiên/mask, refused local target và cleanup chỉ container có ownership label;3unit test guard PASS. Backend gate tăng minimum và bắt buộc các suite mới; frontend CI thêm race/OCR browser. YAML parse và diff --check PASS. CI thực/acceptance tổng ở commit cuối vẫn pending.
+
+### Review F01 Redis cleanup
+Snapshot deserialize/copy/serialize lỗi giải phóng WATCH trước503; serialize trước MULTI, discard khi transaction lỗi. Regression trước sửa12test/2FAIL; sau sửa130test PASS,0 lỗi/skip gồm frozen/security/HTTP (followup-f01-cleanup-after.log).

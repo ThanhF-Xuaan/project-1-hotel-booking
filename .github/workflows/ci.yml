@@ -65,7 +65,7 @@ jobs:
         if: always()
         run: >-
           python3 tools/ci/verify_surefire.py backend/target/surefire-reports
-          --minimum 1502
+          --minimum 1504
           --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.TesseractOcrVisionAdapterTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.controller.IdentityDocumentOcrControllerTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.advisor.session.RedisRoomAdvisorSessionStoreRealRedisTest
