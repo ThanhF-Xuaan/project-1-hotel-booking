@@ -198,7 +198,11 @@ def main():
     parser.add_argument('--json-report', type=Path, help='Optional report path outside the dataset')
     parser.add_argument('--reviewed-widget-sources', action='store_true',
                         help='Verify the fixed T12-01 source re-audit; historical manifest stays unchanged')
+    parser.add_argument('--artifacts-only', action='store_true',
+                        help='Validate frozen artifacts without comparing live application source to historical hashes')
     args = parser.parse_args()
+    if args.artifacts_only and args.reviewed_widget_sources:
+        parser.error('--artifacts-only and --reviewed-widget-sources are mutually exclusive')
     counters = Counter()
     json_files = sorted([*DOC.rglob('*.json'), *FIX.rglob('*.json'), *EVAL.rglob('*.json')])
     documents = {p: read(p) for p in json_files}
@@ -373,23 +377,24 @@ def main():
     require(evidence['gitSha'] == decisions['baselineCommit'], 'Source baseline version mismatch')
     reconciled_paths = set()
     reconciliation = None
-    if args.reviewed_widget_sources:
-        from verify_widget_source_reaudit import PRIOR_COMMITS, verify_reconciliation
-        reconciliation = verify_reconciliation()
-        reconciled_paths = set(PRIOR_COMMITS)
-    for entry in evidence['files']:
-        path = ROOT / entry['path']
-        require(path.is_file() and entry['baselineUnmodified'] is True, 'Missing source evidence')
-        source_value = path
+    if not args.artifacts_only:
         if args.reviewed_widget_sources:
-            from reconcile_deploy_source import reconcile as reconcile_deploy
-            source_value = reconcile_deploy(entry['path'], path.read_bytes())
-        if args.reviewed_widget_sources and entry['path'] == 'frontend/src/App.tsx':
-            from verify_widget_source_reaudit import reconcile_u22
-            source_value = reconcile_u22(path.read_bytes())
-        require(verify_source_evidence_entry(entry, source_value) or entry['path'] in reconciled_paths,
-                'Source changed after audit: ' + entry['path'])
-        counters['source_evidence_hashes_checked'] += 1
+            from verify_widget_source_reaudit import PRIOR_COMMITS, verify_reconciliation
+            reconciliation = verify_reconciliation()
+            reconciled_paths = set(PRIOR_COMMITS)
+        for entry in evidence['files']:
+            path = ROOT / entry['path']
+            require(path.is_file() and entry['baselineUnmodified'] is True, 'Missing source evidence')
+            source_value = path
+            if args.reviewed_widget_sources:
+                from reconcile_deploy_source import reconcile as reconcile_deploy
+                source_value = reconcile_deploy(entry['path'], path.read_bytes())
+            if args.reviewed_widget_sources and entry['path'] == 'frontend/src/App.tsx':
+                from verify_widget_source_reaudit import reconcile_u22
+                source_value = reconcile_u22(path.read_bytes())
+            require(verify_source_evidence_entry(entry, source_value) or entry['path'] in reconciled_paths,
+                    'Source changed after audit: ' + entry['path'])
+            counters['source_evidence_hashes_checked'] += 1
 
     # Reject security/price/card contradictions, not snapshots of implementation internals.
     def rejected(value, definition, label, semantic=False):
@@ -461,6 +466,24 @@ def main():
               'counters':dict(counters),'caseCategories':dict(Counter(c['category'] for c in cases)),
               'evaluationCasesSha256':hashlib.sha256((EVAL / 'cases.json').read_bytes()).hexdigest(),
               'contractArtifactVersion':'2.0.0-draft.1','evaluationVersion':'0.1.0-draft'}
+    report['liveSourceProvenance'] = 'NOT_CHECKED' if args.artifacts_only else 'CHECKED'
+    if args.artifacts_only:
+        # Frozen data is still checked against immutable Git blobs; only application hashes are excluded.
+        import subprocess
+        baseline = 'eedeaf9fda584c8d10629d09961d86e2821fe7b3'
+        for directory in (DOC, FIX, EVAL):
+            prefix = directory.relative_to(ROOT).as_posix()
+            names = subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', baseline, '--', prefix],
+                                            cwd=ROOT, text=True).splitlines()
+            actual = {p.relative_to(ROOT).as_posix() for p in directory.rglob('*') if p.is_file()}
+            require(actual == set(names), 'Frozen artifact layout changed: ' + prefix)
+            for name in names:
+                expected = subprocess.check_output(['git', 'show', baseline + ':' + name], cwd=ROOT)
+                current = (ROOT / name).read_bytes()
+                require(current.replace(b'\r\n', b'\n') == expected.replace(b'\r\n', b'\n'),
+                        'Frozen artifact changed: ' + name)
+                counters['frozen_artifact_blobs_checked'] += 1
+        report['counters'] = dict(counters)
     if reconciliation is not None:
         report['sourceReconciliation'] = reconciliation
     if args.json_report:
