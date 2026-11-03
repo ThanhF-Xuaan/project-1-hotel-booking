@@ -23,3 +23,9 @@ F02/F05/F06/F04/F03 đang triển khai. Chưa kết luận toàn bộ PASS; full
 CSV chỉ nhận 7 header snake_case đúng tên/thứ tự, UTF-8 BOM đầu file được bỏ. Sai header trả row1 INVALID_CSV_HEADER trước staff batch lookup/save; dữ liệu mỗi dòng phải đúng7cột. Giữ HTTP200 danh sách lỗi, partial import, scope, precision và upsert.
 
 Trước sửa:9test/8FAIL; sau sửa:30test/3suite PASS,0 lỗi/skip (`followup-f02-before.log`, `followup-f02-after.log`). Gồm header đảo/thừa/thiếu/trùng/case/alias, BOM, partial row error, scope và precision. Chỉ đổi header literal của PayrollSummaryServiceTest, PayrollPrecisionReviewRegressionTest, LodgingExportPostgresTest về contract đã duyệt; giữ assertions/data. PostgreSQL lodging suite chờ sandbox tổng.
+
+## F05 — CONFIRMED fix local
+
+StayGuestTimeValidator so sánh instant: expected strictly sau check-in, actual không trước check-in; actual vượt expected được phép. Create/retry và check-in sync validate detached candidate trước managed mutation; update chỉ kiểm khi patch thời gian. EXPORTED guard/noop đứng trước temporal check; legacy thiếu endpoint hoặc lỗi cũ không bị tự sửa khi patch trường khác.
+
+Trước sửa:9test/5FAIL; sau sửa:50test/3suite PASS,0 lỗi/skip (`followup-f05-before.log`, `followup-f05-after.log`). Có timezone-equivalent boundary, overstay, lỗi không làm bẩn managed entity, legacy và EXPORTED markers. Không đổi DTO/route/Core check-in flow.

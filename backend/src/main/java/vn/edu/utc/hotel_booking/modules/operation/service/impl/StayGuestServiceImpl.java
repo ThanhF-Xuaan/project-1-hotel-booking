@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import vn.edu.utc.hotel_booking.modules.operation.service.support.LodgingExportStateGuard;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.StayGuestTimeValidator;
 import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -122,6 +123,7 @@ public class StayGuestServiceImpl implements StayGuestService {
             LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
             if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
                     && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
+            StayGuestTimeValidator.validate(candidate);
             org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
         } else {
             // Lượt lưu trú mới -> luôn tạo mới bản ghi StayGuest, bảo toàn lịch sử lưu trú trước đó
@@ -130,6 +132,7 @@ public class StayGuestServiceImpl implements StayGuestService {
             guest.setBooking(booking);
             guest.setRoom(room);
             guest.setBookingRoom(bookingRoom);
+            StayGuestTimeValidator.validate(guest);
         }
 
         guest.setRoomNumber(associations.roomNumber());
@@ -174,6 +177,9 @@ public class StayGuestServiceImpl implements StayGuestService {
         LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
         if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
                 && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
+        if (request.getExpectedCheckOutTime() != null || request.getActualCheckOutTime() != null) {
+            StayGuestTimeValidator.validate(candidate);
+        }
         org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
         StayGuest savedGuest = stayGuestRepository.save(guest);
 
@@ -278,6 +284,9 @@ public class StayGuestServiceImpl implements StayGuestService {
                 if (queue != null && LodgingExportStateGuard.preservesQueue(queue)) continue;
                 if (queue != null && queue.getStatus() == LodgingQueueStatus.PROCESSING) throw LodgingExportStateGuard.stateConflict();
                 if (guest.getCheckInTime() == null) {
+                    StayGuest candidate = LodgingExportStateGuard.copy(guest);
+                    candidate.setCheckInTime(now);
+                    StayGuestTimeValidator.validate(candidate);
                     guest.setCheckInTime(now);
                 }
                 StayGuest saved = stayGuestRepository.save(guest);
