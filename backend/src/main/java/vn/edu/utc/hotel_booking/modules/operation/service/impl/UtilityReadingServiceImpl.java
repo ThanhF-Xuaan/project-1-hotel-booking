@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.UtilityWriteLock;
 import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -39,6 +40,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UtilityReadingServiceImpl implements UtilityReadingService {
+
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
 
     private static final Set<String> ALLOWED_READING_SORTS = Set.of("readingDate", "readingValue", "id", "createdAt");
 
@@ -138,13 +141,15 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
             throw new AppException(ErrorCode.UNAUTHORIZED, "Bạn không có quyền thực hiện hành động này");
         }
 
-        UtilityMeter meter = meterRepository.findById(request.getMeterId())
+        UtilityMeter initialMeter = meterRepository.findById(request.getMeterId())
                 .orElseThrow(() -> new AppException(ErrorCode.UTILITY_METER_NOT_FOUND, "Meter not found"));
                 
-        if (Boolean.TRUE.equals(meter.getIsDeleted())) {
+        if (Boolean.TRUE.equals(initialMeter.getIsDeleted())) {
             throw new AppException(ErrorCode.UTILITY_METER_NOT_FOUND, "Cannot add reading to a deleted meter");
         }
 
+        validateWriteScope(initialMeter.getHotel().getId());
+        UtilityMeter meter = UtilityWriteLock.acquire(entityManager, meterRepository, initialMeter.getId());
         validateWriteScope(meter.getHotel().getId());
 
         if (repository.existsByMeterIdAndReadingDateAndIsDeletedFalse(request.getMeterId(), request.getReadingDate())) {
@@ -192,7 +197,11 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
     public UtilityReadingResponse update(Long id, UtilityReadingUpdateRequest request) {
         UtilityReading reading = getReadingOrThrow(id);
         validateWriteScope(reading.getMeter().getHotel().getId());
-        
+        UtilityWriteLock.acquire(entityManager, meterRepository, reading.getMeter().getId());
+        entityManager.refresh(reading);
+        if (Boolean.TRUE.equals(reading.getIsDeleted())) throw new AppException(ErrorCode.UTILITY_READING_NOT_FOUND);
+        validateWriteScope(reading.getMeter().getHotel().getId());
+
         repository.findPreviousReading(reading.getMeter().getId(), reading.getReadingDate())
                 .ifPresent(prev -> {
                     if (!Boolean.TRUE.equals(request.getIsMeterReset()) &&
@@ -231,10 +240,33 @@ public class UtilityReadingServiceImpl implements UtilityReadingService {
         for (UtilityReading reading : readings) {
             validateWriteScope(reading.getMeter().getHotel().getId());
         }
+        List<Integer> meterIds=readings.stream().map(r->r.getMeter().getId()).distinct().sorted().toList();
+        for (Integer meterId : meterIds) {
+            var locked=UtilityWriteLock.acquire(entityManager, meterRepository, meterId);
+            validateWriteScope(locked.getHotel().getId());
+        }
+        for (UtilityReading reading : readings) entityManager.refresh(reading);
+        readings=readings.stream().filter(r->!Boolean.TRUE.equals(r.getIsDeleted())).toList();
+        Set<Long> deleting=readings.stream().map(UtilityReading::getId).collect(java.util.stream.Collectors.toSet());
+        for (Integer meterId : meterIds) validateSurvivingNeighbors(meterId, deleting);
         for (UtilityReading reading : readings) {
+            validateWriteScope(reading.getMeter().getHotel().getId());
             reading.setIsDeleted(true);
         }
         repository.saveAll(readings);
+    }
+
+    private void validateSurvivingNeighbors(Integer meterId, Set<Long> deleting) {
+        UtilityReading previous=null;
+        boolean removedBetween=false;
+        for (UtilityReading reading : repository.findByMeterIdAndIsDeletedFalseOrderByReadingDateAsc(meterId)) {
+            if (deleting.contains(reading.getId())) { removedBetween=true; continue; }
+            if (removedBetween && previous!=null && !Boolean.TRUE.equals(reading.getIsMeterReset())
+                    && reading.getReadingValue().compareTo(previous.getReadingValue())<0) {
+                throw new AppException(ErrorCode.INVALID_UTILITY_READING_VALUE, "Xóa chỉ số sẽ tạo chênh lệch âm giữa các chỉ số còn lại");
+            }
+            previous=reading; removedBetween=false;
+        }
     }
 
     private UtilityReading getReadingOrThrow(Long id) {

@@ -12,6 +12,10 @@ import vn.edu.utc.hotel_booking.modules.operation.entity.enums.MeterType;
 @Repository
 public interface UtilityMeterRepository extends JpaRepository<UtilityMeter, Integer> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM UtilityMeter m WHERE m.id = :id")
+    java.util.Optional<UtilityMeter> findByIdForUpdate(@Param("id") Integer id);
+
     @Query(value = "SELECT m FROM UtilityMeter m JOIN FETCH m.hotel h " +
            "WHERE m.isDeleted = false " +
            "AND (:hotelId IS NULL OR h.id = :hotelId) " +

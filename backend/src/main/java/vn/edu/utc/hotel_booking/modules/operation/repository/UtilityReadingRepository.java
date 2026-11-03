@@ -44,6 +44,8 @@ public interface UtilityReadingRepository extends JpaRepository<UtilityReading, 
     @Query("SELECT r FROM UtilityReading r JOIN FETCH r.meter m JOIN FETCH m.hotel h WHERE r.id IN :ids")
     List<UtilityReading> findAllByIdInWithMeterAndHotel(@Param("ids") List<Long> ids);
                                 
+    List<UtilityReading> findByMeterIdAndIsDeletedFalseOrderByReadingDateAsc(Integer meterId);
+
     boolean existsByMeterIdAndReadingDateAndIsDeletedFalse(Integer meterId, LocalDate readingDate);
     
     Optional<UtilityReading> findFirstByMeterIdAndReadingDateLessThanAndIsDeletedFalseOrderByReadingDateDesc(Integer meterId, LocalDate readingDate);

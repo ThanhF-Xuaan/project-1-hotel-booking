@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.UtilityWriteLock;
 import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +33,8 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UtilityMeterServiceImpl implements UtilityMeterService {
+
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager entityManager;
 
     private static final Set<String> ALLOWED_METER_SORTS = Set.of("id", "meterCode", "meterType", "locationLabel", "createdAt");
 
@@ -116,6 +119,8 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
     public UtilityMeterResponse update(Integer id, UtilityMeterUpdateRequest request) {
         UtilityMeter meter = getMeterOrThrow(id);
         validateWriteScope(meter.getHotel().getId());
+        meter=UtilityWriteLock.acquire(entityManager, repository, id);
+        validateWriteScope(meter.getHotel().getId());
 
         if (!meter.getMeterCode().equals(request.getMeterCode()) && 
             repository.existsByHotelIdAndMeterCodeAndIsDeletedFalse(meter.getHotel().getId(), request.getMeterCode())) {
@@ -140,7 +145,10 @@ public class UtilityMeterServiceImpl implements UtilityMeterService {
         for (UtilityMeter meter : meters) {
             validateWriteScope(meter.getHotel().getId());
         }
+        meters=meters.stream().map(UtilityMeter::getId).distinct().sorted()
+                .map(id->UtilityWriteLock.acquire(entityManager, repository, id)).toList();
         for (UtilityMeter meter : meters) {
+            validateWriteScope(meter.getHotel().getId());
             meter.setIsDeleted(true);
         }
         repository.saveAll(meters);

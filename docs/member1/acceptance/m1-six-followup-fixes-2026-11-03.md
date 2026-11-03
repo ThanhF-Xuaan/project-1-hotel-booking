@@ -37,3 +37,11 @@ Modal mount state riêng theo hotel/booking-room/association context và unmount
 Browser trước sửa4/4FAIL; sau sửa11/11PASS gồm6race +5OCR (`followup-f06-before.log`, `followup-f06-after.log`). Lint --max-warnings=0 và TypeScript/Vite build PASS. Hai lỗi selector icon của test mới đã sửa bằng title nút đã xác minh; không đổi assertions.
 
 Shared/member khác: `frontend/src/modules/booking/components/StayGuestsModal.tsx` sửa lifecycle để không lẫn khách giữa phòng; `frontend/src/modules/operation/services/stayGuest.service.ts` thêm optional AbortSignal, tương thích caller cũ. Thêm fixture/spec browser tổng hợp; không đổi shared API client/auth/route.
+
+## F04 — CONFIRMED fix local/PostgreSQL
+
+Tất cả write utility readings và update/delete meter khóa PESSIMISTIC_WRITE cùng parent meter; bulk khóa ID tăng dần. Sau khóa refresh meter/reading và kiểm scope/deleted lại. Delete kiểm cặp surviving neighbors cuối cùng, không tự đổi reset/giá trị. lock_timeout cố định5s; timeout/deadlock chuyển mã9054 HTTP409 thông báo cố định.
+
+PostgreSQL trước sửa2/2FAIL (race tạo dãy giảm và xóa reset làm âm delta). Sau sửa78test PASS,0 lỗi/skip, gồm6PostgreSQL thực +72utility/scope (`followup-f04-final.log`). Đã quan sát2writer chờ FOR UPDATE trên utility_meters; kiểm timeout~5s, stale update sau soft-delete, meter khác không chờ và bulk delete final survivors. Sandbox mới `m1-followup-*`, localhost15432, có backup `tools/acceptance/.runtime/followup-snapshot.sql`; không chạm DB chính5433.
+
+Shared files: ErrorCode thêm9054 còn trống; UtilityMeterRepository thêm query khóa; UtilityReadingRepository thêm query history để kiểm surviving neighbors. Constructor/API/permission/unique-per-date/usage semantics giữ nguyên. Hai unit harness thêm EntityManager mock và locked fixture trả về; assertions cũ giữ nguyên. Một lỗi khởi tạo DTO test và tên biến patch đã được sửa trước khi đạt PASS; không tính compile failure là reproducer.

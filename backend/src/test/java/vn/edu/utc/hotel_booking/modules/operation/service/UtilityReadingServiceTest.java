@@ -75,8 +75,12 @@ class UtilityReadingServiceTest {
     private UtilityReading reading;
     private UtilityReadingResponse readingResponse;
 
+    @Mock(answer=org.mockito.Answers.RETURNS_DEEP_STUBS)
+    private jakarta.persistence.EntityManager entityManager;
+
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(readingService, "entityManager", entityManager);
         setSecurityContext("staff_test", "ROLE_CHAIN_ADMIN");
 
         Staff staff = Staff.builder().id(1).username("staff_test").scopeType("CHAIN").build();
@@ -98,6 +102,7 @@ class UtilityReadingServiceTest {
                 .meterCode("EL-01")
                 .build();
         meter.setIsDeleted(false);
+        lenient().when(meterRepository.findByIdForUpdate(anyInt())).thenAnswer(call -> Optional.of(meter));
 
         reading = UtilityReading.builder()
                 .id(1L)
