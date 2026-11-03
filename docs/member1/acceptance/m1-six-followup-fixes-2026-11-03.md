@@ -29,3 +29,11 @@ Trước sửa:9test/8FAIL; sau sửa:30test/3suite PASS,0 lỗi/skip (`followup
 StayGuestTimeValidator so sánh instant: expected strictly sau check-in, actual không trước check-in; actual vượt expected được phép. Create/retry và check-in sync validate detached candidate trước managed mutation; update chỉ kiểm khi patch thời gian. EXPORTED guard/noop đứng trước temporal check; legacy thiếu endpoint hoặc lỗi cũ không bị tự sửa khi patch trường khác.
 
 Trước sửa:9test/5FAIL; sau sửa:50test/3suite PASS,0 lỗi/skip (`followup-f05-before.log`, `followup-f05-after.log`). Có timezone-equivalent boundary, overstay, lỗi không làm bẩn managed entity, legacy và EXPORTED markers. Không đổi DTO/route/Core check-in flow.
+
+## F06 — CONFIRMED fix local
+
+Modal mount state riêng theo hotel/booking-room/association context và unmount khi đóng. List request nhận AbortSignal, hủy request cũ và guard success/catch/finally; create/delete completion từ instance cũ không reset/reload context mới. OCR abort/human review giữ nguyên. Bỏ log Axios có thể chứa thông tin khách ở đường list/delete.
+
+Browser trước sửa4/4FAIL; sau sửa11/11PASS gồm6race +5OCR (`followup-f06-before.log`, `followup-f06-after.log`). Lint --max-warnings=0 và TypeScript/Vite build PASS. Hai lỗi selector icon của test mới đã sửa bằng title nút đã xác minh; không đổi assertions.
+
+Shared/member khác: `frontend/src/modules/booking/components/StayGuestsModal.tsx` sửa lifecycle để không lẫn khách giữa phòng; `frontend/src/modules/operation/services/stayGuest.service.ts` thêm optional AbortSignal, tương thích caller cũ. Thêm fixture/spec browser tổng hợp; không đổi shared API client/auth/route.
