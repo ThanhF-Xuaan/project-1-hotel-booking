@@ -43,3 +43,9 @@ FAIL trước fix: 2/2 regression, importer nhận 100.005 và số vượt13int
 PostgreSQL cuối **116/116 PASS,0failure/error/skip**, gồm8PG cases và108unit/controller. Case mới round-trip max9999999999999.99 xác nhận công thức trong DB; CSV100.005+0.005=100.010 bị từ chối, không có rowinvalid. Case dùng staff1/period2099:11..12 sau kiểm tra trống, cleanup đúng các key test. 7PG queue/export cases cũ tiếp tục PASS.
 
 Evidence `.runtime/review-fixes/pg005-20261103122355-21f4f3/`; namespace mới, snapshot trước seed, restore/stop exit0. Không migration/entity/dependency thay đổi. HTTP payroll vẫn200 với ErrorRowDto; không chuyển sang atomic whole-file import. Source finance thuộc T05 Member1, không đổi Payment/Invoice.
+
+## FIX-006
+
+DestinationResolutionStatus nội bộ phân biệt RESOLVED/AMBIGUOUS/UNRESOLVED/UNAVAILABLE; giữ builder cũ tương thích. Chat/search/refresh dùng chung nhánh fail-closed và cập nhật session bằng owner-bound CAS hiện hữu. Upstream lỗi/null/invalid trả TEMP_UNAVAILABLE với coverage không COMPLETE; điểm đến chưa xác định trả NEED_INFO; catalog hợp lệ rỗng vẫn NO_MATCH/COMPLETE. Refresh áp dụng hotel vừa resolve trước query. Adapter log mã cố định, không echo query/exception.
+
+FAIL trước sửa: 5/5 regression đúng ba entrypoint destination outage, unresolved và null room payload. PASS đầu117/117. Final **158/158 PASS,0failure/error/skip**, gồm8 dependency regressions,74 frozen eval, security integration MockMvc, session và zero-write architecture. Bổ sung null destination, valid empty catalog và refresh resolve hotel/version persistence. Không đổi public DTO/status, thuật toán/gold hoặc Booking/Pricing service. Logs review-fix006-before/after/final.log; các integration security này là servlet mock, chưa thay bằng chứng Keycloak thực. Một lệnh format nhầm đường dẫn backend/backend thất bại trước Maven; không thay source và không dùng làm test evidence.
