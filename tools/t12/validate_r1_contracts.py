@@ -388,7 +388,8 @@ def main():
             source_value = path
             if args.reviewed_widget_sources:
                 from reconcile_deploy_source import reconcile as reconcile_deploy
-                source_value = reconcile_deploy(entry['path'], path.read_bytes())
+                from reconcile_m1_review_fixes import reconcile as reconcile_review_fixes
+                source_value = reconcile_deploy(entry['path'], reconcile_review_fixes(entry['path'], path.read_bytes()))
             if args.reviewed_widget_sources and entry['path'] == 'frontend/src/App.tsx':
                 from verify_widget_source_reaudit import reconcile_u22
                 source_value = reconcile_u22(path.read_bytes())

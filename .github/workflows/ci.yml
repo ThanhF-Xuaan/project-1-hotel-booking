@@ -65,13 +65,22 @@ jobs:
         if: always()
         run: >-
           python3 tools/ci/verify_surefire.py backend/target/surefire-reports
-          --minimum 1478
+          --minimum 1504
           --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.TesseractOcrVisionAdapterTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.ocr.controller.IdentityDocumentOcrControllerTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.advisor.session.RedisRoomAdvisorSessionStoreRealRedisTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.demo.utility.UtilityDemoApiTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.demo.group.GroupDemoApiTest
           --require-suite vn.edu.utc.hotel_booking.modules.ai.demo.data.DemoDataProviderTest
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.StayGuestReviewRegressionTest
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.UtilityScopeReviewRegressionTest
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.LodgingQueueReviewRegressionTest
+          --require-suite vn.edu.utc.hotel_booking.modules.finance.service.PayrollPrecisionReviewRegressionTest
+          --require-suite vn.edu.utc.hotel_booking.modules.ai.advisor.session.SessionSnapshotFollowupTest
+          --require-suite vn.edu.utc.hotel_booking.modules.finance.service.PayrollHeaderFollowupTest
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.StayGuestTimeFollowupTest
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.OperationConflictHttpFollowupTest
+          --require-suite vn.edu.utc.hotel_booking.modules.ai.advisor.service.AdvisorDependencyReviewRegressionTest
           --output "${{ runner.temp }}/member1-ci/backend-summary.json"
       - name: Upload aggregate evidence only
         if: always()
@@ -126,7 +135,7 @@ jobs:
             sleep 1
           done
           curl --fail --silent http://localhost:13000/ > /dev/null
-          npx playwright test e2e/browser/u22-demo-ui.spec.ts e2e/browser/u22-utility-ui.spec.ts e2e/browser/group-demo-ui.spec.ts
+          npx playwright test e2e/browser/u22-demo-ui.spec.ts e2e/browser/u22-utility-ui.spec.ts e2e/browser/group-demo-ui.spec.ts e2e/browser/t12-session-reset.spec.ts e2e/browser/stay-guests-race.spec.ts e2e/browser/ocr-review.spec.ts
 
   contracts-tooling:
     name: Contracts, tooling and route safety
@@ -152,6 +161,10 @@ jobs:
       - name: Validate current contracts and route safety
         run: |
           python tools/t12/validate_r1_contracts.py --artifacts-only
+          python tools/t12/reconcile_m1_followup_fixes.py
+          python tools/t12/test_followup_reaudit.py
+          python tools/t12/reconcile_m1_review_fixes.py
+          python tools/t12/test_review_fix_reaudit.py
           node --test tools/ci/test_member1_routes.cjs
           node tools/ci/verify_member1_routes.cjs
           python -m unittest discover -s tools/ci -p 'test*.py' -v
@@ -229,6 +242,52 @@ jobs:
       - name: Cleanup owned disposable container
         if: always()
         run: docker rm -f m1-analytics-ci
+
+  operation-postgres:
+    name: Operation PostgreSQL concurrency & migration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.12'
+      - name: Provision exclusive synthetic PostgreSQL and explicit migration context
+        run: python tools/ci/provision_operation_postgres.py start
+      - name: Real concurrent writes, preflight rollback and export regression
+        working-directory: backend
+        run: >-
+          bash ./mvnw --batch-mode --no-transfer-progress
+          '-Dtest=UtilityConcurrencyPostgresIT,StayGuestDedupPostgresIT,ActiveStayMigrationPostgresIT,LodgingExportPostgresTest'
+          -DfailIfNoTests=true clean test
+      - name: Require executed PostgreSQL evidence
+        if: always()
+        run: >-
+          python tools/ci/verify_surefire.py backend/target/surefire-reports
+          --minimum 34
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.UtilityConcurrencyPostgresIT
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.StayGuestDedupPostgresIT
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.ActiveStayMigrationPostgresIT
+          --require-suite vn.edu.utc.hotel_booking.modules.operation.service.LodgingExportPostgresTest
+          --output "${{ runner.temp }}/operation-summary.json"
+      - name: Upload aggregate evidence only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: operation-summary
+          path: ${{ runner.temp }}/operation-summary.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Cleanup owned disposable PostgreSQL
+        if: always()
+        run: python tools/ci/provision_operation_postgres.py cleanup
 
   docker-validation:
     name: Docker Packaging & Compose Validation

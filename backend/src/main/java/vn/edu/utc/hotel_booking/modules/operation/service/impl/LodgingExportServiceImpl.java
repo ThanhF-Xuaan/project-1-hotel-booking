@@ -1,6 +1,10 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.Comparator;
+import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +37,7 @@ public class LodgingExportServiceImpl implements LodgingExportService {
     private final LodgingQueueRepository lodgingQueueRepository;
     private final StaffRepository staffRepository;
     private final LodgingWorkbookWriter workbookWriter;
+    @PersistenceContext private EntityManager entityManager;
 
     private static final ZoneOffset REPORT_OFFSET = ZoneOffset.ofHours(7);
 
@@ -58,6 +63,14 @@ public class LodgingExportServiceImpl implements LodgingExportService {
             throw new AppException(ErrorCode.LODGING_EXPORT_EMPTY, "Không có dữ liệu khách lưu trú phù hợp để xuất file khai báo");
         }
 
+        // Queue locks serialize all edits; refresh after acquiring them, before reading workbook fields.
+        for (LodgingQueue item : queueItems) entityManager.refresh(item.getStayGuest());
+        // The query may have evaluated guest predicates before waiting for a queue lock.
+        queueItems = queueItems.stream().filter(item -> matchesReportScope(item, cutoffExclusive, isVietnamese))
+                .sorted(Comparator.comparing((LodgingQueue q) -> q.getStayGuest().getCheckInTime())
+                .thenComparing(LodgingQueue::getId)).toList();
+        if (queueItems.isEmpty()) throw new AppException(ErrorCode.LODGING_EXPORT_EMPTY);
+
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
             workbookWriter.write(queueItems, isVietnamese, bos);
 
@@ -79,6 +92,15 @@ public class LodgingExportServiceImpl implements LodgingExportService {
         }
     }
 
+    private boolean matchesReportScope(LodgingQueue item, OffsetDateTime cutoffExclusive, boolean isVietnamese) {
+        var guest = item.getStayGuest();
+        if (Boolean.TRUE.equals(guest.getIsDeleted()) || guest.getCheckInTime() == null
+                || !guest.getCheckInTime().isBefore(cutoffExclusive) || guest.getNationality() == null) return false;
+        boolean vietnamese = List.of("việt nam", "viet nam", "vietnam")
+                .contains(guest.getNationality().toLowerCase(java.util.Locale.ROOT));
+        return vietnamese == isVietnamese;
+    }
+
     private void validateStaffScope(Short hotelId) {
         if (hotelId == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "hotelId không được để trống");
@@ -90,6 +112,7 @@ public class LodgingExportServiceImpl implements LodgingExportService {
 
         if (SecurityUtils.hasRole("ROLE_PROPERTY_MANAGER") || SecurityUtils.hasRole("ROLE_RECEPTIONIST")) {
             Staff currentStaff = resolveCurrentStaff();
+            OperationStaffScopeResolver.requireScope(currentStaff, "PROPERTY");
             Integer scopeId = currentStaff.getScopeEntityId();
             if (!"PROPERTY".equalsIgnoreCase(currentStaff.getScopeType())
                     || scopeId == null || scopeId <= 0 || scopeId > Short.MAX_VALUE
@@ -104,10 +127,6 @@ public class LodgingExportServiceImpl implements LodgingExportService {
     }
 
     private Staff resolveCurrentStaff() {
-        return SecurityUtils.getCurrentUserKeycloakId()
-                .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)
-                .or(() -> SecurityUtils.getCurrentUsername()
-                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse))
-                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+        return OperationStaffScopeResolver.resolve(staffRepository);
     }
 }

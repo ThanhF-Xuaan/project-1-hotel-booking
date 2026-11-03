@@ -63,7 +63,11 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
 
         try {
             List<DestinationSuggestionResponse> suggestions = publicBookingSearchService.getDestinationSuggestions(locationQuery.trim());
-            if (suggestions == null || suggestions.isEmpty()) {
+            if (suggestions == null || suggestions.stream().anyMatch(item -> item == null || item.getId() == null
+                    || item.getId() < 1 || item.getId() > Short.MAX_VALUE || item.getType() == null)) {
+                return DestinationResolutionResult.builder().status(DestinationResolutionStatus.UNAVAILABLE).build();
+            }
+            if (suggestions.isEmpty()) {
                 return DestinationResolutionResult.builder()
                         .resolvedName(locationQuery.trim())
                         .ambiguous(false)
@@ -123,12 +127,8 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                     .build();
 
         } catch (Exception e) {
-            log.error("Failed to resolve destination suggestions for query: {}", locationQuery, e);
-            return DestinationResolutionResult.builder()
-                    .resolvedName(locationQuery)
-                    .ambiguous(false)
-                    .ambiguities(new ArrayList<>())
-                    .build();
+            log.warn("T12_DESTINATION_UNAVAILABLE");
+            return DestinationResolutionResult.builder().status(DestinationResolutionStatus.UNAVAILABLE).build();
         }
     }
 
@@ -153,6 +153,10 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                     .build();
         }
 
+        if ((criteria.getHotelId() == null || criteria.getHotelId() <= 0) && (regionId == null || regionId <= 0)) {
+            return CoreCandidateDiscoveryResult.builder().catalogComplete(false).allFailed(true)
+                    .coverageReasons(List.of(CoverageReason.CATALOG_PAGE_FAILED)).build();
+        }
         int limit = maxCandidates > 0 ? maxCandidates : 50;
 
         List<AvailableRoomTypeResponse> rawRooms = new ArrayList<>();
@@ -185,6 +189,9 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                         hotelIdByHrt.put(r.getHotelRoomTypeId(), criteria.getHotelId());
                         hotelNameByHrt.put(r.getHotelRoomTypeId(), "Khách sạn " + criteria.getHotelId());
                     }
+                } else {
+                    catalogComplete = false;
+                    coverageReasons.add(CoverageReason.CATALOG_PAGE_FAILED);
                 }
             } else if (regionId != null && regionId > 0) {
                 int maxHotelsToScan = limit;
@@ -249,9 +256,12 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                                         currencyByHrt.put(r.getHotelRoomTypeId(), hotel.getCurrency());
                                     }
                                 }
+                            } else {
+                                catalogComplete = false;
+                                coverageReasons.add(CoverageReason.CATALOG_PAGE_FAILED);
                             }
                         } catch (Exception ex) {
-                            log.warn("Failed to fetch rooms for hotelId {}: {}", hotel.getHotelId(), ex.getMessage());
+                            log.warn("T12_CORE_ROOM_SEARCH_UNAVAILABLE");
                             catalogComplete = false;
                             coverageReasons.add(CoverageReason.CATALOG_PAGE_FAILED);
                         }
@@ -272,7 +282,7 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                 }
             }
         } catch (Exception e) {
-            log.error("Core upstream search failed: {}", e.getMessage(), e);
+            log.warn("T12_CORE_SEARCH_UNAVAILABLE");
             return CoreCandidateDiscoveryResult.builder()
                     .allFailed(true)
                     .catalogComplete(false)
@@ -319,7 +329,7 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                         coverageReasons.add(CoverageReason.PRICE_FAILED);
                     }
                 } catch (Exception e) {
-                    log.warn("calculateRoomQuote failed for hrtId {}: {}", hrtId, e.getMessage());
+                    log.warn("T12_CORE_QUOTE_UNAVAILABLE");
                     failedRoomTypeIds.add(hrtId);
                     coverageReasons.add(CoverageReason.PRICE_FAILED);
                     activePb = null;

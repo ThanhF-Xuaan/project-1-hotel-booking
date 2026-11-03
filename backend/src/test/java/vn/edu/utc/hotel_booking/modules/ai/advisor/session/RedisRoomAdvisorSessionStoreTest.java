@@ -384,4 +384,29 @@ class RedisRoomAdvisorSessionStoreTest {
 
         verify(redisTemplate).delete(key);
     }
+    @Test
+    void corruptStoredSnapshotClearsWatchBeforeReturning503() throws Exception {
+        assertFailedPreparationClearsWatch(true);
+    }
+
+    @Test
+    void invalidNewSnapshotClearsWatchWithoutOpeningTransaction() throws Exception {
+        assertFailedPreparationClearsWatch(false);
+    }
+
+    private void assertFailedPreparationClearsWatch(boolean corruptStored) throws Exception {
+        UUID sid=UUID.randomUUID();String key="advisor:session:"+sid;
+        String stored=corruptStored?"not-json":objectMapper.writeValueAsString(RoomAdvisorSession.builder()
+                .sessionId(sid).sessionVersion(1L).ownerKey("synthetic-owner").lastAccessedAt(Instant.now()).build());
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(key)).thenReturn(stored);
+        when(redisTemplate.execute(any(SessionCallback.class))).thenAnswer(call->((SessionCallback<?>)call.getArgument(0)).execute(redisTemplate));
+        AdvisorResultDto invalid=AdvisorResultDto.builder().sources(List.of(new Object())).build();
+        assertThatThrownBy(()->store.updateSession(sid,"synthetic-owner",1L,null,null,corruptStored?null:invalid))
+                .isInstanceOf(SessionStorageUnavailableException.class);
+        verify(redisTemplate).unwatch();
+        verify(redisTemplate,never()).multi();verify(redisTemplate,never()).exec();
+        verify(valueOperations,never()).set(anyString(),anyString(),any(Duration.class));
+    }
+
 }

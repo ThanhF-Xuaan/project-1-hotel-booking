@@ -103,11 +103,18 @@ function handleAdvisorError(error: unknown): never {
 /**
  * Gửi tin nhắn ngôn ngữ tự nhiên đến Trợ lý AI Tìm Phòng (T12)
  */
+type AdvisorRequestOptions = { signal?: AbortSignal };
+
+export function sendAdvisorChat(request: AdvisorChatRequestDto, options?: AdvisorRequestOptions): Promise<AdvisorResultDto>;
+export function sendAdvisorChat(message: string, sessionId?: string, sessionVersion?: number, options?: AdvisorRequestOptions): Promise<AdvisorResultDto>;
 export async function sendAdvisorChat(
   requestOrMessage: AdvisorChatRequestDto | string,
-  sessionId?: string,
-  sessionVersion?: number
+  sessionOrOptions?: string | AdvisorRequestOptions,
+  sessionVersion?: number,
+  options?: AdvisorRequestOptions
 ): Promise<AdvisorResultDto> {
+  const requestOptions = typeof requestOrMessage === 'string' ? options : sessionOrOptions as AdvisorRequestOptions | undefined;
+  const sessionId = typeof sessionOrOptions === 'string' ? sessionOrOptions : undefined;
   const payload: AdvisorChatRequestDto =
     typeof requestOrMessage === 'string'
       ? {
@@ -121,7 +128,8 @@ export async function sendAdvisorChat(
   try {
     const res = await advisorClient.post<ApiResponse<AdvisorResultDto>>(
       '/api/v1/public/ai/room-advisor/chat',
-      payload
+      payload,
+      { signal: requestOptions?.signal }
     );
     return res.data.result;
   } catch (err) {
@@ -132,10 +140,15 @@ export async function sendAdvisorChat(
 /**
  * Làm mới trạng thái phiên tư vấn AI
  */
+export function sendAdvisorRefresh(request: AdvisorRefreshRequestDto, options?: AdvisorRequestOptions): Promise<AdvisorResultDto>;
+export function sendAdvisorRefresh(sessionId: string, sessionVersion?: number, options?: AdvisorRequestOptions): Promise<AdvisorResultDto>;
 export async function sendAdvisorRefresh(
   requestOrSessionId: AdvisorRefreshRequestDto | string,
-  sessionVersion?: number
+  versionOrOptions?: number | AdvisorRequestOptions,
+  options?: AdvisorRequestOptions
 ): Promise<AdvisorResultDto> {
+  const requestOptions = typeof requestOrSessionId === 'string' ? options : versionOrOptions as AdvisorRequestOptions | undefined;
+  const sessionVersion = typeof versionOrOptions === 'number' ? versionOrOptions : undefined;
   const payload: AdvisorRefreshRequestDto =
     typeof requestOrSessionId === 'string'
       ? {
@@ -148,7 +161,8 @@ export async function sendAdvisorRefresh(
   try {
     const res = await advisorClient.post<ApiResponse<AdvisorResultDto>>(
       '/api/v1/public/ai/room-advisor/refresh',
-      payload
+      payload,
+      { signal: requestOptions?.signal }
     );
     return res.data.result;
   } catch (err) {

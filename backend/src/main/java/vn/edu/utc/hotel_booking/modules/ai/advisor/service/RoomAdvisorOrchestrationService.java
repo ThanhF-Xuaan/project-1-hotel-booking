@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.adapter.CoreCandidateDiscoveryResult;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.adapter.DestinationResolutionResult;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.adapter.DestinationResolutionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.adapter.RoomAdvisorCorePort;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.*;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.*;
@@ -143,43 +144,19 @@ public class RoomAdvisorOrchestrationService {
         }
 
         // 6. Resolve destination
-        DestinationResolutionResult dest = corePort.resolveDestination(
-                mergedCriteria.getLocationKeyword(),
-                mergedCriteria.getHotelId(),
-                null
-        );
-
-        if (dest.isAmbiguous()) {
-            AdvisorResultDto ambiguousResult = buildNeedInfoResult(
-                    requestId,
-                    session.getSessionId(),
-                    session.getSessionVersion(),
-                    mergedCriteria,
-                    Collections.emptyList(),
-                    dest.getAmbiguities(),
-                    session.getCriteriaProvenance(),
-                    "Có nhiều điểm đến phù hợp với yêu cầu của bạn. Vui lòng chọn rõ khách sạn hoặc khu vực cụ thể."
-            );
-
-            RoomAdvisorSession updatedSession = sessionStore.updateSession(
-                    session.getSessionId(),
-                    ownerKey,
-                    snapshotVersion,
-                    mergedCriteria,
-                    session.getCriteriaProvenance(),
-                    ambiguousResult
-            );
-            ambiguousResult.setSessionVersion(updatedSession.getSessionVersion());
-
-            return ambiguousResult;
+        DestinationResolutionResult dest = resolveDestination(mergedCriteria);
+        if (dest.getStatus() != DestinationResolutionStatus.RESOLVED) {
+            return destinationFailure(requestId, session, ownerKey, snapshotVersion, mergedCriteria, dest);
         }
+
+
 
         if (dest.getHotelId() != null) {
             mergedCriteria.setHotelId(dest.getHotelId());
         }
 
         // 7. Discover candidates & retrieve quotes
-        CoreCandidateDiscoveryResult discovery = corePort.discoverAndQuoteCandidates(
+        CoreCandidateDiscoveryResult discovery = discoverCandidates(
                 mergedCriteria,
                 dest.getRegionId(),
                 50
@@ -268,42 +245,18 @@ public class RoomAdvisorOrchestrationService {
             return needInfoResult;
         }
 
-        DestinationResolutionResult dest = corePort.resolveDestination(
-                criteria.getLocationKeyword(),
-                criteria.getHotelId(),
-                null
-        );
-
-        if (dest.isAmbiguous()) {
-            AdvisorResultDto ambiguousResult = buildNeedInfoResult(
-                    requestId,
-                    session.getSessionId(),
-                    session.getSessionVersion(),
-                    criteria,
-                    Collections.emptyList(),
-                    dest.getAmbiguities(),
-                    session.getCriteriaProvenance(),
-                    "Có nhiều điểm đến phù hợp với yêu cầu của bạn. Vui lòng chọn rõ khách sạn hoặc khu vực cụ thể."
-            );
-
-            RoomAdvisorSession updatedSession = sessionStore.updateSession(
-                    session.getSessionId(),
-                    ownerKey,
-                    snapshotVersion,
-                    criteria,
-                    session.getCriteriaProvenance(),
-                    ambiguousResult
-            );
-            ambiguousResult.setSessionVersion(updatedSession.getSessionVersion());
-
-            return ambiguousResult;
+        DestinationResolutionResult dest = resolveDestination(criteria);
+        if (dest.getStatus() != DestinationResolutionStatus.RESOLVED) {
+            return destinationFailure(requestId, session, ownerKey, snapshotVersion, criteria, dest);
         }
+
+
 
         if (dest.getHotelId() != null) {
             criteria.setHotelId(dest.getHotelId());
         }
 
-        CoreCandidateDiscoveryResult discovery = corePort.discoverAndQuoteCandidates(
+        CoreCandidateDiscoveryResult discovery = discoverCandidates(
                 criteria,
                 dest.getRegionId(),
                 50
@@ -353,7 +306,7 @@ public class RoomAdvisorOrchestrationService {
             }
         }
 
-        RoomSearchCriteriaDto criteria = session.getCriteria();
+        RoomSearchCriteriaDto criteria = vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSnapshots.copy(session.getCriteria());
         if (criteria == null) {
             return buildNeedInfoResult(
                     UUID.randomUUID(),
@@ -367,19 +320,19 @@ public class RoomAdvisorOrchestrationService {
             );
         }
 
-        DestinationResolutionResult dest = corePort.resolveDestination(
-                criteria.getLocationKeyword(),
-                criteria.getHotelId(),
-                null
-        );
+        UUID requestId = UUID.randomUUID();
+        DestinationResolutionResult dest = resolveDestination(criteria);
+        if (dest.getStatus() != DestinationResolutionStatus.RESOLVED) {
+            return destinationFailure(requestId, session, ownerKey, session.getSessionVersion(), criteria, dest);
+        }
+        if (dest.getHotelId() != null) criteria.setHotelId(dest.getHotelId());
 
-        CoreCandidateDiscoveryResult discovery = corePort.discoverAndQuoteCandidates(
+        CoreCandidateDiscoveryResult discovery = discoverCandidates(
                 criteria,
                 dest.getRegionId(),
                 50
         );
 
-        UUID requestId = UUID.randomUUID();
         long nextVersion = session.getSessionVersion() + 1;
 
         AdvisorResultDto refreshedResult = recommendationEngine.evaluateAndRank(
@@ -409,6 +362,45 @@ public class RoomAdvisorOrchestrationService {
         refreshedResult.setSessionVersion(updatedSession.getSessionVersion());
 
         return refreshedResult;
+    }
+
+    private CoreCandidateDiscoveryResult discoverCandidates(RoomSearchCriteriaDto criteria, Short regionId, int limit) {
+        try { return corePort.discoverAndQuoteCandidates(criteria, regionId, limit); }
+        catch (org.springframework.security.access.AccessDeniedException denied) { throw denied; }
+        catch (RuntimeException unavailable) { throw new AdvisorDependencyUnavailableException(); }
+    }
+
+    private DestinationResolutionResult resolveDestination(RoomSearchCriteriaDto criteria) {
+        try {
+            DestinationResolutionResult result = corePort.resolveDestination(criteria.getLocationKeyword(), criteria.getHotelId(), null);
+            return result == null ? DestinationResolutionResult.builder().status(DestinationResolutionStatus.UNAVAILABLE).build() : result;
+        } catch (org.springframework.security.access.AccessDeniedException denied) {
+            throw denied;
+        } catch (RuntimeException unavailable) {
+            log.warn("T12_DESTINATION_UNAVAILABLE");
+            return DestinationResolutionResult.builder().status(DestinationResolutionStatus.UNAVAILABLE).build();
+        }
+    }
+
+    private AdvisorResultDto destinationFailure(UUID requestId, RoomAdvisorSession session, String ownerKey,
+            long expectedVersion, RoomSearchCriteriaDto criteria, DestinationResolutionResult destination) {
+        AdvisorResultDto result;
+        if (destination.getStatus() == DestinationResolutionStatus.UNAVAILABLE) {
+            result = recommendationEngine.evaluateAndRank(requestId, session.getSessionId(), expectedVersion,
+                    criteria, session.getCriteriaProvenance(), List.of(), Map.of(), Map.of(), false, Set.of(),
+                    List.of(CoverageReason.CATALOG_PAGE_FAILED));
+        } else {
+            boolean ambiguous = destination.getStatus() == DestinationResolutionStatus.AMBIGUOUS;
+            result = buildNeedInfoResult(requestId, session.getSessionId(), expectedVersion, criteria,
+                    ambiguous ? List.of() : List.of("locationKeyword"), destination.getAmbiguities(),
+                    session.getCriteriaProvenance(), ambiguous
+                            ? "Có nhiều điểm đến phù hợp. Vui lòng chọn rõ khách sạn hoặc khu vực."
+                            : "Chưa xác định được điểm đến. Vui lòng chọn khách sạn hoặc khu vực cụ thể.");
+        }
+        RoomAdvisorSession updated = sessionStore.updateSession(session.getSessionId(), ownerKey, expectedVersion,
+                criteria, session.getCriteriaProvenance(), result);
+        result.setSessionVersion(updated.getSessionVersion());
+        return result;
     }
 
     private CriteriaPatchDto combinePatches(CriteriaPatchDto primary, CriteriaPatchDto secondary) {

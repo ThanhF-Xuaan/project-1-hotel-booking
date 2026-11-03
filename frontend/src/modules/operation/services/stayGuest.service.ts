@@ -8,8 +8,8 @@ import type {
 const BASE_URL = '/api/v1/stay-guests';
 
 export const stayGuestService = {
-  getByBookingRoomId: (bookingRoomId: number) =>
-    apiClient.get<StayGuestResponse[]>(`${BASE_URL}/by-booking-room/${bookingRoomId}`),
+  getByBookingRoomId: (bookingRoomId: number, signal?: AbortSignal) =>
+    apiClient.get<StayGuestResponse[]>(`${BASE_URL}/by-booking-room/${bookingRoomId}`, { signal }),
 
   getById: (id: number) =>
     apiClient.get<StayGuestResponse>(`${BASE_URL}/${id}`),

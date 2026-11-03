@@ -303,7 +303,7 @@ if (-not $ApplicationsOnly) {
         -ServerUrl ([string]$EnvConfig.KEYCLOAK_SERVER_URL)
 }
 
-Write-Host "=== [3/6] Chạy Liquibase migration (context: master-data) ===" -ForegroundColor Cyan
+Write-Host "=== [3/6] Chạy Liquibase migration (contexts: master-data,m1-active-stay-dedup) ===" -ForegroundColor Cyan
 $NetworkName = 'hotel-m1-acceptance_hotel_acceptance_net'
 $DbChangelogPath = Join-Path $ProjectRoot 'backend/src/main/resources/db'
 
@@ -315,7 +315,7 @@ docker run --rm `
     -e LIQUIBASE_COMMAND_USERNAME="$($EnvConfig.DB_USER)" `
     -e LIQUIBASE_COMMAND_PASSWORD="$($EnvConfig.DB_PASSWORD)" `
     -e LIQUIBASE_COMMAND_CHANGELOG_FILE='db/db-changelog-root.xml' `
-    -e LIQUIBASE_COMMAND_CONTEXTS='master-data' `
+    -e LIQUIBASE_COMMAND_CONTEXTS='master-data,m1-active-stay-dedup' `
     -e LIQUIBASE_LOG_LEVEL=INFO `
     liquibase/liquibase:4.31-alpine `
     --search-path=/liquibase/changelog --changelog-file=db/db-changelog-root.xml update

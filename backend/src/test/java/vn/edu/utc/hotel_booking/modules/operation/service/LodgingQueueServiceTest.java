@@ -130,7 +130,7 @@ class LodgingQueueServiceTest {
                 .status(LodgingQueueStatus.ERROR)
                 .build();
 
-        when(repository.findById(10L)).thenReturn(Optional.of(queue));
+        when(repository.findByIdForUpdate(10L)).thenReturn(Optional.of(queue));
         when(repository.save(any(LodgingQueue.class))).thenAnswer(i -> i.getArgument(0));
         when(mapper.toResponse(any())).thenReturn(LodgingQueueResponse.builder().id(10L).status(LodgingQueueStatus.ERROR).build());
 
@@ -169,7 +169,7 @@ class LodgingQueueServiceTest {
                 .errorMessage("Old error")
                 .build();
 
-        when(repository.findById(10L)).thenReturn(Optional.of(queue));
+        when(repository.findByIdForUpdate(10L)).thenReturn(Optional.of(queue));
         when(repository.save(any(LodgingQueue.class))).thenAnswer(i -> i.getArgument(0));
         when(mapper.toResponse(any())).thenReturn(LodgingQueueResponse.builder().id(10L).status(LodgingQueueStatus.PENDING).build());
 

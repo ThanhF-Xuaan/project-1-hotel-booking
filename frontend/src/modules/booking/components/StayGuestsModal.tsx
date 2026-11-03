@@ -33,7 +33,12 @@ export interface StayGuestsModalProps {
   roomNumber?: string;
 }
 
-export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
+// A committed context change mounts fresh state, so old room data is never rendered under a new title.
+export const StayGuestsModal: React.FC<StayGuestsModalProps> = (props) => props.isOpen
+  ? <StayGuestsModalContent key={`${props.hotelId}:${props.bookingRoomId}:${props.bookingId}:${props.roomId}`} {...props} />
+  : null;
+
+const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   isOpen,
   onClose,
   bookingRoomId,
@@ -65,6 +70,17 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
   const [checkInTime, setCheckInTime] = useState('');
   const [expectedCheckOutTime, setExpectedCheckOutTime] = useState('');
   const ocrRequest = useRef<AbortController | null>(null);
+  const listRequest = useRef<AbortController | null>(null);
+  const alive = useRef(true);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      listRequest.current?.abort();
+      ocrRequest.current?.abort();
+    };
+  }, []);
 
   useEffect(() => () => { ocrRequest.current?.abort(); }, [isOpen, bookingRoomId]);
 
@@ -117,19 +133,20 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
   }, []);
 
   const loadGuests = useCallback(async () => {
-    if (!bookingRoomId) return;
+    if (!bookingRoomId || !alive.current) return;
+    listRequest.current?.abort();
+    const request = new AbortController();
+    listRequest.current = request;
+    const current = () => alive.current && !request.signal.aborted && listRequest.current === request;
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await stayGuestService.getByBookingRoomId(bookingRoomId);
-      if (res.result) {
-        setGuests(res.result);
-      }
-    } catch (err: unknown) {
-      console.error('Lỗi nạp danh sách khách lưu trú:', err);
-      setErrorMessage('Không thể tải danh sách khách lưu trú.');
+      const res = await stayGuestService.getByBookingRoomId(bookingRoomId, request.signal);
+      if (current()) setGuests(res.result ?? []);
+    } catch {
+      if (current()) setErrorMessage('Không thể tải danh sách khách lưu trú.');
     } finally {
-      setIsLoading(false);
+      if (current()) setIsLoading(false);
     }
   }, [bookingRoomId]);
 
@@ -191,14 +208,16 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
 
     try {
       await stayGuestService.create(payload);
+      if (!alive.current) return;
       setSuccessMessage('Khai báo khách lưu trú thành công!');
       resetForm();
       loadGuests();
     } catch (err: unknown) {
+      if (!alive.current) return;
       void err; // Không ghi payload giấy tờ hoặc lỗi Axios vào console.
       setErrorMessage('Không thể thêm thông tin khách lưu trú. Vui lòng kiểm tra lại.');
     } finally {
-      setIsSubmitting(false);
+      if (alive.current) setIsSubmitting(false);
     }
   };
 
@@ -206,10 +225,11 @@ export const StayGuestsModal: React.FC<StayGuestsModalProps> = ({
     if (!window.confirm('Bạn có chắc chắn muốn xóa thông tin khách lưu trú này?')) return;
     try {
       await stayGuestService.delete([id]);
+      if (!alive.current) return;
       setSuccessMessage('Đã xóa thông tin khách lưu trú.');
       loadGuests();
-    } catch (err) {
-      console.error('Lỗi xóa khách lưu trú:', err);
+    } catch {
+      if (!alive.current) return;
       setErrorMessage('Không thể xóa khách lưu trú.');
     }
   };

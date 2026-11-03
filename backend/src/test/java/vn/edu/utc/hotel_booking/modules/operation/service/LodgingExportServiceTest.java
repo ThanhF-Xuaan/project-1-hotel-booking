@@ -51,6 +51,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class LodgingExportServiceTest {
+    @org.mockito.Mock private jakarta.persistence.EntityManager entityManager;
 
     @Mock
     private LodgingQueueRepository lodgingQueueRepository;
@@ -74,6 +75,7 @@ public class LodgingExportServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(lodgingExportService, "entityManager", entityManager);
         sampleHotel = Hotel.builder().id((short) 1).name("Test Hotel").build();
         SecurityContextHolder.setContext(securityContext);
     }
@@ -86,6 +88,28 @@ public class LodgingExportServiceTest {
     private void mockChainAdminAuth() {
         doReturn(List.of(new SimpleGrantedAuthority("ROLE_CHAIN_ADMIN"))).when(authentication).getAuthorities();
         when(securityContext.getAuthentication()).thenReturn(authentication);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"cutoff", "category"})
+    void refreshedGuestOutsideReportScopeIsNotExported(String changedField) {
+        mockChainAdminAuth();
+        var guest = StayGuest.builder().id(1L).hotel(sampleHotel).nationality("Vietnam")
+                .checkInTime(OffsetDateTime.parse("2026-10-24T14:00:00+07:00")).build();
+        var queue = LodgingQueue.builder().id(1L).hotel(sampleHotel).stayGuest(guest)
+                .status(LodgingQueueStatus.PENDING).build();
+        when(lodgingQueueRepository.findPendingForExport(eq((short)1), any(), eq(true))).thenReturn(List.of(queue));
+        doAnswer(invocation -> {
+            if (changedField.equals("cutoff")) guest.setCheckInTime(OffsetDateTime.parse("2026-10-26T00:00:00+07:00"));
+            else guest.setNationality("Japan");
+            return null;
+        }).when(entityManager).refresh(guest);
+        var request = LodgingExportRequest.builder().hotelId((short)1).date(LocalDate.of(2026,10,25))
+                .category(LodgingGuestCategory.VIETNAMESE).build();
+        var error = assertThrows(AppException.class, () -> lodgingExportService.exportBcaLodgingReport(request));
+        assertEquals(ErrorCode.LODGING_EXPORT_EMPTY, error.getErrorCode());
+        assertEquals(LodgingQueueStatus.PENDING, queue.getStatus());
+        verifyNoInteractions(workbookWriter);
+        verify(lodgingQueueRepository, never()).saveAll(any());
     }
 
     @ParameterizedTest
@@ -169,7 +193,7 @@ public class LodgingExportServiceTest {
                 .documentNumber("001200001234")
                 .permanentAddress("Hà Nội")
                 .currentAddress("Cầu Giấy, Hà Nội")
-                .checkInTime(OffsetDateTime.now())
+                .checkInTime(OffsetDateTime.parse("2026-10-04T10:00:00+07:00"))
                 .expectedCheckOutTime(OffsetDateTime.now().plusDays(2))
                 .roomNumber("101")
                 .reasonForStay("Du lịch")
@@ -229,7 +253,7 @@ public class LodgingExportServiceTest {
                 .documentNumber("001200001234")
                 .permanentAddress("@SUM(A1:A10)")
                 .currentAddress("+cmd.exe")
-                .checkInTime(OffsetDateTime.now())
+                .checkInTime(OffsetDateTime.parse("2026-10-04T10:00:00+07:00"))
                 .expectedCheckOutTime(OffsetDateTime.now().plusDays(2))
                 .roomNumber("-calc.exe")
                 .reasonForStay("Du lịch")

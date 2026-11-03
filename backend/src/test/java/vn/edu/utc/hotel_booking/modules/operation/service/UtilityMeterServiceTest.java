@@ -67,8 +67,12 @@ class UtilityMeterServiceTest {
     private UtilityMeter meter;
     private UtilityMeterResponse meterResponse;
 
+    @Mock(answer=org.mockito.Answers.RETURNS_DEEP_STUBS)
+    private jakarta.persistence.EntityManager entityManager;
+
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "entityManager", entityManager);
         setSecurityContext("admin_user", "ROLE_CHAIN_ADMIN");
 
         region = Region.builder().id((short) 1).name("Region 1").build();
@@ -88,6 +92,7 @@ class UtilityMeterServiceTest {
                 .locationLabel("Lobby")
                 .build();
         meter.setIsDeleted(false);
+        lenient().when(repository.findByIdForUpdate(anyInt())).thenAnswer(call -> Optional.of(meter));
 
         meterResponse = new UtilityMeterResponse();
         meterResponse.setId(1);

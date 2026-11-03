@@ -82,6 +82,9 @@ public class StayGuestServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(stayGuestService,"entityManager",mock(jakarta.persistence.EntityManager.class));
+        lenient().when(stayGuestRepository.computeActiveKey(any(),any(),any(),any(),any(),any(),any(),any(),any()))
+                .thenAnswer(call -> call.getArgument(6)==null || call.getArgument(7)!=null || Boolean.TRUE.equals(call.getArgument(8)) ? null : new byte[32]);
         sampleHotel = Hotel.builder().id((short) 1).name("Test Hotel").build();
         SecurityContextHolder.setContext(securityContext);
     }
@@ -112,8 +115,7 @@ public class StayGuestServiceTest {
                 .build();
 
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
-        when(stayGuestRepository.findFirstByHotelIdAndRoomNumberAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                (short) 1, "101", "001200001234")).thenReturn(Optional.empty());
+        when(stayGuestRepository.findActiveByDedupKey(any())).thenReturn(Optional.empty());
 
         StayGuest mappedGuest = StayGuest.builder()
                 .id(10L)
@@ -169,8 +171,7 @@ public class StayGuestServiceTest {
 
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
         // No active stay (past stay has actualCheckOutTime != null so repository query returns empty)
-        when(stayGuestRepository.findFirstByHotelIdAndRoomNumberAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                (short) 1, "102", "001200001234")).thenReturn(Optional.empty());
+        when(stayGuestRepository.findActiveByDedupKey(any())).thenReturn(Optional.empty());
 
         StayGuest newStayGuest = StayGuest.builder()
                 .id(20L)
@@ -218,6 +219,7 @@ public class StayGuestServiceTest {
         when(bookingLookupService.getBookingEntityById(100L)).thenReturn(booking);
 
         StayGuest existingActiveStay = StayGuest.builder()
+                .checkInTime(request.getCheckInTime()).expectedCheckOutTime(request.getExpectedCheckOutTime())
                 .id(10L)
                 .hotel(sampleHotel)
                 .booking(booking)
@@ -226,8 +228,7 @@ public class StayGuestServiceTest {
                 .documentNumber("001200001234")
                 .build();
 
-        when(stayGuestRepository.findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                (short) 1, 100L, "001200001234")).thenReturn(Optional.of(existingActiveStay));
+        when(stayGuestRepository.findActiveByDedupKey(any())).thenReturn(Optional.of(existingActiveStay));
         when(stayGuestRepository.save(existingActiveStay)).thenReturn(existingActiveStay);
         when(lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(10L)).thenReturn(Optional.empty());
         when(stayGuestMapper.toResponse(existingActiveStay)).thenReturn(StayGuestResponse.builder().id(10L).fullName("NGUYỄN VĂN A ĐÃ SỬA").build());
@@ -262,8 +263,7 @@ public class StayGuestServiceTest {
         when(bookingLookupService.getBookingEntityById(100L)).thenReturn(booking);
 
         // Booking 100 has completed stay (actualCheckOutTime != null), so active stay query returns empty
-        when(stayGuestRepository.findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                (short) 1, 100L, "001200001234")).thenReturn(Optional.empty());
+        when(stayGuestRepository.findActiveByDedupKey(any())).thenReturn(Optional.empty());
 
         StayGuest newGuest = StayGuest.builder()
                 .id(99L)
@@ -379,8 +379,7 @@ public class StayGuestServiceTest {
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
         when(bookingLookupService.getBookingEntityById(100L)).thenReturn(booking);
         when(bookingLookupService.getBookingRoomEntityById(500L)).thenReturn(bookingRoom);
-        when(stayGuestRepository.findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                (short) 1, 100L, "001200001234")).thenReturn(Optional.empty());
+        when(stayGuestRepository.findActiveByDedupKey(any())).thenReturn(Optional.empty());
 
         StayGuest mappedGuest = StayGuest.builder()
                 .id(30L)
@@ -421,8 +420,7 @@ public class StayGuestServiceTest {
                 .build();
 
         when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(sampleHotel));
-        when(stayGuestRepository.findFirstByHotelIdAndRoomNumberAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                (short) 1, "101", "001200005678")).thenReturn(Optional.empty());
+        when(stayGuestRepository.findActiveByDedupKey(any())).thenReturn(Optional.empty());
 
         StayGuest mappedGuest = StayGuest.builder()
                 .id(11L)

@@ -1,6 +1,15 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.LodgingExportStateGuard;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.StayGuestTimeValidator;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.ActiveStayDedup;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Comparator;
+import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +40,7 @@ import vn.edu.utc.hotel_booking.modules.operation.mapper.StayGuestMapper;
 import vn.edu.utc.hotel_booking.modules.operation.repository.LodgingQueueRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository;
 import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.StayGuestAssociationValidator;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 
@@ -52,6 +62,7 @@ public class StayGuestServiceImpl implements StayGuestService {
     private final RoomInstanceRepository roomInstanceRepository;
     private final StaffRepository staffRepository;
     private final StayGuestMapper stayGuestMapper;
+    @PersistenceContext private EntityManager entityManager;
 
     @Override
     @Transactional
@@ -61,83 +72,65 @@ public class StayGuestServiceImpl implements StayGuestService {
         Hotel hotel = hotelRepository.findByIdAndIsDeletedFalse(request.getHotelId())
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND));
 
-        Booking booking = null;
-        if (request.getBookingId() != null) {
-            booking = bookingLookupService.getBookingEntityById(request.getBookingId());
-            if (booking.getHotel() != null && !booking.getHotel().getId().equals(hotel.getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Đơn đặt phòng không thuộc khách sạn này");
-            }
+        Booking booking = request.getBookingId() == null ? null : bookingLookupService.getBookingEntityById(request.getBookingId());
+        RoomInstance room = request.getRoomId() == null ? null : roomInstanceRepository.findById(request.getRoomId())
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý"));
+        BookingRoom bookingRoom = request.getBookingRoomId() == null ? null
+                : bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
+        if (request.getBookingRoomId() != null && bookingRoom == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Liên kết phòng đặt không hợp lệ");
         }
-
-        RoomInstance room = null;
-        if (request.getRoomId() != null) {
-            room = roomInstanceRepository.findById(request.getRoomId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý với ID " + request.getRoomId()));
-            if (room.getHotel() != null && !room.getHotel().getId().equals(hotel.getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc khách sạn này");
-            }
+        if (bookingRoom == null && booking != null && room != null) {
+            bookingRoom = bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(booking.getId(), room.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc đơn đặt phòng"));
         }
+        var associations = StayGuestAssociationValidator.validate(hotel.getId(), booking, bookingRoom, room, request.getRoomNumber());
+        booking = associations.booking(); bookingRoom = associations.bookingRoom(); room = associations.room();
 
-        BookingRoom bookingRoom = null;
-        if (request.getBookingRoomId() != null) {
-            bookingRoom = bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
-            if (bookingRoom.getRoomInstance() == null) {
-                throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
-                        "Phòng đặt ID " + bookingRoom.getId() + " chưa được gán phòng vật lý. Bắt buộc phải xếp phòng trước khi khai báo khách lưu trú.");
-            }
-            if (booking != null && bookingRoom.getBookingDetail() != null
-                    && bookingRoom.getBookingDetail().getBooking() != null
-                    && !bookingRoom.getBookingDetail().getBooking().getId().equals(booking.getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng đặt không thuộc đơn đặt phòng được chỉ định");
-            }
-            if (booking == null && bookingRoom.getBookingDetail() != null) {
-                booking = bookingRoom.getBookingDetail().getBooking();
-            }
-            if (room == null) {
-                room = bookingRoom.getRoomInstance();
-            }
-        } else if (request.getBookingId() != null && request.getRoomId() != null) {
-            bookingRoom = bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(request.getBookingId(), request.getRoomId()).orElse(null);
-            if (bookingRoom != null && bookingRoom.getRoomInstance() == null) {
-                throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
-                        "Phòng đặt ID " + bookingRoom.getId() + " chưa được gán phòng vật lý. Bắt buộc phải xếp phòng trước khi khai báo khách lưu trú.");
-            }
-        }
-
-        // Kiểm tra xem đây có phải là retry của cùng một lượt lưu trú đang diễn ra (chưa checkout) hay không:
-        // 1. Nếu có bookingId: kiểm tra cùng hotelId, bookingId, documentNumber và actualCheckOutTime == null
-        // 2. Nếu không có bookingId (khách vãng lai): kiểm tra cùng hotelId, roomNumber, documentNumber và actualCheckOutTime == null
-        Optional<StayGuest> existingActiveStay = Optional.empty();
-        if (booking != null) {
-            existingActiveStay = stayGuestRepository
-                    .findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                            hotel.getId(), booking.getId(), request.getDocumentNumber().trim());
-        } else if (StringUtils.hasText(request.getRoomNumber())) {
-            existingActiveStay = stayGuestRepository
-                    .findFirstByHotelIdAndRoomNumberAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                            hotel.getId(), request.getRoomNumber().trim(), request.getDocumentNumber().trim());
+        StayGuest identityCandidate = StayGuest.builder().hotel(hotel).booking(booking).bookingRoom(bookingRoom).room(room)
+                .roomNumber(associations.roomNumber()).documentNumber(request.getDocumentNumber())
+                .checkInTime(request.getCheckInTime()).build();
+        byte[] key=ActiveStayDedup.key(stayGuestRepository, identityCandidate);
+        ActiveStayDedup.lock(stayGuestRepository, Arrays.asList(key));
+        Optional<StayGuest> existingActiveStay=key==null?Optional.empty():stayGuestRepository.findActiveByDedupKey(key);
+        LodgingQueue existingQueue=null;
+        if(existingActiveStay.isPresent()) {
+            StayGuest existing=existingActiveStay.get();
+            existingQueue=lockQueueAndRefresh(existing);
+            // A writer outside this service may have checked out/deleted the row while we waited.
+            if(!Arrays.equals(key,ActiveStayDedup.key(stayGuestRepository,existing))) existingActiveStay=Optional.empty();
         }
 
         StayGuest guest;
         if (existingActiveStay.isPresent()) {
             // Cùng một lượt check-in đang hoạt động -> cập nhật thông tin (idempotent retry)
             guest = existingActiveStay.get();
-            guest.setFullName(request.getFullName().trim());
-            guest.setDateOfBirth(request.getDateOfBirth());
-            guest.setGender(request.getGender());
-            guest.setNationality(StringUtils.hasText(request.getNationality()) ? request.getNationality().trim() : "Việt Nam");
-            guest.setDocumentType(request.getDocumentType());
-            guest.setDocumentNumber(request.getDocumentNumber().trim());
-            guest.setPermanentAddress(request.getPermanentAddress());
-            guest.setCurrentAddress(request.getCurrentAddress());
-            guest.setCheckInTime(request.getCheckInTime());
-            guest.setExpectedCheckOutTime(request.getExpectedCheckOutTime());
-            guest.setRoomNumber(request.getRoomNumber());
-            guest.setReasonForStay(request.getReasonForStay());
-            guest.setDocumentImageUrl(request.getDocumentImageUrl());
-            if (booking != null) guest.setBooking(booking);
-            if (room != null) guest.setRoom(room);
-            if (bookingRoom != null) guest.setBookingRoom(bookingRoom);
+            StayGuest candidate = LodgingExportStateGuard.copy(guest);
+            candidate.setFullName(request.getFullName().trim());
+            candidate.setDateOfBirth(request.getDateOfBirth());
+            candidate.setGender(request.getGender());
+            candidate.setNationality(StringUtils.hasText(request.getNationality()) ? request.getNationality().trim() : "Việt Nam");
+            candidate.setDocumentType(request.getDocumentType());
+            candidate.setDocumentNumber(ActiveStayDedup.normalizeToken(request.getDocumentNumber()));
+            candidate.setPermanentAddress(request.getPermanentAddress());
+            candidate.setCurrentAddress(request.getCurrentAddress());
+            candidate.setCheckInTime(request.getCheckInTime());
+            candidate.setExpectedCheckOutTime(request.getExpectedCheckOutTime());
+            candidate.setRoomNumber(request.getRoomNumber());
+            candidate.setReasonForStay(request.getReasonForStay());
+            candidate.setDocumentImageUrl(request.getDocumentImageUrl());
+            boolean sameBookingRoom=Objects.equals(guest.getBookingRoom()==null?null:guest.getBookingRoom().getId(),
+                    bookingRoom==null?null:bookingRoom.getId());
+            // Equivalent legacy representation remains untouched, including EXPORTED retry/noop.
+            if(!sameBookingRoom) {
+                candidate.setBooking(booking);candidate.setRoom(room);candidate.setBookingRoom(bookingRoom);
+            }
+            candidate.setRoomNumber(associations.roomNumber());
+            LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
+            if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
+                    && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
+            StayGuestTimeValidator.validate(candidate);
+            org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
         } else {
             // Lượt lưu trú mới -> luôn tạo mới bản ghi StayGuest, bảo toàn lịch sử lưu trú trước đó
             guest = stayGuestMapper.toEntity(request);
@@ -145,9 +138,12 @@ public class StayGuestServiceImpl implements StayGuestService {
             guest.setBooking(booking);
             guest.setRoom(room);
             guest.setBookingRoom(bookingRoom);
+            guest.setDocumentNumber(ActiveStayDedup.normalizeToken(request.getDocumentNumber()));
+            StayGuestTimeValidator.validate(guest);
         }
 
-        StayGuest savedGuest = stayGuestRepository.save(guest);
+        guest.setRoomNumber(associations.roomNumber());
+        StayGuest savedGuest = persistGuest(guest);
 
         // Đánh giá tính đầy đủ theo tiêu chuẩn BCA để đẩy vào LodgingQueue
         syncLodgingQueue(savedGuest);
@@ -164,32 +160,56 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         validateStaffScope(guest.getHotel().getId());
 
-        if (request.getRoomId() != null) {
-            RoomInstance room = roomInstanceRepository.findById(request.getRoomId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý với ID " + request.getRoomId()));
-            if (room.getHotel() != null && !room.getHotel().getId().equals(guest.getHotel().getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc khách sạn này");
-            }
-            guest.setRoom(room);
+        byte[] oldKey=ActiveStayDedup.key(stayGuestRepository,guest);
+        byte[] newKey=ActiveStayDedup.key(stayGuestRepository,prepareUpdate(guest,request));
+        ActiveStayDedup.lock(stayGuestRepository,Arrays.asList(oldKey,newKey));
+        LodgingQueue existingQueue=lockQueueAndRefresh(guest);
+        if(Boolean.TRUE.equals(guest.getIsDeleted())) throw new AppException(ErrorCode.STAY_GUEST_NOT_FOUND);
+        ActiveStayDedup.verifyUnchanged(oldKey,ActiveStayDedup.key(stayGuestRepository,guest));
+        validateStaffScope(guest.getHotel().getId());
+        StayGuest candidate=prepareUpdate(guest,request);
+        ActiveStayDedup.verifyUnchanged(newKey,ActiveStayDedup.key(stayGuestRepository,candidate));
+        LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
+        if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
+                && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
+        if (request.getExpectedCheckOutTime() != null || request.getActualCheckOutTime() != null) {
+            StayGuestTimeValidator.validate(candidate);
         }
-
-        if (request.getBookingRoomId() != null) {
-            BookingRoom bookingRoom = bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
-            if (guest.getBooking() != null && bookingRoom.getBookingDetail() != null
-                    && bookingRoom.getBookingDetail().getBooking() != null
-                    && !bookingRoom.getBookingDetail().getBooking().getId().equals(guest.getBooking().getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng đặt không thuộc đơn đặt phòng được chỉ định");
-            }
-            guest.setBookingRoom(bookingRoom);
-        }
-
-        stayGuestMapper.updateEntityFromDto(request, guest);
-        StayGuest savedGuest = stayGuestRepository.save(guest);
+        if(newKey!=null) stayGuestRepository.findActiveByDedupKey(newKey).ifPresent(other->{
+            if(!Objects.equals(other.getId(),guest.getId())) throw new AppException(ErrorCode.STAY_GUEST_CONFLICT);
+        });
+        org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
+        StayGuest savedGuest = persistGuest(guest);
 
         // Cập nhật lại trạng thái queue nếu trước đó bị thiếu trường
         syncLodgingQueue(savedGuest);
 
         return stayGuestMapper.toResponse(savedGuest);
+    }
+
+    private StayGuest prepareUpdate(StayGuest guest, StayGuestUpdateRequest request) {
+        BookingRoom bookingRoom = request.getBookingRoomId() == null ? guest.getBookingRoom()
+                : bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
+        if (request.getBookingRoomId() != null && bookingRoom == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Liên kết phòng đặt không hợp lệ");
+        }
+        RoomInstance room = request.getRoomId() == null
+                ? (request.getBookingRoomId() == null ? guest.getRoom() : bookingRoom.getRoomInstance())
+                : roomInstanceRepository.findById(request.getRoomId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý"));
+        String number = request.getRoomNumber() != null ? request.getRoomNumber()
+                : ((request.getRoomId() != null || request.getBookingRoomId() != null) && room != null ? room.getRoomNumber() : guest.getRoomNumber());
+        var associations = StayGuestAssociationValidator.validate(guest.getHotel().getId(), guest.getBooking(), bookingRoom, room, number);
+        StayGuest candidate = LodgingExportStateGuard.copy(guest);
+        stayGuestMapper.updateEntityFromDto(request, candidate);
+        if(request.getDocumentNumber()!=null) candidate.setDocumentNumber(ActiveStayDedup.normalizeToken(request.getDocumentNumber()));
+        // Validate legacy associations but do not backfill redundant keys without an association patch.
+        if (request.getBookingRoomId() != null || request.getRoomId() != null) {
+            candidate.setBooking(associations.booking()); candidate.setBookingRoom(associations.bookingRoom());
+            candidate.setRoom(associations.room());
+        }
+        candidate.setRoomNumber(associations.roomNumber());
+        return candidate;
     }
 
     @Override
@@ -226,7 +246,14 @@ public class StayGuestServiceImpl implements StayGuestService {
         if (bookingRoomId == null) {
             return List.of();
         }
-        List<StayGuest> list = stayGuestRepository.findByBookingRoomId(bookingRoomId);
+        BookingRoom bookingRoom = bookingLookupService.getBookingRoomEntityById(bookingRoomId);
+        if (bookingRoom == null || bookingRoom.getBookingDetail() == null || bookingRoom.getBookingDetail().getBooking() == null
+                || bookingRoom.getBookingDetail().getBooking().getHotel() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Liên kết phòng đặt không hợp lệ");
+        }
+        Short hotelId = bookingRoom.getBookingDetail().getBooking().getHotel().getId();
+        validateStaffScope(hotelId);
+        List<StayGuest> list = stayGuestRepository.findByBookingRoomIdAndHotelIdAndIsDeletedFalse(bookingRoomId, hotelId);
         return list.stream()
                 .filter(g -> !Boolean.TRUE.equals(g.getIsDeleted()))
                 .map(stayGuestMapper::toResponse)
@@ -250,20 +277,22 @@ public class StayGuestServiceImpl implements StayGuestService {
             return;
         }
 
-        List<StayGuest> guests = stayGuestRepository.findAllByIdInAndIsDeletedFalse(ids);
-        for (StayGuest guest : guests) {
+        List<StayGuest> guests = stayGuestRepository.findAllByIdInAndIsDeletedFalse(ids).stream()
+                .sorted(Comparator.comparing(StayGuest::getId)).toList();
+        for(StayGuest guest:guests) validateStaffScope(guest.getHotel().getId());
+        List<byte[]> keys=guests.stream().map(g->ActiveStayDedup.key(stayGuestRepository,g)).toList();
+        ActiveStayDedup.lock(stayGuestRepository,keys);
+        for(int i=0;i<guests.size();i++) {
+            StayGuest guest=guests.get(i);
+            LodgingQueue queue=lockQueueAndRefresh(guest);
+            ActiveStayDedup.verifyUnchanged(keys.get(i),ActiveStayDedup.key(stayGuestRepository,guest));
             validateStaffScope(guest.getHotel().getId());
+            if(Boolean.TRUE.equals(guest.getIsDeleted())) continue;
             guest.setIsDeleted(true);
-
-            // Cập nhật hàng chờ sang CANCELLED
-            lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId())
-                    .ifPresent(queue -> {
-                        queue.setStatus(LodgingQueueStatus.CANCELLED);
-                        queue.setIsDeleted(true);
-                        lodgingQueueRepository.save(queue);
-                    });
+            if(queue!=null) {queue.setStatus(LodgingQueueStatus.CANCELLED);queue.setIsDeleted(true);lodgingQueueRepository.save(queue);}
         }
-        stayGuestRepository.saveAll(guests);
+        try {stayGuestRepository.saveAll(guests);stayGuestRepository.flush();}
+        catch(RuntimeException error){throw ActiveStayDedup.translate(error);}
     }
 
     @Override
@@ -272,16 +301,29 @@ public class StayGuestServiceImpl implements StayGuestService {
         if (bookingRoomId == null) {
             return;
         }
-        List<StayGuest> guests = stayGuestRepository.findByBookingRoomId(bookingRoomId);
-        OffsetDateTime now = OffsetDateTime.now();
-        for (StayGuest guest : guests) {
-            if (!Boolean.TRUE.equals(guest.getIsDeleted())) {
-                if (guest.getCheckInTime() == null) {
-                    guest.setCheckInTime(now);
-                }
-                StayGuest saved = stayGuestRepository.save(guest);
-                syncLodgingQueue(saved);
+        List<StayGuest> guests=stayGuestRepository.findByBookingRoomId(bookingRoomId).stream()
+                .sorted(Comparator.comparing(StayGuest::getId)).toList();
+        OffsetDateTime now=OffsetDateTime.now();
+        List<byte[]> oldKeys=new ArrayList<>(); List<byte[]> keys=new ArrayList<>();
+        for(StayGuest guest:guests) {
+            byte[] old=ActiveStayDedup.key(stayGuestRepository,guest);oldKeys.add(old);keys.add(old);
+            StayGuest candidate=LodgingExportStateGuard.copy(guest);
+            if(candidate.getCheckInTime()==null) candidate.setCheckInTime(now);
+            keys.add(ActiveStayDedup.key(stayGuestRepository,candidate));
+        }
+        ActiveStayDedup.lock(stayGuestRepository,keys);
+        for(int i=0;i<guests.size();i++) {
+            StayGuest guest=guests.get(i);
+            LodgingQueue queue=lockQueueAndRefresh(guest);
+            ActiveStayDedup.verifyUnchanged(oldKeys.get(i),ActiveStayDedup.key(stayGuestRepository,guest));
+            if(Boolean.TRUE.equals(guest.getIsDeleted()) || guest.getActualCheckOutTime()!=null) continue;
+            if(queue!=null && LodgingExportStateGuard.preservesQueue(queue)) continue;
+            if(queue!=null && queue.getStatus()==LodgingQueueStatus.PROCESSING) throw LodgingExportStateGuard.stateConflict();
+            if(guest.getCheckInTime()==null) {
+                StayGuest candidate=LodgingExportStateGuard.copy(guest);candidate.setCheckInTime(now);
+                StayGuestTimeValidator.validate(candidate);guest.setCheckInTime(now);
             }
+            syncLodgingQueue(persistGuest(guest));
         }
     }
 
@@ -291,14 +333,28 @@ public class StayGuestServiceImpl implements StayGuestService {
         if (bookingRoomId == null) {
             return;
         }
-        List<StayGuest> guests = stayGuestRepository.findByBookingRoomId(bookingRoomId);
-        for (StayGuest guest : guests) {
-            lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId())
-                    .ifPresent(queue -> {
-                        queue.setStatus(LodgingQueueStatus.CANCELLED);
-                        lodgingQueueRepository.save(queue);
-                    });
+        List<StayGuest> guests=stayGuestRepository.findByBookingRoomId(bookingRoomId).stream()
+                .sorted(Comparator.comparing(StayGuest::getId)).toList();
+        List<byte[]> keys=guests.stream().map(g->ActiveStayDedup.key(stayGuestRepository,g)).toList();
+        ActiveStayDedup.lock(stayGuestRepository,keys);
+        for(int i=0;i<guests.size();i++) {
+            StayGuest guest=guests.get(i);LodgingQueue queue=lockQueueAndRefresh(guest);
+            ActiveStayDedup.verifyUnchanged(keys.get(i),ActiveStayDedup.key(stayGuestRepository,guest));
+            if(queue!=null){queue.setStatus(LodgingQueueStatus.CANCELLED);lodgingQueueRepository.save(queue);}
         }
+    }
+
+    private LodgingQueue lockQueueAndRefresh(StayGuest guest) {
+        try {
+            LodgingQueue queue=lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId()).orElse(null);
+            entityManager.refresh(guest,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            return queue;
+        } catch(RuntimeException error){throw ActiveStayDedup.translate(error);}
+    }
+
+    private StayGuest persistGuest(StayGuest guest) {
+        try {StayGuest saved=stayGuestRepository.save(guest);stayGuestRepository.flush();return saved;}
+        catch(RuntimeException error){throw ActiveStayDedup.translate(error);}
     }
 
     private void syncLodgingQueue(StayGuest guest) {
@@ -310,6 +366,8 @@ public class StayGuestServiceImpl implements StayGuestService {
                         .hotel(guest.getHotel())
                         .build());
 
+        if (LodgingExportStateGuard.preservesQueue(queue)) return;
+        if (queue.getStatus() == LodgingQueueStatus.PROCESSING) throw LodgingExportStateGuard.stateConflict();
         if (missingFields.isEmpty()) {
             queue.setStatus(LodgingQueueStatus.PENDING);
             queue.setErrorMessage(null);
@@ -382,20 +440,10 @@ public class StayGuestServiceImpl implements StayGuestService {
     }
 
     private Short resolvePropertyHotelId() {
-        Staff staff = resolveCurrentStaff();
-        Integer scopeId = staff.getScopeEntityId();
-        if (!"PROPERTY".equalsIgnoreCase(staff.getScopeType())
-                || scopeId == null || scopeId <= 0 || scopeId > Short.MAX_VALUE) {
-            throw new AppException(ErrorCode.UNAUTHORIZED, "Không xác định được phạm vi khách sạn được phép truy cập");
-        }
-        return scopeId.shortValue();
+        return OperationStaffScopeResolver.requireScope(resolveCurrentStaff(), "PROPERTY");
     }
 
     private Staff resolveCurrentStaff() {
-        return SecurityUtils.getCurrentUserKeycloakId()
-                .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)
-                .or(() -> SecurityUtils.getCurrentUsername()
-                        .flatMap(staffRepository::findByUsernameAndIsDeletedFalse))
-                .orElseThrow(() -> new AppException(ErrorCode.STAFF_NOT_FOUND));
+        return OperationStaffScopeResolver.resolve(staffRepository);
     }
 }

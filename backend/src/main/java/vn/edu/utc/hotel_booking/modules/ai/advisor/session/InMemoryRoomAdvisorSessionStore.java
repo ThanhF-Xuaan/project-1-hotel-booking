@@ -57,7 +57,7 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
             throw securityEx.get();
         }
 
-        return session;
+        return RoomAdvisorSnapshots.copy(session);
     }
 
     @Override
@@ -80,7 +80,7 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
         }
 
         validateOwner(session, ownerKey);
-        return Optional.of(session);
+        return Optional.of(RoomAdvisorSnapshots.copy(session));
     }
 
     @Override
@@ -119,7 +119,7 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
             }
 
             long nextVersion = existing.getSessionVersion() + 1;
-            return RoomAdvisorSession.builder()
+            return RoomAdvisorSnapshots.committed(RoomAdvisorSession.builder()
                     .sessionId(existing.getSessionId())
                     .sessionVersion(nextVersion)
                     .ownerKey(existing.getOwnerKey())
@@ -128,7 +128,7 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
                             (existing.getCriteriaProvenance() != null ? new ArrayList<>(existing.getCriteriaProvenance()) : new ArrayList<>()))
                     .lastResult(lastResult != null ? lastResult : existing.getLastResult())
                     .lastAccessedAt(Instant.now())
-                    .build();
+                    .build(), lastResult != null);
         });
 
         if (securityEx.get() != null) {
@@ -141,7 +141,7 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
             throw new SessionNotFoundException("Session not found or expired");
         }
 
-        return updated;
+        return RoomAdvisorSnapshots.copy(updated);
     }
 
     @Override

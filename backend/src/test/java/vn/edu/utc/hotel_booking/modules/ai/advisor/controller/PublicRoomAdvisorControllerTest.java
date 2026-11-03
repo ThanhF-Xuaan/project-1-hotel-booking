@@ -414,6 +414,21 @@ class PublicRoomAdvisorControllerTest {
         assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
     }
 
+    @Test
+    void discoveryOutageUsesSanitizedRetryable503() throws Exception {
+        when(orchestrationService.refresh(any(), any()))
+                .thenThrow(new vn.edu.utc.hotel_booking.modules.ai.advisor.service.AdvisorDependencyUnavailableException());
+        var response = mockMvc.perform(post("/api/v1/public/ai/room-advisor/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(refreshRequest())))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.retryable").value(true))
+                .andReturn().getResponse();
+        assertFrozenError(objectMapper.readTree(response.getContentAsString()), 503, "UPSTREAM_UNAVAILABLE");
+        assertThat(response.getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
+        assertThat(response.getContentAsString()).doesNotContain("Advisor dependency unavailable");
+    }
+
     // ------------------------------------------------------------------
     // AC-2.5 / AC-2.10: frozen public surface and serialized error constraints
     // ------------------------------------------------------------------

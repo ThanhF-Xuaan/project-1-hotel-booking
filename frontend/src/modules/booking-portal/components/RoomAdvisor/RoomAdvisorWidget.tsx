@@ -70,6 +70,21 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const requestGeneration = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    requestGeneration.current += 1;
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+  }, []);
+
+  const beginRequest = () => {
+    const controller = new AbortController();
+    const generation = ++requestGeneration.current;
+    activeRequest.current = controller;
+    return { controller, isCurrent: () => generation === requestGeneration.current && !controller.signal.aborted };
+  };
 
   const handleOpen = () => {
     setInternalIsOpen(true);
@@ -108,7 +123,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
-    if (!text || isLoading || cooldownSeconds > 0) return;
+    if (!text || activeRequest.current || isLoading || cooldownSeconds > 0) return;
+    const request = beginRequest();
 
     const userMessage: ChatMessage = {
       id: createMessageId('user'),
@@ -127,7 +143,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
         message: text,
         sessionId,
         expectedSessionVersion: sessionVersion,
-      });
+      }, { signal: request.controller.signal });
+      if (!request.isCurrent()) return;
 
       if (result.sessionId) {
         setSessionId(result.sessionId);
@@ -146,6 +163,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (err: unknown) {
+      if (!request.isCurrent()) return;
       const clientErr = err as AdvisorClientError;
 
       if (clientErr.isRateLimited && clientErr.retryAfterSeconds) {
@@ -173,7 +191,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
           const resynced = await sendAdvisorRefresh({
             contractVersion: '2.0',
             sessionId,
-          });
+          }, { signal: request.controller.signal });
+          if (!request.isCurrent()) return;
           if (typeof resynced.sessionVersion === 'number') {
             setSessionVersion(resynced.sessionVersion);
           }
@@ -187,16 +206,25 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             },
           ]);
         } catch {
+          if (!request.isCurrent()) return;
           setSessionId(undefined);
           setSessionVersion(undefined);
         }
       }
     } finally {
-      setIsLoading(false);
+      if (request.isCurrent()) {
+        activeRequest.current = null;
+        setIsLoading(false);
+      }
     }
   };
 
   const handleResetSession = () => {
+    requestGeneration.current += 1;
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setIsLoading(false);
+    setInputMessage('');
     setSessionId(undefined);
     setSessionVersion(undefined);
     setCooldownSeconds(0);
@@ -212,7 +240,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   };
 
   const handleRefreshRecommendations = async () => {
-    if (!sessionId || isLoading || cooldownSeconds > 0) return;
+    if (!sessionId || activeRequest.current || isLoading || cooldownSeconds > 0) return;
+    const request = beginRequest();
 
     setIsLoading(true);
     try {
@@ -220,7 +249,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
         contractVersion: '2.0',
         sessionId,
         expectedSessionVersion: sessionVersion,
-      });
+      }, { signal: request.controller.signal });
+      if (!request.isCurrent()) return;
 
       if (typeof result.sessionVersion === 'number') {
         setSessionVersion(result.sessionVersion);
@@ -236,6 +266,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (err: unknown) {
+      if (!request.isCurrent()) return;
       const clientErr = err as AdvisorClientError;
       if (clientErr.isRateLimited && clientErr.retryAfterSeconds) {
         setCooldownSeconds(clientErr.retryAfterSeconds);
@@ -251,7 +282,10 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
         },
       ]);
     } finally {
-      setIsLoading(false);
+      if (request.isCurrent()) {
+        activeRequest.current = null;
+        setIsLoading(false);
+      }
     }
   };
 
