@@ -78,6 +78,24 @@ CONFIRMED: LodgingQueueStatus có ERROR; StayGuestServiceImpl.syncLodgingQueue v
 - .github/workflows/ci.yml: chạy regression mới và kiểm receipt; không thay lịch sử CI/human approval.
 - tools/acceptance/Run-BackendTests.ps1, Verify.ps1 và tools/t12/validate_r1_contracts.py, verify_widget_source_reaudit.py, verify_current_core_reaudit.py: yêu cầu đủ số PG test thực, báo trạng thái suite chính xác và compose provenance mới. Các Java service/helper/test còn lại thuộc phạm vi Member1 Operation/Finance/AI.
 
-## CI và giao Git — đang hoàn tất
+## CI và giao Git — bằng chứng trước merge
 
-Branch đã push; draft PR https://github.com/ThanhF-Xuaan/project-1-hotel-booking/pull/57. Connector GitHub tạo PR bị403 integration permission; gh đăng nhập bằng tài khoản có quyền push đã tạo thành công, không sửa permission. CI run41593263647 trên616bb6a:4/5job PASS (contract/tooling, analytics PG, frontend và Docker), backend1558test/1error ở LodgingQueueReviewRegressionTest.exportedRetryIsReadOnlyNoop, lỗi UNAUTHORIZED. Test mới trước đó dùng lại SecurityContextHolder.getContext() có thể đang chứa mock của test cũ. Đã tạo context rỗng mới trong setup bốn regression class để độc lập thứ tự chạy, giữ @AfterEach clear; không đổi production guard, assertions hoặc CI scope. Cần xác nhận CI lần tiếp theo và targeted local sau khi sandbox dừng.
+Branch đã push; PR https://github.com/ThanhF-Xuaan/project-1-hotel-booking/pull/57. Connector GitHub tạo PR bị403 integration permission; gh đăng nhập bằng tài khoản có quyền push đã tạo thành công, không sửa permission. CI run41593263647 trên616bb6a:4/5job PASS (contract/tooling, analytics PG, frontend và Docker), backend1558test/1error ở LodgingQueueReviewRegressionTest.exportedRetryIsReadOnlyNoop, lỗi UNAUTHORIZED. Test mới trước đó dùng lại SecurityContextHolder.getContext() có thể đang chứa mock của test cũ. Đã tạo context rỗng mới trong setup bốn regression class để độc lập thứ tự chạy, giữ @AfterEach clear; không đổi production guard, assertions hoặc CI scope. Xác nhận sau sửa: CI run41593851817 trên13f3808 **5/5job PASS**, local4 regression suites **70/70 PASS**,0skip. Đây là test-isolation delta,19 application files vẫn đúng receipt b8495f9.
+
+## Kết quả kỹ thuật cuối — CONFIRMED
+
+Full run **20261103-135830-561-239cf9f6 PASS**, baseline của run616bb6a; sau đó13f3808 chỉ sửa setup test như trên. Backend1573/1573 (gồm10 PostgreSQL export/payroll,4 Redis và application context thực), U14 opt-in PG6/6, API41/41, browser106/106;0test skip trong backend. Lint --max-warnings=0, build, dependency audit mức high, source/contract/tamper và DB-backed synthetic demo PASS. Suite con skip Maven nên PARTIAL theo thiết kế; supervisor đã kiểm Maven riêng và kết luận PASS, không tính skip là pass. Báo cáo chi tiết: runs/acceptance-20261103-135830-561-239cf9f6.md. Snapshot SHA256 F95F243840FCBCB5E618618DFB9020B102A2590784E13A9AE85B8D781FF23B5B; analytics cleanup/restore/stop exit0 và env.json khôi phục đúng bytes. Runtime account/dataset do runner sandbox quản lý đã cleanup; không migration vào DB nghiệp vụ.
+
+| Finding | Verdict kỹ thuật | Bằng chứng chính |
+|---|---|---|
+| M1-REV-001 | PASS | Scoped repository; unit và real-token HTTP own200/foreign403/anonymous401, không lộ document |
+| M1-REV-002 | PASS | Effective association validation trước mutation; foreign/mismatch tests và HTTP400/không đổi guest |
+| M1-REV-003 | PASS | Scope range trước narrowing;30 invalid Utility cases và existing scope/runtime denies |
+| M1-REV-004 | PASS | EXPORTED no-op/retry giữ marker, content409;10 PG cases gồm lock wait/rollback/cutoff/category; HTTP/export content |
+| M1-REV-005 | PASS | Exact NUMERIC(15,2), unit11cases, PG max/equation/no invalid row và HTTP rejected precision |
+| M1-REV-006 | PASS | 3 entrypoint fail-closed,8 regressions,74 frozen eval, coverage và session/security checks |
+| M1-REV-007 | PASS | Generation/abort, delayed200/429/409/resync/refresh browser cases, close/reopen và lint/build |
+
+Peer approval của con người không được tạo hoặc giả lập. Các kết quả trên là technical review/test trong synthetic sandbox và CI. Unmount cleanup đã review qua code, chưa có browser reproducer riêng. Chưa kiểm AI provider trả phí, production Keycloak, dữ liệu vận hành thật hoặc định dạng BCA chính thức; không dùng synthetic PASS để đóng các nghiệm thu đó. M1-OBS-008 giữ NEED_FIX riêng như mô tả ở trên.
+
+Rollback: revert toàn PR cùng receipt/compositor và các test liên quan, chạy lại verification; không revert riêng application file rồi bỏ qua provenance check. DB sandbox đã restore trước khi giao; không có migration nghiệp vụ cần rollback. Trạng thái merge/check SHA cuối được ghi trên PR và báo cáo giao trong chat, sau khi CI của commit tài liệu này hoàn tất; không dùng AI self-review làm peer approval hoặc bypass branch policy.
