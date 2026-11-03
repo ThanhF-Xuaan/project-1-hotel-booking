@@ -70,3 +70,11 @@ CI/local acceptance: Start.ps1 thêm context maintenance explicit trong sandbox;
 Snapshot deserialize/copy/serialize lỗi giải phóng WATCH trước503; serialize trước MULTI, discard khi transaction lỗi. Regression trước sửa12test/2FAIL; sau sửa130test PASS,0 lỗi/skip gồm frozen/security/HTTP (followup-f01-cleanup-after.log).
 
 Source receipt mới pin23production files từ332dfbc đến3429a94, compose trước receipt cũ; giữ nguyên gold/historical receipt. Đây là source provenance và AI technical review, không phải peer approval. Sandbox F03/F04 đã restore/stop và config trả nguyên byte.
+
+## Kết quả giao — 2026-11-03
+
+TECHNICAL PASS cho6finding; review finding Redis đã fix và kiểm lại. Acceptance `ff7a02e` worktree sạch:1623backend,0skip;6U14PG;41API;112browser PASS. Lint/build/audit PASS; migration preflight/app startup/Redis thật/Keycloak sandbox đã chạy. Chi tiết: [run report](runs/acceptance-20261103-173302-652-705938e2.md). Application-suite wrapper bỏ qua bước Maven trùng lặp theo thiết kế; Maven đã chạy bắt buộc trước đó với evidence riêng, không có testcase bịskip trong1623backend.
+
+CI6/6PASS tại ff7a02e, run41620126757. Đã commit/push các slice lên PR57:274a008(F01),2de55b7(F02),b08a934(F05),2877357(F06),339d655(F04),b9dfc8a(F03),3429a94(Redis review fix),ff7a02e(provenance). Merge bình thường bị GitHub branch policy chặn REVIEW_REQUIRED; không admin bypass hoặc tự tạo peer approval. Tài liệu bằng chứng cuối được commit riêng; không thay production code đã kiểm.
+
+Sandbox trước và trong acceptance đã restore/stop, config local trả nguyên byte. Backup/receipts/log private nằm trong tools/acceptance/.runtime/, không Git. Không tạo technical account mới trong DB nghiệp vụ; CI chỉ dùng postgres/password ngẫu nhiên của container disposable. Không migration production, không paid model calls. Dữ liệu vận hành thật/BCA chính thức và peer review vẫn chưa xác nhận.
