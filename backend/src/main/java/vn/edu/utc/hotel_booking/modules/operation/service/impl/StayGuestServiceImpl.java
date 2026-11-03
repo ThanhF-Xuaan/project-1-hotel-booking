@@ -1,6 +1,9 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.LodgingExportStateGuard;
 import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -54,6 +57,7 @@ public class StayGuestServiceImpl implements StayGuestService {
     private final RoomInstanceRepository roomInstanceRepository;
     private final StaffRepository staffRepository;
     private final StayGuestMapper stayGuestMapper;
+    @PersistenceContext private EntityManager entityManager;
 
     @Override
     @Transactional
@@ -96,22 +100,29 @@ public class StayGuestServiceImpl implements StayGuestService {
         if (existingActiveStay.isPresent()) {
             // Cùng một lượt check-in đang hoạt động -> cập nhật thông tin (idempotent retry)
             guest = existingActiveStay.get();
-            guest.setFullName(request.getFullName().trim());
-            guest.setDateOfBirth(request.getDateOfBirth());
-            guest.setGender(request.getGender());
-            guest.setNationality(StringUtils.hasText(request.getNationality()) ? request.getNationality().trim() : "Việt Nam");
-            guest.setDocumentType(request.getDocumentType());
-            guest.setDocumentNumber(request.getDocumentNumber().trim());
-            guest.setPermanentAddress(request.getPermanentAddress());
-            guest.setCurrentAddress(request.getCurrentAddress());
-            guest.setCheckInTime(request.getCheckInTime());
-            guest.setExpectedCheckOutTime(request.getExpectedCheckOutTime());
-            guest.setRoomNumber(request.getRoomNumber());
-            guest.setReasonForStay(request.getReasonForStay());
-            guest.setDocumentImageUrl(request.getDocumentImageUrl());
-            if (booking != null) guest.setBooking(booking);
-            if (room != null) guest.setRoom(room);
-            if (bookingRoom != null) guest.setBookingRoom(bookingRoom);
+            LodgingQueue existingQueue = lockQueueAndRefresh(guest);
+            StayGuest candidate = LodgingExportStateGuard.copy(guest);
+            candidate.setFullName(request.getFullName().trim());
+            candidate.setDateOfBirth(request.getDateOfBirth());
+            candidate.setGender(request.getGender());
+            candidate.setNationality(StringUtils.hasText(request.getNationality()) ? request.getNationality().trim() : "Việt Nam");
+            candidate.setDocumentType(request.getDocumentType());
+            candidate.setDocumentNumber(request.getDocumentNumber().trim());
+            candidate.setPermanentAddress(request.getPermanentAddress());
+            candidate.setCurrentAddress(request.getCurrentAddress());
+            candidate.setCheckInTime(request.getCheckInTime());
+            candidate.setExpectedCheckOutTime(request.getExpectedCheckOutTime());
+            candidate.setRoomNumber(request.getRoomNumber());
+            candidate.setReasonForStay(request.getReasonForStay());
+            candidate.setDocumentImageUrl(request.getDocumentImageUrl());
+            if (booking != null) candidate.setBooking(booking);
+            if (room != null) candidate.setRoom(room);
+            if (bookingRoom != null) candidate.setBookingRoom(bookingRoom);
+            candidate.setRoomNumber(associations.roomNumber());
+            LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
+            if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
+                    && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
+            org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
         } else {
             // Lượt lưu trú mới -> luôn tạo mới bản ghi StayGuest, bảo toàn lịch sử lưu trú trước đó
             guest = stayGuestMapper.toEntity(request);
@@ -139,6 +150,7 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         validateStaffScope(guest.getHotel().getId());
 
+        LodgingQueue existingQueue = lockQueueAndRefresh(guest);
         BookingRoom bookingRoom = request.getBookingRoomId() == null ? guest.getBookingRoom()
                 : bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
         if (request.getBookingRoomId() != null && bookingRoom == null) {
@@ -151,9 +163,18 @@ public class StayGuestServiceImpl implements StayGuestService {
         String number = request.getRoomNumber() != null ? request.getRoomNumber()
                 : ((request.getRoomId() != null || request.getBookingRoomId() != null) && room != null ? room.getRoomNumber() : guest.getRoomNumber());
         var associations = StayGuestAssociationValidator.validate(guest.getHotel().getId(), guest.getBooking(), bookingRoom, room, number);
-        stayGuestMapper.updateEntityFromDto(request, guest);
-        guest.setBooking(associations.booking()); guest.setBookingRoom(associations.bookingRoom());
-        guest.setRoom(associations.room()); guest.setRoomNumber(associations.roomNumber());
+        StayGuest candidate = LodgingExportStateGuard.copy(guest);
+        stayGuestMapper.updateEntityFromDto(request, candidate);
+        // Validate legacy associations but do not backfill redundant keys without an association patch.
+        if (request.getBookingRoomId() != null || request.getRoomId() != null) {
+            candidate.setBooking(associations.booking()); candidate.setBookingRoom(associations.bookingRoom());
+            candidate.setRoom(associations.room());
+        }
+        candidate.setRoomNumber(associations.roomNumber());
+        LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
+        if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
+                && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
+        org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
         StayGuest savedGuest = stayGuestRepository.save(guest);
 
         // Cập nhật lại trạng thái queue nếu trước đó bị thiếu trường
@@ -253,6 +274,9 @@ public class StayGuestServiceImpl implements StayGuestService {
         OffsetDateTime now = OffsetDateTime.now();
         for (StayGuest guest : guests) {
             if (!Boolean.TRUE.equals(guest.getIsDeleted())) {
+                LodgingQueue queue = lockQueueAndRefresh(guest);
+                if (queue != null && LodgingExportStateGuard.preservesQueue(queue)) continue;
+                if (queue != null && queue.getStatus() == LodgingQueueStatus.PROCESSING) throw LodgingExportStateGuard.stateConflict();
                 if (guest.getCheckInTime() == null) {
                     guest.setCheckInTime(now);
                 }
@@ -278,6 +302,12 @@ public class StayGuestServiceImpl implements StayGuestService {
         }
     }
 
+    private LodgingQueue lockQueueAndRefresh(StayGuest guest) {
+        LodgingQueue queue = lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId()).orElse(null);
+        if (queue != null) entityManager.refresh(guest);
+        return queue;
+    }
+
     private void syncLodgingQueue(StayGuest guest) {
         List<String> missingFields = validateBcaFields(guest);
 
@@ -287,6 +317,8 @@ public class StayGuestServiceImpl implements StayGuestService {
                         .hotel(guest.getHotel())
                         .build());
 
+        if (LodgingExportStateGuard.preservesQueue(queue)) return;
+        if (queue.getStatus() == LodgingQueueStatus.PROCESSING) throw LodgingExportStateGuard.stateConflict();
         if (missingFields.isEmpty()) {
             queue.setStatus(LodgingQueueStatus.PENDING);
             queue.setErrorMessage(null);

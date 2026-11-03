@@ -1,6 +1,9 @@
 package vn.edu.utc.hotel_booking.modules.operation.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.Comparator;
 import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,6 +37,7 @@ public class LodgingExportServiceImpl implements LodgingExportService {
     private final LodgingQueueRepository lodgingQueueRepository;
     private final StaffRepository staffRepository;
     private final LodgingWorkbookWriter workbookWriter;
+    @PersistenceContext private EntityManager entityManager;
 
     private static final ZoneOffset REPORT_OFFSET = ZoneOffset.ofHours(7);
 
@@ -58,6 +62,11 @@ public class LodgingExportServiceImpl implements LodgingExportService {
         if (queueItems.isEmpty()) {
             throw new AppException(ErrorCode.LODGING_EXPORT_EMPTY, "Không có dữ liệu khách lưu trú phù hợp để xuất file khai báo");
         }
+
+        // Queue locks serialize all edits; refresh after acquiring them, before reading workbook fields.
+        for (LodgingQueue item : queueItems) entityManager.refresh(item.getStayGuest());
+        queueItems = queueItems.stream().sorted(Comparator.comparing((LodgingQueue q) -> q.getStayGuest().getCheckInTime())
+                .thenComparing(LodgingQueue::getId)).toList();
 
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
             workbookWriter.write(queueItems, isVietnamese, bos);

@@ -57,12 +57,16 @@ public class LodgingQueueServiceImpl implements LodgingQueueService {
     @Override
     @Transactional
     public LodgingQueueResponse retryValidate(Long queueId) {
-        LodgingQueue queue = repository.findById(queueId)
+        LodgingQueue queue = repository.findByIdForUpdate(queueId)
                 .filter(q -> !Boolean.TRUE.equals(q.getIsDeleted()))
                 .orElseThrow(() -> new AppException(ErrorCode.LODGING_QUEUE_NOT_FOUND));
 
         validateStaffScope(queue.getHotel().getId());
 
+        if (queue.getStatus() == LodgingQueueStatus.EXPORTED) return mapper.toResponse(queue);
+        if (queue.getStatus() == LodgingQueueStatus.PROCESSING || queue.getStatus() == LodgingQueueStatus.CANCELLED) {
+            throw vn.edu.utc.hotel_booking.modules.operation.service.support.LodgingExportStateGuard.stateConflict();
+        }
         StayGuest guest = queue.getStayGuest();
         List<String> missingFields = validateBcaFields(guest);
 

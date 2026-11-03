@@ -119,6 +119,8 @@ public enum ErrorCode {
     STAY_GUEST_NOT_FOUND(9061, "Không tìm thấy thông tin khách lưu trú", HttpStatus.NOT_FOUND),
     LODGING_QUEUE_NOT_FOUND(9071, "Không tìm thấy bản ghi trong hàng chờ khai báo lưu trú", HttpStatus.NOT_FOUND),
     LODGING_EXPORT_EMPTY(9072, "Không có dữ liệu khách lưu trú phù hợp để xuất file khai báo", HttpStatus.BAD_REQUEST),
+    LODGING_EXPORTED_RECORD_LOCKED(9073, "Không thể thay đổi nội dung hồ sơ đã xuất", HttpStatus.CONFLICT),
+    LODGING_QUEUE_STATE_CONFLICT(9074, "Trạng thái hàng chờ không cho phép thao tác này", HttpStatus.CONFLICT),
 
     // Policy Module Errors (7100s)
     CANCELLATION_POLICY_NOT_FOUND(7101, "Không tìm thấy chính sách hủy phòng", HttpStatus.NOT_FOUND),

@@ -18,7 +18,12 @@ import java.util.Optional;
 @Repository
 public interface LodgingQueueRepository extends JpaRepository<LodgingQueue, Long> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<LodgingQueue> findByStayGuestIdAndIsDeletedFalse(Long stayGuestId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT q FROM LodgingQueue q WHERE q.id = :id")
+    Optional<LodgingQueue> findByIdForUpdate(@Param("id") Long id);
 
     @Query("SELECT q FROM LodgingQueue q WHERE q.isDeleted = false " +
            "AND (:hotelId IS NULL OR q.hotel.id = :hotelId) " +
@@ -31,16 +36,11 @@ public interface LodgingQueueRepository extends JpaRepository<LodgingQueue, Long
                               @Param("toDate") OffsetDateTime toDate,
                               Pageable pageable);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT q FROM LodgingQueue q " +
-           "JOIN FETCH q.stayGuest g " +
-           "WHERE q.isDeleted = false " +
-           "AND q.hotel.id = :hotelId " +
-           "AND q.status = vn.edu.utc.hotel_booking.modules.operation.entity.enums.LodgingQueueStatus.PENDING " +
-           "AND g.checkInTime < :cutoffTime " +
-           "AND (:isVietnamese = true AND (LOWER(g.nationality) = 'việt nam' OR LOWER(g.nationality) = 'viet nam' OR LOWER(g.nationality) = 'vietnam') " +
-           "     OR :isVietnamese = false AND LOWER(g.nationality) != 'việt nam' AND LOWER(g.nationality) != 'viet nam' AND LOWER(g.nationality) != 'vietnam') " +
-           "ORDER BY g.checkInTime ASC, q.id ASC")
+    @Query(value = "SELECT q.* FROM lodging_queues q WHERE q.is_deleted = false AND q.hotel_id = :hotelId " +
+           "AND q.status = 'PENDING' AND EXISTS (SELECT 1 FROM stay_guests g WHERE g.id=q.stay_guest_id " +
+           "AND g.check_in_time < :cutoffTime AND ((:isVietnamese = true AND LOWER(g.nationality) IN ('việt nam','viet nam','vietnam')) " +
+           "OR (:isVietnamese = false AND LOWER(g.nationality) NOT IN ('việt nam','viet nam','vietnam')))) " +
+           "ORDER BY q.id FOR UPDATE OF q", nativeQuery = true)
     List<LodgingQueue> findPendingForExport(@Param("hotelId") Short hotelId,
                                             @Param("cutoffTime") OffsetDateTime cutoffTime,
                                             @Param("isVietnamese") boolean isVietnamese);

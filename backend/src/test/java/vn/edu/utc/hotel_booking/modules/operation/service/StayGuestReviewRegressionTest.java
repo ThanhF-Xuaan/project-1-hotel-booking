@@ -3,6 +3,9 @@ package vn.edu.utc.hotel_booking.modules.operation.service;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +21,8 @@ import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceReposit
 import vn.edu.utc.hotel_booking.modules.operation.mapper.StayGuestMapperImpl;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestUpdateRequest;
+import vn.edu.utc.hotel_booking.modules.operation.entity.LodgingQueue;
+import vn.edu.utc.hotel_booking.modules.operation.entity.enums.*;
 import vn.edu.utc.hotel_booking.modules.operation.repository.LodgingQueueRepository;
 import vn.edu.utc.hotel_booking.modules.operation.service.impl.StayGuestServiceImpl;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
@@ -25,6 +30,10 @@ import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 
 import java.util.Optional;
 import java.util.List;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -39,6 +48,7 @@ class StayGuestReviewRegressionTest {
     final StayGuestServiceImpl service = new StayGuestServiceImpl(guests, queues, hotels, bookings, rooms, staff, new StayGuestMapperImpl());
 
     @BeforeEach void authenticate() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "entityManager", mock(jakarta.persistence.EntityManager.class));
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 "synthetic-review", "", AuthorityUtils.createAuthorityList("ROLE_RECEPTIONIST")));
         when(staff.findByUsernameAndIsDeletedFalse("synthetic-review")).thenReturn(Optional.of(
@@ -151,6 +161,77 @@ class StayGuestReviewRegressionTest {
     @Test void bookingRoomWithoutParentCannotBeSaved() {
         var room = bookingRoom((short)1); room.setBookingDetail(null); prepareCreate(room);
         assertThatThrownBy(() -> service.createOrCheckIn(createRequest())).isInstanceOf(AppException.class);
+        verify(guests, never()).save(any());
+    }
+
+    StayGuest completeGuest() {
+        return StayGuest.builder().id(21L).hotel(bookingRoom((short)1).getBookingDetail().getBooking().getHotel())
+                .roomNumber("S101").fullName("SYNTHETIC").dateOfBirth(LocalDate.of(2000,1,1))
+                .gender(Gender.OTHER).nationality("Vietnam").documentType(DocumentType.CCCD)
+                .documentNumber("SYNTHETIC_ONLY").permanentAddress("SYNTHETIC")
+                .checkInTime(OffsetDateTime.parse("2026-11-03T12:00:00+07:00"))
+                .expectedCheckOutTime(OffsetDateTime.parse("2026-11-04T12:00:00+07:00")).build();
+    }
+    LodgingQueue prepareExported(StayGuest guest) {
+        var queue = LodgingQueue.builder().id(31L).stayGuest(guest).hotel(guest.getHotel())
+                .status(LodgingQueueStatus.EXPORTED).batchReference("SYNTHETIC_BATCH")
+                .exportedAt(OffsetDateTime.parse("2026-11-03T13:00:00+07:00")).build();
+        when(guests.findById(21L)).thenReturn(Optional.of(guest));
+        when(guests.save(any())).thenAnswer(call -> call.getArgument(0));
+        when(queues.findByStayGuestIdAndIsDeletedFalse(21L)).thenReturn(Optional.of(queue));
+        return queue;
+    }
+    @Test void exportedNoopMustNotRequeueOrSave() {
+        var queue = prepareExported(completeGuest());
+        service.update(21L, StayGuestUpdateRequest.builder().build());
+        assertThat(queue.getStatus()).isEqualTo(LodgingQueueStatus.EXPORTED);
+        assertThat(queue.getBatchReference()).isEqualTo("SYNTHETIC_BATCH");
+        verify(guests, never()).save(any()); verify(queues, never()).save(any());
+    }
+    @Test void exportedLegacyGuestNoopMustNotBackfillRedundantAssociationKeys() {
+        var guest = completeGuest(); guest.setBookingRoom(bookingRoom((short)1));
+        prepareExported(guest);
+        service.update(21L, StayGuestUpdateRequest.builder().build());
+        assertThat(guest.getBooking()).isNull(); assertThat(guest.getRoom()).isNull();
+        verify(guests, never()).save(any());
+    }
+    @Test void exportedContentChangeMustBeRejectedBeforeMutation() {
+        var guest = completeGuest(); var queue = prepareExported(guest);
+        assertThatThrownBy(() -> service.update(21L, StayGuestUpdateRequest.builder().fullName("SYNTHETIC_CHANGED").build()))
+                .isInstanceOf(AppException.class);
+        assertThat(guest.getFullName()).isEqualTo("SYNTHETIC");
+        assertThat(queue.getStatus()).isEqualTo(LodgingQueueStatus.EXPORTED);
+        verify(guests, never()).save(any());
+    }
+    @Test void nonExportedImageFieldCanChangeWithoutRequeue() {
+        var guest = completeGuest(); var queue = prepareExported(guest);
+        service.update(21L, StayGuestUpdateRequest.builder().documentImageUrl("/synthetic/image").build());
+        assertThat(guest.getDocumentImageUrl()).isEqualTo("/synthetic/image");
+        assertThat(queue.getStatus()).isEqualTo(LodgingQueueStatus.EXPORTED);
+        verify(queues, never()).save(any());
+    }
+
+    static Stream<Arguments> exportFieldChanges() {
+        return Stream.of(
+            Arguments.of("name", (Consumer<StayGuestUpdateRequest>) r -> r.setFullName("CHANGED")),
+            Arguments.of("dob", (Consumer<StayGuestUpdateRequest>) r -> r.setDateOfBirth(LocalDate.of(2001,1,1))),
+            Arguments.of("gender", (Consumer<StayGuestUpdateRequest>) r -> r.setGender(Gender.FEMALE)),
+            Arguments.of("nationality", (Consumer<StayGuestUpdateRequest>) r -> r.setNationality("SYNTHETIC_OTHER")),
+            Arguments.of("documentType", (Consumer<StayGuestUpdateRequest>) r -> r.setDocumentType(DocumentType.PASSPORT)),
+            Arguments.of("documentNumber", (Consumer<StayGuestUpdateRequest>) r -> r.setDocumentNumber("SYNTHETIC_CHANGED")),
+            Arguments.of("permanentAddress", (Consumer<StayGuestUpdateRequest>) r -> r.setPermanentAddress("CHANGED")),
+            Arguments.of("currentAddress", (Consumer<StayGuestUpdateRequest>) r -> r.setCurrentAddress("CHANGED")),
+            Arguments.of("checkout", (Consumer<StayGuestUpdateRequest>) r -> r.setExpectedCheckOutTime(OffsetDateTime.parse("2026-11-05T12:00:00+07:00"))),
+            Arguments.of("roomNumber", (Consumer<StayGuestUpdateRequest>) r -> r.setRoomNumber("S102")),
+            Arguments.of("reason", (Consumer<StayGuestUpdateRequest>) r -> r.setReasonForStay("CHANGED")));
+    }
+    @ParameterizedTest @MethodSource("exportFieldChanges")
+    void everyExportedPatchFieldIsProtected(String field, Consumer<StayGuestUpdateRequest> change) {
+        var guest = completeGuest(); var queue = prepareExported(guest);
+        var before = queue.getExportedAt(); var request = StayGuestUpdateRequest.builder().build(); change.accept(request);
+        assertThatThrownBy(() -> service.update(21L, request)).as(field).isInstanceOfSatisfying(AppException.class,
+                error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.LODGING_EXPORTED_RECORD_LOCKED));
+        assertThat(queue.getExportedAt()).isEqualTo(before);
         verify(guests, never()).save(any());
     }
 }

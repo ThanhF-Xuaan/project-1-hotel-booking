@@ -51,6 +51,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class LodgingExportServiceTest {
+    @org.mockito.Mock private jakarta.persistence.EntityManager entityManager;
 
     @Mock
     private LodgingQueueRepository lodgingQueueRepository;
@@ -74,6 +75,7 @@ public class LodgingExportServiceTest {
 
     @BeforeEach
     void setUp() {
+        org.springframework.test.util.ReflectionTestUtils.setField(lodgingExportService, "entityManager", entityManager);
         sampleHotel = Hotel.builder().id((short) 1).name("Test Hotel").build();
         SecurityContextHolder.setContext(securityContext);
     }
