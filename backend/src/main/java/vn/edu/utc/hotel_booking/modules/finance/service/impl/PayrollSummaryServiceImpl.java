@@ -34,6 +34,9 @@ public class PayrollSummaryServiceImpl implements PayrollSummaryService {
     private final PayrollSummaryRepository payrollSummaryRepository;
     private final StaffRepository staffRepository;
 
+    private static final List<String> CSV_HEADER = List.of("staff_id", "period_month", "period_year",
+            "base_salary", "bonus", "deductions", "net_salary");
+
     private record PayrollRowHolder(int physicalRowNum, PayrollSummary summary) {}
 
     @Override
@@ -60,14 +63,19 @@ public class PayrollSummaryServiceImpl implements PayrollSummaryService {
             return errors;
         }
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setTrim(true).build())) {
+        try (BufferedReader reader = readerWithoutBom(file);
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setTrim(true).build())) {
 
+            Iterator<CSVRecord> records = csvParser.iterator();
+            if (!records.hasNext() || !validHeader(records.next())) {
+                errors.add(new ErrorRowDto(1, "INVALID_CSV_HEADER"));
+                return errors;
+            }
             int rowNum = 2; // Row 1 is header
 
             for (CSVRecord record : csvParser) {
-                if (record.size() < 7) {
-                    errors.add(new ErrorRowDto(rowNum, "Missing columns. Expected at least 7"));
+                if (record.size() != 7) {
+                    errors.add(new ErrorRowDto(rowNum, record.size() < 7 ? "Missing columns. Expected exactly 7" : "Extra columns. Expected exactly 7"));
                     rowNum++;
                     continue;
                 }
@@ -151,6 +159,21 @@ public class PayrollSummaryServiceImpl implements PayrollSummaryService {
         }
 
         return errors;
+    }
+
+    private static BufferedReader readerWithoutBom(MultipartFile file) throws java.io.IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+        reader.mark(1);
+        if (reader.read() != '\uFEFF') reader.reset();
+        return reader;
+    }
+
+    private static boolean validHeader(CSVRecord header) {
+        if (header.size() != CSV_HEADER.size()) return false;
+        for (int i = 0; i < CSV_HEADER.size(); i++) {
+            if (!CSV_HEADER.get(i).equals(header.get(i))) return false;
+        }
+        return true;
     }
 
     private void processBatch(List<PayrollRowHolder> pendingRecords,

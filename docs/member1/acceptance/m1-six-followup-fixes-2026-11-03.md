@@ -17,3 +17,9 @@ Hai test harness cũ dựa vào live-reference được sửa cách setup fixtur
 ## Trạng thái
 
 F02/F05/F06/F04/F03 đang triển khai. Chưa kết luận toàn bộ PASS; full sandbox/CI và source receipt delta chưa chạy. Chưa merge.
+
+## F02 — CONFIRMED fix local
+
+CSV chỉ nhận 7 header snake_case đúng tên/thứ tự, UTF-8 BOM đầu file được bỏ. Sai header trả row1 INVALID_CSV_HEADER trước staff batch lookup/save; dữ liệu mỗi dòng phải đúng7cột. Giữ HTTP200 danh sách lỗi, partial import, scope, precision và upsert.
+
+Trước sửa:9test/8FAIL; sau sửa:30test/3suite PASS,0 lỗi/skip (`followup-f02-before.log`, `followup-f02-after.log`). Gồm header đảo/thừa/thiếu/trùng/case/alias, BOM, partial row error, scope và precision. Chỉ đổi header literal của PayrollSummaryServiceTest, PayrollPrecisionReviewRegressionTest, LodgingExportPostgresTest về contract đã duyệt; giữ assertions/data. PostgreSQL lodging suite chờ sandbox tổng.

@@ -282,7 +282,7 @@ class LodgingExportPostgresTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM payroll_summary WHERE staff_id=1 AND period_year=2099 AND period_month IN (11,12)",Integer.class)).isZero();
         when(staffRepository.findAllById(any())).thenReturn(List.of(Staff.builder().id(1).build()));
         try {
-            String header = "staff,month,year,base,bonus,deductions,net\n";
+            String header = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n";
             var valid = new MockMultipartFile("file","synthetic.csv","text/csv",
                     (header+"1,11,2099,9999999999999.99,0,0,9999999999999.99\n").getBytes(StandardCharsets.UTF_8));
             assertThat(payroll.importCsv(valid)).isEmpty();

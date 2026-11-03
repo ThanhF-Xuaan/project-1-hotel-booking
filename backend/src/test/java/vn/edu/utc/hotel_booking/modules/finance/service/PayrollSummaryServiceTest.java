@@ -67,7 +67,7 @@ public class PayrollSummaryServiceTest {
     @Test
     public void importCsv_validData_success() {
         mockChainAdminAuth();
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "1,10,2026,1000,200,50,1150\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
 
@@ -95,7 +95,7 @@ public class PayrollSummaryServiceTest {
     @Test
     public void importCsv_invalidStaff_returnsErrorRow() {
         mockChainAdminAuth();
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "99,10,2026,1000,200,50,1150\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
 
@@ -117,7 +117,7 @@ public class PayrollSummaryServiceTest {
         // Line 3: Format error (missing columns)
         // Line 4: Valid
         // Line 5: Negative baseSalary
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "1,10,2026,1000,200,50,1150\n" +
                          "2,10,2026,1000\n" +
                          "3,10,2026,2000,100,50,2050\n" +
@@ -143,7 +143,7 @@ public class PayrollSummaryServiceTest {
     public void importCsv_arithmeticMismatch_reportsError() {
         mockChainAdminAuth();
         // 1000 + 200 - 50 = 1150 != 1200
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "1,10,2026,1000,200,50,1200\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
 
@@ -157,7 +157,7 @@ public class PayrollSummaryServiceTest {
     @Test
     public void importCsv_invalidMonthOrYear_reportsError() {
         mockChainAdminAuth();
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "1,13,2026,1000,0,0,1000\n" +
                          "2,10,1999,1000,0,0,1000\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
@@ -175,7 +175,7 @@ public class PayrollSummaryServiceTest {
     public void importCsv_duplicateInFile_reportsError() {
         mockChainAdminAuth();
         // Two rows for same staffId 1, period 10/2026
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "1,10,2026,1000,200,50,1150\n" +
                          "1,10,2026,1200,100,50,1250\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
@@ -193,7 +193,7 @@ public class PayrollSummaryServiceTest {
     @Test
     public void importCsv_idempotentUpdateExistingDbRecord_updatesInPlace() {
         mockChainAdminAuth();
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "1,10,2026,1500,300,100,1700\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
 
@@ -231,7 +231,7 @@ public class PayrollSummaryServiceTest {
     @Test
     public void importCsv_existingDuplicateRowsInDatabase_updatesLatestRecordGracefullyWithoutException() {
         mockChainAdminAuth();
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "1,10,2026,2000,500,100,2400\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
 
@@ -280,7 +280,7 @@ public class PayrollSummaryServiceTest {
                 .build();
         when(staffRepository.findByUsernameAndIsDeletedFalse("pm_hotel1")).thenReturn(Optional.of(pmStaff));
 
-        String csvData = "staffId,periodMonth,periodYear,baseSalary,bonus,deductions,netSalary\n" +
+        String csvData = "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n" +
                          "5,10,2026,1000,200,50,1150\n";
         MockMultipartFile file = new MockMultipartFile("file", "test.csv", "text/csv", csvData.getBytes(StandardCharsets.UTF_8));
 

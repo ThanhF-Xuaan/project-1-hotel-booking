@@ -34,7 +34,7 @@ class PayrollPrecisionReviewRegressionTest {
     }
     @AfterEach void clear() { SecurityContextHolder.clearContext(); }
     MockMultipartFile file(String salary) {
-        return new MockMultipartFile("file", "synthetic.csv", "text/csv", ("staff,month,year,base,bonus,deductions,net\n"
+        return new MockMultipartFile("file", "synthetic.csv", "text/csv", ("staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n"
                 + "7,11,2026,"+salary+",0,0,"+salary+"\n").getBytes(StandardCharsets.UTF_8));
     }
     @ParameterizedTest @ValueSource(strings={"100.005","10000000000000","1E+1000000000","1E-1000000000","0.001"})
@@ -62,7 +62,7 @@ class PayrollPrecisionReviewRegressionTest {
 
     @Test void invalidNetIsRejectedBeforeEquationAndNoSalaryIsEchoed() {
         var csv = new MockMultipartFile("file", "synthetic.csv", "text/csv",
-                "staff,month,year,base,bonus,deductions,net\n7,11,2026,1,0,0,100.005\n".getBytes(StandardCharsets.UTF_8));
+                "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n7,11,2026,1,0,0,100.005\n".getBytes(StandardCharsets.UTF_8));
         var errors = service.importCsv(csv);
         assertThat(errors).hasSize(1);
         assertThat(errors.getFirst().getError()).contains("netSalary").doesNotContain("100.005");
@@ -72,7 +72,7 @@ class PayrollPrecisionReviewRegressionTest {
     @Test void mixedFileSavesOnlyRepresentableRowsAndKeepsRowNumbers() {
         when(payroll.saveAll(any())).thenAnswer(call -> call.getArgument(0));
         var csv = new MockMultipartFile("file", "synthetic.csv", "text/csv",
-                "staff,month,year,base,bonus,deductions,net\n7,11,2026,1.23,0,0,1.23\n7,12,2026,100.005,0,0,100.005\n".getBytes(StandardCharsets.UTF_8));
+                "staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n7,11,2026,1.23,0,0,1.23\n7,12,2026,100.005,0,0,100.005\n".getBytes(StandardCharsets.UTF_8));
         var errors = service.importCsv(csv);
         assertThat(errors).hasSize(1); assertThat(errors.getFirst().getRow()).isEqualTo(3);
         verify(payroll).saveAll(argThat(rows -> java.util.stream.StreamSupport.stream(rows.spliterator(),false).count()==1));
