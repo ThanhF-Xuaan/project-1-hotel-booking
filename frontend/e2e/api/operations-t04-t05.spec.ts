@@ -77,6 +77,36 @@ test.describe('Operations & Finance Modules: T04 Utilities & T05 Lodging/Payroll
     }
   });
 
+  test('review: booking-room reads and associations enforce hotel scope with real tokens', async ({ request }) => {
+    const headers = { Authorization: `Bearer ${managerH1Token}` };
+    const guestBefore = queryAcceptanceDatabase("SELECT row_to_json(g)::text FROM stay_guests g WHERE id=1");
+    expect(queryAcceptanceDatabase('SELECT hotel_id FROM bookings WHERE id=1')).toBe('1');
+    expect((await request.get(`${BACKEND_URL}/api/v1/stay-guests/by-booking-room/1`)).status()).toBe(401);
+    const own = await request.get(`${BACKEND_URL}/api/v1/stay-guests/by-booking-room/1`, { headers });
+    expect(own.status()).toBe(200);
+    expect((await own.json()).result.map((g: { id: number }) => g.id)).toContain(1);
+    try {
+      // Synthetic dependency fault only; restore the parent hotel in finally.
+      queryAcceptanceDatabase('UPDATE bookings SET hotel_id=2 WHERE id=1');
+      const foreign = await request.get(`${BACKEND_URL}/api/v1/stay-guests/by-booking-room/1`, { headers });
+      expect(foreign.status()).toBe(403);
+      expect(await foreign.text()).not.toContain('001090012345');
+      const created = await request.post(`${BACKEND_URL}/api/v1/stay-guests/create`, { headers, data: {
+        hotelId: 1, bookingRoomId: 1, roomNumber: '101', fullName: 'SYNTHETIC_REJECTED',
+        documentType: 'CCCD', documentNumber: 'SYNTHETIC_REJECTED',
+        checkInTime: '2026-11-03T14:00:00+07:00', expectedCheckOutTime: '2026-11-04T12:00:00+07:00',
+      } });
+      expect(created.status()).toBe(400);
+      const updated = await request.put(`${BACKEND_URL}/api/v1/stay-guests/update/1`, { headers,
+        data: { bookingRoomId: 1, fullName: 'SYNTHETIC_REJECTED' } });
+      expect(updated.status()).toBe(400);
+      expect(queryAcceptanceDatabase("SELECT count(*) FROM stay_guests WHERE full_name='SYNTHETIC_REJECTED'")).toBe('0');
+      expect(queryAcceptanceDatabase("SELECT row_to_json(g)::text FROM stay_guests g WHERE id=1")).toBe(guestBefore);
+    } finally {
+      queryAcceptanceDatabase('UPDATE bookings SET hotel_id=1 WHERE id=1');
+    }
+  });
+
   test('T05: should reject invalid cutoff and cross-hotel export without changing queue state', async ({ request }) => {
     const before = queryAcceptanceDatabase('SELECT status FROM lodging_queues WHERE id = 1');
     const date = new Date().toISOString().split('T')[0];
@@ -143,6 +173,20 @@ test.describe('Operations & Finance Modules: T04 Utilities & T05 Lodging/Payroll
       "SELECT status || '|' || (exported_at IS NOT NULL)::text || '|' || (batch_reference IS NOT NULL)::text FROM lodging_queues WHERE id = 1"
     )).toBe('EXPORTED|true|true');
     const completionMarker = queryAcceptanceDatabase("SELECT exported_at::text || '|' || batch_reference FROM lodging_queues WHERE id = 1");
+    const terminalRetry = await request.post(`${BACKEND_URL}/api/v1/lodging-queues/retry/1`, {
+      headers: { Authorization: `Bearer ${managerH1Token}` },
+    });
+    expect(terminalRetry.status()).toBe(200);
+    expect((await terminalRetry.json()).result.status).toBe('EXPORTED');
+    const noop = await request.put(`${BACKEND_URL}/api/v1/stay-guests/update/1`, {
+      headers: { Authorization: `Bearer ${managerH1Token}` }, data: {},
+    });
+    expect(noop.status()).toBe(200);
+    const changed = await request.put(`${BACKEND_URL}/api/v1/stay-guests/update/1`, {
+      headers: { Authorization: `Bearer ${managerH1Token}` }, data: { fullName: 'SYNTHETIC_BLOCKED_CHANGE' },
+    });
+    expect(changed.status()).toBe(409);
+    expect((await changed.json()).code).toBe(9073);
     const repeat = await request.post(`${BACKEND_URL}/api/v1/lodging-export/download`, {
       headers: { Authorization: `Bearer ${managerH1Token}` },
       data: { hotelId: 1, date: today, category: 'VIETNAMESE' },
@@ -166,6 +210,8 @@ test.describe('Operations & Finance Modules: T04 Utilities & T05 Lodging/Payroll
         queryAcceptanceDatabase(
           `UPDATE stay_guests SET check_in_time = ('${date}'::date + INTERVAL '${boundary.interval}') AT TIME ZONE 'Asia/Ho_Chi_Minh' WHERE id = 1`
         );
+        // Explicit synthetic setup: production retry must preserve an already exported queue.
+        queryAcceptanceDatabase("UPDATE lodging_queues SET status='PENDING',exported_at=NULL,batch_reference=NULL WHERE id=1");
         const retry = await request.post(`${BACKEND_URL}/api/v1/lodging-queues/retry/1`, {
           headers: { Authorization: `Bearer ${managerH1Token}` },
         });
@@ -190,6 +236,7 @@ test.describe('Operations & Finance Modules: T04 Utilities & T05 Lodging/Payroll
   });
 
   test('T05: should produce one batch for two concurrent export requests', async ({ request }) => {
+    queryAcceptanceDatabase("UPDATE lodging_queues SET status='PENDING',exported_at=NULL,batch_reference=NULL WHERE id=1");
     const retry = await request.post(`${BACKEND_URL}/api/v1/lodging-queues/retry/1`, {
       headers: { Authorization: `Bearer ${managerH1Token}` },
     });
@@ -239,5 +286,20 @@ test.describe('Operations & Finance Modules: T04 Utilities & T05 Lodging/Payroll
       `SELECT COUNT(*) FROM payroll_summary WHERE staff_id = 3 AND period_month = ${periodMonth} AND period_year = ${periodYear} AND is_deleted = FALSE`
     );
     expect(Number(savedRows)).toBe(1);
+  });
+
+  test('review: payroll rejects lossy money over HTTP without inserting a row', async ({ request }) => {
+    expect(queryAcceptanceDatabase('SELECT count(*) FROM payroll_summary WHERE staff_id=3 AND period_year=2099 AND period_month=10')).toBe('0');
+    const response = await request.post(`${BACKEND_URL}/api/v1/payroll/import`, {
+      headers: { Authorization: `Bearer ${managerH1Token}` }, multipart: { file: {
+        name: 'synthetic-lossy.csv', mimeType: 'text/csv', buffer: Buffer.from(
+          'staff_id,period_month,period_year,base_salary,bonus,deductions,net_salary\n3,10,2099,100.005,0.005,0,100.010'),
+      } },
+    });
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body.result).toHaveLength(1);
+    expect(body.result[0].error).toContain('SALARY_AMOUNT_NOT_REPRESENTABLE');
+    expect(queryAcceptanceDatabase('SELECT count(*) FROM payroll_summary WHERE staff_id=3 AND period_year=2099 AND period_month=10')).toBe('0');
   });
 });

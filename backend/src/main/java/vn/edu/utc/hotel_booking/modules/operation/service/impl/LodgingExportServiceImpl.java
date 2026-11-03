@@ -65,8 +65,11 @@ public class LodgingExportServiceImpl implements LodgingExportService {
 
         // Queue locks serialize all edits; refresh after acquiring them, before reading workbook fields.
         for (LodgingQueue item : queueItems) entityManager.refresh(item.getStayGuest());
-        queueItems = queueItems.stream().sorted(Comparator.comparing((LodgingQueue q) -> q.getStayGuest().getCheckInTime())
+        // The query may have evaluated guest predicates before waiting for a queue lock.
+        queueItems = queueItems.stream().filter(item -> matchesReportScope(item, cutoffExclusive, isVietnamese))
+                .sorted(Comparator.comparing((LodgingQueue q) -> q.getStayGuest().getCheckInTime())
                 .thenComparing(LodgingQueue::getId)).toList();
+        if (queueItems.isEmpty()) throw new AppException(ErrorCode.LODGING_EXPORT_EMPTY);
 
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
             workbookWriter.write(queueItems, isVietnamese, bos);
@@ -87,6 +90,15 @@ public class LodgingExportServiceImpl implements LodgingExportService {
             log.error("Lỗi khi sinh file Excel khai báo lưu trú BCA", e);
             throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Lỗi khi tạo file Excel xuất báo cáo");
         }
+    }
+
+    private boolean matchesReportScope(LodgingQueue item, OffsetDateTime cutoffExclusive, boolean isVietnamese) {
+        var guest = item.getStayGuest();
+        if (Boolean.TRUE.equals(guest.getIsDeleted()) || guest.getCheckInTime() == null
+                || !guest.getCheckInTime().isBefore(cutoffExclusive) || guest.getNationality() == null) return false;
+        boolean vietnamese = List.of("việt nam", "viet nam", "vietnam")
+                .contains(guest.getNationality().toLowerCase(java.util.Locale.ROOT));
+        return vietnamese == isVietnamese;
     }
 
     private void validateStaffScope(Short hotelId) {

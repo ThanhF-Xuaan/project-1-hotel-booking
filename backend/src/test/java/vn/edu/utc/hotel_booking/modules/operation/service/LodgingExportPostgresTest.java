@@ -91,8 +91,11 @@ class LodgingExportPostgresTest {
     @Autowired private LodgingQueueService queues;
     @Autowired private PayrollSummaryService payroll;
     @Autowired private StaffRepository staffRepository;
+    @Autowired private LodgingQueueRepository queueRepository;
+    @Autowired private PlatformTransactionManager transactionManager;
     private Map<String, Object> originalQueue;
     private String originalName;
+    private Map<String, Object> originalGuest;
 
     @BeforeEach
     void requireSyntheticFixtureAndPreparePendingRow() {
@@ -107,6 +110,7 @@ class LodgingExportPostgresTest {
         assertThat(jdbc.queryForObject("SELECT nationality FROM stay_guests WHERE id=1", String.class)).isEqualTo("Vietnam");
         originalQueue = jdbc.queryForMap("SELECT status,error_message,exported_at,batch_reference,updated_at FROM lodging_queues WHERE id=1");
         originalName = jdbc.queryForObject("SELECT full_name FROM stay_guests WHERE id=1", String.class);
+        originalGuest = jdbc.queryForMap("SELECT nationality,check_in_time,updated_at FROM stay_guests WHERE id=1");
         jdbc.update("UPDATE lodging_queues SET status='PENDING',error_message=NULL,exported_at=NULL,batch_reference=NULL WHERE id=1");
     }
 
@@ -115,6 +119,8 @@ class LodgingExportPostgresTest {
         faults.releaseFirst.countDown();
         faults.releaseMutation.countDown();
         if (originalName != null) jdbc.update("UPDATE stay_guests SET full_name=? WHERE id=1", originalName);
+        if (originalGuest != null) jdbc.update("UPDATE stay_guests SET nationality=?,check_in_time=?,updated_at=? WHERE id=1",
+                originalGuest.get("nationality"), originalGuest.get("check_in_time"), originalGuest.get("updated_at"));
         if (originalQueue != null) {
             jdbc.update("UPDATE lodging_queues SET status=?,error_message=?,exported_at=?,batch_reference=?,updated_at=? WHERE id=1",
                     originalQueue.get("status"), originalQueue.get("error_message"), originalQueue.get("exported_at"),
@@ -221,6 +227,41 @@ class LodgingExportPostgresTest {
                         .isEqualTo(retry ? originalName.toUpperCase(java.util.Locale.ROOT) : "SYNTHETIC_CHANGED");
             }
             assertExported();
+        } finally {
+            faults.releaseMutation.countDown(); workers.shutdownNow();
+            assertThat(workers.awaitTermination(20,TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @ParameterizedTest @ValueSource(strings={"cutoff","category"})
+    void changedReportScopeWhileExportWaitsDoesNotExportStaleSelection(String field) throws Exception {
+        faults.holdFirstMutation = true;
+        ExecutorService workers = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> mutation = workers.submit(() -> {
+                authenticateAdmin();
+                try {
+                    if (field.equals("cutoff")) {
+                        // Check-in time is not part of the update DTO. Exercise the same queue-first
+                        // transaction protocol directly; the nationality case uses the real service.
+                        new org.springframework.transaction.support.TransactionTemplate(transactionManager)
+                                .executeWithoutResult(status -> {
+                                    queueRepository.findByStayGuestIdAndIsDeletedFalse(1L).orElseThrow();
+                                    jdbc.update("UPDATE stay_guests SET check_in_time=? WHERE id=1",
+                                            request().getDate().plusDays(1).atStartOfDay().atOffset(java.time.ZoneOffset.ofHours(7)));
+                                });
+                    } else guests.update(1L, StayGuestUpdateRequest.builder().nationality("Japan").build());
+                } finally { SecurityContextHolder.clearContext(); }
+            });
+            assertThat(faults.mutationLocked.await(10,TimeUnit.SECONDS)).isTrue();
+            Future<ExportOutcome> export = workers.submit(this::exportInWorker);
+            assertThat(awaitSecondQueryDisposition()).isTrue();
+            faults.releaseMutation.countDown();
+            mutation.get(20,TimeUnit.SECONDS);
+            var result = export.get(20,TimeUnit.SECONDS);
+            assertThat(result.bytes()).isNull();
+            assertThat(result.error()).isEqualTo(ErrorCode.LODGING_EXPORT_EMPTY);
+            assertPendingWithoutMetadata();
         } finally {
             faults.releaseMutation.countDown(); workers.shutdownNow();
             assertThat(workers.awaitTermination(20,TimeUnit.SECONDS)).isTrue();
