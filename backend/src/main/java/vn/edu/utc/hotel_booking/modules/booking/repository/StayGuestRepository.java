@@ -15,6 +15,26 @@ import java.util.Optional;
 @Repository
 public interface StayGuestRepository extends JpaRepository<StayGuest, Long> {
 
+    @org.springframework.data.jpa.repository.QueryHints(@jakarta.persistence.QueryHint(name="org.hibernate.flushMode",value="COMMIT"))
+    @Query(value = "SELECT public.m1_active_stay_key(CAST(:hotel AS smallint),CAST(:booking AS bigint),CAST(:bookingRoom AS bigint),CAST(:room AS integer),"
+            + "CAST(:roomNumber AS text),CAST(:document AS text),CAST(:checkIn AS timestamptz),CAST(:checkout AS timestamptz),CAST(:deleted AS boolean))", nativeQuery = true)
+    byte[] computeActiveKey(@Param("hotel") Short hotel, @Param("booking") Long booking,
+            @Param("bookingRoom") Long bookingRoom, @Param("room") Integer room,
+            @Param("roomNumber") String roomNumber, @Param("document") String document,
+            @Param("checkIn") OffsetDateTime checkIn, @Param("checkout") OffsetDateTime checkout, @Param("deleted") Boolean deleted);
+
+    @org.springframework.data.jpa.repository.QueryHints(@jakarta.persistence.QueryHint(name="org.hibernate.flushMode",value="COMMIT"))
+    @Query(value = "SELECT set_config('lock_timeout','5s',true)", nativeQuery = true)
+    String configureDedupLockTimeout();
+
+    @org.springframework.data.jpa.repository.QueryHints(@jakarta.persistence.QueryHint(name="org.hibernate.flushMode",value="COMMIT"))
+    @Query(value = "SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(encode(CAST(:key AS bytea),'hex'),0))", nativeQuery = true)
+    Integer lockActiveKey(@Param("key") byte[] key);
+
+    @Query(value = "SELECT * FROM public.stay_guests WHERE active_dedup_key=:key AND check_in_time IS NOT NULL "
+            + "AND actual_check_out_time IS NULL AND NOT is_deleted", nativeQuery = true)
+    Optional<StayGuest> findActiveByDedupKey(@Param("key") byte[] key);
+
     List<StayGuest> findByBookingRoomId(Long bookingRoomId);
 
     List<StayGuest> findByBookingRoomIdAndHotelIdAndIsDeletedFalse(Long bookingRoomId, Short hotelId);

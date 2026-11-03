@@ -38,7 +38,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @TestPropertySource(properties = {
         "spring.liquibase.enabled=true",
         "spring.liquibase.change-log=classpath:db/db-changelog-root.xml",
-        "spring.liquibase.contexts=master-data,dev-seed",
+        "spring.liquibase.contexts=master-data,dev-seed,m1-active-stay-dedup",
         "hotel.ai.personalization.local-demo-enabled=true",
         "hotel.scheduling.enabled=false"
 })

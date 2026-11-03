@@ -103,6 +103,10 @@ public class StayGuest extends BaseEntity {
     @Column(name = "image_purged_at")
     OffsetDateTime imagePurgedAt;
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "active_dedup_key", insertable = false, updatable = false)
+    byte[] activeDedupKey;
+
     public LocalDate getBirthDate() {
         return dateOfBirth;
     }

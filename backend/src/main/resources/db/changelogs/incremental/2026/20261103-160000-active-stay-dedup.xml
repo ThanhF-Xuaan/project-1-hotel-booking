@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="20261103-160000-active-stay-dedup" author="member1" context="@m1-active-stay-dedup" runInTransaction="true">
+        <sqlFile path="db/sqlFile/incremental/2026/20261103-160000-active-stay-dedup.sql" relativeToChangelogFile="false" splitStatements="false"/>
+        <!-- Only with writers stopped and a verified backup. Prefer rolling back the application. -->
+        <rollback>
+            <sql splitStatements="true">SET LOCAL lock_timeout='5s'; LOCK TABLE public.stay_guests IN ACCESS EXCLUSIVE MODE;
+                DROP TRIGGER trg_m1_active_stay_dedup ON public.stay_guests;
+                DROP INDEX public.uq_stay_guest_active_dedup;
+                ALTER TABLE public.stay_guests DROP COLUMN active_dedup_key;
+                DROP FUNCTION public.m1_set_active_stay_key();
+                DROP FUNCTION public.m1_active_stay_key(smallint,bigint,bigint,integer,text,text,timestamptz,timestamptz,boolean);
+                DROP FUNCTION public.m1_normalize_stay_token(text);</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

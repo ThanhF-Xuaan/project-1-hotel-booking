@@ -99,3 +99,8 @@ Full run **20261103-135830-561-239cf9f6 PASS**, baseline của run616bb6a; sau �
 Peer approval của con người không được tạo hoặc giả lập. Các kết quả trên là technical review/test trong synthetic sandbox và CI. Unmount cleanup đã review qua code, chưa có browser reproducer riêng. Chưa kiểm AI provider trả phí, production Keycloak, dữ liệu vận hành thật hoặc định dạng BCA chính thức; không dùng synthetic PASS để đóng các nghiệm thu đó. M1-OBS-008 giữ NEED_FIX riêng như mô tả ở trên.
 
 Rollback: revert toàn PR cùng receipt/compositor và các test liên quan, chạy lại verification; không revert riêng application file rồi bỏ qua provenance check. DB sandbox đã restore trước khi giao; không có migration nghiệp vụ cần rollback. Trạng thái merge/check SHA cuối được ghi trên PR và báo cáo giao trong chat, sau khi CI của commit tài liệu này hoàn tất; không dùng AI self-review làm peer approval hoặc bypass branch policy.
+
+
+### Đính chính sau kiểm tra converter — 2026-11-03
+
+M1-OBS-008 được rút lại (RETRACTED false positive), thay cho NEED_FIX nêu trong lịch sử ở trên. `LodgingQueue.status` dùng `@Convert(LodgingQueueStatusConverter.class)`: ERROR được ghi thành FAILED và FAILED được đọc thành ERROR. Fixture SQL ghi trực tiếp ERROR bị constraint từ chối không chứng minh lỗi đường JPA. Không nới constraint hoặc thêm ERROR. Xem [bằng chứng follow-up](m1-six-followup-fixes-2026-11-03.md).

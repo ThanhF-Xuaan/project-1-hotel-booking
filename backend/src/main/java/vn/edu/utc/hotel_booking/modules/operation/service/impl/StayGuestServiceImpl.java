@@ -5,6 +5,10 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import vn.edu.utc.hotel_booking.modules.operation.service.support.LodgingExportStateGuard;
 import vn.edu.utc.hotel_booking.modules.operation.service.support.StayGuestTimeValidator;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.ActiveStayDedup;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.Comparator;
 import vn.edu.utc.hotel_booking.modules.operation.security.OperationStaffScopeResolver;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -83,32 +87,31 @@ public class StayGuestServiceImpl implements StayGuestService {
         var associations = StayGuestAssociationValidator.validate(hotel.getId(), booking, bookingRoom, room, request.getRoomNumber());
         booking = associations.booking(); bookingRoom = associations.bookingRoom(); room = associations.room();
 
-        // Kiểm tra xem đây có phải là retry của cùng một lượt lưu trú đang diễn ra (chưa checkout) hay không:
-        // 1. Nếu có bookingId: kiểm tra cùng hotelId, bookingId, documentNumber và actualCheckOutTime == null
-        // 2. Nếu không có bookingId (khách vãng lai): kiểm tra cùng hotelId, roomNumber, documentNumber và actualCheckOutTime == null
-        Optional<StayGuest> existingActiveStay = Optional.empty();
-        if (booking != null) {
-            existingActiveStay = stayGuestRepository
-                    .findFirstByHotelIdAndBookingIdAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                            hotel.getId(), booking.getId(), request.getDocumentNumber().trim());
-        } else if (StringUtils.hasText(request.getRoomNumber())) {
-            existingActiveStay = stayGuestRepository
-                    .findFirstByHotelIdAndRoomNumberAndDocumentNumberAndActualCheckOutTimeIsNullAndIsDeletedFalse(
-                            hotel.getId(), request.getRoomNumber().trim(), request.getDocumentNumber().trim());
+        StayGuest identityCandidate = StayGuest.builder().hotel(hotel).booking(booking).bookingRoom(bookingRoom).room(room)
+                .roomNumber(associations.roomNumber()).documentNumber(request.getDocumentNumber())
+                .checkInTime(request.getCheckInTime()).build();
+        byte[] key=ActiveStayDedup.key(stayGuestRepository, identityCandidate);
+        ActiveStayDedup.lock(stayGuestRepository, Arrays.asList(key));
+        Optional<StayGuest> existingActiveStay=key==null?Optional.empty():stayGuestRepository.findActiveByDedupKey(key);
+        LodgingQueue existingQueue=null;
+        if(existingActiveStay.isPresent()) {
+            StayGuest existing=existingActiveStay.get();
+            existingQueue=lockQueueAndRefresh(existing);
+            // A writer outside this service may have checked out/deleted the row while we waited.
+            if(!Arrays.equals(key,ActiveStayDedup.key(stayGuestRepository,existing))) existingActiveStay=Optional.empty();
         }
 
         StayGuest guest;
         if (existingActiveStay.isPresent()) {
             // Cùng một lượt check-in đang hoạt động -> cập nhật thông tin (idempotent retry)
             guest = existingActiveStay.get();
-            LodgingQueue existingQueue = lockQueueAndRefresh(guest);
             StayGuest candidate = LodgingExportStateGuard.copy(guest);
             candidate.setFullName(request.getFullName().trim());
             candidate.setDateOfBirth(request.getDateOfBirth());
             candidate.setGender(request.getGender());
             candidate.setNationality(StringUtils.hasText(request.getNationality()) ? request.getNationality().trim() : "Việt Nam");
             candidate.setDocumentType(request.getDocumentType());
-            candidate.setDocumentNumber(request.getDocumentNumber().trim());
+            candidate.setDocumentNumber(ActiveStayDedup.normalizeToken(request.getDocumentNumber()));
             candidate.setPermanentAddress(request.getPermanentAddress());
             candidate.setCurrentAddress(request.getCurrentAddress());
             candidate.setCheckInTime(request.getCheckInTime());
@@ -116,9 +119,12 @@ public class StayGuestServiceImpl implements StayGuestService {
             candidate.setRoomNumber(request.getRoomNumber());
             candidate.setReasonForStay(request.getReasonForStay());
             candidate.setDocumentImageUrl(request.getDocumentImageUrl());
-            if (booking != null) candidate.setBooking(booking);
-            if (room != null) candidate.setRoom(room);
-            if (bookingRoom != null) candidate.setBookingRoom(bookingRoom);
+            boolean sameBookingRoom=Objects.equals(guest.getBookingRoom()==null?null:guest.getBookingRoom().getId(),
+                    bookingRoom==null?null:bookingRoom.getId());
+            // Equivalent legacy representation remains untouched, including EXPORTED retry/noop.
+            if(!sameBookingRoom) {
+                candidate.setBooking(booking);candidate.setRoom(room);candidate.setBookingRoom(bookingRoom);
+            }
             candidate.setRoomNumber(associations.roomNumber());
             LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
             if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
@@ -132,11 +138,12 @@ public class StayGuestServiceImpl implements StayGuestService {
             guest.setBooking(booking);
             guest.setRoom(room);
             guest.setBookingRoom(bookingRoom);
+            guest.setDocumentNumber(ActiveStayDedup.normalizeToken(request.getDocumentNumber()));
             StayGuestTimeValidator.validate(guest);
         }
 
         guest.setRoomNumber(associations.roomNumber());
-        StayGuest savedGuest = stayGuestRepository.save(guest);
+        StayGuest savedGuest = persistGuest(guest);
 
         // Đánh giá tính đầy đủ theo tiêu chuẩn BCA để đẩy vào LodgingQueue
         syncLodgingQueue(savedGuest);
@@ -153,7 +160,34 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         validateStaffScope(guest.getHotel().getId());
 
-        LodgingQueue existingQueue = lockQueueAndRefresh(guest);
+        byte[] oldKey=ActiveStayDedup.key(stayGuestRepository,guest);
+        byte[] newKey=ActiveStayDedup.key(stayGuestRepository,prepareUpdate(guest,request));
+        ActiveStayDedup.lock(stayGuestRepository,Arrays.asList(oldKey,newKey));
+        LodgingQueue existingQueue=lockQueueAndRefresh(guest);
+        if(Boolean.TRUE.equals(guest.getIsDeleted())) throw new AppException(ErrorCode.STAY_GUEST_NOT_FOUND);
+        ActiveStayDedup.verifyUnchanged(oldKey,ActiveStayDedup.key(stayGuestRepository,guest));
+        validateStaffScope(guest.getHotel().getId());
+        StayGuest candidate=prepareUpdate(guest,request);
+        ActiveStayDedup.verifyUnchanged(newKey,ActiveStayDedup.key(stayGuestRepository,candidate));
+        LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
+        if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
+                && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
+        if (request.getExpectedCheckOutTime() != null || request.getActualCheckOutTime() != null) {
+            StayGuestTimeValidator.validate(candidate);
+        }
+        if(newKey!=null) stayGuestRepository.findActiveByDedupKey(newKey).ifPresent(other->{
+            if(!Objects.equals(other.getId(),guest.getId())) throw new AppException(ErrorCode.STAY_GUEST_CONFLICT);
+        });
+        org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
+        StayGuest savedGuest = persistGuest(guest);
+
+        // Cập nhật lại trạng thái queue nếu trước đó bị thiếu trường
+        syncLodgingQueue(savedGuest);
+
+        return stayGuestMapper.toResponse(savedGuest);
+    }
+
+    private StayGuest prepareUpdate(StayGuest guest, StayGuestUpdateRequest request) {
         BookingRoom bookingRoom = request.getBookingRoomId() == null ? guest.getBookingRoom()
                 : bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
         if (request.getBookingRoomId() != null && bookingRoom == null) {
@@ -168,25 +202,14 @@ public class StayGuestServiceImpl implements StayGuestService {
         var associations = StayGuestAssociationValidator.validate(guest.getHotel().getId(), guest.getBooking(), bookingRoom, room, number);
         StayGuest candidate = LodgingExportStateGuard.copy(guest);
         stayGuestMapper.updateEntityFromDto(request, candidate);
+        if(request.getDocumentNumber()!=null) candidate.setDocumentNumber(ActiveStayDedup.normalizeToken(request.getDocumentNumber()));
         // Validate legacy associations but do not backfill redundant keys without an association patch.
         if (request.getBookingRoomId() != null || request.getRoomId() != null) {
             candidate.setBooking(associations.booking()); candidate.setBookingRoom(associations.bookingRoom());
             candidate.setRoom(associations.room());
         }
         candidate.setRoomNumber(associations.roomNumber());
-        LodgingExportStateGuard.verifyChange(existingQueue, guest, candidate);
-        if (existingQueue != null && existingQueue.getStatus() == LodgingQueueStatus.EXPORTED
-                && LodgingExportStateGuard.sameMutableValues(guest, candidate)) return stayGuestMapper.toResponse(guest);
-        if (request.getExpectedCheckOutTime() != null || request.getActualCheckOutTime() != null) {
-            StayGuestTimeValidator.validate(candidate);
-        }
-        org.springframework.beans.BeanUtils.copyProperties(candidate, guest);
-        StayGuest savedGuest = stayGuestRepository.save(guest);
-
-        // Cập nhật lại trạng thái queue nếu trước đó bị thiếu trường
-        syncLodgingQueue(savedGuest);
-
-        return stayGuestMapper.toResponse(savedGuest);
+        return candidate;
     }
 
     @Override
@@ -254,20 +277,22 @@ public class StayGuestServiceImpl implements StayGuestService {
             return;
         }
 
-        List<StayGuest> guests = stayGuestRepository.findAllByIdInAndIsDeletedFalse(ids);
-        for (StayGuest guest : guests) {
+        List<StayGuest> guests = stayGuestRepository.findAllByIdInAndIsDeletedFalse(ids).stream()
+                .sorted(Comparator.comparing(StayGuest::getId)).toList();
+        for(StayGuest guest:guests) validateStaffScope(guest.getHotel().getId());
+        List<byte[]> keys=guests.stream().map(g->ActiveStayDedup.key(stayGuestRepository,g)).toList();
+        ActiveStayDedup.lock(stayGuestRepository,keys);
+        for(int i=0;i<guests.size();i++) {
+            StayGuest guest=guests.get(i);
+            LodgingQueue queue=lockQueueAndRefresh(guest);
+            ActiveStayDedup.verifyUnchanged(keys.get(i),ActiveStayDedup.key(stayGuestRepository,guest));
             validateStaffScope(guest.getHotel().getId());
+            if(Boolean.TRUE.equals(guest.getIsDeleted())) continue;
             guest.setIsDeleted(true);
-
-            // Cập nhật hàng chờ sang CANCELLED
-            lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId())
-                    .ifPresent(queue -> {
-                        queue.setStatus(LodgingQueueStatus.CANCELLED);
-                        queue.setIsDeleted(true);
-                        lodgingQueueRepository.save(queue);
-                    });
+            if(queue!=null) {queue.setStatus(LodgingQueueStatus.CANCELLED);queue.setIsDeleted(true);lodgingQueueRepository.save(queue);}
         }
-        stayGuestRepository.saveAll(guests);
+        try {stayGuestRepository.saveAll(guests);stayGuestRepository.flush();}
+        catch(RuntimeException error){throw ActiveStayDedup.translate(error);}
     }
 
     @Override
@@ -276,22 +301,29 @@ public class StayGuestServiceImpl implements StayGuestService {
         if (bookingRoomId == null) {
             return;
         }
-        List<StayGuest> guests = stayGuestRepository.findByBookingRoomId(bookingRoomId);
-        OffsetDateTime now = OffsetDateTime.now();
-        for (StayGuest guest : guests) {
-            if (!Boolean.TRUE.equals(guest.getIsDeleted())) {
-                LodgingQueue queue = lockQueueAndRefresh(guest);
-                if (queue != null && LodgingExportStateGuard.preservesQueue(queue)) continue;
-                if (queue != null && queue.getStatus() == LodgingQueueStatus.PROCESSING) throw LodgingExportStateGuard.stateConflict();
-                if (guest.getCheckInTime() == null) {
-                    StayGuest candidate = LodgingExportStateGuard.copy(guest);
-                    candidate.setCheckInTime(now);
-                    StayGuestTimeValidator.validate(candidate);
-                    guest.setCheckInTime(now);
-                }
-                StayGuest saved = stayGuestRepository.save(guest);
-                syncLodgingQueue(saved);
+        List<StayGuest> guests=stayGuestRepository.findByBookingRoomId(bookingRoomId).stream()
+                .sorted(Comparator.comparing(StayGuest::getId)).toList();
+        OffsetDateTime now=OffsetDateTime.now();
+        List<byte[]> oldKeys=new ArrayList<>(); List<byte[]> keys=new ArrayList<>();
+        for(StayGuest guest:guests) {
+            byte[] old=ActiveStayDedup.key(stayGuestRepository,guest);oldKeys.add(old);keys.add(old);
+            StayGuest candidate=LodgingExportStateGuard.copy(guest);
+            if(candidate.getCheckInTime()==null) candidate.setCheckInTime(now);
+            keys.add(ActiveStayDedup.key(stayGuestRepository,candidate));
+        }
+        ActiveStayDedup.lock(stayGuestRepository,keys);
+        for(int i=0;i<guests.size();i++) {
+            StayGuest guest=guests.get(i);
+            LodgingQueue queue=lockQueueAndRefresh(guest);
+            ActiveStayDedup.verifyUnchanged(oldKeys.get(i),ActiveStayDedup.key(stayGuestRepository,guest));
+            if(Boolean.TRUE.equals(guest.getIsDeleted()) || guest.getActualCheckOutTime()!=null) continue;
+            if(queue!=null && LodgingExportStateGuard.preservesQueue(queue)) continue;
+            if(queue!=null && queue.getStatus()==LodgingQueueStatus.PROCESSING) throw LodgingExportStateGuard.stateConflict();
+            if(guest.getCheckInTime()==null) {
+                StayGuest candidate=LodgingExportStateGuard.copy(guest);candidate.setCheckInTime(now);
+                StayGuestTimeValidator.validate(candidate);guest.setCheckInTime(now);
             }
+            syncLodgingQueue(persistGuest(guest));
         }
     }
 
@@ -301,20 +333,28 @@ public class StayGuestServiceImpl implements StayGuestService {
         if (bookingRoomId == null) {
             return;
         }
-        List<StayGuest> guests = stayGuestRepository.findByBookingRoomId(bookingRoomId);
-        for (StayGuest guest : guests) {
-            lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId())
-                    .ifPresent(queue -> {
-                        queue.setStatus(LodgingQueueStatus.CANCELLED);
-                        lodgingQueueRepository.save(queue);
-                    });
+        List<StayGuest> guests=stayGuestRepository.findByBookingRoomId(bookingRoomId).stream()
+                .sorted(Comparator.comparing(StayGuest::getId)).toList();
+        List<byte[]> keys=guests.stream().map(g->ActiveStayDedup.key(stayGuestRepository,g)).toList();
+        ActiveStayDedup.lock(stayGuestRepository,keys);
+        for(int i=0;i<guests.size();i++) {
+            StayGuest guest=guests.get(i);LodgingQueue queue=lockQueueAndRefresh(guest);
+            ActiveStayDedup.verifyUnchanged(keys.get(i),ActiveStayDedup.key(stayGuestRepository,guest));
+            if(queue!=null){queue.setStatus(LodgingQueueStatus.CANCELLED);lodgingQueueRepository.save(queue);}
         }
     }
 
     private LodgingQueue lockQueueAndRefresh(StayGuest guest) {
-        LodgingQueue queue = lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId()).orElse(null);
-        if (queue != null) entityManager.refresh(guest);
-        return queue;
+        try {
+            LodgingQueue queue=lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(guest.getId()).orElse(null);
+            entityManager.refresh(guest,jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+            return queue;
+        } catch(RuntimeException error){throw ActiveStayDedup.translate(error);}
+    }
+
+    private StayGuest persistGuest(StayGuest guest) {
+        try {StayGuest saved=stayGuestRepository.save(guest);stayGuestRepository.flush();return saved;}
+        catch(RuntimeException error){throw ActiveStayDedup.translate(error);}
     }
 
     private void syncLodgingQueue(StayGuest guest) {

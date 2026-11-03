@@ -45,3 +45,23 @@ Tất cả write utility readings và update/delete meter khóa PESSIMISTIC_WRIT
 PostgreSQL trước sửa2/2FAIL (race tạo dãy giảm và xóa reset làm âm delta). Sau sửa78test PASS,0 lỗi/skip, gồm6PostgreSQL thực +72utility/scope (`followup-f04-final.log`). Đã quan sát2writer chờ FOR UPDATE trên utility_meters; kiểm timeout~5s, stale update sau soft-delete, meter khác không chờ và bulk delete final survivors. Sandbox mới `m1-followup-*`, localhost15432, có backup `tools/acceptance/.runtime/followup-snapshot.sql`; không chạm DB chính5433.
 
 Shared files: ErrorCode thêm9054 còn trống; UtilityMeterRepository thêm query khóa; UtilityReadingRepository thêm query history để kiểm surviving neighbors. Constructor/API/permission/unique-per-date/usage semantics giữ nguyên. Hai unit harness thêm EntityManager mock và locked fixture trả về; assertions cũ giữ nguyên. Một lỗi khởi tạo DTO test và tên biến patch đã được sửa trước khi đạt PASS; không tính compile failure là reproducer.
+
+## F03 — CONFIRMED fix local/PostgreSQL
+
+Khóa BYTEA nội bộ32byte được cùng SQL helper tính cho service và trigger. Key BOOKING dùng hotel + effective booking (fallback qua BookingRoom/BookingDetail khi FKbookingnull) + document; WALKIN dùng hotel + room + document. Chỉ check-in/chưa checkout/chưa xóa; trim ASCII whitespace, case-sensitive; null/blank/N/A không gộp người. Trigger tính lại và unique index bảo vệ cả writer ngoài service. Không thêm key vào DTO/API.
+
+Service lấy advisory transaction locks theo key tăng dần trước queue/guest lock, refresh/rebase và kiểm key trước ghi; timeout5s và mã9062/HTTP409 cố định. Retry trả cùngID/queue; checkout/delete giải phóng key; không phục hồi active match đã checkout trong lúc chờ. EXPORTED legacy noop giữ FKnull và toàn bộ row/queue markers.
+
+Migration incremental `20261103-160000-active-stay-dedup`, context bắt buộc `@m1-active-stay-dedup`; root includeAll giữ nguyên. Lock maintenance, preflight duplicate/bad links → abort cả transaction, chỉ báo numeric IDs; không auto-delete/merge. Backfill chỉ key, preserve timestamp/export fields. Runtime verifier yêu cầu migration/index/trigger trước app mới. Đã áp bằng Liquibase vào sandbox đã backup: receipt `tools/acceptance/.runtime/followup-f03-migration-receipt.json`, businessRowDigestUnchanged=true.
+
+Phát hiện schema kế thừa `booking_room_id NOT NULL` làm WALKIN không lưu được; migration gỡ NOT NULL theo contract WALKIN đã duyệt. DDL rollback chỉ gỡ technical dedup objects, giữ nullable compatibility để không phá walk-in đã có. Ưu tiên rollback app giữ constraint; DDL rollback cần dừng writers/backup.
+
+Bằng chứng: booked regression trước sửa5test/4FAIL,0error; sau sửa70test PASS gồm14dedup PG +4migration PG +2HTTP409 +50StayGuest/time/EXPORTED (`followup-f03-final.log`). Có concurrency hai key cùng thứ tự, check-in batch duplicate rollback, direct writer constraint, tamper key, placeholder/missing identity, scope/case/whitespace, precheckin/history và stale checkout. Ban đầu4test lỗi fixture walk-in NOT NULL được tách khỏi reproducer, sau đó bổ sung test WALKIN thật sau migration. Không tính fixture/compile lỗi là chứng cứ lỗi dedup.
+
+Shared/member khác: StayGuest entity/repository (Booking) thêm internal read-only key và SQL param queries để bảo vệ invariant chung; ErrorCode thêm9062 còn trống. PersonalizationConsentPostgresIT chỉ thêm context migration cần cho full-app startup trên DB trống; không sửa logic U14. Không sửa BookingService/Pricing/Inventory business logic. StayGuest unit mocks chuyển old lookup sang key lookup, fixture active có check-in; assertions nghiệp vụ giữ nguyên.
+
+### Review F03/F04 và wiring
+
+Review bổ sung normalization document bằng đúng6ASCII whitespace (không strip ký tự điều khiển khác), timeout cho cả unknown/planned identity. Kiểm gộp cuối86test PASS,0 lỗi/skip gồm24operation PostgreSQL +10export PostgreSQL cũ +52StayGuest/HTTP (`followup-operation-final.log`).
+
+CI/local acceptance: Start.ps1 thêm context maintenance explicit trong sandbox; Run-BackendTests.ps1 bắt buộc chạy3operation IT với số case6/14/4, không chấp nhận skip. CI thêm job PostgreSQL disposable có password ngẫu nhiên/mask, refused local target và cleanup chỉ container có ownership label;3unit test guard PASS. Backend gate tăng minimum và bắt buộc các suite mới; frontend CI thêm race/OCR browser. YAML parse và diff --check PASS. CI thực/acceptance tổng ở commit cuối vẫn pending.

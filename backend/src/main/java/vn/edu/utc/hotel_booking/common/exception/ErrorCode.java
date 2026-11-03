@@ -118,6 +118,7 @@ public enum ErrorCode {
     INVALID_UTILITY_READING_VALUE(9053, "Chỉ số đọc không hợp lệ (nhỏ hơn chỉ số trước đó mà không có cờ reset đồng hồ)", HttpStatus.BAD_REQUEST),
     UTILITY_WRITE_CONFLICT(9054, "Dữ liệu đồng hồ đang được cập nhật, vui lòng thử lại", HttpStatus.CONFLICT),
     STAY_GUEST_NOT_FOUND(9061, "Không tìm thấy thông tin khách lưu trú", HttpStatus.NOT_FOUND),
+    STAY_GUEST_CONFLICT(9062, "Lượt lưu trú đang được cập nhật hoặc trùng định danh, vui lòng kiểm tra và thử lại", HttpStatus.CONFLICT),
     LODGING_QUEUE_NOT_FOUND(9071, "Không tìm thấy bản ghi trong hàng chờ khai báo lưu trú", HttpStatus.NOT_FOUND),
     LODGING_EXPORT_EMPTY(9072, "Không có dữ liệu khách lưu trú phù hợp để xuất file khai báo", HttpStatus.BAD_REQUEST),
     LODGING_EXPORTED_RECORD_LOCKED(9073, "Không thể thay đổi nội dung hồ sơ đã xuất", HttpStatus.CONFLICT),

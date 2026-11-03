@@ -84,6 +84,13 @@ try {
     & .\mvnw.cmd clean test
     if ($LASTEXITCODE -ne 0) { throw "Maven clean test thất bại (exit $LASTEXITCODE)." }
 
+    # Explicit IT selection prevents default unit jobs from reporting skipped optional database cases.
+    $env:M1_OPERATION_IT='true'
+    try {
+        & .\mvnw.cmd '-Dtest=UtilityConcurrencyPostgresIT,StayGuestDedupPostgresIT,ActiveStayMigrationPostgresIT' '-DfailIfNoTests=true' test
+        if ($LASTEXITCODE -ne 0) { throw "Operation PostgreSQL IT failed (exit $LASTEXITCODE)." }
+    } finally { Remove-Item Env:M1_OPERATION_IT -ErrorAction SilentlyContinue }
+
     # Run the otherwise-disabled full-application context smoke test separately so its sandbox
     # credentials cannot affect unit tests that intentionally verify missing-secret behavior.
     $env:DB_HOST = '127.0.0.1'
@@ -118,7 +125,10 @@ try {
     foreach ($Required in @(
         @{ Name = 'LodgingExportPostgresTest'; Count = 10 },
         @{ Name = 'RedisRoomAdvisorSessionStoreRealRedisTest'; Count = 4 },
-        @{ Name = 'HotelBookingApplicationTests'; Count = 1 }
+        @{ Name = 'HotelBookingApplicationTests'; Count = 1 },
+        @{ Name = 'UtilityConcurrencyPostgresIT'; Count = 6 },
+        @{ Name = 'StayGuestDedupPostgresIT'; Count = 14 },
+        @{ Name = 'ActiveStayMigrationPostgresIT'; Count = 4 }
     )) {
         $Suite = @($Reports | Where-Object { $_.name.EndsWith(".$($Required.Name)") })
         if ($Suite.Count -ne 1 -or $Suite[0].tests -ne $Required.Count -or
@@ -128,7 +138,7 @@ try {
     }
     $Failures = ($Reports | Measure-Object failures -Sum).Sum + ($Reports | Measure-Object errors -Sum).Sum
     if ($Failures -ne 0) { throw 'Surefire còn failure/error.' }
-    [PSCustomObject]@{ status = 'PASS'; command = '.\mvnw.cmd clean test; .\mvnw.cmd -Dacceptance.integration=true -Dtest=HotelBookingApplicationTests test';
+    [PSCustomObject]@{ status = 'PASS'; command = '.\mvnw.cmd clean test; .\mvnw.cmd -Dtest=UtilityConcurrencyPostgresIT,StayGuestDedupPostgresIT,ActiveStayMigrationPostgresIT test; .\mvnw.cmd -Dacceptance.integration=true -Dtest=HotelBookingApplicationTests test';
         tests = ($Reports | Measure-Object tests -Sum).Sum; skipped = ($Reports | Measure-Object skipped -Sum).Sum;
         suites = $Reports } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $EvidenceFile -Encoding UTF8
 } finally {
