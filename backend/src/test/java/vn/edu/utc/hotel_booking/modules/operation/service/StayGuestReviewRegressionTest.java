@@ -49,6 +49,7 @@ class StayGuestReviewRegressionTest {
 
     @BeforeEach void authenticate() {
         org.springframework.test.util.ReflectionTestUtils.setField(service, "entityManager", mock(jakarta.persistence.EntityManager.class));
+        SecurityContextHolder.setContext(SecurityContextHolder.createEmptyContext());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 "synthetic-review", "", AuthorityUtils.createAuthorityList("ROLE_RECEPTIONIST")));
         when(staff.findByUsernameAndIsDeletedFalse("synthetic-review")).thenReturn(Optional.of(

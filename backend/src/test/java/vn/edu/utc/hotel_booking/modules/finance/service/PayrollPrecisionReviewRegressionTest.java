@@ -27,6 +27,7 @@ class PayrollPrecisionReviewRegressionTest {
     final StaffRepository staff = mock(StaffRepository.class);
     final PayrollSummaryService service = new PayrollSummaryServiceImpl(payroll, staff);
     @BeforeEach void authenticate() {
+        SecurityContextHolder.setContext(SecurityContextHolder.createEmptyContext());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 "synthetic-admin", "", AuthorityUtils.createAuthorityList("ROLE_CHAIN_ADMIN")));
         when(staff.findAllById(any())).thenReturn(List.of(Staff.builder().id(7).build()));

@@ -26,6 +26,7 @@ class LodgingQueueReviewRegressionTest {
     final LodgingQueueService service = new LodgingQueueServiceImpl(repository, mock(StaffRepository.class), mapper);
     @BeforeEach void authenticate() {
         org.springframework.test.util.ReflectionTestUtils.setField(mapper, "stayGuestMapper", new vn.edu.utc.hotel_booking.modules.operation.mapper.StayGuestMapperImpl());
+        SecurityContextHolder.setContext(SecurityContextHolder.createEmptyContext());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 "synthetic-admin", "", AuthorityUtils.createAuthorityList("ROLE_CHAIN_ADMIN")));
     }

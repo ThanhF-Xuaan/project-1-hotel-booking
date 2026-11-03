@@ -36,6 +36,7 @@ class UtilityScopeReviewRegressionTest {
 
     @ParameterizedTest @MethodSource("invalidScopes")
     void invalidScopeCannotReadUtilityData(String role, Integer id, boolean reading) {
+        SecurityContextHolder.setContext(SecurityContextHolder.createEmptyContext());
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 "synthetic-scope", "", AuthorityUtils.createAuthorityList("ROLE_"+role)));
         var staff = mock(StaffRepository.class);
