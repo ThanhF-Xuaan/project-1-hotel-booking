@@ -7,6 +7,25 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $runtime = Get-Content -LiteralPath $RuntimeFile -Raw | ConvertFrom-Json
+$env:HOTEL_AI_DEMO_DATA_SOURCE = 'fixture'
+foreach ($name in @('M1_DEMO_DB_URL','M1_DEMO_DB_USER','M1_DEMO_DB_PASSWORD')) {
+    Remove-Item -LiteralPath "Env:$name" -ErrorAction SilentlyContinue
+}
+if ($runtime.HOTEL_AI_DEMO_DATA_SOURCE -and [string]$runtime.HOTEL_AI_DEMO_DATA_SOURCE -cnotin @('fixture','db')) {
+    throw 'Invalid analytics demo data source.'
+}
+if ($Component -eq 'backend' -and [string]$runtime.HOTEL_AI_DEMO_DATA_SOURCE -ceq 'db') {
+    if ([string]$runtime.M1_DEMO_DB_URL -cne 'jdbc:postgresql://localhost:15432/hotel_acceptance_db') {
+        throw 'Analytics DB must use the fixed local acceptance target.'
+    }
+    $private = Get-Content -LiteralPath ([string]$runtime.M1_DEMO_DB_CREDENTIAL_FILE) -Raw | ConvertFrom-Json
+    if ([string]$private.M1_DEMO_DB_USER -cnotmatch '^m1_demo_reader_[a-f0-9]{10}$' -or
+        [string]::IsNullOrWhiteSpace([string]$private.M1_DEMO_DB_PASSWORD)) { throw 'Missing analytics readonly credentials.' }
+    $env:HOTEL_AI_DEMO_DATA_SOURCE = 'db'
+    $env:M1_DEMO_DB_URL = [string]$runtime.M1_DEMO_DB_URL
+    $env:M1_DEMO_DB_USER = [string]$private.M1_DEMO_DB_USER
+    $env:M1_DEMO_DB_PASSWORD = [string]$private.M1_DEMO_DB_PASSWORD
+}
 . (Join-Path $PSScriptRoot 'Rag-Runtime.ps1')
 $ragRuntime = Resolve-AcceptanceRagRuntime $runtime
 $profiles = [System.Collections.Generic.List[string]]::new()

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.31.xsd">
+ <!-- Explicit local provisioning only. Deliberately outside root includeAll. -->
+ <changeSet id="m1-analytics-demo-v1" author="member1">
+  <sqlFile path="schema.sql" relativeToChangelogFile="true" splitStatements="false"/>
+ </changeSet>
+</databaseChangeLog>

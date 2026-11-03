@@ -35,4 +35,9 @@ public class OccupancyDemoController {
     public ResponseEntity<ApiResponse<Void>> invalidScenario() {
         return ResponseEntity.badRequest().body(ApiResponse.<Void>builder().code(400).message("Kịch bản demo không hợp lệ.").build());
     }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ApiResponse<Void>> unavailable() {
+        return ResponseEntity.status(503).body(ApiResponse.<Void>builder().code(503).message("Dịch vụ demo tạm thời chưa sẵn sàng.").build());
+    }
 }

@@ -1,6 +1,6 @@
 # One-command local technical acceptance. Requires an idle, disposable acceptance sandbox.
 [CmdletBinding()]
-param([switch]$IncludeM1Benchmark, [switch]$IncludeM1AdditionalTests, [switch]$IncludePersistentRag)
+param([switch]$IncludeM1Benchmark, [switch]$IncludeM1AdditionalTests, [switch]$IncludePersistentRag, [switch]$IncludeAnalyticsDbDemo)
 
 $ErrorActionPreference = 'Stop'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -19,6 +19,8 @@ $Restored = $false
 $RunLock = $null
 $Backend = $null
 $UiResults = $null
+$AnalyticsRuntimeBefore = $null
+$AnalyticsSeedPath = $null
 $EnvironmentBefore = @{}
 foreach ($Name in @('DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_PORT', 'REDIS_PORT',
     'KEYCLOAK_ADMIN', 'KEYCLOAK_ADMIN_PASSWORD', 'KEYCLOAK_PORT',
@@ -151,6 +153,21 @@ try {
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/verify_current_core_reaudit.py'))
     Invoke-Stage -Name 'core-source-audit-tests' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/test_core_reaudit.py'))
+    if ($IncludeAnalyticsDbDemo) {
+        $AnalyticsPg = @(docker ps --filter 'label=com.docker.compose.project=hotel-m1-acceptance' --filter 'label=com.docker.compose.service=acceptance_postgres' --format '{{.ID}}')
+        if ($LASTEXITCODE -ne 0 -or $AnalyticsPg.Count -ne 1) { throw 'Analytics acceptance container not unique.' }
+        $Exists = docker exec $AnalyticsPg[0] psql -X -U postgres -d hotel_acceptance_db -qAtc "SELECT to_regnamespace('m1_demo') IS NULL;"
+        if ($LASTEXITCODE -ne 0 -or $Exists -ne 't') { throw 'Analytics DB acceptance requires a fresh schema namespace; preserve existing datasets.' }
+        $AnalyticsSeedPath = Join-Path $RunDir 'analytics-seed'
+        Invoke-ScriptStage -Name 'analytics-seed' -Script 'Seed-M1AnalyticsDemo.ps1' -Arguments @('-Action','seed','-Container',$AnalyticsPg[0],'-Database','hotel_acceptance_db','-EvidenceDirectory',$AnalyticsSeedPath)
+        $AnalyticsRuntimeBefore = [IO.File]::ReadAllBytes($Runtime.RuntimeFile)
+        $Config | Add-Member -NotePropertyName HOTEL_AI_DEMO_DATA_SOURCE -NotePropertyValue 'db' -Force
+        $Config | Add-Member -NotePropertyName M1_DEMO_DB_URL -NotePropertyValue 'jdbc:postgresql://localhost:15432/hotel_acceptance_db' -Force
+        $Config | Add-Member -NotePropertyName M1_DEMO_DB_CREDENTIAL_FILE -NotePropertyValue (Join-Path $AnalyticsSeedPath 'runtime.private.json') -Force
+        $Config | Add-Member -NotePropertyName HOTEL_AI_DEMO_FORECAST_ENABLED -NotePropertyValue 'true' -Force
+        $Config | Add-Member -NotePropertyName HOTEL_AI_DEMO_GROUP_ENABLED -NotePropertyValue 'true' -Force
+        $Config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Runtime.RuntimeFile -Encoding UTF8
+    }
     Invoke-Stage -Name 'current-source-audit-tests' -Executable (Get-Command python -CommandType Application | Select-Object -First 1).Source `
         -Arguments @((Join-Path $ProjectRoot 'tools/t12/test_current_core_reaudit.py'))
     Push-Location (Join-Path $ProjectRoot 'frontend')
@@ -198,6 +215,9 @@ try {
                 throw 'Ứng dụng còn listener sau khi dừng; giữ hạ tầng để kiểm tra.'
             }
             if ($SnapshotReady) {
+                if ($AnalyticsSeedPath -and (Test-Path -LiteralPath (Join-Path $AnalyticsSeedPath 'receipt.json'))) {
+                    Invoke-ScriptStage -Name 'analytics-cleanup' -Script 'Cleanup-M1AnalyticsDemo.ps1' -Arguments @('-SeedDirectory',$AnalyticsSeedPath,'-EvidenceDirectory',(Join-Path $RunDir 'analytics-cleanup'))
+                }
                 if ((Get-FileHash -LiteralPath $SnapshotFile -Algorithm SHA256).Hash -ne $SnapshotHash) {
                     throw 'Snapshot đã đổi trong lần chạy; không restore.'
                 }
@@ -213,6 +233,7 @@ try {
     foreach ($Name in $EnvironmentBefore.Keys) {
         [Environment]::SetEnvironmentVariable($Name, $EnvironmentBefore[$Name], 'Process')
     }
+    if ($AnalyticsRuntimeBefore) { [IO.File]::WriteAllBytes($Runtime.RuntimeFile,$AnalyticsRuntimeBefore) }
     if ($RunLock) { $RunLock.Dispose() }
 }
 
