@@ -1,0 +1,169 @@
+{
+  "baseCommit": "332dfbca444012a1bc7eb1ce084c8c0f751c5098",
+  "reviewedCommit": "3429a94e4768370b8f98577c8c45edc4c4f001ad",
+  "status": "AI_TECHNICAL_REVIEW_ONLY",
+  "humanPeerApproval": false,
+  "files": [
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/common/exception/ErrorCode.java",
+      "beforeLfSha256": "cff759ec8c93b9b91e0cfdd59edbc277a6d0da77b2a0fc108eea09dfd2e9da91",
+      "afterLfSha256": "93de8ebab2d66c713e35cd4e7ed73e4d26d529e28a7ea76191ec687a74990113",
+      "patchLfSha256": "a53b59aa8e49a1f201fee4a1f7d2a0c2dcb964976a29dbac3dca15fdef2b5d35",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/controller/PublicRoomAdvisorController.java",
+      "beforeLfSha256": "b58c5ba47de434bd8bfcff2bedfa6bb52d549a55926eccc01d49ee0a15a4c844",
+      "afterLfSha256": "2e9c28a3b35c49c3249f060c27cee8b1f46a2983713e3834cb75500cc9b2c534",
+      "patchLfSha256": "af142d9a9223ce033b116219e10e8a56150d84df8bbb486f688c2c96e0b3393d",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/service/AdvisorDependencyUnavailableException.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "13542d739e9decb839b671db27d0d4281f4092c8e275150f525535647b9b5057",
+      "patchLfSha256": "49683e02f68481ffeb12bd97c990b9e2b59caf7c6b225290a08f1a9bc0f7d428",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/service/RoomAdvisorOrchestrationService.java",
+      "beforeLfSha256": "3fe40cf1884c8adec6cc3a4a3dc01936f1dc4126934c78f49e50e1ee13647c0a",
+      "afterLfSha256": "535eedf2d4d4a30e33aa404ed115f327ebf8614b29639b6364ce2d1907b15377",
+      "patchLfSha256": "db91ce1d06a90f8fb38c36a6cd4a96616782f46ebd870c4a8930c91f7bdff581",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/session/InMemoryRoomAdvisorSessionStore.java",
+      "beforeLfSha256": "c6a1f55be6beb51fedbb2fa2d26a769546cbe8eedb8e206fb1e6fbe2814de5cb",
+      "afterLfSha256": "84d2d16b057946374399681fa909005f556d4201121821ce9bc8eb3f17736820",
+      "patchLfSha256": "30fa6c259abf7a65839de6adcbe2d89657341470f40f3146d17fbdb2012ec3f8",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/session/RedisRoomAdvisorSessionStore.java",
+      "beforeLfSha256": "116b6934c5dfca4df0f299e869b8d6595602cfa9609119edb3236572da41177a",
+      "afterLfSha256": "04f84183b37dbeaa1b5b871db867bd30a9bf634bdcd5259a7e64a60c77a7326a",
+      "patchLfSha256": "861cf731e97d7370e363e96467083e7c34db40b19d4cf9028e22218d44afe832",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/ai/advisor/session/RoomAdvisorSnapshots.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "a01ad767fb3ca68e11256a8b16abb623e7a5ab17dfe1fcc097dac2e25a147f03",
+      "patchLfSha256": "ac536312d1500c06bad5de69f06b2c9ecc96338ef7ed18681b8807ed6ff3d2a8",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/entity/StayGuest.java",
+      "beforeLfSha256": "dad61f543c8e0577ebf4d8c668d017551a32878f8fd387b1a132ed4b3f1e152c",
+      "afterLfSha256": "12c565c912bfef83a414c63f04eb922ad616b523f2b1d7ffc8fd0b86478736e4",
+      "patchLfSha256": "f95b0b38e69020f2a410675156a3b07b5e36e24ee728c014cc6166e33a97d162",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/booking/repository/StayGuestRepository.java",
+      "beforeLfSha256": "75b7fb499241320ae7e457978d36ac94bb53f92090541d9716fefedebb0f5f98",
+      "afterLfSha256": "11b0ce487a2df9c5e0d37cad07895425876e0bacc4de03bdd0e5d006bde2ca38",
+      "patchLfSha256": "abeb7a0c896391e075d645f5a7a634d3023f6b17c40bf66a48b36e909de1ca61",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/finance/service/impl/PayrollSummaryServiceImpl.java",
+      "beforeLfSha256": "b564665fcccb0ab30991d5727642977177fdf7171eaca49d86cc6c4951d37095",
+      "afterLfSha256": "526f9650f1d098876797c13f4a70180ef336d67d2b931612a21bc10e288336fc",
+      "patchLfSha256": "a55222c11e918aed907905823f37348dfee0788b1adb52565912273b123fd232",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/repository/UtilityMeterRepository.java",
+      "beforeLfSha256": "06b3b4babd240bb383ec72ba357bb040793faa1fffe442059cc392cf02668d2a",
+      "afterLfSha256": "c4a9079db6c8a18733fc54edd11ffb4d2cc6c8075a52d67cbc75083b740d2eab",
+      "patchLfSha256": "979203dea9b057a07211a99db3a72ca45f5727396a92c1a892ea64789fd81902",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/repository/UtilityReadingRepository.java",
+      "beforeLfSha256": "6d1ecedddcfb40d74cc25f32e3cf8006ac8334628326b31cb968e875fbdb78a2",
+      "afterLfSha256": "3565b940a1df9e140030e67050b96e3199c66e5c076f991bc58764ae5a743169",
+      "patchLfSha256": "4ef6ead514f77a46de40204182f3d530900d80dd74ff306ee2a2da56635ba2a4",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/StayGuestServiceImpl.java",
+      "beforeLfSha256": "766a577fc834d9a88ca3bf8065a19337fac5640829f47603cf2866e40b0f57f2",
+      "afterLfSha256": "31a5a949633ffe152f379a874fdbd4f9f951208496a5dfdc3efb19ce3366f251",
+      "patchLfSha256": "91256151301a1c37deaba3f48b9edb1e79f5d3e702f40467aaeae78f3a46b299",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/UtilityMeterServiceImpl.java",
+      "beforeLfSha256": "1632583dd251cb846a101450565e06a52410defdf06b290fc317709af6ce8eb1",
+      "afterLfSha256": "31b539e8de58e1145da6078d0d266ccbdb3e48070b61e021a58b47b47ec42926",
+      "patchLfSha256": "d117363f9272a8a5323673408161cc30c984fa656d9a71bfd5a3958c1d2047eb",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/impl/UtilityReadingServiceImpl.java",
+      "beforeLfSha256": "c65cbf611de068a60de985271c4fbd7ce59c0d51bb8b7f7e395598fc9af4caf4",
+      "afterLfSha256": "aa4104986e775211cf9d2659668ccdf288fd3e2c7172135ae33d897a8031e024",
+      "patchLfSha256": "50d9120281993246362792d290b15ba5f39c50a03fd1b6be0d8684168bd66678",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/support/ActiveStayDedup.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "1f40063608af7c4875be3bd73118904cf23fa2987b9759649e0236564f16dfc1",
+      "patchLfSha256": "ff9408d15ac80bc753d5772daba0dcf4e732b594bf7f99b1b676349171c22f35",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/support/ActiveStaySchemaVerifier.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "5dd813da614ba6e9358f856f7b7d2a43c49c5bc2a62be6487293abf7103a2ece",
+      "patchLfSha256": "698bd1125603fc27a28c8ab0df485a8ff4f6ee661449447e67004507be4bb7e4",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/support/StayGuestTimeValidator.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "3e9b863e6a8741a38053e4c3eaf9fd2c0837be4c42007afaddfa5cfbe03f6abb",
+      "patchLfSha256": "b372099f6c81120cd29df35c3f9316345d0d134ba42f31af14365dac07666e80",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/java/vn/edu/utc/hotel_booking/modules/operation/service/support/UtilityWriteLock.java",
+      "beforeLfSha256": null,
+      "afterLfSha256": "eab372c5fd24c9647ea192ce9f0e04ca1da510500fba807b01fc5251c6d3217b",
+      "patchLfSha256": "ac3a7e19c4a22df4cb07789bf31dda3fff12ae4318f1f49985e896b1e1f8dd9c",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/resources/db/changelogs/incremental/2026/20261103-160000-active-stay-dedup.xml",
+      "beforeLfSha256": null,
+      "afterLfSha256": "a2f9b57d7e13a1f91968ee9cf386ec6cb58966b5257074b339ad5d86cc17bf8f",
+      "patchLfSha256": "d62241939c74f6fd7702c4b2dc356c31d5d9f5caf40d68f305974df726226472",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "backend/src/main/resources/db/sqlFile/incremental/2026/20261103-160000-active-stay-dedup.sql",
+      "beforeLfSha256": null,
+      "afterLfSha256": "60e90534645e68e9bb22792421a9cc6e8f1aa4307e55bfe5141e0e7a72eaf88d",
+      "patchLfSha256": "4f7003b9b04789a23a154cd3dda40b060c310e882f0d980135fc94e1dddbe219",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "frontend/src/modules/booking/components/StayGuestsModal.tsx",
+      "beforeLfSha256": "c0d7f3d4d1c91e7def306d69a8573a4d3900262adc93bea16e0df2c46abbf60d",
+      "afterLfSha256": "7a3a04888f7574bc5ef161b3adca854ddbf7004e8e0a95c5d507c33924144409",
+      "patchLfSha256": "ee957c267f1591aa3b0eb8ed18773fba7cfdd3186764eb97c32aae049f023b6e",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    },
+    {
+      "path": "frontend/src/modules/operation/services/stayGuest.service.ts",
+      "beforeLfSha256": "ed3d10c10bcbb50fc7d0c57054c6a4837b101869835153cdb9bb6c9faf009016",
+      "afterLfSha256": "208e577a7192e519b181011d21cd8521cd384de06ccbbfd3ff798f265f2ca8cb",
+      "patchLfSha256": "e6bbd7e6a7d56578ab097b29be21ff5cf42784a22e01601a51b10b70ee8e958a",
+      "review": "Six approved follow-up fixes; local regression evidence in m1-six-followup-fixes-2026-11-03.md; AI technical review only."
+    }
+  ]
+}

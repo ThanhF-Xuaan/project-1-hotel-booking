@@ -2,6 +2,7 @@
 
 This proves provenance, not runtime correctness or human peer approval.
 """
+from reconcile_m1_followup_fixes import reconcile as reconcile_followup, verify_current as verify_followup
 from functools import lru_cache
 import hashlib
 import json
@@ -88,6 +89,7 @@ def verify_row(row, actual):
 
 
 def reconcile(path, actual):
+    actual = reconcile_followup(path, actual)
     if path not in PATHS:
         return actual
     audit = load_receipt()
@@ -99,9 +101,10 @@ def reconcile(path, actual):
 
 
 def verify_current():
+    verify_followup()
     audit = load_receipt()
     for row in audit['files']:
-        verify_row(row, (ROOT / row['path']).read_bytes())
+        verify_row(row, reconcile_followup(row['path'], (ROOT / row['path']).read_bytes()))
     return {'status': 'PASS', 'scope': 'SOURCE_PROVENANCE_ONLY', 'files': len(audit['files']),
             'reviewedCommit': REVIEWED, 'humanPeerApproval': False}
 

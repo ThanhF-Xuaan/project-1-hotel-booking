@@ -16,7 +16,7 @@ Hai test harness cũ dựa vào live-reference được sửa cách setup fixtur
 
 ## Trạng thái
 
-F02/F05/F06/F04/F03 đang triển khai. Chưa kết luận toàn bộ PASS; full sandbox/CI và source receipt delta chưa chạy. Chưa merge.
+Cả6finding đã implement và qua regression từng slice. Full sandbox/CI và delivery còn pending; chưa kết luận acceptance tổng hoặc merge.
 
 ## F02 — CONFIRMED fix local
 
@@ -68,3 +68,5 @@ CI/local acceptance: Start.ps1 thêm context maintenance explicit trong sandbox;
 
 ### Review F01 Redis cleanup
 Snapshot deserialize/copy/serialize lỗi giải phóng WATCH trước503; serialize trước MULTI, discard khi transaction lỗi. Regression trước sửa12test/2FAIL; sau sửa130test PASS,0 lỗi/skip gồm frozen/security/HTTP (followup-f01-cleanup-after.log).
+
+Source receipt mới pin23production files từ332dfbc đến3429a94, compose trước receipt cũ; giữ nguyên gold/historical receipt. Đây là source provenance và AI technical review, không phải peer approval. Sandbox F03/F04 đã restore/stop và config trả nguyên byte.

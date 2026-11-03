@@ -28,8 +28,8 @@ class ReviewFixReauditTest(unittest.TestCase):
 
     def test_line_endings_are_portable_and_unrelated_files_are_unchanged(self):
         row = audit.load_receipt()['files'][0]
-        actual = audit.blob(audit.REVIEWED, row['path'])
-        self.assertEqual(audit.reconcile(row['path'], actual.replace(b'\n', b'\r\n')),
+        actual = (audit.ROOT / row['path']).read_bytes()
+        self.assertEqual(audit.reconcile(row['path'], audit.lf(actual).replace(b'\n', b'\r\n')),
                          audit.blob(audit.BASE, row['path']))
         self.assertEqual(audit.reconcile('unrelated.txt', b'unchanged'), b'unchanged')
 
