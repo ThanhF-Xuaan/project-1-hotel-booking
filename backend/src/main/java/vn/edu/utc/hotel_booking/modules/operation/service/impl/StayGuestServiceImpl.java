@@ -31,6 +31,7 @@ import vn.edu.utc.hotel_booking.modules.operation.mapper.StayGuestMapper;
 import vn.edu.utc.hotel_booking.modules.operation.repository.LodgingQueueRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository;
 import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
+import vn.edu.utc.hotel_booking.modules.operation.service.support.StayGuestAssociationValidator;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 
@@ -61,48 +62,20 @@ public class StayGuestServiceImpl implements StayGuestService {
         Hotel hotel = hotelRepository.findByIdAndIsDeletedFalse(request.getHotelId())
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND));
 
-        Booking booking = null;
-        if (request.getBookingId() != null) {
-            booking = bookingLookupService.getBookingEntityById(request.getBookingId());
-            if (booking.getHotel() != null && !booking.getHotel().getId().equals(hotel.getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Đơn đặt phòng không thuộc khách sạn này");
-            }
+        Booking booking = request.getBookingId() == null ? null : bookingLookupService.getBookingEntityById(request.getBookingId());
+        RoomInstance room = request.getRoomId() == null ? null : roomInstanceRepository.findById(request.getRoomId())
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý"));
+        BookingRoom bookingRoom = request.getBookingRoomId() == null ? null
+                : bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
+        if (request.getBookingRoomId() != null && bookingRoom == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Liên kết phòng đặt không hợp lệ");
         }
-
-        RoomInstance room = null;
-        if (request.getRoomId() != null) {
-            room = roomInstanceRepository.findById(request.getRoomId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý với ID " + request.getRoomId()));
-            if (room.getHotel() != null && !room.getHotel().getId().equals(hotel.getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc khách sạn này");
-            }
+        if (bookingRoom == null && booking != null && room != null) {
+            bookingRoom = bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(booking.getId(), room.getId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc đơn đặt phòng"));
         }
-
-        BookingRoom bookingRoom = null;
-        if (request.getBookingRoomId() != null) {
-            bookingRoom = bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
-            if (bookingRoom.getRoomInstance() == null) {
-                throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
-                        "Phòng đặt ID " + bookingRoom.getId() + " chưa được gán phòng vật lý. Bắt buộc phải xếp phòng trước khi khai báo khách lưu trú.");
-            }
-            if (booking != null && bookingRoom.getBookingDetail() != null
-                    && bookingRoom.getBookingDetail().getBooking() != null
-                    && !bookingRoom.getBookingDetail().getBooking().getId().equals(booking.getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng đặt không thuộc đơn đặt phòng được chỉ định");
-            }
-            if (booking == null && bookingRoom.getBookingDetail() != null) {
-                booking = bookingRoom.getBookingDetail().getBooking();
-            }
-            if (room == null) {
-                room = bookingRoom.getRoomInstance();
-            }
-        } else if (request.getBookingId() != null && request.getRoomId() != null) {
-            bookingRoom = bookingLookupService.findBookingRoomByBookingIdAndRoomInstanceId(request.getBookingId(), request.getRoomId()).orElse(null);
-            if (bookingRoom != null && bookingRoom.getRoomInstance() == null) {
-                throw new AppException(ErrorCode.ROOM_NOT_YET_ASSIGNED,
-                        "Phòng đặt ID " + bookingRoom.getId() + " chưa được gán phòng vật lý. Bắt buộc phải xếp phòng trước khi khai báo khách lưu trú.");
-            }
-        }
+        var associations = StayGuestAssociationValidator.validate(hotel.getId(), booking, bookingRoom, room, request.getRoomNumber());
+        booking = associations.booking(); bookingRoom = associations.bookingRoom(); room = associations.room();
 
         // Kiểm tra xem đây có phải là retry của cùng một lượt lưu trú đang diễn ra (chưa checkout) hay không:
         // 1. Nếu có bookingId: kiểm tra cùng hotelId, bookingId, documentNumber và actualCheckOutTime == null
@@ -147,6 +120,7 @@ public class StayGuestServiceImpl implements StayGuestService {
             guest.setBookingRoom(bookingRoom);
         }
 
+        guest.setRoomNumber(associations.roomNumber());
         StayGuest savedGuest = stayGuestRepository.save(guest);
 
         // Đánh giá tính đầy đủ theo tiêu chuẩn BCA để đẩy vào LodgingQueue
@@ -164,26 +138,21 @@ public class StayGuestServiceImpl implements StayGuestService {
 
         validateStaffScope(guest.getHotel().getId());
 
-        if (request.getRoomId() != null) {
-            RoomInstance room = roomInstanceRepository.findById(request.getRoomId())
-                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý với ID " + request.getRoomId()));
-            if (room.getHotel() != null && !room.getHotel().getId().equals(guest.getHotel().getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng vật lý không thuộc khách sạn này");
-            }
-            guest.setRoom(room);
+        BookingRoom bookingRoom = request.getBookingRoomId() == null ? guest.getBookingRoom()
+                : bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
+        if (request.getBookingRoomId() != null && bookingRoom == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Liên kết phòng đặt không hợp lệ");
         }
-
-        if (request.getBookingRoomId() != null) {
-            BookingRoom bookingRoom = bookingLookupService.getBookingRoomEntityById(request.getBookingRoomId());
-            if (guest.getBooking() != null && bookingRoom.getBookingDetail() != null
-                    && bookingRoom.getBookingDetail().getBooking() != null
-                    && !bookingRoom.getBookingDetail().getBooking().getId().equals(guest.getBooking().getId())) {
-                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Phòng đặt không thuộc đơn đặt phòng được chỉ định");
-            }
-            guest.setBookingRoom(bookingRoom);
-        }
-
+        RoomInstance room = request.getRoomId() == null
+                ? (request.getBookingRoomId() == null ? guest.getRoom() : bookingRoom.getRoomInstance())
+                : roomInstanceRepository.findById(request.getRoomId())
+                    .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA, "Không tìm thấy phòng vật lý"));
+        String number = request.getRoomNumber() != null ? request.getRoomNumber()
+                : ((request.getRoomId() != null || request.getBookingRoomId() != null) && room != null ? room.getRoomNumber() : guest.getRoomNumber());
+        var associations = StayGuestAssociationValidator.validate(guest.getHotel().getId(), guest.getBooking(), bookingRoom, room, number);
         stayGuestMapper.updateEntityFromDto(request, guest);
+        guest.setBooking(associations.booking()); guest.setBookingRoom(associations.bookingRoom());
+        guest.setRoom(associations.room()); guest.setRoomNumber(associations.roomNumber());
         StayGuest savedGuest = stayGuestRepository.save(guest);
 
         // Cập nhật lại trạng thái queue nếu trước đó bị thiếu trường
