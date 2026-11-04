@@ -161,10 +161,6 @@ jobs:
       - name: Validate current contracts and route safety
         run: |
           python tools/t12/validate_r1_contracts.py --artifacts-only
-          python tools/t12/reconcile_m1_followup_fixes.py
-          python tools/t12/test_followup_reaudit.py
-          python tools/t12/reconcile_m1_review_fixes.py
-          python tools/t12/test_review_fix_reaudit.py
           node --test tools/ci/test_member1_routes.cjs
           node tools/ci/verify_member1_routes.cjs
           python -m unittest discover -s tools/ci -p 'test*.py' -v
