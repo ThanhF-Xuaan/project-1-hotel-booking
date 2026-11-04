@@ -11,11 +11,13 @@ import {
   ShieldCheck,
   Star,
   FileSearch,
+  Users,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import PublicFooter from '../../../core/components/layout/PublicFooter';
 import type { CustomerSearchCriteria, AvailableRoomOffer } from '../types/portal.types';
 import { RoomAdvisorWidget } from '../components/RoomAdvisor/RoomAdvisorWidget';
+import { GroupInquiryModal } from '../components/GroupInquiryModal';
 import type { AdvisorRecommendation, AdvisorSearchCriteria } from '../types/roomAdvisor.types';
 
 const DEFAULT_CHECK_IN = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -27,12 +29,14 @@ const INITIAL_CRITERIA: CustomerSearchCriteria = {
   checkOutDate: DEFAULT_CHECK_OUT,
   adultCount: 2,
   childCount: 0,
+  roomsCount: 1,
 };
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
   const [criteria, setCriteria] = useState<CustomerSearchCriteria>(INITIAL_CRITERIA);
 
@@ -84,6 +88,23 @@ export const SearchPage: React.FC = () => {
     },
   ]);
 
+  const selectedHotelName =
+    criteria.hotelId === 2
+      ? 'Premier Đà Nẵng Resort'
+      : criteria.hotelId === 3
+      ? 'Boutique Sài Gòn Hotel'
+      : 'Grand Hà Nội Hotel';
+
+  const handleSearchRooms = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if ((criteria.roomsCount ?? 1) >= 6) {
+      setIsGroupModalOpen(true);
+      return;
+    }
+    const el = document.getElementById('room-offers-list');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const formatVND = (amount: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 
@@ -96,18 +117,21 @@ export const SearchPage: React.FC = () => {
     });
   };
 
-  const handleAdvisorViewDetails = (rec: AdvisorRecommendation, advisorCriteria: AdvisorSearchCriteria) => {
-    if (advisorCriteria.adults == null || advisorCriteria.adults < 1) return;
+  const handleAdvisorViewDetails = (rec: AdvisorRecommendation, advisorCriteria?: AdvisorSearchCriteria) => {
+    const adults =
+      advisorCriteria?.adults && advisorCriteria.adults >= 1
+        ? advisorCriteria.adults
+        : criteria.adultCount || 2;
 
     const hotelId = rec.room.hotelId;
     const hotelRoomTypeId = rec.room.hotelRoomTypeId;
-    const checkIn = rec.stay.checkInDate;
-    const checkOut = rec.stay.checkOutDate;
-    const adults = advisorCriteria.adults;
-    const children = advisorCriteria.children ?? 0;
-    const infants = advisorCriteria.infants ?? 0;
-    const extraBeds = advisorCriteria.extraBeds ?? 0;
-    const roomsCount = rec.stay.roomsCount;
+    const checkIn = rec.stay?.checkInDate || criteria.checkInDate;
+    const checkOut = rec.stay?.checkOutDate || criteria.checkOutDate;
+
+    const children = advisorCriteria?.children ?? 0;
+    const infants = advisorCriteria?.infants ?? 0;
+    const extraBeds = advisorCriteria?.extraBeds ?? 0;
+    const roomsCount = rec.stay?.roomsCount ?? 1;
     const query = new URLSearchParams({
       checkInDate: checkIn,
       checkOutDate: checkOut,
@@ -189,7 +213,7 @@ export const SearchPage: React.FC = () => {
           </div>
 
           {/* Search Box */}
-          <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xl border border-neutral-100 text-neutral-900 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xl border border-neutral-100 text-neutral-900 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <label className="block text-xs font-bold text-neutral-600 mb-1 flex items-center gap-1">
                 <Building2 className="w-3.5 h-3.5 text-red-600" />
@@ -232,8 +256,36 @@ export const SearchPage: React.FC = () => {
               />
             </div>
 
+            <div>
+              <label className="block text-xs font-bold text-neutral-600 mb-1 flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-red-600" />
+                Số lượng phòng
+              </label>
+              <select
+                value={criteria.roomsCount ?? 1}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setCriteria({ ...criteria, roomsCount: val });
+                  if (val >= 6) {
+                    setIsGroupModalOpen(true);
+                  }
+                }}
+                className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-600 bg-white cursor-pointer"
+              >
+                <option value={1}>1 Phòng (Khách lẻ)</option>
+                <option value={2}>2 Phòng (Khách lẻ)</option>
+                <option value={3}>3 Phòng (Khách lẻ)</option>
+                <option value={4}>4 Phòng (Khách lẻ)</option>
+                <option value={5}>5 Phòng (Tối đa FIT)</option>
+                <option value={6}>6+ Phòng (Khách đoàn GIT)</option>
+              </select>
+            </div>
+
             <div className="flex items-end">
-              <Button className="w-full h-11 flex items-center justify-center gap-2 font-bold text-sm">
+              <Button
+                onClick={handleSearchRooms}
+                className="w-full h-11 flex items-center justify-center gap-2 font-bold text-sm shadow-xs cursor-pointer"
+              >
                 <Search className="w-4 h-4" />
                 Tìm Phòng Trống
               </Button>
@@ -330,6 +382,20 @@ export const SearchPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Group Booking Inquiry Modal (FR-SRCH-05: Blocks FIT >= 6 rooms) */}
+      <GroupInquiryModal
+        isOpen={isGroupModalOpen}
+        onClose={() => setIsGroupModalOpen(false)}
+        initialRoomsCount={criteria.roomsCount ?? 6}
+        hotelName={selectedHotelName}
+        checkInDate={criteria.checkInDate}
+        checkOutDate={criteria.checkOutDate}
+        onSwitchToFit={() => {
+          setCriteria((prev) => ({ ...prev, roomsCount: 5 }));
+          setIsGroupModalOpen(false);
+        }}
+      />
 
       {/* Floating AI Room Advisor Widget */}
       <RoomAdvisorWidget

@@ -49,6 +49,7 @@ export interface BookingSearchDto {
   checkOutDate?: string;
   isAssigned?: boolean;
   page?: number;
+  pageSize?: number;
   size?: number;
 }
 
@@ -417,5 +418,31 @@ export interface BookingCancelResponse {
   message: string;
 }
 
+export interface RoomSwapRequest {
+  targetRoomInstanceId: number;
+  reason: string;
+  isComplimentary?: boolean;
+  effectiveDate?: string;
+}
 
-
+export interface RoomSwapResponse {
+  swapRecordId: number;
+  bookingId: number;
+  bookingNumber: string;
+  bookingRoomId: number;
+  previousRoomInstanceId: number;
+  previousRoomNumber: string;
+  previousRoomTypeName: string;
+  newRoomInstanceId: number;
+  newRoomNumber: string;
+  newRoomTypeName: string;
+  swapDate: string;
+  effectiveDate?: string;
+  reason: string;
+  isUpgrade: boolean;
+  isComplimentary: boolean;
+  priceDifference: number;
+  roomStatus: BookingRoomStatus;
+  swappedAt: string;
+  performedBy: string;
+}

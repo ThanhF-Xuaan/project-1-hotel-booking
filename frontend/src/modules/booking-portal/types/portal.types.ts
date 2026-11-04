@@ -4,6 +4,7 @@ export interface CustomerSearchCriteria {
   checkOutDate: string;
   adultCount: number;
   childCount: number;
+  roomsCount?: number;
 }
 
 export interface AvailableRoomOffer {

@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Megaphone,
   CalendarCheck,
+  Calendar,
   UserPlus,
   Receipt,
   UtensilsCrossed,
@@ -74,6 +75,12 @@ const navGroups: NavGroup[] = [
         label: 'Danh sách Đặt phòng',
         to: '/booking/list',
         icon: <CalendarCheck className="w-5 h-5" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE'],
+      },
+      {
+        label: 'Sơ đồ Ma trận',
+        to: '/admin/timeline',
+        icon: <Calendar className="w-5 h-5" />,
         roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE'],
       },
       {

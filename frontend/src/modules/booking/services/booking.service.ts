@@ -14,6 +14,8 @@ import type {
   BookingCancelPreviewResponse,
   BookingCancelRequest,
   BookingCancelResponse,
+  RoomSwapRequest,
+  RoomSwapResponse,
 } from '../types/booking.types';
 
 const BASE_URL = '/api/v1/bookings';
@@ -84,6 +86,9 @@ export const bookingService = {
 
   cancelPublicBooking: (bookingNumber: string, data: BookingCancelRequest) =>
     apiClient.post<BookingCancelResponse>(`/api/v1/public/bookings/${bookingNumber}/cancel`, data),
+
+  swapRoom: (bookingRoomId: number, data: RoomSwapRequest) =>
+    apiClient.post<RoomSwapResponse>(`${BASE_URL}/rooms/${bookingRoomId}/swap-room`, data),
 };
 
 export default bookingService;

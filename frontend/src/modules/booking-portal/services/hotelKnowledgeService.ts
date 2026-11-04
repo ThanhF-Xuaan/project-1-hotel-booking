@@ -1,6 +1,9 @@
 import axios from 'axios';
 import { z } from 'zod';
-const client = axios.create({ baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080', timeout: 15000 });
+const rawBaseUrl =
+  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = rawBaseUrl.replace(/\/api\/?$/, '');
+const client = axios.create({ baseURL: API_BASE_URL, timeout: 15000 });
 const citation = z.object({ sourceId: z.string(), version: z.number().int().positive(),
   chunkId: z.string().uuid(), category: z.string(), hotelId: z.number().int().positive().nullish(),
   effectiveFrom: z.string().nullish(), snippet: z.string(), similarityScore: z.number() });
