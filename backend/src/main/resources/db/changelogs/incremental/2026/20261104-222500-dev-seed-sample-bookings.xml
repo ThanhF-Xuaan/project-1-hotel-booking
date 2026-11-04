@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261104-222500-dev-seed-sample-bookings" author="member-1" context="dev-seed">
+        <comment>Khoi tao 4 bo du lieu booking mau phuc vu Member 1 (T05 Lodging Queue, U13 OCR, U14 Personalization)</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261104-222500-dev-seed-sample-bookings.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>
