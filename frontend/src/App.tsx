@@ -13,6 +13,7 @@ const CampaignListPage = lazy(() => import('./modules/pricing/pages/CampaignList
 const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPage'))
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
 const PolicyManagementPage = lazy(() => import('./modules/booking/pages/PolicyManagementPage'))
+const TimelineMatrixPage = lazy(() => import('./modules/booking/pages/TimelineMatrixPage'))
 const FolioPaymentPage = lazy(() => import('./modules/finance/pages/FolioPaymentPage'))
 const PaymentResultPage = lazy(() => import('./modules/finance/pages/PaymentResultPage'))
 const MenuListPage = lazy(() => import('./modules/operation/pages/MenuListPage')
@@ -85,6 +86,8 @@ export function App() {
               {/* Phân hệ Đặt phòng */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE']} />}>
                 <Route path="/booking/list" element={<BookingListPage />} />
+                <Route path="/admin/timeline" element={<TimelineMatrixPage />} />
+                <Route path="/booking/timeline" element={<TimelineMatrixPage />} />
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
                 <Route path="/booking/walk-in" element={<WalkInBookingPage />} />

@@ -421,9 +421,13 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                             key={rec.recommendationId}
                             recommendation={rec}
                             onViewDetails={(r) => {
-                              if (msg.result?.criteria) {
-                                onViewRoomDetails?.(r, msg.result.criteria);
-                              }
+                              const effectiveCriteria = msg.result?.criteria || {
+                                checkInDate: r.stay?.checkInDate,
+                                checkOutDate: r.stay?.checkOutDate,
+                                adults: 2,
+                                roomsCount: r.stay?.roomsCount ?? 1,
+                              };
+                              onViewRoomDetails?.(r, effectiveCriteria);
                               handleClose();
                             }}
                           />

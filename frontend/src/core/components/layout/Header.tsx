@@ -28,7 +28,7 @@ export const Header: React.FC = () => {
   }
 
   return (
-    <header className="h-16 bg-white border-b border-neutral-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+    <header className="h-16 bg-white border-b border-neutral-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50 shadow-xs">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow-xs">
           <Building2 className="w-5 h-5" />

@@ -16,6 +16,9 @@ import {
   Receipt,
   UserPlus,
   UserX,
+  List,
+  CalendarRange,
+  ArrowLeftRight,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -29,12 +32,15 @@ import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
 import WalkInBookingModal from '../components/WalkInBookingModal';
 import CancelBookingModal from '../components/CancelBookingModal';
+import RoomSwapModal, { type RoomSwapTarget } from '../components/RoomSwapModal';
+import TimelineRackView from '../components/TimelineRackView';
 import type {
   BookingResponse,
   BookingStatus,
   BookingChargeType,
   BookingRoomResponse,
   SurchargeProposalResponse,
+  RoomSwapResponse,
 } from '../types/booking.types';
 import type { RoomInstanceDto } from '../../inventory/types/inventory.types';
 
@@ -136,6 +142,13 @@ export const BookingListPage: React.FC = () => {
   const [isCheckoutSettlementModalOpen, setIsCheckoutSettlementModalOpen] = useState(false);
   const [checkoutSettlementRoomId, setCheckoutSettlementRoomId] = useState<number | null>(null);
 
+  // View Mode: Table View vs Timeline Rack Matrix
+  const [viewMode, setViewMode] = useState<'TABLE' | 'TIMELINE'>('TABLE');
+
+  // Room Swap Modal
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
+  const [swapTarget, setSwapTarget] = useState<RoomSwapTarget | null>(null);
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -165,6 +178,14 @@ export const BookingListPage: React.FC = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       void loadData();
+      roomInstanceService
+        .filter({ pageSize: 100 })
+        .then((res) => {
+          if (res.result) {
+            setAvailableRooms(res.result.content || []);
+          }
+        })
+        .catch((err) => console.error('Lỗi tải phòng vật lý:', err));
     }, 0);
     return () => clearTimeout(timer);
   }, [loadData]);
@@ -211,6 +232,26 @@ export const BookingListPage: React.FC = () => {
       alert(`Lỗi xếp phòng: ${errorMsg}`);
     } finally {
       setIsAssigning(false);
+    }
+  };
+
+  const handleOpenSwapModal = (target: RoomSwapTarget) => {
+    setSwapTarget(target);
+    setIsSwapModalOpen(true);
+  };
+
+  const handleSwapSuccess = (response: RoomSwapResponse) => {
+    setActionSuccessMessage(
+      `Đổi phòng thành công! Phòng ${response.previousRoomNumber} đã chuyển sang Phòng ${response.newRoomNumber} (${response.newRoomTypeName}).`
+    );
+    loadData();
+    roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+      if (res.result) setAvailableRooms(res.result.content || []);
+    });
+    if (selectedBooking) {
+      bookingService.getById(selectedBooking.id).then((updated) => {
+        if (updated.result) setSelectedBooking(updated.result);
+      });
     }
   };
 
@@ -547,13 +588,48 @@ export const BookingListPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with View Mode Switcher */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Quản lý Đặt phòng (Bookings)</h1>
           <p className="text-sm text-neutral-500 mt-1">
-            Quản lý vòng đời lưu trú, xếp phòng vật lý, khai báo khách lưu trú BCA, phụ phí và Check-in/Check-out
+            Quản lý vòng đời lưu trú, xếp phòng vật lý, sơ đồ ma trận Timeline Rack và đổi phòng (Room Swap)
           </p>
+        </div>
+
+        {/* View Mode Switcher */}
+        <div className="flex items-center gap-1.5 p-1 bg-neutral-100 rounded-2xl border border-neutral-200">
+          <button
+            type="button"
+            onClick={() => setViewMode('TABLE')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              viewMode === 'TABLE'
+                ? 'bg-white text-neutral-900 shadow-xs'
+                : 'text-neutral-500 hover:text-neutral-900'
+            }`}
+          >
+            <List className="w-4 h-4" />
+            Danh Sách Đặt Phòng
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setViewMode('TIMELINE');
+              if (availableRooms.length === 0) {
+                roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+                  if (res.result) setAvailableRooms(res.result.content || []);
+                });
+              }
+            }}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              viewMode === 'TIMELINE'
+                ? 'bg-red-600 text-white shadow-xs'
+                : 'text-neutral-500 hover:text-red-600'
+            }`}
+          >
+            <CalendarRange className="w-4 h-4" />
+            Sơ Đồ Ma Trận (Timeline Rack)
+          </button>
         </div>
       </div>
 
@@ -566,8 +642,23 @@ export const BookingListPage: React.FC = () => {
         </div>
       )}
 
-      {/* QUICK FILTER TABS: TẤT CẢ / CHƯA XẾP PHÒNG / ĐÃ XẾP PHÒNG */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
+      {viewMode === 'TIMELINE' ? (
+        <TimelineRackView
+          rooms={availableRooms}
+          bookings={bookings}
+          isLoading={isLoading}
+          onRefresh={() => {
+            loadData();
+            roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+              if (res.result) setAvailableRooms(res.result.content || []);
+            });
+          }}
+          onOpenSwapModal={handleOpenSwapModal}
+        />
+      ) : (
+        <>
+          {/* QUICK FILTER TABS: TẤT CẢ / CHƯA XẾP PHÒNG / ĐÃ XẾP PHÒNG */}
+          <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
         <button
           onClick={() => {
             setAssignedTab('ALL');
@@ -801,6 +892,8 @@ export const BookingListPage: React.FC = () => {
           />
         </div>
       </div>
+      </>
+      )}
 
       {/* MODAL CHI TIẾT ĐƠN ĐẶT PHÒNG */}
       {selectedBooking && (
@@ -994,6 +1087,29 @@ export const BookingListPage: React.FC = () => {
                                 >
                                   <LogOut className="w-3.5 h-3.5 mr-1" />
                                   Check-out
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleOpenSwapModal({
+                                      bookingId: selectedBooking.id,
+                                      bookingNumber: selectedBooking.bookingNumber,
+                                      bookingRoomId: room.id,
+                                      currentRoomInstanceId: room.roomInstanceId,
+                                      currentRoomNumber: room.roomNumber,
+                                      currentRoomTypeName: detail.roomTypeName,
+                                      guestName: selectedBooking.guestName,
+                                      checkInDate: detail.checkInDate,
+                                      checkOutDate: detail.checkOutDate,
+                                      hotelId: selectedBooking.hotelId,
+                                    })
+                                  }
+                                  className="text-purple-700 hover:text-purple-800 border-purple-200 hover:bg-purple-50"
+                                  title="Đổi phòng cho khách sang phòng khác cùng hạng hoặc nâng hạng"
+                                >
+                                  <ArrowLeftRight className="w-3.5 h-3.5 mr-1 text-purple-600" />
+                                  Đổi phòng
                                 </Button>
                               </>
                             )}
@@ -1456,6 +1572,17 @@ export const BookingListPage: React.FC = () => {
             }
           }
         }}
+      />
+
+      {/* MODAL ĐỔI PHÒNG (ROOM SWAP) */}
+      <RoomSwapModal
+        isOpen={isSwapModalOpen}
+        onClose={() => {
+          setIsSwapModalOpen(false);
+          setSwapTarget(null);
+        }}
+        target={swapTarget}
+        onSuccess={handleSwapSuccess}
       />
     </div>
   );
