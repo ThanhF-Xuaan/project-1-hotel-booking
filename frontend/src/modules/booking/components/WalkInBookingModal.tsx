@@ -22,9 +22,13 @@ import {
   UserCheck,
   ShieldCheck,
   Clock,
+  Camera,
 } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
+import OcrIdentityScannerModal, {
+  type ExtractedOcrResult,
+} from '../../operation/components/OcrIdentityScannerModal';
 import hotelService from '../../organization/services/hotel.service';
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
@@ -146,8 +150,19 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   const [guestIdentityType, setGuestIdentityType] = useState('CCCD');
   const [guestIdentityNumber, setGuestIdentityNumber] = useState('');
   const [guestNationality, setGuestNationality] = useState('Việt Nam');
+  const [guestDateOfBirth, setGuestDateOfBirth] = useState('');
+  const [guestGender, setGuestGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
+  const [guestAddress, setGuestAddress] = useState('');
   const [isSearchingGuest, setIsSearchingGuest] = useState(false);
   const [guestFoundMessage, setGuestFoundMessage] = useState<string | null>(null);
+
+  // OCR Trích xuất CCCD / Passport Modal
+  const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
+  const [ocrTarget, setOcrTarget] = useState<
+    | { type: 'LEAD_GUEST' }
+    | { type: 'STAY_GUEST'; roomIndex: number; guestIndex: number }
+    | null
+  >(null);
 
   // Bước 3: Báo giá & Phụ thu
   const [quoteResponse, setQuoteResponse] = useState<WalkInQuoteResponse | null>(null);
@@ -361,10 +376,76 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         identityType: guestIdentityType,
         identityNumber: guestIdentityNumber,
         nationality: guestNationality,
+        birthDate: guestDateOfBirth || guests[0].birthDate,
+        gender: guestGender || guests[0].gender,
         isPrimaryGuest: true,
       };
       updated[0].stayGuests = guests;
       setRooms(updated);
+    }
+  };
+
+  // OCR Modal Handlers
+  const handleOpenOcrForLead = () => {
+    setOcrTarget({ type: 'LEAD_GUEST' });
+    setIsOcrModalOpen(true);
+  };
+
+  const handleOpenOcrForStayGuest = (roomIndex: number, guestIndex: number) => {
+    setOcrTarget({ type: 'STAY_GUEST', roomIndex, guestIndex });
+    setIsOcrModalOpen(true);
+  };
+
+  const handleApplyOcrResult = (result: ExtractedOcrResult) => {
+    if (!ocrTarget) return;
+
+    if (ocrTarget.type === 'LEAD_GUEST') {
+      setGuestFullName(result.fullName);
+      setGuestIdentityType(result.documentType);
+      setGuestIdentityNumber(result.documentNumber);
+      setGuestDateOfBirth(result.dateOfBirth);
+      setGuestGender(result.gender);
+      setGuestNationality(result.nationality || 'Việt Nam');
+      setGuestAddress(result.permanentAddress);
+
+      // Tự động đồng bộ ngay sang khách chính lưu trú ở Phòng #1
+      setRooms((prevRooms) => {
+        const nextRooms = [...prevRooms];
+        if (nextRooms[0] && nextRooms[0].stayGuests.length > 0) {
+          const nextGuests = [...nextRooms[0].stayGuests];
+          nextGuests[0] = {
+            ...nextGuests[0],
+            fullName: result.fullName,
+            identityType: result.documentType,
+            identityNumber: result.documentNumber,
+            birthDate: result.dateOfBirth,
+            gender: result.gender,
+            nationality: result.nationality || 'Việt Nam',
+            isPrimaryGuest: true,
+          };
+          nextRooms[0] = { ...nextRooms[0], stayGuests: nextGuests };
+        }
+        return nextRooms;
+      });
+    } else if (ocrTarget.type === 'STAY_GUEST') {
+      const { roomIndex, guestIndex } = ocrTarget;
+      setRooms((prevRooms) => {
+        const nextRooms = [...prevRooms];
+        if (nextRooms[roomIndex] && nextRooms[roomIndex].stayGuests[guestIndex]) {
+          const nextGuests = [...nextRooms[roomIndex].stayGuests];
+          nextGuests[guestIndex] = {
+            ...nextGuests[guestIndex],
+            fullName: result.fullName,
+            identityType: result.documentType,
+            identityNumber: result.documentNumber,
+            birthDate: result.dateOfBirth,
+            gender: result.gender,
+            nationality: result.nationality || 'Việt Nam',
+          };
+          nextRooms[roomIndex] = { ...nextRooms[roomIndex], stayGuests: nextGuests };
+        }
+        return nextRooms;
+      });
     }
   };
 
@@ -558,6 +639,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               email: guestEmail,
               identityType: guestIdentityType,
               identityNumber: guestIdentityNumber,
+              birthDate: guestDateOfBirth || undefined,
               nationality: guestNationality,
             }
           : undefined,
@@ -1016,18 +1098,30 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
             {/* Người đặt / Đại diện thanh toán (BookingGuest) */}
             <div className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-100 pb-2 gap-2">
                 <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
                   <UserCheck className="w-5 h-5 text-red-600" />
-                  Người đặt phòng / Đại diện thanh toán (Lead Guest)
+                  Thông tin khách chính (Lead Guest)
                 </h4>
-                {guestFoundMessage && (
-                  <span className="text-xs text-green-700 font-medium bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
-                    {guestFoundMessage}
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  {guestFoundMessage && (
+                    <span className="text-xs text-green-700 font-medium bg-green-50 px-2.5 py-1 rounded-full border border-green-200">
+                      {guestFoundMessage}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleOpenOcrForLead}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    title="Tải ảnh CCCD / Hộ chiếu để tự động trích xuất thông tin"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>📷 Tải ảnh CCCD / Passport</span>
+                  </button>
+                </div>
               </div>
 
+              {/* Hàng 1: SĐT, Họ tên, Số CCCD/Hộ chiếu, Email */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 {/* Số điện thoại + Tìm kiếm nhanh */}
                 <div>
@@ -1081,6 +1175,59 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     placeholder="khach@gmail.com"
                     value={guestEmail}
                     onChange={(e) => setGuestEmail(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Hàng 2: Ngày sinh, Giới tính, Địa chỉ thường trú, Quốc tịch (Tự động điền qua OCR) */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Ngày sinh (dateOfBirth)
+                  </label>
+                  <input
+                    type="date"
+                    value={guestDateOfBirth}
+                    onChange={(e) => setGuestDateOfBirth(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Giới tính (gender)
+                  </label>
+                  <select
+                    value={guestGender}
+                    onChange={(e) => setGuestGender(e.target.value as 'MALE' | 'FEMALE' | 'OTHER')}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm bg-white"
+                  >
+                    <option value="MALE">Nam</option>
+                    <option value="FEMALE">Nữ</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Địa chỉ thường trú (address)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Số nhà, đường, phường/xã, tỉnh/thành..."
+                    value={guestAddress}
+                    onChange={(e) => setGuestAddress(e.target.value)}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Quốc tịch
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Việt Nam"
+                    value={guestNationality}
+                    onChange={(e) => setGuestNationality(e.target.value)}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
                   />
                 </div>
@@ -1159,12 +1306,21 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                             className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-medium"
                           />
                         </div>
-                        <div className="flex items-center justify-end">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenOcrForStayGuest(rIdx, gIdx)}
+                            className="text-neutral-500 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer"
+                            title="Quét CCCD / Hộ chiếu cho khách này"
+                          >
+                            <Camera className="w-3.5 h-3.5" />
+                          </button>
                           {room.stayGuests.length > 1 && (
                             <button
                               type="button"
                               onClick={() => handleRemoveStayGuest(rIdx, gIdx)}
-                              className="text-neutral-400 hover:text-red-600 p-1"
+                              className="text-neutral-400 hover:text-red-600 p-1 rounded-lg transition-colors cursor-pointer"
+                              title="Xóa người ở này"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -1576,6 +1732,28 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* OCR Quét CCCD / Hộ chiếu Modal */}
+      <OcrIdentityScannerModal
+        isOpen={isOcrModalOpen}
+        onClose={() => {
+          setIsOcrModalOpen(false);
+          setOcrTarget(null);
+        }}
+        onApply={handleApplyOcrResult}
+        title={
+          ocrTarget?.type === 'LEAD_GUEST'
+            ? 'Quét CCCD / Hộ chiếu - Khách chính'
+            : ocrTarget
+            ? `Quét CCCD / Hộ chiếu - Phòng #${ocrTarget.roomIndex + 1}`
+            : 'Quét & Nhận diện CCCD / Hộ chiếu (OCR)'
+        }
+        targetDescription={
+          ocrTarget?.type === 'LEAD_GUEST'
+            ? 'Trích xuất tự động thông tin khách chính đại diện nhận phòng.'
+            : 'Trích xuất thông tin người lưu trú để đồng bộ khai báo tạm trú BCA.'
+        }
+      />
     </Modal>
   );
 };
