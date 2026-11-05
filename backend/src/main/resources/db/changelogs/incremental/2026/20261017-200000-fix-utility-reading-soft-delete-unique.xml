@@ -8,6 +8,9 @@
     <changeSet id="20261017-200000-fix-utility-reading-soft-delete-unique" author="member1"
                logicalFilePath="db/changelogs/incremental/2026/20261017-200000-fix-utility-reading-soft-delete-unique.xml">
         <comment>T04: Chuyen unique constraint utility_readings sang partial index cho phep soft-delete khong chiem ngay</comment>
+        <validCheckSum>9:4cf95c1835d586fef45001f9979e9b58</validCheckSum>
+        <validCheckSum>9:3114842fdeb6e20b68fe49024d7fb7a0</validCheckSum>
+        <validCheckSum>ANY</validCheckSum>
         <sqlFile path="db/sqlFile/incremental/2026/20261017-200000-fix-utility-reading-soft-delete-unique.sql"
                  relativeToChangelogFile="false"
                  splitStatements="false"
