@@ -76,16 +76,21 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
   const ocrRequest = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Clean up object URL và abort request khi unmount
+  // Clean up object URL khi previewUrl thay đổi hoặc unmount
   useEffect(() => {
-    const req = ocrRequest;
     return () => {
-      req.current?.abort();
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
     };
   }, [previewUrl]);
+
+  // Abort pending OCR request khi unmount
+  useEffect(() => {
+    return () => {
+      ocrRequest.current?.abort();
+    };
+  }, []);
 
   const handleProcessImage = async (selectedFile: File) => {
     if (!selectedFile) return;
