@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, RefreshCw, Search, Edit2, DoorOpen } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Edit2, DoorOpen, Building2, Filter } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
 import Pagination from '../../../core/components/ui/Pagination'
+import Select from '../../../core/components/ui/Select'
 import roomInstanceService from '../services/roomInstance.service'
 import hotelRoomTypeService from '../services/hotelRoomType.service'
 import hotelService from '../../organization/services/hotel.service'
@@ -19,6 +20,7 @@ export const RoomInstanceListPage: React.FC = () => {
   const [rooms, setRooms] = useState<RoomInstanceDto[]>([])
   const [hotels, setHotels] = useState<HotelDto[]>([])
   const [hotelRoomTypes, setHotelRoomTypes] = useState<HotelRoomTypeDto[]>([])
+  const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false)
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [page, setPage] = useState(0)
@@ -56,22 +58,28 @@ export const RoomInstanceListPage: React.FC = () => {
       .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
   }, [])
 
-  // Load Hotel Room Types when hotel selected in Form
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (formHotelId) {
-        hotelRoomTypeService
-          .filter({ hotelId: Number(formHotelId), pageSize: 50, status: 'ACTIVE' })
-          .then((res) => {
-            if (res.result) setHotelRoomTypes(res.result.content || [])
-          })
-          .catch((err) => console.error('Lỗi tải danh mục loại phòng khách sạn:', err))
-      } else {
-        setHotelRoomTypes([])
+  // Lazy / On-Demand Fetching for Room Types
+  const fetchRoomTypesByHotel = useCallback(async (hotelIdToFetch: number) => {
+    if (!hotelIdToFetch) {
+      setHotelRoomTypes([])
+      return
+    }
+    setIsLoadingRoomTypes(true)
+    try {
+      const res = await hotelRoomTypeService.filter({
+        hotelId: Number(hotelIdToFetch),
+        pageSize: 50,
+      })
+      if (res && res.result) {
+        setHotelRoomTypes(res.result.content || [])
       }
-    }, 0)
-    return () => clearTimeout(timer)
-  }, [formHotelId])
+    } catch (err) {
+      console.error('Lỗi tải danh mục loại phòng khách sạn:', err)
+      setHotelRoomTypes([])
+    } finally {
+      setIsLoadingRoomTypes(false)
+    }
+  }, [])
 
   const loadData = useCallback(async () => {
     setIsLoading(true)
@@ -124,12 +132,16 @@ export const RoomInstanceListPage: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingRoom(null)
-    setFormHotelId(hotels.length > 0 ? hotels[0].id : '')
+    const initialHotelId = hotels.length > 0 ? hotels[0].id : ''
+    setFormHotelId(initialHotelId)
     setFormHotelRoomTypeId('')
     setFormRoomNumber('')
     setFormStatus('READY')
     setFormError(null)
     setIsFormModalOpen(true)
+    if (initialHotelId) {
+      void fetchRoomTypesByHotel(Number(initialHotelId))
+    }
   }
 
   const openEditModal = (room: RoomInstanceDto) => {
@@ -140,6 +152,7 @@ export const RoomInstanceListPage: React.FC = () => {
     setFormStatus(room.currentStatus)
     setFormError(null)
     setIsFormModalOpen(true)
+    void fetchRoomTypesByHotel(room.hotelId)
   }
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -272,20 +285,15 @@ export const RoomInstanceListPage: React.FC = () => {
       <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs">
         <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
-            <select
-              value={selectedHotelId || ''}
-              onChange={(e) =>
-                setSelectedHotelId(e.target.value ? Number(e.target.value) : undefined)
-              }
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả khách sạn</option>
-              {hotels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+            <Select<number>
+              value={selectedHotelId || 0}
+              onChange={(val) => setSelectedHotelId(val ? Number(val) : undefined)}
+              options={[
+                { value: 0, label: 'Tất cả khách sạn' },
+                ...hotels.map((h) => ({ value: h.id, label: h.name })),
+              ]}
+              prefixIcon={<Building2 className="w-4 h-4 text-neutral-400" />}
+            />
           </div>
 
           <div>
@@ -293,26 +301,27 @@ export const RoomInstanceListPage: React.FC = () => {
               placeholder="Số phòng (VD: 301, P402)..."
               value={roomNumber}
               onChange={(e) => setRoomNumber(e.target.value)}
-              className="h-10 sm:h-12"
+              className="h-11"
             />
           </div>
 
           <div>
-            <select
+            <Select<string>
               value={currentStatus}
-              onChange={(e) => setCurrentStatus(e.target.value)}
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="READY">Sẵn sàng (READY)</option>
-              <option value="OCCUPIED">Có khách (OCCUPIED)</option>
-              <option value="CLEANING">Đang dọn dẹp (CLEANING)</option>
-              <option value="MAINTENANCE">Bảo trì (MAINTENANCE)</option>
-            </select>
+              onChange={(val) => setCurrentStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'READY', label: 'Sẵn sàng (READY)' },
+                { value: 'OCCUPIED', label: 'Có khách (OCCUPIED)' },
+                { value: 'CLEANING', label: 'Đang dọn dẹp (CLEANING)' },
+                { value: 'MAINTENANCE', label: 'Bảo trì (MAINTENANCE)' },
+              ]}
+              prefixIcon={<Filter className="w-4 h-4 text-neutral-400" />}
+            />
           </div>
 
           <div className="flex gap-2">
-            <Button type="submit" variant="secondary" className="flex-1 h-10 sm:h-12">
+            <Button type="submit" variant="secondary" className="flex-1 h-11">
               <Search className="w-4 h-4 mr-1.5" />
               Lọc
             </Button>
@@ -325,7 +334,7 @@ export const RoomInstanceListPage: React.FC = () => {
                 setCurrentStatus('')
                 setPage(0)
               }}
-              className="h-10 sm:h-12"
+              className="h-11"
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
@@ -480,7 +489,7 @@ export const RoomInstanceListPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Form Modal */}
+      {/* Form Modal (Chuẩn hóa Custom Select & On-Demand Fetching) */}
       <Modal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
@@ -497,39 +506,57 @@ export const RoomInstanceListPage: React.FC = () => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Khách Sạn <span className="text-red-500">*</span>
             </label>
-            <select
-              value={formHotelId}
-              onChange={(e) => setFormHotelId(Number(e.target.value))}
+            <Select<number>
+              value={Number(formHotelId) || 0}
+              onChange={(val) => {
+                const newHotelId = Number(val) || ''
+                setFormHotelId(newHotelId)
+                setFormHotelRoomTypeId('')
+                if (newHotelId) {
+                  void fetchRoomTypesByHotel(Number(newHotelId))
+                }
+              }}
               disabled={!!editingRoom}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-              required
-            >
-              <option value="">Chọn khách sạn</option>
-              {hotels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: 0, label: 'Chọn khách sạn', disabled: true },
+                ...hotels.map((h) => ({ value: h.id, label: h.name })),
+              ]}
+              prefixIcon={<Building2 className="w-4 h-4 text-neutral-400" />}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Cấu Hình Loại Phòng <span className="text-red-500">*</span>
             </label>
-            <select
-              value={formHotelRoomTypeId}
-              onChange={(e) => setFormHotelRoomTypeId(Number(e.target.value))}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-              required
-            >
-              <option value="">Chọn loại phòng</option>
-              {hotelRoomTypes.map((hrt) => (
-                <option key={hrt.id} value={hrt.id}>
-                  {hrt.roomTypeName} ({hrt.roomTypeCode})
-                </option>
-              ))}
-            </select>
+            <Select<number>
+              value={Number(formHotelRoomTypeId) || 0}
+              onChange={(val) => setFormHotelRoomTypeId(Number(val))}
+              onOpen={() => {
+                if (formHotelId) {
+                  void fetchRoomTypesByHotel(Number(formHotelId))
+                }
+              }}
+              isLoading={isLoadingRoomTypes}
+              loadingText="Đang tải danh sách loại phòng từ hệ thống..."
+              emptyText={
+                !formHotelId
+                  ? 'Vui lòng chọn khách sạn trước'
+                  : 'Khách sạn này chưa cấu hình loại phòng'
+              }
+              placeholder="Chọn loại phòng..."
+              options={[
+                { value: 0, label: 'Chọn loại phòng', disabled: true },
+                ...hotelRoomTypes.map((hrt) => ({
+                  value: hrt.id,
+                  label: hrt.roomTypeName,
+                  badge: hrt.roomTypeCode,
+                  description: hrt.basePrice
+                    ? `${Number(hrt.basePrice).toLocaleString('vi-VN')} đ/đêm`
+                    : undefined,
+                })),
+              ]}
+            />
           </div>
 
           <div>
@@ -548,16 +575,16 @@ export const RoomInstanceListPage: React.FC = () => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Trạng Thái Ban Đầu
             </label>
-            <select
+            <Select<string>
               value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value)}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="READY">Sẵn sàng (READY)</option>
-              <option value="OCCUPIED">Có khách (OCCUPIED)</option>
-              <option value="CLEANING">Đang dọn dẹp (CLEANING)</option>
-              <option value="MAINTENANCE">Bảo trì (MAINTENANCE)</option>
-            </select>
+              onChange={(val) => setFormStatus(val)}
+              options={[
+                { value: 'READY', label: 'Sẵn sàng (READY)' },
+                { value: 'OCCUPIED', label: 'Có khách (OCCUPIED)' },
+                { value: 'CLEANING', label: 'Đang dọn dẹp (CLEANING)' },
+                { value: 'MAINTENANCE', label: 'Bảo trì (MAINTENANCE)' },
+              ]}
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200">
@@ -576,7 +603,7 @@ export const RoomInstanceListPage: React.FC = () => {
         </form>
       </Modal>
 
-      {/* Confirm Delete Modal */}
+      {/* Confirm Delete Modal (Đa biến thể Danger) */}
       <ConfirmModal
         isOpen={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
@@ -584,6 +611,7 @@ export const RoomInstanceListPage: React.FC = () => {
         title="Xác nhận xóa phòng vật lý"
         description={`Bạn có chắc chắn muốn xóa ${deletingIds.length} phòng đã chọn? Thao tác này sẽ chuyển dữ liệu vào thùng rác.`}
         confirmText="Xác nhận xóa"
+        variant="danger"
         isLoading={isDeleting}
       />
     </div>

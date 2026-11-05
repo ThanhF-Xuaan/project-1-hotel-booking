@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Search,
   Calendar,
@@ -19,6 +19,8 @@ import type { BookingResponse } from '../../booking/types/booking.types';
 
 export const MyBookingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith('/booking') || location.pathname.startsWith('/admin');
 
   const [bookingNumber, setBookingNumber] = useState('');
   const [phone, setPhone] = useState('');
@@ -57,22 +59,24 @@ export const MyBookingsPage: React.FC = () => {
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
   return (
-    <div className="min-h-screen bg-neutral-50 pb-16">
-      {/* Top Header */}
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <button
-            onClick={() => navigate('/portal/search')}
-            className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Về trang tìm kiếm phòng
-          </button>
-          <div className="font-bold text-neutral-900 text-sm">Cổng Tra Cứu Khách Hàng</div>
-        </div>
-      </header>
+    <div className={isAdmin ? 'p-4 md:p-8 max-w-2xl mx-auto' : 'min-h-screen bg-neutral-50 pb-16'}>
+      {/* Top Header - Chỉ hiển thị khi truy cập công khai ở cổng khách hàng */}
+      {!isAdmin && (
+        <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-2xs">
+          <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+            <button
+              onClick={() => navigate('/portal/search')}
+              className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600 hover:text-neutral-900"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Về trang tìm kiếm phòng
+            </button>
+            <div className="font-bold text-neutral-900 text-sm">Cổng Tra Cứu Khách Hàng</div>
+          </div>
+        </header>
+      )}
 
-      <div className="max-w-xl mx-auto px-4 mt-8 space-y-6">
+      <div className={isAdmin ? 'space-y-6' : 'max-w-xl mx-auto px-4 mt-8 space-y-6'}>
         <div className="text-center space-y-1">
           <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-2">
             <FileSearch className="w-6 h-6" />
@@ -203,7 +207,7 @@ export const MyBookingsPage: React.FC = () => {
           target={{
             bookingId: booking.id,
             bookingNumber: booking.bookingNumber,
-            isPublic: true,
+            isPublic: !isAdmin,
           }}
           onSuccess={() => {
             setBooking({ ...booking, status: 'CANCELLED' });
