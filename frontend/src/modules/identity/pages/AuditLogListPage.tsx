@@ -300,7 +300,13 @@ export const AuditLogListPage: React.FC = () => {
         {/* Phân trang */}
         {totalPages > 1 && (
           <div className="p-4 border-t border-neutral-100">
-            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+            <Pagination
+              pageNumber={page}
+              pageSize={pageSize}
+              totalElements={totalElements}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>

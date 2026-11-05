@@ -606,7 +606,13 @@ export const StaffListPage: React.FC = () => {
         {/* Phân trang */}
         {totalPages > 1 && (
           <div className="p-4 border-t border-neutral-100">
-            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+            <Pagination
+              pageNumber={page}
+              pageSize={pageSize}
+              totalElements={totalElements}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>
@@ -617,7 +623,7 @@ export const StaffListPage: React.FC = () => {
         onClose={() => setIsFormModalOpen(false)}
         title={editingStaff ? `Chỉnh sửa nhân viên: ${editingStaff.username}` : 'Thêm mới nhân viên'}
         description="Thông tin nhân sự được đồng bộ tự động vào Keycloak IAM và kiểm soát quyền truy cập."
-        maxWidth="3xl"
+        maxWidth="4xl"
       >
         <form onSubmit={handleSubmitForm} className="space-y-4">
           {formError && (
@@ -896,10 +902,10 @@ export const StaffListPage: React.FC = () => {
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={handleConfirmDelete}
         title="Xác nhận xóa tài khoản nhân viên"
-        message={`Bạn có chắc chắn muốn xóa mềm ${deletingIds.length} tài khoản nhân viên đã chọn? Tài khoản sẽ không thể đăng nhập hệ thống sau khi xóa.`}
+        description={`Bạn có chắc chắn muốn xóa mềm ${deletingIds.length} tài khoản nhân viên đã chọn? Tài khoản sẽ không thể đăng nhập hệ thống sau khi xóa.`}
         confirmText="Xóa nhân viên"
         cancelText="Hủy"
-        type="danger"
+        variant="danger"
         isLoading={isDeleting}
       />
     </div>

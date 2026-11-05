@@ -1,5 +1,3 @@
-import type { BaseSearchDto } from '../../../core/types/common.types';
-
 export interface AuditLogDto {
   id: number;
   staffId?: number;
@@ -15,7 +13,11 @@ export interface AuditLogDto {
   createdAt: string;
 }
 
-export interface AuditLogSearchDto extends BaseSearchDto {
+export interface AuditLogSearchDto {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDirection?: 'ASC' | 'DESC';
   staffId?: number;
   actionType?: string;
   entityName?: string;
@@ -23,4 +25,3 @@ export interface AuditLogSearchDto extends BaseSearchDto {
   fromDate?: string;
   toDate?: string;
 }
-

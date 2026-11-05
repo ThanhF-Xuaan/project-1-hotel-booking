@@ -1,5 +1,3 @@
-import type { BaseSearchDto } from '../../../core/types/common.types';
-
 export type StaffScopeType = 'CHAIN' | 'REGION' | 'PROPERTY';
 export type StaffStatus = 'ACTIVE' | 'SUSPENDED' | 'RESIGNED';
 
@@ -24,7 +22,11 @@ export interface StaffDto {
   updatedAt?: string;
 }
 
-export interface StaffSearchDto extends BaseSearchDto {
+export interface StaffSearchDto {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDirection?: 'ASC' | 'DESC';
   keyword?: string;
   roleId?: number;
   departmentId?: number;
@@ -68,4 +70,3 @@ export interface StaffStatusUpdateRequest {
 export interface StaffPasswordResetRequest {
   newPassword: string;
 }
-
