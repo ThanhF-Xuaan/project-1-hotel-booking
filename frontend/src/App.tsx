@@ -14,7 +14,7 @@ const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPa
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
 const RoomingListImportPage = lazy(() => import('./modules/booking/pages/RoomingListImportPage'))
 const PolicyManagementPage = lazy(() => import('./modules/booking/pages/PolicyManagementPage'))
-const TimelineMatrixPage = lazy(() => import('./modules/booking/pages/TimelineMatrixPage'))
+const GroupManagementPage = lazy(() => import('./modules/booking/pages/GroupManagementPage').then((m) => ({ default: m.GroupManagementPage })))
 const FolioPaymentPage = lazy(() => import('./modules/finance/pages/FolioPaymentPage'))
 const PaymentResultPage = lazy(() => import('./modules/finance/pages/PaymentResultPage'))
 const MenuListPage = lazy(() => import('./modules/operation/pages/MenuListPage')
@@ -87,8 +87,9 @@ export function App() {
               {/* Phân hệ Đặt phòng */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE']} />}>
                 <Route path="/booking/list" element={<BookingListPage />} />
-                <Route path="/admin/timeline" element={<TimelineMatrixPage />} />
-                <Route path="/booking/timeline" element={<TimelineMatrixPage />} />
+                <Route path="/admin/groups" element={<GroupManagementPage />} />
+                <Route path="/booking/groups" element={<GroupManagementPage />} />
+                <Route path="/booking/lookup" element={<MyBookingsPage />} />
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
                 <Route path="/booking/walk-in" element={<WalkInBookingPage />} />

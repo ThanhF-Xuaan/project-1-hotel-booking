@@ -602,11 +602,10 @@ export const BookingListPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setViewMode('TABLE')}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              viewMode === 'TABLE'
-                ? 'bg-white text-neutral-900 shadow-xs'
-                : 'text-neutral-500 hover:text-neutral-900'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${viewMode === 'TABLE'
+              ? 'bg-white text-neutral-900 shadow-xs'
+              : 'text-neutral-500 hover:text-neutral-900'
+              }`}
           >
             <List className="w-4 h-4" />
             Danh Sách Đặt Phòng
@@ -621,14 +620,13 @@ export const BookingListPage: React.FC = () => {
                 });
               }
             }}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              viewMode === 'TIMELINE'
-                ? 'bg-red-600 text-white shadow-xs'
-                : 'text-neutral-500 hover:text-red-600'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${viewMode === 'TIMELINE'
+              ? 'bg-red-600 text-white shadow-xs'
+              : 'text-neutral-500 hover:text-red-600'
+              }`}
           >
             <CalendarRange className="w-4 h-4" />
-            Sơ Đồ Ma Trận (Timeline Rack)
+            Sơ Đồ Đặt Phòng
           </button>
         </div>
       </div>
@@ -659,240 +657,237 @@ export const BookingListPage: React.FC = () => {
         <>
           {/* QUICK FILTER TABS: TẤT CẢ / CHƯA XẾP PHÒNG / ĐÃ XẾP PHÒNG */}
           <div className="flex items-center gap-2 border-b border-neutral-200 pb-3">
-        <button
-          onClick={() => {
-            setAssignedTab('ALL');
-            setPage(0);
-          }}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
-            assignedTab === 'ALL'
-              ? 'bg-neutral-900 text-white shadow-xs'
-              : 'text-neutral-600 hover:bg-neutral-100'
-          }`}
-        >
-          Tất cả đơn đặt
-        </button>
-        <button
-          onClick={() => {
-            setAssignedTab('UNASSIGNED');
-            setPage(0);
-          }}
-          className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
-            assignedTab === 'UNASSIGNED'
-              ? 'bg-amber-500 text-white shadow-xs'
-              : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200'
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4" />
-          Chưa xếp phòng vật lý
-        </button>
-        <button
-          onClick={() => {
-            setAssignedTab('ASSIGNED');
-            setPage(0);
-          }}
-          className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${
-            assignedTab === 'ASSIGNED'
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-neutral-600 hover:bg-neutral-100'
-          }`}
-        >
-          Đã xếp phòng đầy đủ
-        </button>
-      </div>
+            <button
+              onClick={() => {
+                setAssignedTab('ALL');
+                setPage(0);
+              }}
+              className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${assignedTab === 'ALL'
+                ? 'bg-neutral-900 text-white shadow-xs'
+                : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+            >
+              Tất cả đơn đặt
+            </button>
+            <button
+              onClick={() => {
+                setAssignedTab('UNASSIGNED');
+                setPage(0);
+              }}
+              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${assignedTab === 'UNASSIGNED'
+                ? 'bg-amber-500 text-white shadow-xs'
+                : 'text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200'
+                }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              Chưa xếp phòng vật lý
+            </button>
+            <button
+              onClick={() => {
+                setAssignedTab('ASSIGNED');
+                setPage(0);
+              }}
+              className={`px-4 py-2 text-sm font-semibold rounded-xl transition-colors ${assignedTab === 'ASSIGNED'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+            >
+              Đã xếp phòng đầy đủ
+            </button>
+          </div>
 
-      {/* HÀNG 1: SEARCH & FILTER BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap gap-4 items-center">
-        <div className="flex-1 min-w-[240px]">
-          <Input
-            placeholder="Tìm theo mã đặt phòng (VD: BK...)"
-            value={searchBookingNumber}
-            onChange={(e) => setSearchBookingNumber(e.target.value)}
-          />
-        </div>
+          {/* HÀNG 1: SEARCH & FILTER BAR */}
+          <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap gap-4 items-center">
+            <div className="flex-1 min-w-[240px]">
+              <Input
+                placeholder="Tìm theo mã đặt phòng (VD: BK...)"
+                value={searchBookingNumber}
+                onChange={(e) => setSearchBookingNumber(e.target.value)}
+              />
+            </div>
 
-        <div className="w-48">
-          <select
-            className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600"
-            value={searchStatus}
-            onChange={(e) => setSearchStatus(e.target.value as BookingStatus | '')}
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="CONFIRMED">Đã xác nhận</option>
-            <option value="CANCELLED">Đã hủy</option>
-            <option value="NO_SHOW">Vắng mặt (No-show)</option>
-          </select>
-        </div>
+            <div className="w-48">
+              <select
+                className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600"
+                value={searchStatus}
+                onChange={(e) => setSearchStatus(e.target.value as BookingStatus | '')}
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="CONFIRMED">Đã xác nhận</option>
+                <option value="CANCELLED">Đã hủy</option>
+                <option value="NO_SHOW">Vắng mặt (No-show)</option>
+              </select>
+            </div>
 
-        <Button variant="primary" onClick={() => { setPage(0); loadData(); }}>
-          <Search className="w-4 h-4 mr-2" />
-          Tìm kiếm
-        </Button>
+            <Button variant="primary" onClick={() => { setPage(0); loadData(); }}>
+              <Search className="w-4 h-4 mr-2" />
+              Tìm kiếm
+            </Button>
 
-        <Button
-          variant="outline"
-          onClick={() => {
-            setSearchBookingNumber('');
-            setSearchStatus('');
-            setAssignedTab('ALL');
-            setPage(0);
-          }}
-        >
-          Đặt lại
-        </Button>
-      </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchBookingNumber('');
+                setSearchStatus('');
+                setAssignedTab('ALL');
+                setPage(0);
+              }}
+            >
+              Đặt lại
+            </Button>
+          </div>
 
-      {/* HÀNG 2: ACTION TOOLBAR */}
-      <div className="flex justify-between items-center bg-neutral-50 p-3 rounded-2xl border border-neutral-200">
-        <div className="text-sm text-neutral-600 font-medium">
-          Tổng số: <span className="font-bold text-neutral-900">{totalElements}</span> đơn đặt phòng
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsWalkInModalOpen(true)}
-            className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs"
-          >
-            <UserPlus className="w-4 h-4 mr-1.5" />
-            Nhận khách vãng lai (Walk-in)
-          </Button>
-          <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
-            <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </Button>
-        </div>
-      </div>
+          {/* HÀNG 2: ACTION TOOLBAR */}
+          <div className="flex justify-between items-center bg-neutral-50 p-3 rounded-2xl border border-neutral-200">
+            <div className="text-sm text-neutral-600 font-medium">
+              Tổng số: <span className="font-bold text-neutral-900">{totalElements}</span> đơn đặt phòng
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsWalkInModalOpen(true)}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs"
+              >
+                <UserPlus className="w-4 h-4 mr-1.5" />
+                Nhận khách vãng lai (Walk-in)
+              </Button>
+              <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
+                <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+                Làm mới
+              </Button>
+            </div>
+          </div>
 
-      {/* HÀNG 3: DATA TABLE */}
-      <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
-              <tr>
-                <th className="p-4">Mã đơn</th>
-                <th className="p-4">Khách sạn</th>
-                <th className="p-4">Khách hàng</th>
-                <th className="p-4">Loại phòng</th>
-                <th className="p-4">Thời gian lưu trú</th>
-                <th className="p-4 text-right">Tổng tiền (VNĐ)</th>
-                <th className="p-4 text-center">Trạng thái</th>
-                <th className="p-4 text-center">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-neutral-400">
-                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-red-600" />
-                    Đang nạp danh sách đặt phòng...
-                  </td>
-                </tr>
-              ) : bookings.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="p-8 text-center text-neutral-400">
-                    Không tìm thấy đơn đặt phòng nào phù hợp.
-                  </td>
-                </tr>
-              ) : (
-                bookings.map((booking) => {
-                  const hasUnassignedRoom = booking.bookingDetails?.some((d) =>
-                    d.bookingRooms?.some((r) => !r.roomInstanceId)
-                  );
-
-                  return (
-                    <tr key={booking.id} className="hover:bg-neutral-50 transition-colors">
-                      <td className="p-4 font-semibold text-neutral-900">
-                        {booking.bookingNumber}
-                        <div className="text-xs text-neutral-400 font-normal mt-0.5">
-                          {booking.bookingType}
-                        </div>
-                      </td>
-                      <td className="p-4 text-neutral-800">{booking.hotelName}</td>
-                      <td className="p-4">
-                        <div className="font-medium text-neutral-900">{booking.guestPhone}</div>
-                        {booking.companyName && (
-                          <div className="text-xs text-neutral-500">{booking.companyName}</div>
-                        )}
-                      </td>
-                      <td className="p-4 text-neutral-700">
-                        {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
-                      </td>
-                      <td className="p-4 text-neutral-600 text-xs">
-                        {booking.bookingDetails?.[0] ? (
-                          <>
-                            <div>Từ: {booking.bookingDetails[0].checkInDate}</div>
-                            <div>Đến: {booking.bookingDetails[0].checkOutDate}</div>
-                          </>
-                        ) : (
-                          'N/A'
-                        )}
-                      </td>
-                      <td className="p-4 text-right font-bold text-neutral-900">
-                        {new Intl.NumberFormat('vi-VN').format(booking.totalAmount)} đ
-                      </td>
-                      <td className="p-4 text-center space-y-1">
-                        <div>{getStatusBadge(booking.status)}</div>
-                        {hasUnassignedRoom && booking.status === 'CONFIRMED' && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                            <AlertTriangle className="w-3 h-3" /> Chưa xếp phòng
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            onClick={() => {
-                              setSelectedBooking(booking);
-                              setIsDetailModalOpen(true);
-                            }}
-                            className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg"
-                            title="Xem chi tiết đơn"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-
-                          {booking.status === 'CONFIRMED' && (
-                            <>
-                              <button
-                                onClick={() => handleOpenNoShowModal(booking)}
-                                className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
-                                title="Đánh dấu khách không đến (No-Show)"
-                              >
-                                <UserX className="w-4 h-4" />
-                              </button>
-
-                              <button
-                                onClick={() => handleOpenCancelBookingModal(booking)}
-                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                                title="Hủy đơn đặt phòng theo chính sách FIT"
-                              >
-                                <Ban className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
+          {/* HÀNG 3: DATA TABLE */}
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
+                  <tr>
+                    <th className="p-4">Mã đơn</th>
+                    <th className="p-4">Khách sạn</th>
+                    <th className="p-4">Khách hàng</th>
+                    <th className="p-4">Loại phòng</th>
+                    <th className="p-4">Thời gian lưu trú</th>
+                    <th className="p-4 text-right">Tổng tiền (VNĐ)</th>
+                    <th className="p-4 text-center">Trạng thái</th>
+                    <th className="p-4 text-center">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-neutral-400">
+                        <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-red-600" />
+                        Đang nạp danh sách đặt phòng...
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ) : bookings.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-neutral-400">
+                        Không tìm thấy đơn đặt phòng nào phù hợp.
+                      </td>
+                    </tr>
+                  ) : (
+                    bookings.map((booking) => {
+                      const hasUnassignedRoom = booking.bookingDetails?.some((d) =>
+                        d.bookingRooms?.some((r) => !r.roomInstanceId)
+                      );
 
-        {/* Phân trang */}
-        <div className="p-4 border-t border-neutral-200">
-          <Pagination
-            pageNumber={page}
-            pageSize={pageSize}
-            totalElements={totalElements}
-            totalPages={totalPages}
-            onPageChange={(newPage) => setPage(newPage)}
-          />
-        </div>
-      </div>
-      </>
+                      return (
+                        <tr key={booking.id} className="hover:bg-neutral-50 transition-colors">
+                          <td className="p-4 font-semibold text-neutral-900">
+                            {booking.bookingNumber}
+                            <div className="text-xs text-neutral-400 font-normal mt-0.5">
+                              {booking.bookingType}
+                            </div>
+                          </td>
+                          <td className="p-4 text-neutral-800">{booking.hotelName}</td>
+                          <td className="p-4">
+                            <div className="font-medium text-neutral-900">{booking.guestPhone}</div>
+                            {booking.companyName && (
+                              <div className="text-xs text-neutral-500">{booking.companyName}</div>
+                            )}
+                          </td>
+                          <td className="p-4 text-neutral-700">
+                            {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
+                          </td>
+                          <td className="p-4 text-neutral-600 text-xs">
+                            {booking.bookingDetails?.[0] ? (
+                              <>
+                                <div>Từ: {booking.bookingDetails[0].checkInDate}</div>
+                                <div>Đến: {booking.bookingDetails[0].checkOutDate}</div>
+                              </>
+                            ) : (
+                              'N/A'
+                            )}
+                          </td>
+                          <td className="p-4 text-right font-bold text-neutral-900">
+                            {new Intl.NumberFormat('vi-VN').format(booking.totalAmount)} đ
+                          </td>
+                          <td className="p-4 text-center space-y-1">
+                            <div>{getStatusBadge(booking.status)}</div>
+                            {hasUnassignedRoom && booking.status === 'CONFIRMED' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                <AlertTriangle className="w-3 h-3" /> Chưa xếp phòng
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setSelectedBooking(booking);
+                                  setIsDetailModalOpen(true);
+                                }}
+                                className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg"
+                                title="Xem chi tiết đơn"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+
+                              {booking.status === 'CONFIRMED' && (
+                                <>
+                                  <button
+                                    onClick={() => handleOpenNoShowModal(booking)}
+                                    className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
+                                    title="Đánh dấu khách không đến (No-Show)"
+                                  >
+                                    <UserX className="w-4 h-4" />
+                                  </button>
+
+                                  <button
+                                    onClick={() => handleOpenCancelBookingModal(booking)}
+                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
+                                    title="Hủy đơn đặt phòng theo chính sách FIT"
+                                  >
+                                    <Ban className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Phân trang */}
+            <div className="p-4 border-t border-neutral-200">
+              <Pagination
+                pageNumber={page}
+                pageSize={pageSize}
+                totalElements={totalElements}
+                totalPages={totalPages}
+                onPageChange={(newPage) => setPage(newPage)}
+              />
+            </div>
+          </div>
+        </>
       )}
 
       {/* MODAL CHI TIẾT ĐƠN ĐẶT PHÒNG */}

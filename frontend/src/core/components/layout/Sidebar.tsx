@@ -17,7 +17,6 @@ import {
   TrendingUp,
   Megaphone,
   CalendarCheck,
-  Calendar,
   UserPlus,
   Receipt,
   UtensilsCrossed,
@@ -78,9 +77,9 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE'],
       },
       {
-        label: 'Sơ đồ Ma trận',
-        to: '/admin/timeline',
-        icon: <Calendar className="w-5 h-5" />,
+        label: 'Tiếp nhận khách đoàn',
+        to: '/admin/groups',
+        icon: <Users className="w-5 h-5" />,
         roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE'],
       },
       {
@@ -103,7 +102,7 @@ const navGroups: NavGroup[] = [
       },
       {
         label: 'Tra cứu Đơn của Khách',
-        to: '/portal/my-bookings',
+        to: '/booking/lookup',
         icon: <UserSquare2 className="w-5 h-5" />,
         roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE'],
       },

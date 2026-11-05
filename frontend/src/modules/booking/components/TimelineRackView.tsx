@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  RotateCcw,
   Building,
   Calendar,
   ArrowLeftRight,
@@ -52,7 +51,6 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
   rooms,
   bookings,
   isLoading,
-  onRefresh,
   onOpenSwapModal,
   hotelList = [],
   selectedHotelId,
@@ -181,27 +179,6 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. Header & Title Block matching Screenshot */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-neutral-900 tracking-tight">
-            TIMELINE ROOM MATRIX
-          </h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            Xem và quản lý trực quan trạng thái đặt phòng thực tế của từng phòng theo thời gian.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="self-start md:self-auto p-2.5 rounded-lg border border-neutral-300 hover:bg-neutral-100 text-neutral-700 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-          title="Tải lại dữ liệu ma trận"
-        >
-          <RotateCcw className={`w-5 h-5 ${isLoading ? 'animate-spin text-red-600' : ''}`} />
-        </button>
-      </div>
 
       {/* 2. Filter & Date Controls Card matching Screenshot */}
       <div className="bg-white border border-neutral-200 rounded-xl p-5 shadow-xs">
