@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Camera,
   Upload,
@@ -10,7 +10,6 @@ import {
   User,
   Calendar,
   MapPin,
-  X,
   FileText,
   Sparkles,
 } from 'lucide-react';
@@ -42,7 +41,16 @@ export interface OcrIdentityScannerModalProps {
   targetDescription?: string;
 }
 
-export const OcrIdentityScannerModal: React.FC<OcrIdentityScannerModalProps> = ({
+/**
+ * Modal Wrapper: Chỉ mount content khi isOpen = true.
+ * Khi đóng (isOpen = false), component unmount và tự động giải phóng toàn bộ state và bộ nhớ,
+ * tránh việc gọi setState() trong useEffect (ngăn cascading re-renders theo chuẩn React 19).
+ */
+export const OcrIdentityScannerModal: React.FC<OcrIdentityScannerModalProps> = (props) => {
+  return props.isOpen ? <OcrIdentityScannerModalContent {...props} /> : null;
+};
+
+const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = ({
   isOpen,
   onClose,
   onApply,
@@ -68,40 +76,16 @@ export const OcrIdentityScannerModal: React.FC<OcrIdentityScannerModalProps> = (
   const ocrRequest = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Clean up object URL when component unmounts or previewUrl changes
+  // Clean up object URL và abort request khi unmount
   useEffect(() => {
+    const req = ocrRequest;
     return () => {
+      req.current?.abort();
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
     };
   }, [previewUrl]);
-
-  const resetState = useCallback(() => {
-    ocrRequest.current?.abort();
-    setIsReadingImage(false);
-    setOcrDraft(null);
-    setErrorMessage(null);
-    setHumanVerified(false);
-    setFile(null);
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    setFullName('');
-    setDocumentType('CCCD');
-    setDocumentNumber('');
-    setDateOfBirth('');
-    setGender('MALE');
-    setNationality('Việt Nam');
-    setPermanentAddress('');
-  }, [previewUrl]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      resetState();
-    }
-  }, [isOpen, resetState]);
 
   const handleProcessImage = async (selectedFile: File) => {
     if (!selectedFile) return;
@@ -211,8 +195,6 @@ export const OcrIdentityScannerModal: React.FC<OcrIdentityScannerModalProps> = (
 
     onClose();
   };
-
-  if (!isOpen) return null;
 
   return (
     <Modal
@@ -536,4 +518,3 @@ export const OcrIdentityScannerModal: React.FC<OcrIdentityScannerModalProps> = (
 };
 
 export default OcrIdentityScannerModal;
-
