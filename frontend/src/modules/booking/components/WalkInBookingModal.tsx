@@ -1744,7 +1744,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         title={
           ocrTarget?.type === 'LEAD_GUEST'
             ? 'Quét CCCD / Hộ chiếu - Khách chính'
-            : ocrTarget
+            : ocrTarget?.type === 'STAY_GUEST'
             ? `Quét CCCD / Hộ chiếu - Phòng #${ocrTarget.roomIndex + 1}`
             : 'Quét & Nhận diện CCCD / Hộ chiếu (OCR)'
         }
