@@ -447,3 +447,57 @@ export interface RoomSwapResponse {
   swappedAt: string;
   performedBy: string;
 }
+
+export interface RoomingListErrorDto {
+  rowNumber: number;
+  column?: string;
+  field?: string;
+  error?: string;
+  message?: string;
+}
+
+export interface RoomingListRowDto {
+  rowNumber: number;
+  roomNumber?: string;
+  fullName: string;
+  gender?: string;
+  genderRaw?: string;
+  dateOfBirth?: string;
+  dateOfBirthRaw?: string;
+  nationality?: string;
+  documentType?: string;
+  documentNumber?: string;
+  idNumber?: string;
+  phone?: string;
+  email?: string;
+  note?: string;
+  isValid?: boolean;
+  valid?: boolean;
+  errors?: (string | RoomingListErrorDto)[];
+}
+
+export interface RoomingListPreviewResponse {
+  bookingId: number;
+  bookingNumber: string;
+  totalRows: number;
+  validCount?: number;
+  validRowsCount?: number;
+  errorCount?: number;
+  errorRowsCount?: number;
+  rows: RoomingListRowDto[];
+  errors: RoomingListErrorDto[];
+}
+
+export interface RoomingListImportResultResponse {
+  bookingId: number;
+  bookingNumber: string;
+  totalRows: number;
+  importedCount: number;
+  skippedCount: number;
+  errorCount: number;
+  errors: RoomingListErrorDto[];
+}
+
+export interface RoomingListConfirmRequest {
+  guests: RoomingListRowDto[];
+}

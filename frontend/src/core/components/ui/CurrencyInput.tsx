@@ -42,13 +42,12 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       if (num === 0 && (value === 0 || value === '0' || value === '')) {
         // Nếu người dùng đang tập trung gõ thì giữ nguyên, ngược lại cập nhật
         if (internalInputRef.current !== document.activeElement) {
-          setDisplayValue(value === 0 ? '0' : '')
+          const nextVal = value === 0 ? '0' : ''
+          setDisplayValue((prev) => (prev !== nextVal ? nextVal : prev))
         }
       } else {
         const formatted = formatCurrencyInput(num)
-        if (formatted !== displayValue) {
-          setDisplayValue(formatted)
-        }
+        setDisplayValue((prev) => (prev !== formatted ? formatted : prev))
       }
     }, [value])
 

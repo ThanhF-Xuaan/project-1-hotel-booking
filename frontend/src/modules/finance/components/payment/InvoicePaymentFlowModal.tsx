@@ -34,6 +34,9 @@ import type { BookingResponse } from '../../../booking/types/booking.types';
 import { VNPAY_ATM_TEST_CARD } from '../../utils/vnpay.utils';
 import HotelFolioReceipt from './HotelFolioReceipt';
 
+const generatePaymentRef = (prefix: string, length = 8) =>
+  `${prefix}${Date.now().toString().slice(-length)}`;
+
 export interface InvoicePaymentFlowModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -125,23 +128,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
 
   // ── Reset state when modal opens or closes ─────────────────────────────────
   useEffect(() => {
-    if (isOpen) {
-      setCurrentStep(1);
-      setSelectedMethod('CASH');
-      setVoucherInput('');
-      setAppliedVoucher(null);
-      setVoucherError(null);
-      setVnPaySession(null);
-      setVnpayCardNumber('');
-      setVnpayCardHolder('');
-      setVnpayIssueDate('');
-      setVnpayCardError(null);
-      setOtpValues(['', '', '', '', '', '']);
-      setOtpSecondsLeft(60);
-      setIsSuccess(true);
-      setErrorMessage('');
-      setCompletedPayment(null);
-    } else {
+    if (!isOpen) {
       if (vnpayPollRef.current) {
         clearInterval(vnpayPollRef.current);
         vnpayPollRef.current = null;
@@ -150,7 +137,34 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         clearInterval(otpTimerRef.current);
         otpTimerRef.current = null;
       }
+      return;
     }
+
+    let ignore = false;
+    const resetOnOpen = async () => {
+      await Promise.resolve();
+      if (!ignore) {
+        setCurrentStep(1);
+        setSelectedMethod('CASH');
+        setVoucherInput('');
+        setAppliedVoucher(null);
+        setVoucherError(null);
+        setVnPaySession(null);
+        setVnpayCardNumber('');
+        setVnpayCardHolder('');
+        setVnpayIssueDate('');
+        setVnpayCardError(null);
+        setOtpValues(['', '', '', '', '', '']);
+        setOtpSecondsLeft(60);
+        setIsSuccess(true);
+        setErrorMessage('');
+        setCompletedPayment(null);
+      }
+    };
+    resetOnOpen();
+    return () => {
+      ignore = true;
+    };
   }, [isOpen]);
 
   // ── Dịch vụ & Chiết tính chi phí hiển thị theo từng phòng ─────────────────
@@ -170,7 +184,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   const serviceItems: ModalFolioItem[] = useMemo(() => {
     if (invoice?.details && invoice.details.length > 0) {
       return invoice.details.map((d): ModalFolioItem => {
-        const match = d.description.match(/(?:Phòng|P\.)\s*([A-Za-z0-9\-]+)/i);
+        const match = d.description.match(/(?:Phòng|P\.)\s*([A-Za-z0-9-]+)/i);
         const extractedRoom = match ? match[1] : undefined;
 
         return {
@@ -385,9 +399,18 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
 
   // Cập nhật số tiền khách đưa mặc định khi chuyển sang Form 2
   useEffect(() => {
-    if (currentStep === 2 && selectedMethod === 'CASH') {
-      setCashGiven(effectivePayAmount);
-    }
+    if (currentStep !== 2 || selectedMethod !== 'CASH') return;
+    let ignore = false;
+    const syncCash = async () => {
+      await Promise.resolve();
+      if (!ignore) {
+        setCashGiven(effectivePayAmount);
+      }
+    };
+    syncCash();
+    return () => {
+      ignore = true;
+    };
   }, [currentStep, selectedMethod, effectivePayAmount]);
 
   // ── Xử lý áp dụng Voucher ──────────────────────────────────────────────────
@@ -530,7 +553,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   const handleProceedFromStep2 = () => {
     if (selectedMethod === 'CASH') {
       // Tiền mặt: Hoàn tất trực tiếp, không cần OTP
-      executeRecordPayment('CASH', cashReceiptCode || `PT-${Date.now().toString().slice(-6)}`);
+      executeRecordPayment('CASH', cashReceiptCode || generatePaymentRef('PT-', 6));
       return;
     }
 
@@ -602,7 +625,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     // OTP đúng 123456 -> Ghi nhận thanh toán thành công
     const refPrefix = selectedMethod === 'VNPAY' ? 'VNP' : 'PT';
 
-    const generatedRef = `${refPrefix}${Date.now().toString().slice(-8)}`;
+    const generatedRef = generatePaymentRef(refPrefix);
     executeRecordPayment(selectedMethod, generatedRef);
   };
 
@@ -1547,7 +1570,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <div className="flex justify-between">
                       <span className="text-neutral-500">Mã giao dịch:</span>
                       <strong className="font-mono text-neutral-900">
-                        {completedPayment?.transactionReference || `TXN-${Date.now().toString().slice(-8)}`}
+                        {completedPayment?.transactionReference || 'N/A'}
                       </strong>
                     </div>
                     <div className="flex justify-between">

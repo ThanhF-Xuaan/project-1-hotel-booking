@@ -38,15 +38,24 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setRoomInstanceId(initialRoomInstanceId || (rooms.length > 0 ? rooms[0].roomInstanceId : ''));
-      setBlockType('OOO');
-      setStartDate(today);
-      setEndDate(today);
-      setReason('');
-      setNotes('');
-      setFormError(null);
-    }
+    if (!isOpen) return;
+    let ignore = false;
+    const resetForm = async () => {
+      await Promise.resolve();
+      if (!ignore) {
+        setRoomInstanceId(initialRoomInstanceId || (rooms.length > 0 ? rooms[0].roomInstanceId : ''));
+        setBlockType('OOO');
+        setStartDate(today);
+        setEndDate(today);
+        setReason('');
+        setNotes('');
+        setFormError(null);
+      }
+    };
+    resetForm();
+    return () => {
+      ignore = true;
+    };
   }, [isOpen, initialRoomInstanceId, rooms, today]);
 
   const selectedRoom = rooms.find((r) => r.roomInstanceId === Number(roomInstanceId));

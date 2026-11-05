@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FileSpreadsheet,
@@ -98,14 +98,7 @@ export const RoomingListImportPage: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load booking if passed in URL query param
-  useEffect(() => {
-    if (queryBookingNumber) {
-      handleLookupBooking(queryBookingNumber);
-    }
-  }, [queryBookingNumber]);
-
-  const handleLookupBooking = async (inputStr: string) => {
+  const handleLookupBooking = useCallback(async (inputStr: string) => {
     const cleanStr = inputStr.trim();
     if (!cleanStr) return;
 
@@ -125,7 +118,7 @@ export const RoomingListImportPage: React.FC = () => {
           setIsLoadingBooking(false);
           return;
         }
-      } catch (ignored) {
+      } catch {
         // Tiếp tục tìm theo số phòng hoặc tìm kiếm tương đối
       }
 
@@ -161,13 +154,29 @@ export const RoomingListImportPage: React.FC = () => {
           `Không tìm thấy đơn đặt phòng nào với mã đơn hoặc số phòng: "${cleanStr}". Vui lòng kiểm tra lại.`
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi tra cứu booking:', err);
       setLookupError('Xảy ra lỗi trong quá trình tra cứu đơn đặt phòng.');
     } finally {
       setIsLoadingBooking(false);
     }
-  };
+  }, []);
+
+  // Load booking if passed in URL query param
+  useEffect(() => {
+    if (!queryBookingNumber) return;
+    let ignore = false;
+    const runLookup = async () => {
+      await Promise.resolve();
+      if (!ignore) {
+        handleLookupBooking(queryBookingNumber);
+      }
+    };
+    runLookup();
+    return () => {
+      ignore = true;
+    };
+  }, [queryBookingNumber, handleLookupBooking]);
 
   const handleOpenAvailableRoomsModal = async () => {
     setIsAvailableRoomsModalOpen(true);
@@ -182,7 +191,7 @@ export const RoomingListImportPage: React.FC = () => {
           setIsLoadingAvailableRooms(false);
           return;
         }
-      } catch (e) {
+      } catch {
         // Fallback sang roomInstanceService nếu cần
       }
 
@@ -291,7 +300,7 @@ export const RoomingListImportPage: React.FC = () => {
       const res = await bookingService.previewRoomingList(booking.id, selectedFile);
       if (res.result) {
         setPreviewData(res.result);
-        const errCount = res.result.errorCount ?? (res.result as any).errorRowsCount ?? 0;
+        const errCount = res.result.errorCount ?? res.result.errorRowsCount ?? 0;
         if (errCount > 0) {
           setActiveTab('ERROR');
         } else {
@@ -300,16 +309,17 @@ export const RoomingListImportPage: React.FC = () => {
       } else {
         setFileError(res.message || 'Không thể đọc dữ liệu file Excel.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi khi tải file rooming list:', err);
-      if (err?.response?.status === 404) {
+      const apiErr = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      if (apiErr?.response?.status === 404) {
         setFileError(
           'Lỗi kết nối Backend (HTTP 404): Server Backend (Spring Boot) chưa được khởi động lại để nhận các API mới. Bạn vui lòng restart lại Backend (Spring Boot) rồi thử lại nhé!'
         );
       } else {
         const msg =
-          err?.response?.data?.message ||
-          err?.message ||
+          apiErr?.response?.data?.message ||
+          apiErr?.message ||
           'Có lỗi xảy ra khi đọc file Excel. Vui lòng kiểm tra lại cấu trúc file.';
         setFileError(msg);
       }
@@ -342,8 +352,8 @@ export const RoomingListImportPage: React.FC = () => {
         return;
       }
 
-      const validCount = preview.validCount ?? (preview as any).validRowsCount ?? 0;
-      const errorCount = preview.errorCount ?? (preview as any).errorRowsCount ?? 0;
+      const validCount = preview.validCount ?? preview.validRowsCount ?? 0;
+      const errorCount = preview.errorCount ?? preview.errorRowsCount ?? 0;
 
       // 2. Nếu có bất kỳ dòng nào bị lỗi hoặc không có dòng hợp lệ -> Báo lỗi, KHÔNG import
       if (errorCount > 0 || validCount === 0) {
@@ -364,16 +374,17 @@ export const RoomingListImportPage: React.FC = () => {
       } else {
         setFileError(confirmRes.message || 'Lưu danh sách khách thất bại.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi khi kiểm tra và import file:', err);
-      if (err?.response?.status === 404) {
+      const apiErr = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      if (apiErr?.response?.status === 404) {
         setFileError(
           'Lỗi kết nối Backend (HTTP 404): Server Backend (Spring Boot) chưa được khởi động lại để nhận các API mới. Bạn vui lòng restart lại Backend (Spring Boot) rồi thử lại nhé!'
         );
       } else {
         const msg =
-          err?.response?.data?.message ||
-          err?.message ||
+          apiErr?.response?.data?.message ||
+          apiErr?.message ||
           'Cấu trúc file không hợp lệ hoặc sai định dạng.';
         setFileError(`File không hợp lệ: ${msg}`);
       }
@@ -385,7 +396,7 @@ export const RoomingListImportPage: React.FC = () => {
 
   const handleConfirmImport = async () => {
     if (!booking || !previewData) return;
-    const validCount = previewData.validCount ?? (previewData as any).validRowsCount ?? 0;
+    const validCount = previewData.validCount ?? previewData.validRowsCount ?? 0;
     if (validCount === 0) return;
 
     const validRows = previewData.rows.filter((r) => r.isValid ?? r.valid ?? false);
@@ -399,11 +410,12 @@ export const RoomingListImportPage: React.FC = () => {
       } else {
         alert(res.message || 'Lưu danh sách khách thất bại.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi khi xác nhận import:', err);
+      const apiErr = err as { response?: { data?: { message?: string } }; message?: string };
       const msg =
-        err?.response?.data?.message ||
-        err?.message ||
+        apiErr?.response?.data?.message ||
+        apiErr?.message ||
         'Xảy ra lỗi trong quá trình lưu danh sách khách.';
       alert(msg);
     } finally {
@@ -921,9 +933,9 @@ export const RoomingListImportPage: React.FC = () => {
         <div className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs space-y-4">
           {(() => {
             const previewValidCount =
-              previewData.validCount ?? (previewData as any).validRowsCount ?? 0;
+              previewData.validCount ?? previewData.validRowsCount ?? 0;
             const previewErrorCount =
-              previewData.errorCount ?? (previewData as any).errorRowsCount ?? 0;
+              previewData.errorCount ?? previewData.errorRowsCount ?? 0;
             const previewTotalRows = previewData.totalRows || 0;
 
             return (

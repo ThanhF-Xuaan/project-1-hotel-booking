@@ -152,16 +152,17 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
       } else {
         setFileError(res.message || 'Không thể đọc dữ liệu file Excel.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi khi tải file rooming list:', err);
-      if (err?.response?.status === 404) {
+      const apiErr = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      if (apiErr?.response?.status === 404) {
         setFileError(
           'Lỗi kết nối Backend (HTTP 404): Server Backend (Spring Boot) chưa được khởi động lại để nhận các API mới. Bạn vui lòng restart lại Backend (Spring Boot) rồi thử lại nhé!'
         );
       } else {
         const msg =
-          err?.response?.data?.message ||
-          err?.message ||
+          apiErr?.response?.data?.message ||
+          apiErr?.message ||
           'Có lỗi xảy ra khi đọc file Excel. Vui lòng kiểm tra lại cấu trúc file.';
         setFileError(msg);
       }
@@ -190,8 +191,8 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
         return;
       }
 
-      const validCount = preview.validCount ?? (preview as any).validRowsCount ?? 0;
-      const errorCount = preview.errorCount ?? (preview as any).errorRowsCount ?? 0;
+      const validCount = preview.validCount ?? preview.validRowsCount ?? 0;
+      const errorCount = preview.errorCount ?? preview.errorRowsCount ?? 0;
 
       // 2. Nếu có lỗi dữ liệu hoặc không có dòng hợp lệ -> Báo lỗi, KHÔNG import
       if (errorCount > 0 || validCount === 0) {
@@ -215,16 +216,17 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
       } else {
         setFileError(confirmRes.message || 'Lưu danh sách khách thất bại.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi khi kiểm tra và import file:', err);
-      if (err?.response?.status === 404) {
+      const apiErr = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      if (apiErr?.response?.status === 404) {
         setFileError(
           'Lỗi kết nối Backend (HTTP 404): Server Backend (Spring Boot) chưa được khởi động lại để nhận các API mới. Bạn vui lòng restart lại Backend (Spring Boot) rồi thử lại nhé!'
         );
       } else {
         const msg =
-          err?.response?.data?.message ||
-          err?.message ||
+          apiErr?.response?.data?.message ||
+          apiErr?.message ||
           'Cấu trúc file không hợp lệ hoặc sai định dạng.';
         setFileError(`File không hợp lệ: ${msg}`);
       }
@@ -236,7 +238,7 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
 
   const handleConfirmImport = async () => {
     if (!previewData) return;
-    const validCount = previewData.validCount ?? (previewData as any).validRowsCount ?? 0;
+    const validCount = previewData.validCount ?? previewData.validRowsCount ?? 0;
     if (validCount === 0) return;
 
     const validRows = previewData.rows.filter((r) => r.isValid ?? r.valid ?? false);
@@ -253,11 +255,12 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
       } else {
         alert(res.message || 'Lưu danh sách khách thất bại.');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Lỗi khi xác nhận import:', err);
+      const apiErr = err as { response?: { data?: { message?: string } }; message?: string };
       const msg =
-        err?.response?.data?.message ||
-        err?.message ||
+        apiErr?.response?.data?.message ||
+        apiErr?.message ||
         'Xảy ra lỗi trong quá trình lưu danh sách khách.';
       alert(msg);
     } finally {
@@ -272,8 +275,8 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
     return true;
   });
 
-  const validCount = previewData ? (previewData.validCount ?? (previewData as any).validRowsCount ?? 0) : 0;
-  const errorCount = previewData ? (previewData.errorCount ?? (previewData as any).errorRowsCount ?? 0) : 0;
+  const validCount = previewData ? (previewData.validCount ?? previewData.validRowsCount ?? 0) : 0;
+  const errorCount = previewData ? (previewData.errorCount ?? previewData.errorRowsCount ?? 0) : 0;
 
   return (
     <>

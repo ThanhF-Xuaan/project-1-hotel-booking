@@ -93,7 +93,7 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
   if (invoice?.details && invoice.details.length > 0) {
     // Nếu đã có chi tiết hóa đơn chính thức, lấy chính xác từ hóa đơn
     invoice.details.forEach((d, idx) => {
-      const match = d.description.match(/(?:Phòng|P\.)\s*([A-Za-z0-9\-]+)/i);
+      const match = d.description.match(/(?:Phòng|P\.)\s*([A-Za-z0-9-]+)/i);
       const extractedRoom = match ? match[1] : undefined;
 
       serviceItems.push({

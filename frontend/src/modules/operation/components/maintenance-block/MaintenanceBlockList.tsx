@@ -67,7 +67,7 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
       };
 
       const res = await operationService.filterMaintenanceBlocks(searchDto);
-      setBlocks(res.content || (res as any).data || []);
+      setBlocks(res.content || (res as unknown as { data?: MaintenanceBlockDto[] }).data || []);
       setTotalPages(res.totalPages || 0);
       setTotalElements(res.totalElements || 0);
     } catch (err) {
@@ -78,7 +78,17 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
   }, [hotelId, filterBlockType, filterStatus, fromDate, toDate, page, pageSize, onError]);
 
   useEffect(() => {
-    fetchBlocks();
+    let ignore = false;
+    const run = async () => {
+      await Promise.resolve();
+      if (!ignore) {
+        fetchBlocks();
+      }
+    };
+    run();
+    return () => {
+      ignore = true;
+    };
   }, [fetchBlocks, refreshTrigger]);
 
   const handleResetFilters = () => {

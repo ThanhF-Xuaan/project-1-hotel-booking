@@ -302,7 +302,6 @@ export const FolioPaymentPage: React.FC = () => {
   useEffect(() => {
     const trimmed = bookingNumberInput.trim().toLowerCase();
     if (!trimmed) {
-      setErrorMessage(null);
       return;
     }
 
@@ -601,7 +600,12 @@ export const FolioPaymentPage: React.FC = () => {
             <Input
               placeholder="Nhập mã đơn đặt phòng (VD: BK-TEST-1001, BK...)..."
               value={bookingNumberInput}
-              onChange={(e) => setBookingNumberInput(e.target.value)}
+              onChange={(e) => {
+                setBookingNumberInput(e.target.value);
+                if (!e.target.value.trim()) {
+                  setErrorMessage(null);
+                }
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') fetchFolioData(bookingNumberInput);
               }}
