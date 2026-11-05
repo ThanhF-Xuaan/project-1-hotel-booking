@@ -21,6 +21,16 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 @ControllerAdvice
 @Slf4j
 public class GlobalHandlerException {
+    @ExceptionHandler(value = org.springframework.dao.DataIntegrityViolationException.class)
+    ResponseEntity<ApiResponse> handlingDataIntegrityViolation(org.springframework.dao.DataIntegrityViolationException exception) {
+        log.error("DataIntegrityViolationException: ", exception);
+        String msg = exception.getRootCause() != null ? exception.getRootCause().getMessage() : exception.getMessage();
+        return ResponseEntity.badRequest().body(ApiResponse.builder()
+                .code(400)
+                .message("Lỗi ràng buộc dữ liệu: " + msg)
+                .build());
+    }
+
     @ExceptionHandler(value = RuntimeException.class)
     ResponseEntity<ApiResponse> handlingRuntimeException(RuntimeException exception) {
         log.error("Exception: ", exception);
@@ -38,7 +48,9 @@ public class GlobalHandlerException {
         ApiResponse apiResponse = new ApiResponse();
 
         apiResponse.setCode(errorCode.getCode());
-        apiResponse.setMessage(errorCode.getMessage());
+        apiResponse.setMessage(exception.getMessage() != null && !exception.getMessage().isBlank()
+                ? exception.getMessage()
+                : errorCode.getMessage());
 
         return ResponseEntity
                 .status(errorCode.getStatusCode())
@@ -94,32 +106,30 @@ public class GlobalHandlerException {
                         .build());
     }
 
-//    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
-//    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException e) {
-//        log.warn("Xảy ra đụng độ Optimistic Lock khi giữ phòng!", e);
-//
-//        // Lấy ErrorCode đã định nghĩa
-//        ErrorCode errorCode = ErrorCode.ROOM_CONCURRENCY_CONFLICT;
-//
-//        // Build ApiResponse chuẩn theo format dự án của bạn
-//        ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
-//                .code(errorCode.getCode())
-//                .message(errorCode.getMessage())
-//                .build();
-//
-//        return ResponseEntity
-//                .status(HttpStatus.BAD_REQUEST)
-//                .body(apiResponse);
-//    }
-//
-//    @ExceptionHandler({PessimisticLockException.class, CannotAcquireLockException.class})
-//    public ResponseEntity<ApiResponse<Void>> handleLockTimeout(Exception e) {
-//        log.warn("Lỗi tranh chấp khóa Database: {}", e.getMessage());
-//        return ResponseEntity.status(HttpStatus.CONFLICT).body(
-//                ApiResponse.<Void>builder()
-//                        .code(ErrorCode.ROOM_ALREADY_BLOCKED.getCode())
-//                        .message("Hệ thống đang quá tải hoặc phòng đang được người khác thao tác. Vui lòng thử lại sau giây lát.")
-//                        .build()
-//        );
-//    }
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(ObjectOptimisticLockingFailureException e) {
+        log.warn("Xảy ra đụng độ Optimistic Lock khi cập nhật phòng!", e);
+
+        ErrorCode errorCode = ErrorCode.OPTIMISTIC_LOCK_CONFLICT;
+
+        ApiResponse<Void> apiResponse = ApiResponse.<Void>builder()
+                .code(errorCode.getCode())
+                .message(errorCode.getMessage())
+                .build();
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(apiResponse);
+    }
+
+    @ExceptionHandler({PessimisticLockException.class, CannotAcquireLockException.class})
+    public ResponseEntity<ApiResponse<Void>> handleLockTimeout(Exception e) {
+        log.warn("Lỗi tranh chấp khóa Database: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.<Void>builder()
+                        .code(ErrorCode.ROOM_ALREADY_BLOCKED.getCode())
+                        .message("Hệ thống đang quá tải hoặc phòng đang được người khác thao tác. Vui lòng thử lại sau giây lát.")
+                        .build()
+        );
+    }
 }

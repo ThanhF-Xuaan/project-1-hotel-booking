@@ -1,9 +1,11 @@
 package vn.edu.utc.hotel_booking.modules.inventory.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,6 +18,10 @@ import java.util.Optional;
 @Repository
 public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Integer>, JpaSpecificationExecutor<RoomInstance> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM RoomInstance r WHERE r.id = :id AND r.isDeleted = false")
+    Optional<RoomInstance> findByIdWithLock(@Param("id") Integer id);
+
     @Query("SELECT r FROM RoomInstance r " +
             "JOIN FETCH r.hotel h " +
             "JOIN FETCH r.hotelRoomType hrt " +
@@ -24,6 +30,19 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
     Optional<RoomInstance> findByIdWithDetails(@Param("id") Integer id);
 
     Optional<RoomInstance> findByIdAndIsDeletedFalse(Integer id);
+
+    @Query("SELECT COUNT(r) > 0 FROM RoomInstance r " +
+            "WHERE r.hotel.id = :hotelId " +
+            "AND LOWER(TRIM(r.roomNumber)) = LOWER(TRIM(:roomNumber)) " +
+            "AND r.isDeleted = false")
+    boolean existsByHotelIdAndRoomNumberIgnoreCaseTrim(@Param("hotelId") Short hotelId, @Param("roomNumber") String roomNumber);
+
+    @Query("SELECT COUNT(r) > 0 FROM RoomInstance r " +
+            "WHERE r.hotel.id = :hotelId " +
+            "AND LOWER(TRIM(r.roomNumber)) = LOWER(TRIM(:roomNumber)) " +
+            "AND r.id <> :id " +
+            "AND r.isDeleted = false")
+    boolean existsByHotelIdAndRoomNumberAndIdNotIgnoreCaseTrim(@Param("hotelId") Short hotelId, @Param("roomNumber") String roomNumber, @Param("id") Integer id);
 
     boolean existsByHotelIdAndRoomNumberAndIsDeletedFalse(Short hotelId, String roomNumber);
 
@@ -45,6 +64,32 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
             @Param("currentStatus") String currentStatus,
             Pageable pageable
     );
+
+    @Query("SELECT r FROM RoomInstance r " +
+            "JOIN FETCH r.hotel h " +
+            "JOIN FETCH r.hotelRoomType hrt " +
+            "JOIN FETCH hrt.roomType rt " +
+            "WHERE r.isDeleted = false " +
+            "AND r.currentStatus = 'READY' " +
+            "AND (:hotelId IS NULL OR r.hotel.id = :hotelId) " +
+            "AND r.id NOT IN (" +
+            "    SELECT br.roomInstance.id FROM BookingRoom br " +
+            "    JOIN br.bookingDetail bd " +
+            "    JOIN bd.booking b " +
+            "    WHERE br.roomInstance.id IS NOT NULL " +
+            "    AND b.status = 'CONFIRMED'" +
+            ") " +
+            "ORDER BY " +
+            "CASE rt.code " +
+            "  WHEN 'STD' THEN 1 " +
+            "  WHEN 'SUP' THEN 2 " +
+            "  WHEN 'DLX' THEN 3 " +
+            "  WHEN 'STE' THEN 4 " +
+            "  WHEN 'EXE' THEN 5 " +
+            "  WHEN 'FAM' THEN 6 " +
+            "  ELSE 99 END, " +
+            "r.roomNumber ASC")
+    List<RoomInstance> findVacantRooms(@Param("hotelId") Short hotelId);
 
     List<RoomInstance> findByHotelRoomTypeIdAndCurrentStatusAndIsDeletedFalse(Integer hotelRoomTypeId, String status);
 

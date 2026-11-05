@@ -5,7 +5,7 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <changeSet id="1.0.0-05-dev-seed" author="utc-hotel-team" context="dev-seed">
+    <changeSet id="1.0.0-05-dev-seed" author="utc-hotel-team" context="dev-seed" runOnChange="true">
         <comment>Khởi tạo dữ liệu mẫu phục vụ phát triển &amp; kiểm thử: Khách sạn cơ sở, Menus, Phòng mẫu, Inventory</comment>
         <sqlFile path="db/sqlFile/05-dev-seed.sql"
                  relativeToChangelogFile="false"

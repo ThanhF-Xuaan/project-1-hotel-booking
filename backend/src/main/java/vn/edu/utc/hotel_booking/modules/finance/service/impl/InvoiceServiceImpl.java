@@ -51,16 +51,26 @@ public class InvoiceServiceImpl implements InvoiceService {
     public InvoiceResponse createInvoice(InvoiceCreateRequest request) {
         Booking booking = bookingLookupService.getBookingEntityById(request.getBookingId());
 
-        String invoiceNumber = generateInvoiceNumber();
-
         BigDecimal serviceFeeRate = request.getServiceFeeRate() != null ? request.getServiceFeeRate() : booking.getServiceFeeRate();
 
-        Invoice invoice = Invoice.builder()
-                .booking(booking)
-                .invoiceNumber(invoiceNumber)
-                .serviceFeeRate(serviceFeeRate)
-                .status(InvoiceStatus.DRAFT)
-                .build();
+        List<Invoice> existingInvoices = invoiceRepository.findByBookingId(booking.getId());
+        Invoice invoice;
+        if (existingInvoices != null && !existingInvoices.isEmpty()) {
+            invoice = existingInvoices.get(0);
+            if (invoice.getStatus() == InvoiceStatus.ISSUED || invoice.getStatus() == InvoiceStatus.PAID) {
+                return financeMapper.toResponse(invoice);
+            }
+            invoice.getDetails().clear();
+            invoice.setServiceFeeRate(serviceFeeRate);
+        } else {
+            String invoiceNumber = generateInvoiceNumber();
+            invoice = Invoice.builder()
+                    .booking(booking)
+                    .invoiceNumber(invoiceNumber)
+                    .serviceFeeRate(serviceFeeRate)
+                    .status(InvoiceStatus.DRAFT)
+                    .build();
+        }
 
         populateInvoiceData(invoice, booking, serviceFeeRate);
 
@@ -83,11 +93,15 @@ public class InvoiceServiceImpl implements InvoiceService {
                     BigDecimal lineVat = lineTaxable.multiply(dr.getVatPercent()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     BigDecimal lineTotal = lineTaxable.add(lineVat);
 
+                    String roomPrefix = (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null)
+                            ? "Phòng " + br.getRoomInstance().getRoomNumber() + " - "
+                            : "";
+
                     InvoiceDetail invDetail = InvoiceDetail.builder()
                             .invoice(invoice)
                             .referenceId(dr.getId())
                             .lineType(InvoiceLineType.ROOM_RATE)
-                            .description(detail.getRoomTypeName() + " (" + dr.getStayDate() + ")")
+                            .description(roomPrefix + detail.getRoomTypeName() + " (" + dr.getStayDate() + ")")
                             .quantity(1)
                             .unitPrice(dr.getNetPrice())
                             .subtotal(lineSubtotal)
@@ -144,16 +158,21 @@ public class InvoiceServiceImpl implements InvoiceService {
                 }
 
                 if (order.getDetails() != null) {
+                    String orderRoomPrefix = (order.getRoomNumber() != null && !order.getRoomNumber().isBlank())
+                            ? "Phòng " + order.getRoomNumber() + " - "
+                            : "";
                     for (ServiceOrderDetailResponse item : order.getDetails()) {
                         InvoiceLineType itemLineType = "PRODUCT".equalsIgnoreCase(item.getItemType())
                                 ? InvoiceLineType.PRODUCT
                                 : InvoiceLineType.SERVICE;
 
+                        String rawItemName = item.getItemName() != null ? item.getItemName() : "Dịch vụ/Sản phẩm POS";
+
                         InvoiceDetail invDetail = InvoiceDetail.builder()
                                 .invoice(invoice)
                                 .referenceId(item.getId())
                                 .lineType(itemLineType)
-                                .description(item.getItemName() != null ? item.getItemName() : "Dịch vụ/Sản phẩm POS")
+                                .description(orderRoomPrefix + rawItemName)
                                 .quantity(item.getQuantity())
                                 .unitPrice(item.getUnitPrice())
                                 .subtotal(item.getSubtotal())

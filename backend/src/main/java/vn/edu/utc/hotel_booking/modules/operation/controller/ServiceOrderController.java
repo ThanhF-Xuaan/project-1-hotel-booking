@@ -50,7 +50,7 @@ public class ServiceOrderController {
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'F_AND_B')")
-    @Operation(summary = "Cập nhật trạng thái đơn dịch vụ (CONFIRMED, DELIVERED, CANCELLED)")
+    @Operation(summary = "Cập nhật trạng thái đơn dịch vụ (PREPARING, DELIVERED, COMPLETED, CANCELLED)")
     public ApiResponse<ServiceOrderResponse> updateStatus(
             @PathVariable Long id,
             @RequestParam ServiceOrderStatus status

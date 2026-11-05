@@ -22,6 +22,7 @@ import vn.edu.utc.hotel_booking.modules.finance.gateway.VnPayGateway;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
+import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.impl.PaymentServiceImpl;
@@ -43,6 +44,7 @@ class PaymentServiceTest {
 
     @Mock PaymentRepository paymentRepository;
     @Mock TransactionRepository transactionRepository;
+    @Mock InvoiceRepository invoiceRepository;
     @Mock BookingRepository bookingRepository;
     @Mock FinanceMapper financeMapper;
     @Mock StringRedisTemplate redisTemplate;
@@ -412,5 +414,82 @@ class PaymentServiceTest {
                         .isEqualTo(ErrorCode.PAYMENT_NOT_PENDING));
 
         verify(paymentRepository, never()).save(any(Payment.class));
+    }
+
+    @Test
+    @DisplayName("Thanh toán số tiền vượt quá số dư còn nợ sẽ báo lỗi INVALID_PAYMENT_AMOUNT (8002)")
+    void createPayment_AmountExceedsRemainingBalance_Throws8002() {
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
+        // Đã thanh toán 1,000,000 / 1,500,000 -> còn nợ 500,000
+        Payment paid1 = Payment.builder()
+                .booking(testBooking)
+                .totalAmount(BigDecimal.valueOf(1000000))
+                .status(PaymentStatus.SUCCESS)
+                .build();
+        when(paymentRepository.findByBookingId(1L)).thenReturn(List.of(paid1));
+
+        PaymentCreateRequest request = PaymentCreateRequest.builder()
+                .bookingId(1L)
+                .totalAmount(BigDecimal.valueOf(600000)) // Vượt quá 500,000
+                .paymentMethod(PaymentMethod.CASH)
+                .build();
+
+        assertThatThrownBy(() -> paymentService.createPayment(request))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.INVALID_PAYMENT_AMOUNT));
+    }
+
+    @Test
+    @DisplayName("Tạo thanh toán cho đơn đã hết nợ (balance = 0) sẽ báo PAYMENT_ALREADY_COMPLETED (8003)")
+    void createPayment_BookingAlreadyPaid_Throws8003() {
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
+        // Đã thanh toán đủ 1,500,000 -> balance = 0
+        Payment paidAll = Payment.builder()
+                .booking(testBooking)
+                .totalAmount(BigDecimal.valueOf(1500000))
+                .status(PaymentStatus.SUCCESS)
+                .build();
+        when(paymentRepository.findByBookingId(1L)).thenReturn(List.of(paidAll));
+
+        PaymentCreateRequest request = PaymentCreateRequest.builder()
+                .bookingId(1L)
+                .totalAmount(BigDecimal.valueOf(100000))
+                .paymentMethod(PaymentMethod.CASH)
+                .build();
+
+        assertThatThrownBy(() -> paymentService.createPayment(request))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.PAYMENT_ALREADY_COMPLETED));
+    }
+
+    @Test
+    @DisplayName("Thanh toán tiền mặt đủ số tiền tất toán tự động chuyển Hóa đơn sang PAID")
+    void createPayment_Cash_FullSettlement_UpdatesInvoiceToPaid() {
+        Invoice invoice = Invoice.builder()
+                .id(50L)
+                .booking(testBooking)
+                .invoiceNumber("INV-2026-001")
+                .grandTotal(BigDecimal.valueOf(1500000))
+                .status(InvoiceStatus.DRAFT)
+                .build();
+
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
+        when(invoiceRepository.findByBookingId(1L)).thenReturn(List.of(invoice));
+        when(paymentRepository.findByBookingId(1L))
+                .thenReturn(List.of()) // Lần đầu tính balance: chưa có payment nào
+                .thenReturn(List.of(testPayment)); // Lần sau update invoice: đã có testPayment
+        when(paymentRepository.save(any(Payment.class))).thenReturn(testPayment);
+        when(financeMapper.toResponse(any(Payment.class))).thenReturn(PaymentResponse.builder().id(10L).build());
+
+        PaymentCreateRequest request = PaymentCreateRequest.builder()
+                .bookingId(1L)
+                .totalAmount(BigDecimal.valueOf(1500000))
+                .paymentMethod(PaymentMethod.CASH)
+                .build();
+
+        paymentService.createPayment(request);
+
+        assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.PAID);
+        verify(invoiceRepository).save(invoice);
     }
 }

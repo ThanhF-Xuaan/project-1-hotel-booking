@@ -19,6 +19,10 @@ public interface RoomInstanceMapper {
     @Mapping(target = "hotelRoomTypeId", source = "hotelRoomType.id")
     @Mapping(target = "roomTypeCode", source = "hotelRoomType.roomType.code")
     @Mapping(target = "roomTypeName", source = "hotelRoomType.roomType.name")
+    @Mapping(target = "maxAdults", source = "hotelRoomType.maxAdults")
+    @Mapping(target = "maxChildren", source = "hotelRoomType.maxChildren")
+    @Mapping(target = "maxTotalGuests", source = "hotelRoomType.maxTotalGuests")
+    @Mapping(target = "maxBeds", source = "hotelRoomType.maxBeds")
     RoomInstanceResponse toResponse(RoomInstance roomInstance);
 
     List<RoomInstanceResponse> toResponseList(List<RoomInstance> roomInstances);
