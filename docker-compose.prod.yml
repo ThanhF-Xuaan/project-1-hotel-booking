@@ -20,9 +20,11 @@ services:
     container_name: hotel_prod_postgres
     restart: always
     environment:
+      TZ: Asia/Ho_Chi_Minh
       POSTGRES_DB: "${DB_NAME:?LOI: DB_NAME bat buoc phai khai bao trong .env.prod}"
       POSTGRES_USER: "${DB_USER:?LOI: DB_USER bat buoc phai khai bao trong .env.prod}"
       POSTGRES_PASSWORD: "${DB_PASSWORD:?LOI: DB_PASSWORD bat buoc phai khai bao trong .env.prod}"
+    command: postgres -c timezone=Asia/Ho_Chi_Minh
     expose:
       - "5432"
     volumes:
@@ -47,6 +49,8 @@ services:
     image: redis:7-alpine
     container_name: hotel_prod_redis
     restart: always
+    environment:
+      TZ: Asia/Ho_Chi_Minh
     command: redis-server --appendonly yes
     expose:
       - "6379"
@@ -77,6 +81,7 @@ services:
     restart: always
     command: start --optimized --import-realm
     environment:
+      TZ: Asia/Ho_Chi_Minh
       KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:?LOI: KEYCLOAK_ADMIN bat buoc phai khai bao}"
       KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?LOI: KEYCLOAK_ADMIN_PASSWORD bat buoc phai khai bao}"
       # Hostname Configuration chuẩn Keycloak 24 (Phục vụ qua Nginx HTTPS Ingress)
@@ -124,6 +129,7 @@ services:
     container_name: hotel_prod_liquibase
     restart: "no"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       LIQUIBASE_SEARCH_PATH: /liquibase/changelog
       LIQUIBASE_COMMAND_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
       LIQUIBASE_COMMAND_USERNAME: ${DB_USER}
@@ -148,6 +154,7 @@ services:
     container_name: hotel_prod_minio
     restart: always
     environment:
+      TZ: Asia/Ho_Chi_Minh
       MINIO_ROOT_USER: "${MINIO_ROOT_USER:?LOI: MINIO_ROOT_USER bat buoc phai khai bao}"
       MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?LOI: MINIO_ROOT_PASSWORD bat buoc phai khai bao}"
     expose:
@@ -183,6 +190,8 @@ services:
     expose:
       - "8080"
     environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Ho_Chi_Minh"
       DB_HOST: postgres_db
       DB_PORT: 5432
       FRONTEND_URL: "https://${DOMAIN_NAME}"

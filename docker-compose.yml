@@ -7,9 +7,11 @@ services:
     container_name: hotel_postgres
     restart: unless-stopped
     environment:
+      TZ: Asia/Ho_Chi_Minh
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command: postgres -c timezone=Asia/Ho_Chi_Minh
     # Cổng nội bộ container (Không mở trực tiếp ra máy host để bảo mật theo chuẩn Production)
     # Để mở cổng cho DBeaver/Admin, dùng docker-compose.dev.yml
     expose:
@@ -29,6 +31,8 @@ services:
     image: redis:7-alpine
     container_name: hotel_redis
     restart: unless-stopped
+    environment:
+      TZ: Asia/Ho_Chi_Minh
     # Cổng nội bộ container (Không mở trực tiếp ra máy host để bảo mật theo chuẩn Production)
     # Để mở cổng cho RedisInsight, dùng docker-compose.dev.yml
     expose:
@@ -50,6 +54,7 @@ services:
     restart: unless-stopped
     command: start-dev --import-realm # Tự động import realm khi khởi động
     environment:
+      TZ: Asia/Ho_Chi_Minh
       # Tài khoản Admin để đăng nhập giao diện Keycloak
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
@@ -84,6 +89,7 @@ services:
     container_name: hotel_liquibase
     restart: "no" # Chạy xong migration là kết thúc với mã thoát 0
     environment:
+      TZ: Asia/Ho_Chi_Minh
       LIQUIBASE_SEARCH_PATH: /liquibase/changelog
       LIQUIBASE_COMMAND_URL: jdbc:postgresql://postgres_db:5432/${DB_NAME}
       LIQUIBASE_COMMAND_USERNAME: ${DB_USER}
@@ -109,6 +115,8 @@ services:
     expose:
       - "8080"
     environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: "-Duser.timezone=Asia/Ho_Chi_Minh"
       DB_HOST: postgres_db
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-hotel_booking_db}
