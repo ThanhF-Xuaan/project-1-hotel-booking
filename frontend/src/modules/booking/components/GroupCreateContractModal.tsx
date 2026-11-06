@@ -20,6 +20,7 @@ import { hotelRoomTypeService } from '../../inventory/services/hotelRoomType.ser
 import type { HotelRoomTypeDto } from '../../inventory/types/inventory.types';
 import type { GroupContractCreateRequest } from '../types/groupBooking.types';
 import { Select } from '../../../core/components/ui/Select';
+import { cn } from '../../../core/utils/cn';
 
 interface GroupCreateContractModalProps {
   isOpen: boolean;
@@ -128,6 +129,17 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
   const [specialRequests, setSpecialRequests] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (fieldName: string) => {
+    setFieldErrors((prev) => {
+      if (!prev[fieldName]) return prev;
+      const copy = { ...prev };
+      delete copy[fieldName];
+      return copy;
+    });
+    if (error) setError(null);
+  };
 
   const loadCompanies = useCallback(async () => {
     if (companies.length > 0 || isLoadingCompanies) return;
@@ -328,29 +340,56 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
 
     const compName = newCompanyName.trim();
     const compTax = newCompanyTaxCode.trim();
+    const gName = groupName.trim();
+
+    const errors: Record<string, string> = {};
 
     if (!compName) {
-      setError('Vui lòng nhập tên công ty / doanh nghiệp hoặc đoàn thể');
-      return;
+      errors.newCompanyName = 'Vui lòng nhập tên công ty / doanh nghiệp hoặc đoàn thể';
     }
     if (!compTax) {
-      setError('Vui lòng nhập mã số thuế doanh nghiệp (hoặc mã định danh đoàn)');
-      return;
+      errors.newCompanyTaxCode = 'Vui lòng nhập mã số thuế doanh nghiệp (hoặc MST/định danh đoàn)';
+    } else if (compTax.length < 8) {
+      errors.newCompanyTaxCode = 'Mã số thuế quá ngắn (tối thiểu 8 ký tự)';
     }
     if (!selectedStaffId) {
-      setError('Vui lòng chọn nhân viên phụ trách hợp đồng từ danh sách nhân sự (bắt buộc)');
-      return;
+      errors.selectedStaffId = 'Vui lòng chọn nhân viên phụ trách hợp đồng (bắt buộc)';
     }
-    if (!groupName.trim()) {
-      setError('Vui lòng nhập tên đoàn hoặc sự kiện');
-      return;
+    if (!gName) {
+      errors.groupName = 'Vui lòng nhập tên đoàn hoặc mục đích sự kiện';
+    }
+    if (!checkInDate) {
+      errors.checkInDate = 'Vui lòng chọn ngày nhận phòng';
+    }
+    if (!checkOutDate) {
+      errors.checkOutDate = 'Vui lòng chọn ngày trả phòng';
+    } else if (checkInDate && checkOutDate <= checkInDate) {
+      errors.checkOutDate = 'Ngày trả phòng phải sau ngày nhận phòng ít nhất 1 đêm';
+    }
+    if (totalGuests < 1) {
+      errors.totalGuests = 'Số lượng khách phải tối thiểu 1 người';
     }
     if (totalRooms < 6) {
-      setError('Quy định hợp đồng đoàn (GIT) yêu cầu tối thiểu từ 6 phòng trở lên');
-      return;
+      errors.totalRooms = `Quy định khách đoàn (GIT) yêu cầu tối thiểu 6 phòng (hiện tại: ${totalRooms} phòng)`;
     }
-    if (checkOutDate <= checkInDate) {
-      setError('Ngày check-out phải sau ngày check-in');
+    if (newContactEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newContactEmail.trim())) {
+      errors.newContactEmail = 'Định dạng email liên hệ không hợp lệ';
+    }
+    if (newContactPhone.trim() && !/^[0-9+()\-.\s]{9,15}$/.test(newContactPhone.trim())) {
+      errors.newContactPhone = 'Số điện thoại không hợp lệ (từ 9 đến 15 số)';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstError = Object.values(errors)[0];
+      setError(firstError);
+
+      setTimeout(() => {
+        const errorEl = document.querySelector('.has-field-error');
+        if (errorEl) {
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 50);
       return;
     }
 
@@ -425,10 +464,10 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between border-b border-neutral-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto scrollbar-none">
+      <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+        {/* Header - Cố định ở đầu modal */}
+        <div className="bg-neutral-900 text-white px-6 py-4 flex items-center justify-between border-b border-neutral-800 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold shadow-xs">
               <Users className="w-5 h-5" />
@@ -445,20 +484,23 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
           <button
             type="button"
             onClick={onClose}
+            aria-label="Đóng"
             className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-          {error && (
-            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 text-xs font-semibold">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-              <span>{error}</span>
-            </div>
-          )}
+        {/* Form Container */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          {/* Body có thể cuộn xuống thoải mái và ẩn thanh cuộn */}
+          <div className="flex-1 overflow-y-auto scrollbar-none p-6 space-y-6 overscroll-contain">
+            {error && (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 text-xs font-semibold animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{error}</span>
+              </div>
+            )}
 
           {/* Section 1: Doanh nghiệp B2B (Hỗ trợ Cách 2: Nhập trực tiếp linh hoạt) */}
           <div className="space-y-4">
@@ -526,46 +568,85 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
 
             {/* Các trường nhập liệu doanh nghiệp trực tiếp (Cách 2) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
+              <div className={fieldErrors.newCompanyName ? 'has-field-error' : ''}>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Tên Doanh Nghiệp / Cơ Quan Đối Tác *
                 </label>
                 <input
                   type="text"
                   value={newCompanyName}
-                  onChange={(e) => setNewCompanyName(e.target.value)}
+                  onChange={(e) => {
+                    setNewCompanyName(e.target.value);
+                    clearFieldError('newCompanyName');
+                  }}
                   placeholder="VD: Tổng Công ty Cổ phần May 10"
-                  required
-                  className="w-full h-11 px-3.5 border border-neutral-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  className={cn(
+                    'w-full h-11 px-3.5 border rounded-xl text-sm font-semibold focus:outline-none transition-all',
+                    fieldErrors.newCompanyName
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
                 />
+                {fieldErrors.newCompanyName && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.newCompanyName}
+                  </p>
+                )}
               </div>
 
-              <div>
+              <div className={fieldErrors.newCompanyTaxCode ? 'has-field-error' : ''}>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Mã Số Thuế Doanh Nghiệp *
                 </label>
                 <input
                   type="text"
                   value={newCompanyTaxCode}
-                  onChange={(e) => setNewCompanyTaxCode(e.target.value)}
+                  onChange={(e) => {
+                    setNewCompanyTaxCode(e.target.value);
+                    clearFieldError('newCompanyTaxCode');
+                  }}
                   placeholder="0100109106"
-                  required
-                  className="w-full h-11 px-3.5 border border-neutral-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500 focus:outline-none font-mono"
+                  className={cn(
+                    'w-full h-11 px-3.5 border rounded-xl text-sm font-semibold focus:outline-none font-mono transition-all',
+                    fieldErrors.newCompanyTaxCode
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
                 />
+                {fieldErrors.newCompanyTaxCode && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.newCompanyTaxCode}
+                  </p>
+                )}
               </div>
 
-              <div>
+              <div className={fieldErrors.groupName ? 'has-field-error' : ''}>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Tên đoàn / Mục đích sự kiện *
                 </label>
                 <input
                   type="text"
                   value={groupName}
-                  onChange={(e) => setGroupName(e.target.value)}
+                  onChange={(e) => {
+                    setGroupName(e.target.value);
+                    clearFieldError('groupName');
+                  }}
                   placeholder="VD: Đoàn Hội Thảo Tổng Kết Q4/2026"
-                  required
-                  className="w-full h-11 px-3.5 border border-neutral-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  className={cn(
+                    'w-full h-11 px-3.5 border rounded-xl text-sm font-semibold focus:outline-none transition-all',
+                    fieldErrors.groupName
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
                 />
+                {fieldErrors.groupName && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.groupName}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -581,6 +662,60 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                 />
               </div>
 
+              <div className={fieldErrors.newContactPhone ? 'has-field-error' : ''}>
+                <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                  Số điện thoại liên hệ
+                </label>
+                <input
+                  type="text"
+                  value={newContactPhone}
+                  onChange={(e) => {
+                    setNewContactPhone(e.target.value);
+                    clearFieldError('newContactPhone');
+                  }}
+                  placeholder="VD: 0912345678"
+                  className={cn(
+                    'w-full h-11 px-3.5 border rounded-xl text-sm font-medium focus:outline-none transition-all',
+                    fieldErrors.newContactPhone
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
+                />
+                {fieldErrors.newContactPhone && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.newContactPhone}
+                  </p>
+                )}
+              </div>
+
+              <div className={fieldErrors.newContactEmail ? 'has-field-error' : ''}>
+                <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                  Email liên hệ đối tác
+                </label>
+                <input
+                  type="email"
+                  value={newContactEmail}
+                  onChange={(e) => {
+                    setNewContactEmail(e.target.value);
+                    clearFieldError('newContactEmail');
+                  }}
+                  placeholder="contact@company.com"
+                  className={cn(
+                    'w-full h-11 px-3.5 border rounded-xl text-sm font-medium focus:outline-none transition-all',
+                    fieldErrors.newContactEmail
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
+                />
+                {fieldErrors.newContactEmail && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.newContactEmail}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Người đại diện pháp luật
@@ -594,19 +729,17 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
-                    Chức danh
-                  </label>
-                  <input
-                    type="text"
-                    value={signerTitle}
-                    onChange={(e) => setSignerTitle(e.target.value)}
-                    placeholder="Giám đốc điều hành"
-                    className="w-full h-11 px-3.5 border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500 focus:outline-none"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
+                  Chức danh
+                </label>
+                <input
+                  type="text"
+                  value={signerTitle}
+                  onChange={(e) => setSignerTitle(e.target.value)}
+                  placeholder="Giám đốc điều hành"
+                  className="w-full h-11 px-3.5 border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500 focus:outline-none"
+                />
               </div>
             </div>
           </div>
@@ -645,57 +778,94 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                 />
               </div>
 
-              <div>
+              <div className={fieldErrors.selectedStaffId ? 'has-field-error' : ''}>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1">
-                    <span>Nhân viên phụ trách*</span>
+                    <span>Nhân viên phụ trách *</span>
                   </span>
                 </label>
-                <Select<number>
-                  value={selectedStaffId === '' ? 0 : selectedStaffId}
-                  onChange={(val) => setSelectedStaffId(val)}
-                  onOpen={loadStaffs}
-                  isLoading={isLoadingStaffs}
-                  placeholder="Nhân viên phụ trách"
-                  options={staffs.map((s) => ({
-                    value: s.id,
-                    label: `${s.fullName || s.username} (#${s.id})`,
-                    badge: s.roleName || s.departmentName || undefined,
-                    description: s.email ? `${s.email}${s.phone ? ` • ${s.phone}` : ''}` : s.phone,
-                  }))}
-                />
+                <div className={cn(fieldErrors.selectedStaffId && 'ring-2 ring-red-500/40 rounded-xl')}>
+                  <Select<number>
+                    value={selectedStaffId === '' ? 0 : selectedStaffId}
+                    onChange={(val) => {
+                      setSelectedStaffId(val);
+                      clearFieldError('selectedStaffId');
+                    }}
+                    onOpen={loadStaffs}
+                    isLoading={isLoadingStaffs}
+                    placeholder="Chọn nhân viên phụ trách..."
+                    options={staffs.map((s) => ({
+                      value: s.id,
+                      label: `${s.fullName || s.username} (#${s.id})`,
+                      badge: s.roleName || s.departmentName || undefined,
+                      description: s.email ? `${s.email}${s.phone ? ` • ${s.phone}` : ''}` : s.phone,
+                    }))}
+                  />
+                </div>
+                {fieldErrors.selectedStaffId && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.selectedStaffId}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Hàng 2: Lịch trình & Số lượng khách */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+              <div className={fieldErrors.checkInDate ? 'has-field-error' : ''}>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Ngày nhận phòng *
                 </label>
                 <input
                   type="date"
                   value={checkInDate}
-                  onChange={(e) => setCheckInDate(e.target.value)}
-                  required
-                  className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  onChange={(e) => {
+                    setCheckInDate(e.target.value);
+                    clearFieldError('checkInDate');
+                  }}
+                  className={cn(
+                    'w-full h-11 px-3 border rounded-xl text-sm font-semibold focus:outline-none transition-all',
+                    fieldErrors.checkInDate
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
                 />
+                {fieldErrors.checkInDate && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.checkInDate}
+                  </p>
+                )}
               </div>
 
-              <div>
+              <div className={fieldErrors.checkOutDate ? 'has-field-error' : ''}>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Ngày trả phòng *
                 </label>
                 <input
                   type="date"
                   value={checkOutDate}
-                  onChange={(e) => setCheckOutDate(e.target.value)}
-                  required
-                  className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  onChange={(e) => {
+                    setCheckOutDate(e.target.value);
+                    clearFieldError('checkOutDate');
+                  }}
+                  className={cn(
+                    'w-full h-11 px-3 border rounded-xl text-sm font-semibold focus:outline-none transition-all',
+                    fieldErrors.checkOutDate
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
                 />
+                {fieldErrors.checkOutDate && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.checkOutDate}
+                  </p>
+                )}
               </div>
 
-              <div>
+              <div className={fieldErrors.totalGuests ? 'has-field-error' : ''}>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Dự kiến số khách *
                 </label>
@@ -703,10 +873,23 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                   type="number"
                   min="1"
                   value={totalGuests}
-                  onChange={(e) => setTotalGuests(Number(e.target.value))}
-                  required
-                  className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm font-semibold text-center focus:ring-2 focus:ring-red-500 focus:outline-none"
+                  onChange={(e) => {
+                    setTotalGuests(Number(e.target.value));
+                    clearFieldError('totalGuests');
+                  }}
+                  className={cn(
+                    'w-full h-11 px-3 border rounded-xl text-sm font-semibold text-center focus:outline-none transition-all',
+                    fieldErrors.totalGuests
+                      ? 'border-red-500 bg-red-50/20 focus:ring-2 focus:ring-red-500/20'
+                      : 'border-neutral-300 focus:ring-2 focus:ring-red-500'
+                  )}
                 />
+                {fieldErrors.totalGuests && (
+                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {fieldErrors.totalGuests}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -735,6 +918,13 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                 Thêm loại phòng
               </button>
             </div>
+
+            {fieldErrors.totalRooms && (
+              <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-xs font-semibold animate-in fade-in">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{fieldErrors.totalRooms}</span>
+              </div>
+            )}
 
             <div className="space-y-3">
               {blocks.map((block, idx) => (
@@ -766,7 +956,10 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                       type="number"
                       min="1"
                       value={block.blockedRooms}
-                      onChange={(e) => handleBlockChange(idx, 'blockedRooms', e.target.value)}
+                      onChange={(e) => {
+                        handleBlockChange(idx, 'blockedRooms', e.target.value);
+                        clearFieldError('totalRooms');
+                      }}
                       className="w-full h-10 px-3 bg-white border border-neutral-300 rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-red-500 focus:outline-none"
                     />
                   </div>
@@ -859,27 +1052,52 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Footer */}
-          <div className="border-t border-neutral-200 pt-4 flex items-center justify-end gap-3">
+        {/* Footer - Cố định ở đáy modal, luôn nhìn thấy nút và tổng tiền */}
+        <div className="border-t border-neutral-200 px-6 py-3.5 bg-neutral-50 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <div className="text-xs max-w-md">
+            {error ? (
+              <div className="p-2 px-3 bg-red-100 border border-red-300 rounded-lg text-red-700 font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span className="truncate">{error}</span>
+              </div>
+            ) : (
+              <div className="text-neutral-600 flex flex-wrap items-center gap-2">
+                <span>Tổng: <strong>{totalRooms} phòng</strong> ({nights} đêm)</span>
+                <span>•</span>
+                <span>Cọc: <strong className="text-red-600">{depositRequired.toLocaleString('vi-VN')} đ</strong> (50%)</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="h-11 px-5 rounded-xl border border-neutral-300 font-bold text-xs text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
+              className="h-10 px-5 rounded-xl border border-neutral-300 font-bold text-xs text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || totalRooms < 6}
-              className="h-11 px-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
+              disabled={isSubmitting}
+              className="h-10 px-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
             >
-              {isSubmitting ? 'Đang khởi tạo...' : 'Tạo Hợp Đồng & Giữ Phòng 3 Ngày'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Đang khởi tạo...
+                </>
+              ) : (
+                'Tạo Hợp Đồng & Giữ Phòng 3 Ngày'
+              )}
             </button>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
-  );
+  </div>
+);
 };

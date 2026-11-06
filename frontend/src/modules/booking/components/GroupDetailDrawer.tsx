@@ -11,6 +11,7 @@ import {
   CreditCard,
   Ban,
   Receipt,
+  Upload,
 } from 'lucide-react';
 import type {
   GroupContractResponse,
@@ -19,6 +20,7 @@ import type {
 import { groupBookingService } from '../services/groupBooking.service';
 import { ConfirmModal } from '../../../core/components/ui/ConfirmModal';
 import { MasterFolioModal } from '../../finance/components/MasterFolioModal';
+import { RoomingListImportModal } from './RoomingListImportModal';
 
 interface GroupDetailDrawerProps {
   contract: GroupContractResponse | null;
@@ -53,6 +55,7 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
   const [releaseBlockId, setReleaseBlockId] = useState<number | null>(null);
   const [isReleasing, setIsReleasing] = useState(false);
   const [isMasterFolioOpen, setIsMasterFolioOpen] = useState(false);
+  const [isRoomingListOpen, setIsRoomingListOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !contract?.id) return;
@@ -257,18 +260,28 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsMasterFolioOpen(true)}
-            className="mb-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            <Receipt className="w-3.5 h-3.5" />
-            Sổ Cái Master Folio
-          </button>
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setIsRoomingListOpen(true)}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5 text-blue-600" />
+              Import Rooming List
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMasterFolioOpen(true)}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              Sổ Cái Master Folio
+            </button>
+          </div>
         </div>
 
         {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto scrollbar-none p-6 space-y-6">
           {activeTab === 'INFO' ? (
             <div className="space-y-6">
               {/* Alert: Cutoff status */}
@@ -625,6 +638,19 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
           isOpen={isMasterFolioOpen}
           onClose={() => setIsMasterFolioOpen(false)}
           contractId={contract.id}
+        />
+      )}
+
+      {/* Modal Nhập Rooming List */}
+      {contract && isRoomingListOpen && (
+        <RoomingListImportModal
+          isOpen={isRoomingListOpen}
+          onClose={() => setIsRoomingListOpen(false)}
+          contract={contract}
+          onSuccess={async () => {
+            setIsRoomingListOpen(false);
+            await onRefresh();
+          }}
         />
       )}
     </div>

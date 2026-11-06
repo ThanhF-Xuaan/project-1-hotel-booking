@@ -9,6 +9,7 @@ export interface ModalProps {
   description?: string
   children?: React.ReactNode
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '5xl'
+  headerActions?: React.ReactNode
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -18,6 +19,7 @@ export const Modal: React.FC<ModalProps> = ({
   description,
   children,
   maxWidth = 'md',
+  headerActions,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -46,7 +48,7 @@ export const Modal: React.FC<ModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto scrollbar-none">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in"
@@ -56,25 +58,30 @@ export const Modal: React.FC<ModalProps> = ({
       {/* Modal Dialog (16px border-radius) */}
       <div
         className={cn(
-          'relative w-full bg-white rounded-2xl shadow-xl border border-neutral-100 z-10 overflow-hidden animate-in zoom-in-95 duration-200',
+          'relative w-full max-h-[92vh] flex flex-col bg-white rounded-2xl shadow-xl border border-neutral-100 z-10 overflow-hidden animate-in zoom-in-95 duration-200 my-auto',
           maxWidthStyles[maxWidth]
         )}
       >
-        <div className="flex items-center justify-between p-5 md:p-6 border-b border-neutral-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 md:p-6 border-b border-neutral-100 shrink-0">
           <div>
             <h2 className="text-lg md:text-xl font-bold text-neutral-900">{title}</h2>
             {description && <p className="text-xs md:text-sm text-neutral-500 mt-1">{description}</p>}
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Đóng hộp thoại"
-            className="p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+            {headerActions}
+            <button
+              onClick={onClose}
+              aria-label="Đóng hộp thoại"
+              className="p-1.5 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="p-5 md:p-6">{children}</div>
+        <div className="p-5 md:p-6 overflow-y-auto scrollbar-none flex-1 overscroll-contain">
+          {children}
+        </div>
       </div>
     </div>
   )

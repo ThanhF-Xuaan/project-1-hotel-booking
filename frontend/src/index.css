@@ -44,3 +44,19 @@
     margin: 8mm 10mm 8mm 10mm;
   }
 }
+
+/* ==========================================================================
+   TIỆN ÍCH CUỘN VÀ ẨN THANH CUỘN (SCROLLBAR HIDE UTILITY)
+   ========================================================================== */
+.scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.scrollbar-none,
+.no-scrollbar {
+  -ms-overflow-style: none !important; /* IE and Edge */
+  scrollbar-width: none !important; /* Firefox */
+}

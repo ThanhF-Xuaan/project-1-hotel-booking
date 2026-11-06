@@ -14,6 +14,7 @@ import {
   Sparkles,
   Copy,
   Check,
+  AlertCircle,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -33,6 +34,10 @@ import type {
 import type { RoleDto } from '../types/role.types';
 import type { DepartmentDto } from '../../organization/types/department.types';
 import type { HotelDto, RegionDto } from '../../organization/types/organization.types';
+import {
+  validateStaffForm,
+  type StaffFormFieldErrors,
+} from '../types/staff.schema';
 
 export const StaffListPage: React.FC = () => {
   const [staffList, setStaffList] = useState<StaffDto[]>([]);
@@ -73,6 +78,16 @@ export const StaffListPage: React.FC = () => {
   const [formStatus, setFormStatus] = useState<StaffStatus>('ACTIVE');
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formFieldErrors, setFormFieldErrors] = useState<StaffFormFieldErrors>({});
+
+  const clearFieldError = (field: keyof StaffFormFieldErrors) => {
+    setFormFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   // Success Modal State for Created Credentials
   const [createdCredentials, setCreatedCredentials] = useState<{
@@ -207,6 +222,7 @@ export const StaffListPage: React.FC = () => {
     setShowFormPassword(false);
     setFormStatus('ACTIVE');
     setFormError(null);
+    setFormFieldErrors({});
     setIsFormModalOpen(true);
   };
 
@@ -226,16 +242,36 @@ export const StaffListPage: React.FC = () => {
     setShowFormPassword(false);
     setFormStatus(staff.status);
     setFormError(null);
+    setFormFieldErrors({});
     setIsFormModalOpen(true);
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formRoleId) {
-      setFormError('Vui lòng chọn vai trò cho nhân sự.');
+    setFormError(null);
+
+    const formData = {
+      username: formUsername,
+      firstName: formFirstName,
+      lastName: formLastName,
+      email: formEmail,
+      phone: formPhone,
+      roleId: formRoleId,
+      scopeType: formScopeType,
+      scopeEntityId: formScopeEntityId,
+      password: formPassword,
+      confirmPassword: formConfirmPassword,
+    };
+
+    const validation = validateStaffForm(formData, Boolean(editingStaff));
+
+    if (!validation.isValid) {
+      setFormFieldErrors(validation.errors);
+      setFormError(validation.firstError || 'Vui lòng kiểm tra và sửa các thông tin chưa hợp lệ bên dưới.');
       return;
     }
-    setFormError(null);
+
+    setFormFieldErrors({});
     setIsSubmitting(true);
     try {
       if (editingStaff) {
@@ -249,8 +285,8 @@ export const StaffListPage: React.FC = () => {
         await staffService.update(editingStaff.id, {
           firstName: formFirstName.trim(),
           lastName: formLastName.trim(),
-          email: formEmail.trim() || undefined,
-          phone: formPhone.trim() || undefined,
+          email: formEmail.trim(),
+          phone: formPhone.trim(),
           roleId: Number(formRoleId),
           departmentId,
           scopeType: formScopeType,
@@ -260,36 +296,6 @@ export const StaffListPage: React.FC = () => {
         });
         setIsFormModalOpen(false);
       } else {
-        if (!formUsername.trim()) {
-          setFormError('Tên đăng nhập không được để trống.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (!formPassword.trim()) {
-          setFormError('Vui lòng thiết lập mật khẩu khởi tạo cho nhân viên.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (formPassword.trim().length < 6) {
-          setFormError('Mật khẩu khởi tạo phải có tối thiểu 6 ký tự.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (formPassword.trim() !== formConfirmPassword.trim()) {
-          setFormError('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.');
-          setIsSubmitting(false);
-          return;
-        }
-        if (formScopeType !== 'CHAIN' && !formScopeEntityId) {
-          setFormError(
-            formScopeType === 'REGION'
-              ? 'Vui lòng chọn khu vực quản lý.'
-              : 'Vui lòng chọn khách sạn trực thuộc.'
-          );
-          setIsSubmitting(false);
-          return;
-        }
-
         const scopeEntityId = formScopeType === 'CHAIN'
           ? undefined
           : formScopeEntityId ? Number(formScopeEntityId) : undefined;
@@ -302,7 +308,7 @@ export const StaffListPage: React.FC = () => {
           firstName: formFirstName.trim(),
           lastName: formLastName.trim(),
           email: formEmail.trim(),
-          phone: formPhone.trim() || undefined,
+          phone: formPhone.trim(),
           roleId: Number(formRoleId),
           departmentId,
           scopeType: formScopeType,
@@ -330,9 +336,61 @@ export const StaffListPage: React.FC = () => {
       }
       void loadData();
     } catch (err: unknown) {
-      const errorMsg =
-        err instanceof Error ? err.message : 'Đã có lỗi xảy ra khi lưu nhân sự.';
-      setFormError(errorMsg);
+      console.error('Lỗi khi lưu nhân sự:', err);
+      const axiosErr = err as {
+        response?: {
+          status?: number;
+          data?: {
+            code?: number;
+            message?: string;
+            error?: string;
+            errors?: Record<string, string>;
+          };
+        };
+        message?: string;
+      };
+
+      const resData = axiosErr?.response?.data;
+      const apiCode = resData?.code;
+      const apiMessage = resData?.message || resData?.error;
+
+      // Ưu tiên trích xuất message nghiệp vụ từ backend thay vì chỉ hiển thị mã lỗi HTTP
+      const displayMsg =
+        apiMessage && typeof apiMessage === 'string' && apiMessage.trim().length > 0
+          ? apiMessage
+          : err instanceof Error && !err.message.includes('status code')
+            ? err.message
+            : 'Đã có lỗi xảy ra khi lưu thông tin nhân viên.';
+
+      setFormError(displayMsg);
+
+      // Nếu là lỗi trường cụ thể từ backend, gán trực tiếp thông báo lỗi vào trường tương ứng
+      if (apiCode === 3022 || (apiMessage && /tài khoản|đăng nhập|username/i.test(apiMessage))) {
+        setFormFieldErrors((prev) => ({
+          ...prev,
+          username: apiMessage || 'Tên đăng nhập đã được sử dụng.',
+        }));
+      } else if (apiCode === 3023 || (apiMessage && /email/i.test(apiMessage))) {
+        setFormFieldErrors((prev) => ({
+          ...prev,
+          email: apiMessage || 'Địa chỉ email đã được sử dụng bởi nhân viên khác.',
+        }));
+      } else if (apiCode === 3024 || (apiMessage && /thoại|phone/i.test(apiMessage))) {
+        setFormFieldErrors((prev) => ({
+          ...prev,
+          phone: apiMessage || 'Số điện thoại đã được sử dụng bởi nhân viên khác.',
+        }));
+      } else if (apiCode === 3025 || (apiMessage && /scope|phạm vi/i.test(apiMessage))) {
+        setFormFieldErrors((prev) => ({
+          ...prev,
+          scopeEntityId: apiMessage || 'Cấu hình phạm vi quản lý không hợp lệ.',
+        }));
+      } else if (resData?.errors && typeof resData.errors === 'object') {
+        setFormFieldErrors((prev) => ({
+          ...prev,
+          ...resData.errors,
+        }));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -371,7 +429,17 @@ export const StaffListPage: React.FC = () => {
         setResetPasswordModalOpen(false);
       }, 1500);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Không thể đặt lại mật khẩu.';
+      const axiosErr = err as {
+        response?: { data?: { message?: string; error?: string } };
+        message?: string;
+      };
+      const apiMessage = axiosErr?.response?.data?.message || axiosErr?.response?.data?.error;
+      const msg =
+        apiMessage && typeof apiMessage === 'string' && apiMessage.trim().length > 0
+          ? apiMessage
+          : err instanceof Error && !err.message.includes('status code')
+            ? err.message
+            : 'Không thể đặt lại mật khẩu.';
       setResetError(msg);
     } finally {
       setIsResetting(false);
@@ -714,10 +782,11 @@ export const StaffListPage: React.FC = () => {
         description="Thông tin nhân sự được đồng bộ tự động vào Keycloak IAM và kiểm soát quyền truy cập."
         maxWidth="4xl"
       >
-        <form onSubmit={handleSubmitForm} className="space-y-4">
+        <form onSubmit={handleSubmitForm} noValidate className="space-y-4">
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
-              {formError}
+            <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{formError}</span>
             </div>
           )}
 
@@ -729,9 +798,12 @@ export const StaffListPage: React.FC = () => {
               <Input
                 placeholder="receptionist_hn"
                 value={formUsername}
-                onChange={(e) => setFormUsername(e.target.value)}
+                onChange={(e) => {
+                  setFormUsername(e.target.value);
+                  clearFieldError('username');
+                }}
                 disabled={!!editingStaff}
-                required
+                error={formFieldErrors.username}
               />
             </div>
 
@@ -741,7 +813,10 @@ export const StaffListPage: React.FC = () => {
               </label>
               <Select<number>
                 value={formRoleId || 0}
-                onChange={(val) => setFormRoleId(Number(val))}
+                onChange={(val) => {
+                  setFormRoleId(Number(val));
+                  clearFieldError('roleId');
+                }}
                 options={[
                   { value: 0, label: 'Chọn vai trò', disabled: true },
                   ...roles.map((r) => ({
@@ -750,6 +825,7 @@ export const StaffListPage: React.FC = () => {
                   })),
                 ]}
                 size="lg"
+                error={formFieldErrors.roleId}
               />
             </div>
 
@@ -758,10 +834,13 @@ export const StaffListPage: React.FC = () => {
                 Họ và tên đệm <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="Nguyễn"
+                placeholder="Nguyễn Văn"
                 value={formLastName}
-                onChange={(e) => setFormLastName(e.target.value)}
-                required
+                onChange={(e) => {
+                  setFormLastName(e.target.value);
+                  clearFieldError('lastName');
+                }}
+                error={formFieldErrors.lastName}
               />
             </div>
 
@@ -770,10 +849,13 @@ export const StaffListPage: React.FC = () => {
                 Tên <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="Văn A"
+                placeholder="A"
                 value={formFirstName}
-                onChange={(e) => setFormFirstName(e.target.value)}
-                required
+                onChange={(e) => {
+                  setFormFirstName(e.target.value);
+                  clearFieldError('firstName');
+                }}
+                error={formFieldErrors.firstName}
               />
             </div>
 
@@ -785,19 +867,27 @@ export const StaffListPage: React.FC = () => {
                 type="email"
                 placeholder="staff@utc.edu.vn"
                 value={formEmail}
-                onChange={(e) => setFormEmail(e.target.value)}
-                required
+                onChange={(e) => {
+                  setFormEmail(e.target.value);
+                  clearFieldError('email');
+                }}
+                error={formFieldErrors.email}
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                Số điện thoại
+                Số điện thoại <span className="text-red-500">*</span>
               </label>
               <Input
+                type="tel"
                 placeholder="0988889999"
                 value={formPhone}
-                onChange={(e) => setFormPhone(e.target.value)}
+                onChange={(e) => {
+                  setFormPhone(e.target.value);
+                  clearFieldError('phone');
+                }}
+                error={formFieldErrors.phone}
               />
             </div>
 
@@ -809,6 +899,7 @@ export const StaffListPage: React.FC = () => {
                 value={formScopeType}
                 onChange={(val) => {
                   setFormScopeType(val);
+                  clearFieldError('scopeEntityId');
                   if (val === 'CHAIN') {
                     setFormScopeEntityId('');
                     setFormDeptId('');
@@ -835,7 +926,10 @@ export const StaffListPage: React.FC = () => {
                 </label>
                 <Select<number | ''>
                   value={formScopeEntityId === '' ? '' : Number(formScopeEntityId)}
-                  onChange={(val) => setFormScopeEntityId(val ? Number(val) : '')}
+                  onChange={(val) => {
+                    setFormScopeEntityId(val ? Number(val) : '');
+                    clearFieldError('scopeEntityId');
+                  }}
                   options={[
                     { value: '', label: 'Chọn khách sạn', disabled: true },
                     ...hotels.map((h) => ({
@@ -844,6 +938,7 @@ export const StaffListPage: React.FC = () => {
                     })),
                   ]}
                   size="lg"
+                  error={formFieldErrors.scopeEntityId}
                 />
               </div>
             )}
@@ -855,7 +950,10 @@ export const StaffListPage: React.FC = () => {
                 </label>
                 <Select<number | ''>
                   value={formScopeEntityId === '' ? '' : Number(formScopeEntityId)}
-                  onChange={(val) => setFormScopeEntityId(val ? Number(val) : '')}
+                  onChange={(val) => {
+                    setFormScopeEntityId(val ? Number(val) : '');
+                    clearFieldError('scopeEntityId');
+                  }}
                   options={[
                     { value: '', label: 'Chọn khu vực', disabled: true },
                     ...regions.map((r) => ({
@@ -864,6 +962,7 @@ export const StaffListPage: React.FC = () => {
                     })),
                   ]}
                   size="lg"
+                  error={formFieldErrors.scopeEntityId}
                 />
               </div>
             )}
@@ -910,6 +1009,8 @@ export const StaffListPage: React.FC = () => {
                     onClick={() => {
                       setFormPassword('Hotel@123456');
                       setFormConfirmPassword('Hotel@123456');
+                      clearFieldError('password');
+                      clearFieldError('confirmPassword');
                     }}
                     className="text-[11px] text-red-600 hover:text-red-700 font-semibold bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shrink-0 self-start sm:self-auto cursor-pointer"
                   >
@@ -927,8 +1028,11 @@ export const StaffListPage: React.FC = () => {
                       type={showFormPassword ? 'text' : 'password'}
                       placeholder="Nhập tối thiểu 6 ký tự..."
                       value={formPassword}
-                      onChange={(e) => setFormPassword(e.target.value)}
-                      required
+                      onChange={(e) => {
+                        setFormPassword(e.target.value);
+                        clearFieldError('password');
+                      }}
+                      error={formFieldErrors.password}
                       rightIcon={
                         <button
                           type="button"
@@ -949,8 +1053,11 @@ export const StaffListPage: React.FC = () => {
                       type={showFormPassword ? 'text' : 'password'}
                       placeholder="Nhập lại mật khẩu..."
                       value={formConfirmPassword}
-                      onChange={(e) => setFormConfirmPassword(e.target.value)}
-                      required
+                      onChange={(e) => {
+                        setFormConfirmPassword(e.target.value);
+                        clearFieldError('confirmPassword');
+                      }}
+                      error={formFieldErrors.confirmPassword}
                       rightIcon={
                         <button
                           type="button"

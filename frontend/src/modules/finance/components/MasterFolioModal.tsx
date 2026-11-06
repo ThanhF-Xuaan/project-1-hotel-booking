@@ -181,7 +181,7 @@ export const MasterFolioModal: React.FC<MasterFolioModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 md:p-6 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 md:p-6 overflow-y-auto scrollbar-none">
       <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden my-auto flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="bg-neutral-900 text-white p-5 flex items-center justify-between border-b border-neutral-800 shrink-0">
@@ -235,7 +235,7 @@ export const MasterFolioModal: React.FC<MasterFolioModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto scrollbar-none p-6 space-y-6">
           {isLoading && !folio ? (
             <div className="py-20 text-center text-neutral-500 space-y-3">
               <RefreshCw className="w-8 h-8 animate-spin text-red-600 mx-auto" />
