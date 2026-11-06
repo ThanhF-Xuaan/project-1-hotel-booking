@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, RefreshCw, Search, Edit2, Globe } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
+import Select from '../../../core/components/ui/Select'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
 import Pagination from '../../../core/components/ui/Pagination'
 import regionService from '../services/region.service'
@@ -202,15 +203,16 @@ export const RegionListPage: React.FC = () => {
           </div>
 
           <div className="w-full md:w-48">
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 md:h-12 px-3 text-sm text-neutral-900 bg-white border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Ngừng hoạt động (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Ngừng hoạt động (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">
@@ -406,14 +408,15 @@ export const RegionListPage: React.FC = () => {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-neutral-800">Trạng thái</label>
-            <select
+            <Select<string>
               value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value)}
-              className="w-full h-10 md:h-12 px-3 text-sm text-neutral-900 bg-white border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Ngừng hoạt động (INACTIVE)</option>
-            </select>
+              onChange={(val) => setFormStatus(val)}
+              options={[
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Ngừng hoạt động (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100">

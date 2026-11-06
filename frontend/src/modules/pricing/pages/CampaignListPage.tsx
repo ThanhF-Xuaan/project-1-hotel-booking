@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, RefreshCw, Search, Edit2, Megaphone } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
+import Select from '../../../core/components/ui/Select'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
 import Pagination from '../../../core/components/ui/Pagination'
 import campaignService from '../services/campaign.service'
@@ -222,20 +223,17 @@ export const CampaignListPage: React.FC = () => {
       <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs">
         <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
-            <select
+            <Select<number | ''>
               value={selectedHotelId || ''}
-              onChange={(e) =>
-                setSelectedHotelId(e.target.value ? Number(e.target.value) : undefined)
+              onChange={(val) =>
+                setSelectedHotelId(val ? Number(val) : undefined)
               }
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả khách sạn</option>
-              {hotels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Tất cả khách sạn' },
+                ...hotels.map((h) => ({ value: h.id, label: h.name })),
+              ]}
+              size="lg"
+            />
           </div>
 
           <div>
@@ -248,15 +246,16 @@ export const CampaignListPage: React.FC = () => {
           </div>
 
           <div>
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Tạm dừng (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm dừng (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="flex gap-2">
@@ -442,20 +441,16 @@ export const CampaignListPage: React.FC = () => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Khách Sạn Áp Dụng <span className="text-red-500">*</span>
             </label>
-            <select
-              value={formHotelId}
-              onChange={(e) => setFormHotelId(Number(e.target.value))}
+            <Select<number | ''>
+              value={formHotelId || ''}
+              onChange={(val) => setFormHotelId(Number(val))}
               disabled={!!editingCampaign}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-              required
-            >
-              <option value="">Chọn khách sạn</option>
-              {hotels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Chọn khách sạn', disabled: true },
+                ...hotels.map((h) => ({ value: h.id, label: h.name })),
+              ]}
+              size="md"
+            />
           </div>
 
           <div>
@@ -513,14 +508,15 @@ export const CampaignListPage: React.FC = () => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Trạng Thái
             </label>
-            <select
+            <Select<string>
               value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value)}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Tạm dừng (INACTIVE)</option>
-            </select>
+              onChange={(val) => setFormStatus(val)}
+              options={[
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm dừng (INACTIVE)' },
+              ]}
+              size="md"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200">

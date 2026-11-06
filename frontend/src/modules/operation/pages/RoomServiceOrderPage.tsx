@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import { Modal, ConfirmModal } from '../../../core/components/ui/Modal';
 import { operationService } from '../services/operation.service';
 import bookingService from '../../booking/services/booking.service';
@@ -283,23 +284,24 @@ export const RoomServiceOrderPage: React.FC = () => {
       <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap items-center gap-4">
         <div className="text-sm font-semibold text-neutral-800">Thông tin phòng nhận dịch vụ:</div>
         <div className="w-80">
-          <select
-            className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600 font-medium text-neutral-900 cursor-pointer"
+          <Select<number | ''>
             value={roomInstanceId}
-            onChange={(e) => setRoomInstanceId(e.target.value ? parseInt(e.target.value) : '')}
+            onChange={(val) => setRoomInstanceId(val ? Number(val) : '')}
             disabled={isLoadingRooms}
-          >
-            {roomList.length === 0 ? (
-              <option value="">-- Chưa có phòng nào có đơn hàng --</option>
-            ) : (
-              <option value="">-- Chọn phòng đã tạo đơn hàng --</option>
-            )}
-            {roomList.map((room) => (
-              <option key={room.id} value={room.id}>
-                Phòng {room.roomNumber} ({room.roomTypeName || 'Tiêu chuẩn'}) - {room.currentStatus} [{room.bookingNumber}]
-              </option>
-            ))}
-          </select>
+            placeholder={roomList.length === 0 ? 'Chưa có phòng nào có đơn hàng' : 'Chọn phòng đã tạo đơn hàng'}
+            options={[
+              {
+                value: '',
+                label: roomList.length === 0 ? 'Chưa có phòng nào có đơn hàng' : 'Chọn phòng đã tạo đơn hàng',
+                disabled: true,
+              },
+              ...roomList.map((room) => ({
+                value: room.id,
+                label: `Phòng ${room.roomNumber} (${room.roomTypeName || 'Tiêu chuẩn'}) - ${room.currentStatus} [${room.bookingNumber}]`,
+              })),
+            ]}
+            size="lg"
+          />
         </div>
         {selectedRoom ? (
           <div className="text-xs text-neutral-600 bg-neutral-50 px-3.5 py-2 rounded-xl border border-neutral-200 flex flex-wrap items-center gap-3">
@@ -351,8 +353,8 @@ export const RoomServiceOrderPage: React.FC = () => {
               <button
                 onClick={() => setCategoryFilter('ALL')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${categoryFilter === 'ALL'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
               >
                 Tất cả danh mục
@@ -360,8 +362,8 @@ export const RoomServiceOrderPage: React.FC = () => {
               <button
                 onClick={() => setCategoryFilter('PRODUCT')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${categoryFilter === 'PRODUCT'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
               >
                 <Utensils className="w-3.5 h-3.5" />
@@ -370,8 +372,8 @@ export const RoomServiceOrderPage: React.FC = () => {
               <button
                 onClick={() => setCategoryFilter('SERVICE')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${categoryFilter === 'SERVICE'
-                    ? 'bg-red-600 text-white'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                   }`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
@@ -412,8 +414,8 @@ export const RoomServiceOrderPage: React.FC = () => {
                       {item.menuType === 'PRODUCT' ? (
                         <span
                           className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${(item.stockQuantity ?? 0) > 0
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-rose-50 text-rose-700'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-rose-50 text-rose-700'
                             }`}
                         >
                           Còn {(item.stockQuantity ?? 0)}
@@ -600,14 +602,14 @@ export const RoomServiceOrderPage: React.FC = () => {
                     <td className="py-3 px-4">
                       <span
                         className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${order.status === 'PENDING'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : order.status === 'PREPARING'
-                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                              : order.status === 'DELIVERED'
-                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                : order.status === 'COMPLETED'
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : order.status === 'PREPARING'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            : order.status === 'DELIVERED'
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                              : order.status === 'COMPLETED'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
                           }`}
                       >
                         {order.status === 'PENDING' && 'Chờ tiếp nhận'}

@@ -75,15 +75,26 @@ public class AuditLogServiceImpl implements AuditLogService {
                     .actionType(actionType)
                     .entityName(entityName)
                     .entityId(entityId)
-                    .oldValues(oldValues)
-                    .newValues(newValues)
+                    .oldValues(toJsonSafe(oldValues))
+                    .newValues(toJsonSafe(newValues))
                     .ipAddress(ipAddress)
                     .userAgent(userAgent)
                     .build();
 
-            auditLogRepository.save(logEntry);
+            auditLogRepository.saveAndFlush(logEntry);
         } catch (Exception e) {
             log.error("Không thể ghi log kiểm toán: actionType={}, entityName={}, entityId={}", actionType, entityName, entityId, e);
         }
+    }
+
+    private String toJsonSafe(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+            return trimmed;
+        }
+        return "{\"message\":\"" + trimmed.replace("\"", "\\\"") + "\"}";
     }
 }

@@ -9,14 +9,22 @@ import {
   Shield,
   UserCheck,
   Building,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Copy,
+  Check,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import staffService from '../services/staff.service';
 import roleService from '../services/role.service';
 import departmentService from '../../organization/services/department.service';
+import hotelService from '../../organization/services/hotel.service';
+import regionService from '../../organization/services/region.service';
 import type {
   StaffDto,
   StaffScopeType,
@@ -24,6 +32,7 @@ import type {
 } from '../types/staff.types';
 import type { RoleDto } from '../types/role.types';
 import type { DepartmentDto } from '../../organization/types/department.types';
+import type { HotelDto, RegionDto } from '../../organization/types/organization.types';
 
 export const StaffListPage: React.FC = () => {
   const [staffList, setStaffList] = useState<StaffDto[]>([]);
@@ -40,6 +49,8 @@ export const StaffListPage: React.FC = () => {
   // Reference lists for dropdowns
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [departments, setDepartments] = useState<DepartmentDto[]>([]);
+  const [hotels, setHotels] = useState<HotelDto[]>([]);
+  const [regions, setRegions] = useState<RegionDto[]>([]);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -57,14 +68,28 @@ export const StaffListPage: React.FC = () => {
   const [formScopeType, setFormScopeType] = useState<StaffScopeType>('PROPERTY');
   const [formScopeEntityId, setFormScopeEntityId] = useState<number | ''>(1);
   const [formPassword, setFormPassword] = useState('');
+  const [formConfirmPassword, setFormConfirmPassword] = useState('');
+  const [showFormPassword, setShowFormPassword] = useState(false);
   const [formStatus, setFormStatus] = useState<StaffStatus>('ACTIVE');
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Success Modal State for Created Credentials
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    username: string;
+    password: string;
+    fullName: string;
+    roleName: string;
+    scope: string;
+  } | null>(null);
+  const [copiedField, setCopiedField] = useState<'username' | 'password' | null>(null);
 
   // Reset Password Modal
   const [resetPasswordModalOpen, setResetPasswordModalOpen] = useState(false);
   const [targetStaff, setTargetStaff] = useState<StaffDto | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
@@ -81,21 +106,25 @@ export const StaffListPage: React.FC = () => {
   const [deletingIds, setDeletingIds] = useState<number[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Load reference data (roles & departments)
+  // Load reference data (roles, departments, hotels, regions)
   useEffect(() => {
     let ignore = false;
     const fetchRefs = async () => {
       try {
-        const [rolesRes, deptsRes] = await Promise.all([
+        const [rolesRes, deptsRes, hotelsRes, regionsRes] = await Promise.all([
           roleService.filter({ page: 0, pageSize: 50 }),
           departmentService.getAllActive(),
+          hotelService.filter({ page: 0, pageSize: 100 }),
+          regionService.filter({ page: 0, pageSize: 100 }),
         ]);
         if (!ignore) {
           if (rolesRes?.result?.content) setRoles(rolesRes.result.content);
           if (deptsRes?.result) setDepartments(deptsRes.result);
+          if (hotelsRes?.result?.content) setHotels(hotelsRes.result.content);
+          if (regionsRes?.result?.content) setRegions(regionsRes.result.content);
         }
       } catch (err) {
-        console.error('Lỗi tải danh mục vai trò / phòng ban:', err);
+        console.error('Lỗi tải danh mục vai trò / phòng ban / cơ sở:', err);
       }
     };
     void fetchRefs();
@@ -170,10 +199,12 @@ export const StaffListPage: React.FC = () => {
     setFormEmail('');
     setFormPhone('');
     setFormRoleId(roles.length > 0 ? roles[0].id : '');
-    setFormDeptId(departments.length > 0 ? departments[0].id : '');
+    setFormDeptId('');
     setFormScopeType('PROPERTY');
-    setFormScopeEntityId(1);
+    setFormScopeEntityId(hotels.length > 0 ? hotels[0].id : 1);
     setFormPassword('');
+    setFormConfirmPassword('');
+    setShowFormPassword(false);
     setFormStatus('ACTIVE');
     setFormError(null);
     setIsFormModalOpen(true);
@@ -189,8 +220,10 @@ export const StaffListPage: React.FC = () => {
     setFormRoleId(staff.roleId);
     setFormDeptId(staff.departmentId || '');
     setFormScopeType(staff.scopeType || 'PROPERTY');
-    setFormScopeEntityId(staff.scopeEntityId || 1);
+    setFormScopeEntityId(staff.scopeEntityId || '');
     setFormPassword('');
+    setFormConfirmPassword('');
+    setShowFormPassword(false);
     setFormStatus(staff.status);
     setFormError(null);
     setIsFormModalOpen(true);
@@ -206,39 +239,95 @@ export const StaffListPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       if (editingStaff) {
+        const scopeEntityId = formScopeType === 'CHAIN'
+          ? undefined
+          : formScopeEntityId ? Number(formScopeEntityId) : undefined;
+        const departmentId = formScopeType === 'PROPERTY' && formDeptId
+          ? Number(formDeptId)
+          : undefined;
+
         await staffService.update(editingStaff.id, {
           firstName: formFirstName.trim(),
           lastName: formLastName.trim(),
           email: formEmail.trim() || undefined,
           phone: formPhone.trim() || undefined,
           roleId: Number(formRoleId),
-          departmentId: formDeptId ? Number(formDeptId) : undefined,
+          departmentId,
           scopeType: formScopeType,
-          scopeEntityId: formScopeEntityId ? Number(formScopeEntityId) : undefined,
+          scopeEntityId,
           status: formStatus,
           password: formPassword.trim() || undefined,
         });
+        setIsFormModalOpen(false);
       } else {
         if (!formUsername.trim()) {
           setFormError('Tên đăng nhập không được để trống.');
           setIsSubmitting(false);
           return;
         }
+        if (!formPassword.trim()) {
+          setFormError('Vui lòng thiết lập mật khẩu khởi tạo cho nhân viên.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (formPassword.trim().length < 6) {
+          setFormError('Mật khẩu khởi tạo phải có tối thiểu 6 ký tự.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (formPassword.trim() !== formConfirmPassword.trim()) {
+          setFormError('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (formScopeType !== 'CHAIN' && !formScopeEntityId) {
+          setFormError(
+            formScopeType === 'REGION'
+              ? 'Vui lòng chọn khu vực quản lý.'
+              : 'Vui lòng chọn khách sạn trực thuộc.'
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        const scopeEntityId = formScopeType === 'CHAIN'
+          ? undefined
+          : formScopeEntityId ? Number(formScopeEntityId) : undefined;
+        const departmentId = formScopeType === 'PROPERTY' && formDeptId
+          ? Number(formDeptId)
+          : undefined;
+
         await staffService.create({
           username: formUsername.trim(),
           firstName: formFirstName.trim(),
           lastName: formLastName.trim(),
           email: formEmail.trim(),
-          phone: formPhone.trim(),
+          phone: formPhone.trim() || undefined,
           roleId: Number(formRoleId),
-          departmentId: formDeptId ? Number(formDeptId) : undefined,
+          departmentId,
           scopeType: formScopeType,
-          scopeEntityId: formScopeEntityId ? Number(formScopeEntityId) : undefined,
-          password: formPassword.trim() || undefined,
+          scopeEntityId,
+          password: formPassword.trim(),
           status: formStatus,
         });
+
+        const roleObj = roles.find((r) => r.id === Number(formRoleId));
+        const hotelObj = hotels.find((h) => h.id === Number(formScopeEntityId));
+        const regionObj = regions.find((r) => r.id === Number(formScopeEntityId));
+
+        setCreatedCredentials({
+          username: formUsername.trim(),
+          password: formPassword.trim(),
+          fullName: `${formLastName.trim()} ${formFirstName.trim()}`,
+          roleName: roleObj ? `${roleObj.name} (${roleObj.code})` : 'Nhân sự',
+          scope: formScopeType === 'CHAIN'
+            ? 'CHAIN (Toàn bộ chuỗi)'
+            : formScopeType === 'REGION'
+              ? `REGION: ${regionObj?.name || formScopeEntityId}`
+              : `PROPERTY: ${hotelObj?.name || formScopeEntityId}`,
+        });
+        setIsFormModalOpen(false);
       }
-      setIsFormModalOpen(false);
       void loadData();
     } catch (err: unknown) {
       const errorMsg =
@@ -253,6 +342,8 @@ export const StaffListPage: React.FC = () => {
   const openResetPasswordModal = (staff: StaffDto) => {
     setTargetStaff(staff);
     setNewPassword('');
+    setConfirmPassword('');
+    setShowResetPassword(false);
     setResetError(null);
     setResetSuccessMessage(null);
     setResetPasswordModalOpen(true);
@@ -263,6 +354,10 @@ export const StaffListPage: React.FC = () => {
     if (!targetStaff) return;
     if (newPassword.trim().length < 6) {
       setResetError('Mật khẩu mới phải có tối thiểu 6 ký tự.');
+      return;
+    }
+    if (newPassword.trim() !== confirmPassword.trim()) {
+      setResetError('Mật khẩu xác nhận không khớp.');
       return;
     }
     setIsResetting(true);
@@ -389,46 +484,41 @@ export const StaffListPage: React.FC = () => {
           </div>
 
           <div className="lg:col-span-2">
-            <select
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+            <Select<string>
               value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="">-- Tất cả vai trò --</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setRoleFilter(val)}
+              options={[
+                { value: '', label: 'Tất cả vai trò' },
+                ...roles.map((r) => ({ value: String(r.id), label: r.name })),
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="lg:col-span-2">
-            <select
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+            <Select<string>
               value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
-            >
-              <option value="">-- Tất cả phòng ban --</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setDeptFilter(val)}
+              options={[
+                { value: '', label: 'Tất cả phòng ban' },
+                ...departments.map((d) => ({ value: String(d.id), label: d.name })),
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="lg:col-span-2">
-            <select
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+            <Select<string>
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="">-- Trạng thái --</option>
-              <option value="ACTIVE">Đang hoạt động</option>
-              <option value="SUSPENDED">Tạm đình chỉ</option>
-              <option value="RESIGNED">Đã nghỉ việc</option>
-            </select>
+              onChange={(val) => setStatusFilter(val)}
+              options={[
+                { value: '', label: 'Trạng thái' },
+                { value: 'ACTIVE', label: 'Đang hoạt động' },
+                { value: 'SUSPENDED', label: 'Tạm đình chỉ' },
+                { value: 'RESIGNED', label: 'Đã nghỉ việc' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="lg:col-span-2 flex gap-2 justify-end">
@@ -524,9 +614,8 @@ export const StaffListPage: React.FC = () => {
                 staffList.map((staff) => (
                   <tr
                     key={staff.id}
-                    className={`hover:bg-neutral-50/60 transition-colors ${
-                      selectedIds.includes(staff.id) ? 'bg-red-50/30' : ''
-                    }`}
+                    className={`hover:bg-neutral-50/60 transition-colors ${selectedIds.includes(staff.id) ? 'bg-red-50/30' : ''
+                      }`}
                   >
                     <td className="py-3.5 px-4">
                       <input
@@ -650,19 +739,18 @@ export const StaffListPage: React.FC = () => {
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
                 Vai trò (Role) <span className="text-red-500">*</span>
               </label>
-              <select
-                className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-                value={formRoleId}
-                onChange={(e) => setFormRoleId(Number(e.target.value))}
-                required
-              >
-                <option value="">-- Chọn vai trò --</option>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.code})
-                  </option>
-                ))}
-              </select>
+              <Select<number>
+                value={formRoleId || 0}
+                onChange={(val) => setFormRoleId(Number(val))}
+                options={[
+                  { value: 0, label: 'Chọn vai trò', disabled: true },
+                  ...roles.map((r) => ({
+                    value: r.id,
+                    label: `${r.name} (${r.code})`,
+                  })),
+                ]}
+                size="lg"
+              />
             </div>
 
             <div>
@@ -715,48 +803,167 @@ export const StaffListPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                Phòng ban trực thuộc
+                Phạm vi dữ liệu (Scope Type) <span className="text-red-500">*</span>
               </label>
-              <select
-                className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-                value={formDeptId}
-                onChange={(e) => setFormDeptId(e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">-- Không phân phòng ban --</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+              <Select<StaffScopeType>
+                value={formScopeType}
+                onChange={(val) => {
+                  setFormScopeType(val);
+                  if (val === 'CHAIN') {
+                    setFormScopeEntityId('');
+                    setFormDeptId('');
+                  } else if (val === 'REGION') {
+                    setFormScopeEntityId(regions.length > 0 ? regions[0].id : '');
+                    setFormDeptId('');
+                  } else {
+                    setFormScopeEntityId(hotels.length > 0 ? hotels[0].id : '');
+                  }
+                }}
+                options={[
+                  { value: 'PROPERTY', label: 'PROPERTY (Khách sạn cơ sở)' },
+                  { value: 'REGION', label: 'REGION (Theo khu vực)' },
+                  { value: 'CHAIN', label: 'CHAIN (Toàn bộ chuỗi)' },
+                ]}
+                size="lg"
+              />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                Phạm vi dữ liệu (Scope Type)
-              </label>
-              <select
-                className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-                value={formScopeType}
-                onChange={(e) => setFormScopeType(e.target.value as StaffScopeType)}
-              >
-                <option value="CHAIN">CHAIN (Toàn bộ chuỗi)</option>
-                <option value="REGION">REGION (Theo khu vực)</option>
-                <option value="PROPERTY">PROPERTY (Khách sạn cơ sở)</option>
-              </select>
-            </div>
+            {formScopeType === 'PROPERTY' && (
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  Khách sạn trực thuộc (Property) <span className="text-red-500">*</span>
+                </label>
+                <Select<number | ''>
+                  value={formScopeEntityId === '' ? '' : Number(formScopeEntityId)}
+                  onChange={(val) => setFormScopeEntityId(val ? Number(val) : '')}
+                  options={[
+                    { value: '', label: 'Chọn khách sạn', disabled: true },
+                    ...hotels.map((h) => ({
+                      value: h.id,
+                      label: `${h.name} (${h.address})`,
+                    })),
+                  ]}
+                  size="lg"
+                />
+              </div>
+            )}
+
+            {formScopeType === 'REGION' && (
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  Khu vực quản lý (Region) <span className="text-red-500">*</span>
+                </label>
+                <Select<number | ''>
+                  value={formScopeEntityId === '' ? '' : Number(formScopeEntityId)}
+                  onChange={(val) => setFormScopeEntityId(val ? Number(val) : '')}
+                  options={[
+                    { value: '', label: 'Chọn khu vực', disabled: true },
+                    ...regions.map((r) => ({
+                      value: r.id,
+                      label: `${r.name} (${r.code})`,
+                    })),
+                  ]}
+                  size="lg"
+                />
+              </div>
+            )}
+
+            {formScopeType === 'PROPERTY' && (
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                  Phòng ban trực thuộc
+                </label>
+                <Select<number | ''>
+                  value={formDeptId === '' ? '' : Number(formDeptId)}
+                  onChange={(val) => setFormDeptId(val ? Number(val) : '')}
+                  options={[
+                    { value: '', label: 'Không phân phòng ban' },
+                    ...departments.map((d) => ({
+                      value: d.id,
+                      label: d.name,
+                    })),
+                  ]}
+                  size="lg"
+                />
+              </div>
+            )}
+
+            {formScopeType === 'CHAIN' && (
+              <div className="flex items-center text-xs text-neutral-600 bg-neutral-50 p-3 rounded-xl border border-neutral-200">
+                <span>Phạm vi toàn chuỗi (CHAIN) áp dụng cho cấp quản trị viên chuỗi, không gắn riêng với cơ sở hay phòng ban.</span>
+              </div>
+            )}
 
             {!editingStaff && (
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Mật khẩu khởi tạo ban đầu (Tùy chọn, mặc định sinh tự động)
-                </label>
-                <Input
-                  type="password"
-                  placeholder="Nhập tối thiểu 6 ký tự..."
-                  value={formPassword}
-                  onChange={(e) => setFormPassword(e.target.value)}
-                />
+              <div className="md:col-span-2 space-y-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-900">
+                      Mật khẩu đăng nhập khởi tạo <span className="text-red-500">*</span>
+                    </label>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                      Mật khẩu chính thức dùng để đăng nhập hệ thống ngay lập tức (tối thiểu 6 ký tự).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormPassword('Hotel@123456');
+                      setFormConfirmPassword('Hotel@123456');
+                    }}
+                    className="text-[11px] text-red-600 hover:text-red-700 font-semibold bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 shrink-0 self-start sm:self-auto cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-red-600" />
+                    Dùng mặc định: Hotel@123456
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                      Mật khẩu <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type={showFormPassword ? 'text' : 'password'}
+                      placeholder="Nhập tối thiểu 6 ký tự..."
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      required
+                      rightIcon={
+                        <button
+                          type="button"
+                          onClick={() => setShowFormPassword(!showFormPassword)}
+                          className="hover:text-neutral-700 cursor-pointer p-1"
+                          title={showFormPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        >
+                          {showFormPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
+                      Xác nhận mật khẩu <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type={showFormPassword ? 'text' : 'password'}
+                      placeholder="Nhập lại mật khẩu..."
+                      value={formConfirmPassword}
+                      onChange={(e) => setFormConfirmPassword(e.target.value)}
+                      required
+                      rightIcon={
+                        <button
+                          type="button"
+                          onClick={() => setShowFormPassword(!showFormPassword)}
+                          className="hover:text-neutral-700 cursor-pointer p-1"
+                          title={showFormPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        >
+                          {showFormPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      }
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -787,7 +994,7 @@ export const StaffListPage: React.FC = () => {
         isOpen={resetPasswordModalOpen}
         onClose={() => setResetPasswordModalOpen(false)}
         title={`Đặt lại mật khẩu: @${targetStaff?.username}`}
-        description="Mật khẩu mới sẽ được mã hóa và đồng bộ trực tiếp vào máy chủ xác thực Keycloak."
+        description="Mật khẩu mới sẽ được mã hóa và đồng bộ trực tiếp vào máy chủ xác thực Keycloak (tài khoản sẽ có thể đăng nhập ngay)."
         maxWidth="md"
       >
         <form onSubmit={handleResetPassword} className="space-y-4">
@@ -802,16 +1009,64 @@ export const StaffListPage: React.FC = () => {
             </div>
           )}
 
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-neutral-500">Thiết lập mật khẩu mới:</span>
+            <button
+              type="button"
+              onClick={() => {
+                setNewPassword('Hotel@123456');
+                setConfirmPassword('Hotel@123456');
+              }}
+              className="text-[11px] text-red-600 hover:text-red-700 font-semibold bg-red-50 hover:bg-red-100 border border-red-200 px-2 py-0.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3 text-red-600" />
+              Dùng mặc định: Hotel@123456
+            </button>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Mật khẩu mới <span className="text-red-500">*</span>
             </label>
             <Input
-              type="password"
+              type={showResetPassword ? 'text' : 'password'}
               placeholder="Nhập mật khẩu mới (tối thiểu 6 ký tự)..."
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowResetPassword(!showResetPassword)}
+                  className="hover:text-neutral-700 cursor-pointer p-1"
+                  title={showResetPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              }
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-neutral-700 mb-1">
+              Xác nhận mật khẩu mới <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type={showResetPassword ? 'text' : 'password'}
+              placeholder="Nhập lại mật khẩu mới..."
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowResetPassword(!showResetPassword)}
+                  className="hover:text-neutral-700 cursor-pointer p-1"
+                  title={showResetPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                >
+                  {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              }
             />
           </div>
 
@@ -838,6 +1093,96 @@ export const StaffListPage: React.FC = () => {
         </form>
       </Modal>
 
+      {/* CREATED CREDENTIALS SUCCESS MODAL */}
+      <Modal
+        isOpen={!!createdCredentials}
+        onClose={() => setCreatedCredentials(null)}
+        title="Tạo tài khoản nhân viên thành công!"
+        description="Thông tin đăng nhập đã được kích hoạt trực tiếp trên hệ thống Keycloak IAM. Vui lòng lưu lại và bàn giao cho nhân viên."
+        maxWidth="md"
+      >
+        {createdCredentials && (
+          <div className="space-y-4">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60">
+                <span className="text-xs font-semibold text-emerald-800">Họ và tên:</span>
+                <span className="text-xs font-bold text-neutral-900">{createdCredentials.fullName}</span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-emerald-200/60">
+                <span className="text-xs font-semibold text-emerald-800">Vai trò / Phạm vi:</span>
+                <span className="text-xs font-medium text-neutral-800 text-right">
+                  {createdCredentials.roleName} • {createdCredentials.scope}
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1 bg-white p-3 rounded-xl border border-emerald-200">
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-neutral-500">Tên đăng nhập (Username)</span>
+                  <span className="text-sm font-bold text-neutral-900">{createdCredentials.username}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(createdCredentials.username);
+                    setCopiedField('username');
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }}
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-600 transition-colors cursor-pointer"
+                  title="Sao chép tên đăng nhập"
+                >
+                  {copiedField === 'username' ? (
+                    <Check className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+              <div className="flex items-center justify-between py-1 bg-white p-3 rounded-xl border border-emerald-200">
+                <div>
+                  <span className="block text-[10px] uppercase font-bold text-neutral-500">Mật khẩu khởi tạo</span>
+                  <span className="text-sm font-mono font-bold text-red-600 tracking-wider">
+                    {createdCredentials.password}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(createdCredentials.password);
+                    setCopiedField('password');
+                    setTimeout(() => setCopiedField(null), 2000);
+                  }}
+                  className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-600 transition-colors cursor-pointer"
+                  title="Sao chép mật khẩu"
+                >
+                  {copiedField === 'password' ? (
+                    <Check className="w-4 h-4 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="p-3 bg-neutral-50 border border-neutral-200 text-neutral-600 text-xs rounded-xl flex items-start gap-2">
+              <Shield className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>
+                Tài khoản đã được gán mật khẩu vĩnh viễn (không bị treo yêu cầu đổi mật khẩu lần đầu). Nhân viên có thể sử dụng thông tin trên để đăng nhập ngay tại màn hình Đăng nhập.
+              </span>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={() => setCreatedCredentials(null)}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold"
+              >
+                Hoàn tất & Đóng
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* UPDATE STATUS MODAL */}
       <Modal
         isOpen={statusModalOpen}
@@ -851,15 +1196,16 @@ export const StaffListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Trạng thái nhân sự mới
             </label>
-            <select
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+            <Select<StaffStatus>
               value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value as StaffStatus)}
-            >
-              <option value="ACTIVE">ACTIVE - Đang làm việc</option>
-              <option value="SUSPENDED">SUSPENDED - Tạm đình chỉ công tác</option>
-              <option value="RESIGNED">RESIGNED - Đã chấm dứt hợp đồng / Nghỉ việc</option>
-            </select>
+              onChange={(val) => setNewStatus(val)}
+              options={[
+                { value: 'ACTIVE', label: 'ACTIVE - Đang làm việc' },
+                { value: 'SUSPENDED', label: 'SUSPENDED - Tạm đình chỉ công tác' },
+                { value: 'RESIGNED', label: 'RESIGNED - Đã chấm dứt hợp đồng / Nghỉ việc' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div>

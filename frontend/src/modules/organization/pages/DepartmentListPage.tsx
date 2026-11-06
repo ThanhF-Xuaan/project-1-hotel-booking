@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, RefreshCw, Search, Edit2, Briefcase } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import departmentService from '../services/department.service';
@@ -196,15 +197,16 @@ export const DepartmentListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Trạng thái hoạt động
             </label>
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Ngừng hoạt động (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Ngừng hoạt động (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
           <div className="sm:col-span-3 flex gap-2">
             <Button type="submit" variant="primary" className="flex-1 bg-red-600 hover:bg-red-700">
@@ -405,14 +407,15 @@ export const DepartmentListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Trạng thái
             </label>
-            <select
+            <Select<'ACTIVE' | 'INACTIVE'>
               value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-            >
-              <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Ngừng hoạt động (INACTIVE)</option>
-            </select>
+              onChange={(val) => setFormStatus(val)}
+              options={[
+                { value: 'ACTIVE', label: 'Đang hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Ngừng hoạt động (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-neutral-100">
