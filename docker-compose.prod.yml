@@ -96,6 +96,7 @@ services:
       KC_DB_URL_HOST: postgres_db
       KC_DB_URL_PORT: 5432
       KC_DB_URL_DATABASE: ${DB_NAME}
+      KC_DB_SCHEMA: keycloak
       KC_DB_USERNAME: ${DB_USER}
       KC_DB_PASSWORD: ${DB_PASSWORD}
     expose:
