@@ -127,8 +127,12 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
   // Group rooms by Room Type (Hạng phòng)
   const roomGroups = useMemo(() => {
     const groups = new Map<string, RoomInstanceDto[]>();
+    const currentHotelId = selectedHotelId || hotelList[0]?.id;
+    const displayedRooms = currentHotelId
+      ? rooms.filter((r) => !r.hotelId || r.hotelId === currentHotelId)
+      : rooms;
 
-    rooms.forEach((room) => {
+    displayedRooms.forEach((room) => {
       const typeName = room.roomTypeName || 'KHÁC';
       if (!groups.has(typeName)) {
         groups.set(typeName, []);
@@ -142,7 +146,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
     });
 
     return Array.from(groups.entries());
-  }, [rooms]);
+  }, [rooms, selectedHotelId, hotelList]);
 
   // Active bookings mapped by roomInstanceId and date
   const roomBookingMap = useMemo(() => {
@@ -196,7 +200,13 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
               options={
                 hotelList.length > 0
                   ? hotelList.map((h) => ({ value: h.id, label: h.name }))
-                  : [{ value: 0, label: 'Đang tải danh sách khách sạn...', disabled: true }]
+                  : [
+                      {
+                        value: 0,
+                        label: isLoading ? 'Đang tải danh sách khách sạn...' : 'Chưa có dữ liệu khách sạn',
+                        disabled: true,
+                      },
+                    ]
               }
               size="md"
             />
@@ -528,7 +538,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                           guestName: activeCellInfo.booking!.guestName,
                           checkInDate: activeCellInfo.bookingDetail?.checkInDate,
                           checkOutDate: activeCellInfo.bookingDetail?.checkOutDate,
-                          hotelId: activeCellInfo.booking!.hotelId,
+                          hotelId: activeCellInfo.booking!.hotelId || selectedHotelId,
                         };
                         setActiveCellInfo(null);
                         onOpenSwapModal(target);

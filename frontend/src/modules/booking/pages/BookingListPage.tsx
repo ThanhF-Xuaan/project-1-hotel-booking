@@ -27,6 +27,7 @@ import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import bookingService from '../services/booking.service';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
+import hotelService from '../../organization/services/hotel.service';
 import StayGuestsModal from '../components/StayGuestsModal';
 import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
@@ -146,6 +147,13 @@ export const BookingListPage: React.FC = () => {
   // View Mode: Table View vs Timeline Rack Matrix
   const [viewMode, setViewMode] = useState<'TABLE' | 'TIMELINE'>('TABLE');
 
+  // Hotel selection & Timeline Matrix data
+  const [hotelList, setHotelList] = useState<{ id: number; name: string }[]>([]);
+  const [selectedHotelId, setSelectedHotelId] = useState<number | undefined>(undefined);
+  const [isHotelsLoading, setIsHotelsLoading] = useState(false);
+  const [timelineBookings, setTimelineBookings] = useState<BookingResponse[]>([]);
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
+
   // Room Swap Modal
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [swapTarget, setSwapTarget] = useState<RoomSwapTarget | null>(null);
@@ -175,6 +183,59 @@ export const BookingListPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [page, pageSize, searchBookingNumber, searchStatus, assignedTab]);
+
+  const loadTimelineData = useCallback(async (hotelId?: number) => {
+    if (!hotelId) return;
+    setIsLoadingTimeline(true);
+    try {
+      const [roomsRes, bookingsRes] = await Promise.all([
+        roomInstanceService.filter({ hotelId, pageSize: 200 }),
+        bookingService.filter({ hotelId, pageSize: 200, page: 1 }),
+      ]);
+      if (roomsRes.result?.content) {
+        setAvailableRooms(roomsRes.result.content);
+      }
+      if (bookingsRes.result?.content) {
+        setTimelineBookings(bookingsRes.result.content);
+      }
+    } catch (err) {
+      console.error('Lỗi tải dữ liệu sơ đồ đặt phòng:', err);
+    } finally {
+      setIsLoadingTimeline(false);
+    }
+  }, []);
+
+  // Fetch active hotels on mount
+  useEffect(() => {
+    let isMounted = true;
+    setIsHotelsLoading(true);
+    hotelService
+      .filter({ pageSize: 50, status: 'ACTIVE' })
+      .then((res) => {
+        if (!isMounted) return;
+        const rawList = res.result?.content || [];
+        const mapped = rawList.map((h) => ({ id: h.id, name: h.name || `Khách sạn #${h.id}` }));
+        setHotelList(mapped);
+        if (mapped.length > 0) {
+          setSelectedHotelId((prev) => prev ?? mapped[0].id);
+        }
+      })
+      .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
+      .finally(() => {
+        if (isMounted) setIsHotelsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Load timeline data when viewing timeline or selected hotel changes
+  useEffect(() => {
+    if (viewMode === 'TIMELINE' && selectedHotelId) {
+      void loadTimelineData(selectedHotelId);
+    }
+  }, [viewMode, selectedHotelId, loadTimelineData]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -246,9 +307,13 @@ export const BookingListPage: React.FC = () => {
       `Đổi phòng thành công! Phòng ${response.previousRoomNumber} đã chuyển sang Phòng ${response.newRoomNumber} (${response.newRoomTypeName}).`
     );
     loadData();
-    roomInstanceService.filter({ pageSize: 100 }).then((res) => {
-      if (res.result) setAvailableRooms(res.result.content || []);
-    });
+    if (selectedHotelId) {
+      void loadTimelineData(selectedHotelId);
+    } else {
+      roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+        if (res.result) setAvailableRooms(res.result.content || []);
+      });
+    }
     if (selectedBooking) {
       bookingService.getById(selectedBooking.id).then((updated) => {
         if (updated.result) setSelectedBooking(updated.result);
@@ -644,15 +709,25 @@ export const BookingListPage: React.FC = () => {
       {viewMode === 'TIMELINE' ? (
         <TimelineRackView
           rooms={availableRooms}
-          bookings={bookings}
-          isLoading={isLoading}
+          bookings={timelineBookings.length > 0 ? timelineBookings : bookings}
+          isLoading={isLoadingTimeline || isLoading || isHotelsLoading}
           onRefresh={() => {
-            loadData();
-            roomInstanceService.filter({ pageSize: 100 }).then((res) => {
-              if (res.result) setAvailableRooms(res.result.content || []);
-            });
+            if (selectedHotelId) {
+              void loadTimelineData(selectedHotelId);
+            } else {
+              loadData();
+              roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+                if (res.result) setAvailableRooms(res.result.content || []);
+              });
+            }
           }}
           onOpenSwapModal={handleOpenSwapModal}
+          hotelList={hotelList}
+          selectedHotelId={selectedHotelId}
+          onSelectHotelId={(hotelId) => {
+            setSelectedHotelId(hotelId);
+            void loadTimelineData(hotelId);
+          }}
         />
       ) : (
         <>
