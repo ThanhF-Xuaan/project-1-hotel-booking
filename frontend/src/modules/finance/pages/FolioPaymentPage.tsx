@@ -11,6 +11,7 @@ import {
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import CurrencyInput from '../../../core/components/ui/CurrencyInput';
+import Select from '../../../core/components/ui/Select';
 import Modal from '../../../core/components/ui/Modal';
 import { formatCurrency } from '../../../core/utils/currency';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
@@ -1122,26 +1123,28 @@ export const FolioPaymentPage: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">Phương thức thanh toán</label>
-              <select
-                className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+              <Select<PaymentMethod>
                 value={payMethod}
-                onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
-              >
-                <option value="CASH">Tiền mặt tại quầy (Trực tiếp)</option>
-                <option value="VNPAY">Thẻ ATM nội địa (Cổng VNPAY)</option>
-              </select>
+                onChange={(val) => setPayMethod(val as PaymentMethod)}
+                options={[
+                  { value: 'CASH', label: 'Tiền mặt tại quầy (Trực tiếp)' },
+                  { value: 'VNPAY', label: 'Thẻ ATM nội địa (Cổng VNPAY)' },
+                ]}
+                size="lg"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-neutral-700 mb-1">Mục đích thu</label>
-              <select
-                className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+              <Select<PaymentPurpose>
                 value={payPurpose}
-                onChange={(e) => setPayPurpose(e.target.value as PaymentPurpose)}
-              >
-                <option value="FULL_PAYMENT">Thanh toán toàn bộ</option>
-                <option value="DEPOSIT">Đặt cọc tiền phòng</option>
-                <option value="INCIDENTAL_DEPOSIT">Đặt cọc phát sinh</option>
-              </select>
+                onChange={(val) => setPayPurpose(val as PaymentPurpose)}
+                options={[
+                  { value: 'FULL_PAYMENT', label: 'Thanh toán toàn bộ' },
+                  { value: 'DEPOSIT', label: 'Đặt cọc tiền phòng' },
+                  { value: 'INCIDENTAL_DEPOSIT', label: 'Đặt cọc phát sinh' },
+                ]}
+                size="lg"
+              />
             </div>
           </div>
 

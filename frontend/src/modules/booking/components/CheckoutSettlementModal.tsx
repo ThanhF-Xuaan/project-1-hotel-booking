@@ -14,6 +14,7 @@ import {
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import bookingService from '../services/booking.service';
 import { financeService } from '../../finance/services/finance.service';
 import type { CheckoutSettlementResponse, SettlementLineItemDto } from '../types/booking.types';
@@ -369,16 +370,17 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                   <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
                     Phương thức thanh toán <span className="text-red-600">*</span>
                   </label>
-                  <select
+                  <Select<PaymentMethod>
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    className="w-full h-10 px-3 text-xs bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-none"
-                  >
-                    <option value="CASH">Tiền mặt tại quầy (CASH)</option>
-                    <option value="CREDIT_CARD">Thẻ POS quầy (CREDIT_CARD)</option>
-                    <option value="BANK_TRANSFER">Chuyển khoản NH (BANK_TRANSFER)</option>
-                    <option value="VNPAY">Quét mã VNPay QR</option>
-                  </select>
+                    onChange={(val) => setPaymentMethod(val as PaymentMethod)}
+                    options={[
+                      { value: 'CASH', label: 'Tiền mặt tại quầy (CASH)' },
+                      { value: 'CREDIT_CARD', label: 'Thẻ POS quầy (CREDIT_CARD)' },
+                      { value: 'BANK_TRANSFER', label: 'Chuyển khoản NH (BANK_TRANSFER)' },
+                      { value: 'VNPAY', label: 'Quét mã VNPay QR' },
+                    ]}
+                    size="sm"
+                  />
                 </div>
 
                 <div>

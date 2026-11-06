@@ -3,6 +3,7 @@ import { AlertTriangle, Ban, CreditCard } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import bookingService from '../services/booking.service';
 import type {
   BookingCancelPreviewResponse,
@@ -300,17 +301,15 @@ export const CancelBookingModal: React.FC<CancelBookingModalProps> = ({
               <label className="block text-xs font-semibold text-neutral-700">
                 Lý do hủy phòng <span className="text-red-500">*</span>
               </label>
-              <select
-                className="w-full text-xs p-2.5 border border-neutral-300 rounded-xl bg-white focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+              <Select<string>
                 value={selectedReasonOption}
-                onChange={(e) => setSelectedReasonOption(e.target.value)}
-              >
-                {COMMON_REASONS.map((reason) => (
-                  <option key={reason} value={reason}>
-                    {reason}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedReasonOption(val)}
+                options={COMMON_REASONS.map((reason) => ({
+                  value: reason,
+                  label: reason,
+                }))}
+                size="sm"
+              />
 
               <textarea
                 className="w-full text-xs p-2.5 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden min-h-[70px]"

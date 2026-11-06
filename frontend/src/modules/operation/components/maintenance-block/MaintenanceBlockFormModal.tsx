@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Wrench, ShieldAlert, Calendar, FileText } from 'lucide-react';
 import Modal from '../../../../core/components/ui/Modal';
 import Button from '../../../../core/components/ui/Button';
+import Select from '../../../../core/components/ui/Select';
 import { operationService } from '../../services/operation.service';
 import type {
   RoomHousekeepingStatusResponse,
@@ -125,19 +126,19 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
           <label className="block text-xs font-semibold text-neutral-700 mb-1">
             Chọn phòng cần khóa <span className="text-red-500">*</span>
           </label>
-          <select
+          <Select<number | ''>
             value={roomInstanceId}
-            onChange={(e) => setRoomInstanceId(e.target.value ? Number(e.target.value) : '')}
-            className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
+            onChange={(val) => setRoomInstanceId(val ? Number(val) : '')}
             disabled={isLoading}
-          >
-            <option value="">-- Chọn phòng --</option>
-            {rooms.map((r) => (
-              <option key={r.roomInstanceId} value={r.roomInstanceId}>
-                Phòng {r.roomNumber} - {r.roomTypeName || 'Tiêu chuẩn'} ({r.currentStatus})
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: '', label: 'Chọn phòng', disabled: true },
+              ...rooms.map((r) => ({
+                value: r.roomInstanceId,
+                label: `Phòng ${r.roomNumber} - ${r.roomTypeName || 'Tiêu chuẩn'} (${r.currentStatus})`,
+              })),
+            ]}
+            size="md"
+          />
         </div>
 
         {/* Warning if room is occupied */}
@@ -161,11 +162,10 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div
               onClick={() => setBlockType('OOO')}
-              className={`cursor-pointer p-3.5 rounded-xl border transition-all ${
-                blockType === 'OOO'
+              className={`cursor-pointer p-3.5 rounded-xl border transition-all ${blockType === 'OOO'
                   ? 'border-red-600 bg-red-50/50 shadow-xs ring-1 ring-red-600'
                   : 'border-neutral-200 bg-white hover:border-neutral-300'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
@@ -178,11 +178,10 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
 
             <div
               onClick={() => setBlockType('OOS')}
-              className={`cursor-pointer p-3.5 rounded-xl border transition-all ${
-                blockType === 'OOS'
+              className={`cursor-pointer p-3.5 rounded-xl border transition-all ${blockType === 'OOS'
                   ? 'border-amber-600 bg-amber-50/50 shadow-xs ring-1 ring-amber-600'
                   : 'border-neutral-200 bg-white hover:border-neutral-300'
-              }`}
+                }`}
             >
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-600" />

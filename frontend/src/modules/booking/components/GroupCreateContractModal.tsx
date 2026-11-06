@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   X,
   Building2,
@@ -14,6 +14,8 @@ import {
   PenTool,
 } from 'lucide-react';
 import { groupBookingService, type CompanyOption } from '../services/groupBooking.service';
+import { hotelService } from '../../organization/services/hotel.service';
+import { staffService, type StaffDto } from '../../organization/services/staff.service';
 import { hotelRoomTypeService } from '../../inventory/services/hotelRoomType.service';
 import type { HotelRoomTypeDto } from '../../inventory/types/inventory.types';
 import type { GroupContractCreateRequest } from '../types/groupBooking.types';
@@ -22,8 +24,8 @@ import { Select } from '../../../core/components/ui/Select';
 interface GroupCreateContractModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (dto: GroupContractCreateRequest) => Promise<void>;
-  hotelList: { id: number; name: string }[];
+  onSubmit: (dto: GroupContractCreateRequest, staffId?: number) => Promise<void>;
+  hotelList?: { id: number; name: string }[];
 }
 
 interface RoomTypeItem {
@@ -54,10 +56,57 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
   const [isLoadingCompanies, setIsLoadingCompanies] = useState(false);
 
   // Common contract fields
-  const [hotelId, setHotelId] = useState<number>(hotelList[0]?.id || 1);
-  const effectiveHotelId = hotelList.some((h) => h.id === hotelId) ? hotelId : (hotelList[0]?.id || 1);
+  const [fetchedHotels, setFetchedHotels] = useState<{ id: number; name: string }[]>([]);
+  const [isLoadingHotels, setIsLoadingHotels] = useState(false);
+  const displayHotels = fetchedHotels.length > 0 ? fetchedHotels : (hotelList && hotelList.length > 0 ? hotelList : []);
+  const [hotelId, setHotelId] = useState<number>(0);
+  const effectiveHotelId = displayHotels.some((h) => h.id === hotelId) ? hotelId : (displayHotels[0]?.id || 1);
   const [availableRoomTypes, setAvailableRoomTypes] = useState<RoomTypeItem[]>([]);
   const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState(false);
+
+  // Staff / Employee handling
+  const [staffs, setStaffs] = useState<StaffDto[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState<number | ''>('');
+  const [isLoadingStaffs, setIsLoadingStaffs] = useState(false);
+
+  // Lazy fetch staff list from DB on user click
+  const loadStaffs = useCallback(async () => {
+    if (staffs.length > 0 || isLoadingStaffs) return;
+    setIsLoadingStaffs(true);
+    try {
+      const res = await staffService.filter({ page: 0, pageSize: 100 });
+      const list = res.result?.content || [];
+      setStaffs(list);
+      if (list.length > 0 && !selectedStaffId) {
+        setSelectedStaffId(list[0].id);
+      }
+    } catch (err: unknown) {
+      console.warn('Lỗi khi tải danh sách nhân viên từ DB:', err);
+    } finally {
+      setIsLoadingStaffs(false);
+    }
+  }, [staffs.length, isLoadingStaffs, selectedStaffId]);
+
+  // Lazy fetch hotel list when user clicks on "Khách sạn tiếp nhận" dropdown
+  const loadHotels = useCallback(async () => {
+    if (displayHotels.length > 0 || isLoadingHotels) return;
+    setIsLoadingHotels(true);
+    try {
+      const res = await hotelService.filter({ page: 0, pageSize: 100 });
+      const list = (res.result?.content || []).map((h) => ({
+        id: h.id,
+        name: h.name || `Khách sạn #${h.id}`,
+      }));
+      setFetchedHotels(list);
+      if (list.length > 0 && !hotelId) {
+        setHotelId(list[0].id);
+      }
+    } catch (err: unknown) {
+      console.warn('Lỗi khi tải danh sách khách sạn tiếp nhận:', err);
+    } finally {
+      setIsLoadingHotels(false);
+    }
+  }, [displayHotels.length, isLoadingHotels, hotelId]);
 
   const [groupName, setGroupName] = useState('');
   const [companyLegalRep, setCompanyLegalRep] = useState('');
@@ -79,6 +128,22 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
   const [specialRequests, setSpecialRequests] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadCompanies = useCallback(async () => {
+    if (companies.length > 0 || isLoadingCompanies) return;
+    setIsLoadingCompanies(true);
+    try {
+      const res = await groupBookingService.getCompanies();
+      setCompanies(res);
+      if (res.length > 0 && !selectedCompanyId) {
+        setSelectedCompanyId(res[0].id);
+      }
+    } catch (err: unknown) {
+      console.warn('Lỗi khi tải danh sách doanh nghiệp B2B:', err);
+    } finally {
+      setIsLoadingCompanies(false);
+    }
+  }, [companies.length, isLoadingCompanies, selectedCompanyId]);
 
   // Load companies when modal opens
   useEffect(() => {
@@ -272,6 +337,10 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
       setError('Vui lòng nhập mã số thuế doanh nghiệp (hoặc mã định danh đoàn)');
       return;
     }
+    if (!selectedStaffId) {
+      setError('Vui lòng chọn nhân viên phụ trách hợp đồng từ danh sách nhân sự (bắt buộc)');
+      return;
+    }
     if (!groupName.trim()) {
       setError('Vui lòng nhập tên đoàn hoặc sự kiện');
       return;
@@ -342,7 +411,7 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
         })),
       };
 
-      await onSubmit(payload);
+      await onSubmit(payload, Number(selectedStaffId));
       onClose();
     } catch (err: unknown) {
       const msg =
@@ -441,6 +510,8 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                 <Select<number>
                   value={selectedCompanyId}
                   onChange={(val) => handleSelectExistingCompany(val)}
+                  onOpen={loadCompanies}
+                  isLoading={isLoadingCompanies}
                   options={companies.map((c) => ({
                     value: c.id,
                     label: c.companyName,
@@ -526,18 +597,6 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
-                    Người ký hợp đồng
-                  </label>
-                  <input
-                    type="text"
-                    value={signerName}
-                    onChange={(e) => setSignerName(e.target.value)}
-                    placeholder="Nguyễn Văn A"
-                    className="w-full h-11 px-3.5 border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                     Chức danh
                   </label>
                   <input
@@ -559,15 +618,26 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
               2. Khách Sạn & Lịch Trình Lưu Trú
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Hàng 1: Khách sạn cơ sở & Nhân viên phụ trách */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
-                  Khách sạn tiếp nhận *
+                <label className="block text-xs font-bold text-neutral-700 uppercase mb-1 flex items-center justify-between">
+                  <span>Khách sạn tiếp nhận *</span>
+                  {isLoadingHotels && (
+                    <span className="text-[11px] text-neutral-500 font-normal flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin text-red-600" />
+                      Đang tải...
+                    </span>
+                  )}
                 </label>
                 <Select<number>
                   value={effectiveHotelId}
                   onChange={(val) => setHotelId(val)}
-                  options={hotelList.map((h) => ({
+                  onOpen={loadHotels}
+                  isLoading={isLoadingHotels}
+                  loadingText="Đang tải danh sách cơ sở..."
+                  placeholder="Chọn khách sạn tiếp nhận..."
+                  options={displayHotels.map((h) => ({
                     value: h.id,
                     label: h.name,
                   }))}
@@ -575,6 +645,30 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-neutral-700 uppercase mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <span>Nhân viên phụ trách*</span>
+                  </span>
+                </label>
+                <Select<number>
+                  value={selectedStaffId === '' ? 0 : selectedStaffId}
+                  onChange={(val) => setSelectedStaffId(val)}
+                  onOpen={loadStaffs}
+                  isLoading={isLoadingStaffs}
+                  placeholder="Nhân viên phụ trách"
+                  options={staffs.map((s) => ({
+                    value: s.id,
+                    label: `${s.fullName || s.username} (#${s.id})`,
+                    badge: s.roleName || s.departmentName || undefined,
+                    description: s.email ? `${s.email}${s.phone ? ` • ${s.phone}` : ''}` : s.phone,
+                  }))}
+                />
+              </div>
+            </div>
+
+            {/* Hàng 2: Lịch trình & Số lượng khách */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-neutral-700 uppercase mb-1">
                   Ngày nhận phòng *

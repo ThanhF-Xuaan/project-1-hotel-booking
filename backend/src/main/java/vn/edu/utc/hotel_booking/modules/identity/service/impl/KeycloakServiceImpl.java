@@ -26,6 +26,7 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.KeycloakSyncDeadLetter;
 import vn.edu.utc.hotel_booking.modules.identity.repository.KeycloakSyncDeadLetterRepository;
 import vn.edu.utc.hotel_booking.modules.identity.service.KeycloakService;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -144,6 +145,14 @@ public class KeycloakServiceImpl implements KeycloakService {
                 cred.setValue(password);
                 cred.setTemporary(false);
                 userResource.resetPassword(cred);
+
+                // Clear UPDATE_PASSWORD action if present so direct grant login works immediately
+                if (userRep.getRequiredActions() != null && userRep.getRequiredActions().contains("UPDATE_PASSWORD")) {
+                    List<String> actions = new ArrayList<>(userRep.getRequiredActions());
+                    actions.remove("UPDATE_PASSWORD");
+                    userRep.setRequiredActions(actions);
+                    userResource.update(userRep);
+                }
                 log.info("Reset password for Keycloak user: {}", keycloakId);
             }
 

@@ -16,6 +16,7 @@ import {
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import {
   extractIdentityImage,
   ocrFields,
@@ -394,17 +395,18 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Loại giấy tờ
                   </label>
-                  <select
-                    className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+                  <Select<DocumentType>
                     value={documentType}
-                    onChange={(e) => setDocumentType(e.target.value as DocumentType)}
-                  >
-                    <option value="CCCD">Căn cước công dân (CCCD)</option>
-                    <option value="PASSPORT">Hộ chiếu (Passport)</option>
-                    <option value="CMND">Chứng minh nhân dân (CMND)</option>
-                    <option value="DRIVER_LICENSE">Giấy phép lái xe</option>
-                    <option value="OTHER">Khác</option>
-                  </select>
+                    onChange={(val) => setDocumentType(val as DocumentType)}
+                    options={[
+                      { value: 'CCCD', label: 'Căn cước công dân (CCCD)' },
+                      { value: 'PASSPORT', label: 'Hộ chiếu (Passport)' },
+                      { value: 'CMND', label: 'Chứng minh nhân dân (CMND)' },
+                      { value: 'DRIVER_LICENSE', label: 'Giấy phép lái xe' },
+                      { value: 'OTHER', label: 'Khác' },
+                    ]}
+                    size="lg"
+                  />
                 </div>
 
                 {/* Số giấy tờ */}
@@ -438,15 +440,16 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Giới tính
                   </label>
-                  <select
-                    className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+                  <Select<Gender>
                     value={gender}
-                    onChange={(e) => setGender(e.target.value as Gender)}
-                  >
-                    <option value="MALE">Nam</option>
-                    <option value="FEMALE">Nữ</option>
-                    <option value="OTHER">Khác</option>
-                  </select>
+                    onChange={(val) => setGender(val as Gender)}
+                    options={[
+                      { value: 'MALE', label: 'Nam' },
+                      { value: 'FEMALE', label: 'Nữ' },
+                      { value: 'OTHER', label: 'Khác' },
+                    ]}
+                    size="lg"
+                  />
                 </div>
 
                 {/* Quốc tịch */}

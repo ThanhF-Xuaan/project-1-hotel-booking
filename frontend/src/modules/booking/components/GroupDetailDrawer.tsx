@@ -18,6 +18,7 @@ import type {
 } from '../types/groupBooking.types';
 import { groupBookingService } from '../services/groupBooking.service';
 import { ConfirmModal } from '../../../core/components/ui/ConfirmModal';
+import { MasterFolioModal } from '../../finance/components/MasterFolioModal';
 
 interface GroupDetailDrawerProps {
   contract: GroupContractResponse | null;
@@ -51,6 +52,7 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
   // Cut-off Release confirm modal
   const [releaseBlockId, setReleaseBlockId] = useState<number | null>(null);
   const [isReleasing, setIsReleasing] = useState(false);
+  const [isMasterFolioOpen, setIsMasterFolioOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !contract?.id) return;
@@ -229,28 +231,39 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
         </div>
 
         {/* Tab Controls */}
-        <div className="flex border-b border-neutral-200 bg-neutral-50 px-6 pt-3 gap-6 text-xs font-bold uppercase tracking-wider">
+        <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-6 pt-3 text-xs font-bold uppercase tracking-wider">
+          <div className="flex gap-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab('INFO')}
+              className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'INFO'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                }`}
+            >
+              <Building2 className="w-4 h-4" />
+              Hợp Đồng & Quản Lý Cọc
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('BLOCKS')}
+              className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'BLOCKS'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                }`}
+            >
+              <BedDouble className="w-4 h-4" />
+              Quỹ Phòng Đoàn ({roomBlocks.length})
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => setActiveTab('INFO')}
-            className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'INFO'
-              ? 'border-red-600 text-red-600'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
+            onClick={() => setIsMasterFolioOpen(true)}
+            className="mb-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
           >
-            <Building2 className="w-4 h-4" />
-            Hợp Đồng & Quản Lý Cọc
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('BLOCKS')}
-            className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'BLOCKS'
-              ? 'border-red-600 text-red-600'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
-          >
-            <BedDouble className="w-4 h-4" />
-            Quỹ Phòng Đoàn ({roomBlocks.length})
+            <Receipt className="w-3.5 h-3.5" />
+            Sổ Cái Master Folio
           </button>
         </div>
 
@@ -606,6 +619,14 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
         variant="warning"
         isLoading={isReleasing}
       />
+      {/* Sổ Cái Master Folio Modal */}
+      {contract && (
+        <MasterFolioModal
+          isOpen={isMasterFolioOpen}
+          onClose={() => setIsMasterFolioOpen(false)}
+          contractId={contract.id}
+        />
+      )}
     </div>
   );
 };

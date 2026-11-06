@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import Select from '../../../core/components/ui/Select';
 import {
   Building,
   Calendar,
@@ -189,21 +190,16 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
               <Building className="w-4 h-4 text-red-600 shrink-0" />
               <span>KHÁCH SẠN *</span>
             </label>
-            <select
-              value={selectedHotelId || (hotelList[0]?.id ?? '')}
-              onChange={(e) => onSelectHotelId && onSelectHotelId(Number(e.target.value))}
-              className="w-full h-11 px-3.5 bg-white border border-neutral-300 rounded-lg text-sm font-semibold text-neutral-800 focus:ring-2 focus:ring-red-500 focus:border-red-500 focus:outline-none transition-all cursor-pointer"
-            >
-              {hotelList.length > 0 ? (
-                hotelList.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">Đang tải danh sách khách sạn...</option>
-              )}
-            </select>
+            <Select<number>
+              value={selectedHotelId || (hotelList[0]?.id ?? 0)}
+              onChange={(val) => onSelectHotelId && onSelectHotelId(Number(val))}
+              options={
+                hotelList.length > 0
+                  ? hotelList.map((h) => ({ value: h.id, label: h.name }))
+                  : [{ value: 0, label: 'Đang tải danh sách khách sạn...', disabled: true }]
+              }
+              size="md"
+            />
           </div>
 
           {/* TỪ NGÀY */}

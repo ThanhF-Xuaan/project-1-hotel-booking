@@ -41,7 +41,7 @@ export interface StaffCreateRequest {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
+  phone?: string;
   roleId: number;
   scopeType: StaffScopeType;
   scopeEntityId?: number;

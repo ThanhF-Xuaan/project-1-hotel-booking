@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { Select } from '../../../core/components/ui/Select';
 import { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import policyService from '../services/policy.service';
@@ -266,28 +267,32 @@ export const PolicyManagementPage: React.FC = () => {
           )}
 
           {activeTab !== 'OVERRIDES' && (
-            <select
-              value={bookingTypeFilter}
-              onChange={(e) => setBookingTypeFilter(e.target.value as BookingType)}
-              className="h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="">Tất cả đối tượng</option>
-              <option value="FIT">Khách lẻ (FIT)</option>
-              <option value="GIT">Khách đoàn (GIT)</option>
-              <option value="CORPORATE">Doanh nghiệp (CORPORATE)</option>
-              <option value="ALL">Toàn bộ khách (ALL)</option>
-            </select>
+            <div className="w-full sm:w-52">
+              <Select<BookingType | ''>
+                value={bookingTypeFilter}
+                onChange={(val) => setBookingTypeFilter(val)}
+                options={[
+                  { value: '', label: 'Tất cả đối tượng' },
+                  { value: 'FIT', label: 'Khách lẻ (FIT)' },
+                  { value: 'GIT', label: 'Khách đoàn (GIT)' },
+                  { value: 'CORPORATE', label: 'Doanh nghiệp (CORPORATE)' },
+                  { value: 'ALL', label: 'Toàn bộ khách (ALL)' },
+                ]}
+              />
+            </div>
           )}
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'ACTIVE' | 'INACTIVE')}
-            className="h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang kích hoạt</option>
-            <option value="INACTIVE">Ngưng áp dụng</option>
-          </select>
+          <div className="w-full sm:w-48">
+            <Select<'ALL' | 'ACTIVE' | 'INACTIVE'>
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val)}
+              options={[
+                { value: 'ALL', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang kích hoạt' },
+                { value: 'INACTIVE', label: 'Ngưng áp dụng' },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

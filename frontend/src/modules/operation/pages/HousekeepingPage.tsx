@@ -16,6 +16,7 @@ import {
   Plus,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
+import Select from '../../../core/components/ui/Select';
 import Modal from '../../../core/components/ui/Modal';
 import { getApiErrorMessage } from '../../../core/api/error';
 import { operationService } from '../services/operation.service';
@@ -123,16 +124,19 @@ export const HousekeepingPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <label className="text-xs font-semibold text-neutral-600">Khách sạn cơ sở:</label>
-          <select
-            value={hotelId}
-            onChange={(e) => setHotelId(Number(e.target.value))}
-            className="h-10 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-          >
-            <option value={1}>Khách sạn Grand Hà Nội</option>
-            <option value={2}>Khách sạn Premier Đà Nẵng</option>
-            <option value={3}>Khách sạn Boutique Sài Gòn</option>
-          </select>
+          <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Khách sạn cơ sở:</label>
+          <div className="w-56">
+            <Select<number>
+              value={hotelId}
+              onChange={(val) => setHotelId(Number(val))}
+              options={[
+                { value: 1, label: 'Khách sạn Grand Hà Nội' },
+                { value: 2, label: 'Khách sạn Premier Đà Nẵng' },
+                { value: 3, label: 'Khách sạn Boutique Sài Gòn' },
+              ]}
+              size="md"
+            />
+          </div>
           <Button
             variant="primary"
             onClick={() => {

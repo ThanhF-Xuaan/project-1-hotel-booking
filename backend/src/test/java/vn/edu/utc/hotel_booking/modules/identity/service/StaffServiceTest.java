@@ -213,12 +213,12 @@ class StaffServiceTest {
 
         when(staffRepository.existsByUsernameAndIsDeletedFalse("admin_chain")).thenReturn(false);
         when(roleRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(role));
-        when(keycloakService.createUser(any(), any(), any(), any(), any(), any())).thenReturn(keycloakId);
         when(staffMapper.toEntity(request)).thenReturn(new Staff());
 
         AppException exception = assertThrows(AppException.class, () -> staffService.create(request));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_SCOPE_CONFIGURATION);
+        verify(keycloakService, never()).createUser(any(), any(), any(), any(), any(), any());
         verify(staffRepository, never()).save(any());
     }
 

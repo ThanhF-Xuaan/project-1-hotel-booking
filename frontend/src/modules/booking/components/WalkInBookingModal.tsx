@@ -1,10 +1,4 @@
-const DEFAULT_TODAY = new Date().toISOString().split('T')[0];
-const DEFAULT_TOMORROW = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-const getCurrentLocalTime = () => {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-};
-import React, { useState, useEffect, useId } from 'react';
+import React, { useState, useEffect, useId, useMemo } from 'react';
 import {
   BedDouble,
   CreditCard,
@@ -43,6 +37,17 @@ import type {
   BookingChargeType,
   WalkInStayGuestRequest,
 } from '../types/booking.types';
+import Select, { type SelectOption } from '@/core/components/ui/Select';
+
+// ============================================================================
+// TYPES & CONSTANTS
+// ============================================================================
+const DEFAULT_TODAY = new Date().toISOString().split('T')[0];
+const DEFAULT_TOMORROW = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+const getCurrentLocalTime = () => {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+};
 
 export interface WalkInBookingModalProps {
   isOpen: boolean;
@@ -80,6 +85,36 @@ interface AddonServiceItem {
   roomIndex: number;
 }
 
+interface CompanySuggestionItem {
+  id: number;
+  name: string;
+  taxCode?: string;
+  address?: string;
+  contactName?: string;
+  contactPhone?: string;
+}
+
+const INITIAL_GUEST: WalkInStayGuestRequest = {
+  fullName: '',
+  birthDate: '',
+  guestType: 'ADULT',
+  gender: 'MALE',
+  identityType: 'CCCD',
+  identityNumber: '',
+  nationality: 'Việt Nam',
+  isPrimaryGuest: true,
+};
+
+const DEFAULT_SERVICES: AddonServiceItem[] = [
+  { id: 1, name: 'Ăn sáng Buffet Cao Cấp', price: 150000, quantity: 0, roomIndex: 0 },
+  { id: 2, name: 'Gói Chào Mừng Minibar', price: 120000, quantity: 0, roomIndex: 0 },
+  { id: 3, name: 'Đưa Đón Sân Bay (Xe 4 Chỗ)', price: 350000, quantity: 0, roomIndex: 0 },
+  { id: 4, name: 'Voucher Spa Thư Giãn (60p)', price: 400000, quantity: 0, roomIndex: 0 },
+];
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   isOpen,
   onClose,
@@ -87,18 +122,20 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
-  // Khách sạn & Danh mục phòng
+  // Master Data
   const [hotels, setHotels] = useState<HotelDto[]>([]);
   const [selectedHotelId, setSelectedHotelId] = useState<number>(1);
   const [roomTypes, setRoomTypes] = useState<HotelRoomTypeDto[]>([]);
   const [readyRooms, setReadyRooms] = useState<RoomInstanceDto[]>([]);
 
-  // Ngày lưu trú
-  const [checkInDate, setCheckInDate] = useState(DEFAULT_TODAY);
-  const [checkOutDate, setCheckOutDate] = useState(DEFAULT_TOMORROW);
-  const [actualCheckInTime, setActualCheckInTime] = useState(getCurrentLocalTime);
+  // Thời gian lưu trú
+  const [stayPeriod, setStayPeriod] = useState({
+    checkInDate: DEFAULT_TODAY,
+    checkOutDate: DEFAULT_TOMORROW,
+    actualCheckInTime: getCurrentLocalTime(),
+  });
 
-  // Cấu hình phòng (Tối đa 5 phòng)
+  // Cấu hình phòng
   const [rooms, setRooms] = useState<RoomConfig[]>([
     {
       id: 'room_1',
@@ -108,55 +145,39 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       childCount: 0,
       infantCount: 0,
       extraBeds: 0,
-      stayGuests: [
-        {
-          fullName: '',
-          birthDate: '',
-          guestType: 'ADULT',
-          gender: 'MALE',
-          identityType: 'CCCD',
-          identityNumber: '',
-          nationality: 'Việt Nam',
-          isPrimaryGuest: true,
-        },
-      ],
+      stayGuests: [{ ...INITIAL_GUEST }],
     },
   ]);
 
-  // Bước 2: Thông tin Doanh nghiệp & Khách đặt
+  // Bước 2: Doanh nghiệp & Khách chính
   const [bookingType, setBookingType] = useState<BookingType>('FIT');
-  const [selectedCompanyId, setSelectedCompanyId] = useState<number | undefined>(undefined);
-  const [companyName, setCompanyName] = useState('');
-  const [taxCode, setTaxCode] = useState('');
-  const [companyAddress, setCompanyAddress] = useState('');
-  const [companyContactName, setCompanyContactName] = useState('');
-  interface CompanySuggestionItem {
-    id: number;
-    name: string;
-    taxCode?: string;
-    address?: string;
-    contactName?: string;
-    contactPhone?: string;
-  }
-  const [companyContactPhone, setCompanyContactPhone] = useState('');
+  const [company, setCompany] = useState({
+    id: undefined as number | undefined,
+    name: '',
+    taxCode: '',
+    address: '',
+    contactName: '',
+    contactPhone: '',
+  });
   const [companySuggestions, setCompanySuggestions] = useState<CompanySuggestionItem[]>([]);
   const [isSearchingCompany, setIsSearchingCompany] = useState(false);
 
-  // Người đặt / Đại diện thanh toán (BookingGuest)
-  const [selectedGuestId, setSelectedGuestId] = useState<number | undefined>(undefined);
-  const [guestPhone, setGuestPhone] = useState('');
-  const [guestFullName, setGuestFullName] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
-  const [guestIdentityType, setGuestIdentityType] = useState('CCCD');
-  const [guestIdentityNumber, setGuestIdentityNumber] = useState('');
-  const [guestNationality, setGuestNationality] = useState('Việt Nam');
-  const [guestDateOfBirth, setGuestDateOfBirth] = useState('');
-  const [guestGender, setGuestGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
-  const [guestAddress, setGuestAddress] = useState('');
+  const [leadGuest, setLeadGuest] = useState({
+    id: undefined as number | undefined,
+    phone: '',
+    fullName: '',
+    email: '',
+    identityType: 'CCCD',
+    identityNumber: '',
+    nationality: 'Việt Nam',
+    dateOfBirth: '',
+    gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
+    address: '',
+  });
   const [isSearchingGuest, setIsSearchingGuest] = useState(false);
   const [guestFoundMessage, setGuestFoundMessage] = useState<string | null>(null);
 
-  // OCR Trích xuất CCCD / Passport Modal
+  // OCR Modal
   const [isOcrModalOpen, setIsOcrModalOpen] = useState(false);
   const [ocrTarget, setOcrTarget] = useState<
     | { type: 'LEAD_GUEST' }
@@ -169,42 +190,40 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   const [isLoadingQuote, setIsLoadingQuote] = useState(false);
   const [confirmedCharges, setConfirmedCharges] = useState<ConfirmedChargeItem[]>([]);
 
-  // Bước 4: Dịch vụ thêm (F&B / Minibar)
-  const [availableServices] = useState<AddonServiceItem[]>([
-    { id: 1, name: 'Ăn sáng Buffet Cao Cấp', price: 150000, quantity: 0, roomIndex: 0 },
-    { id: 2, name: 'Gói Chào Mừng Minibar', price: 120000, quantity: 0, roomIndex: 0 },
-    { id: 3, name: 'Đưa Đón Sân Bay (Xe 4 Chỗ)', price: 350000, quantity: 0, roomIndex: 0 },
-    { id: 4, name: 'Voucher Spa Thư Giãn (60p)', price: 400000, quantity: 0, roomIndex: 0 },
-  ]);
-  const [selectedServices, setSelectedServices] = useState<AddonServiceItem[]>([]);
+  // Bước 4: Tiện ích / Dịch vụ
+  const [selectedServices, setSelectedServices] = useState<AddonServiceItem[]>(DEFAULT_SERVICES);
 
-  // Bước 5: Thanh toán tại quầy
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY'>('CASH');
-  const [paymentPurpose, setPaymentPurpose] = useState<'FULL_PAYMENT' | 'DEPOSIT'>('FULL_PAYMENT');
-  const [customPaidAmount, setCustomPaidAmount] = useState<number>(0);
-  const [transactionRef, setTransactionRef] = useState('');
+  // Bước 5: Quyết toán
+  const [payment, setPayment] = useState({
+    method: 'CASH' as 'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY',
+    purpose: 'FULL_PAYMENT' as 'FULL_PAYMENT' | 'DEPOSIT',
+    customAmount: 0,
+    transactionRef: '',
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Unique IDs for HTML form elements
-  const hotelSelectId = useId();
+  // HTML IDs
   const checkInDateId = useId();
   const checkOutDateId = useId();
   const checkInTimeId = useId();
 
+  // --------------------------------------------------------------------------
+  // EFFECTS: Fetch Master Data
+  // --------------------------------------------------------------------------
   useEffect(() => {
     if (isOpen) {
-      const timeoutId = window.setTimeout(() => setActualCheckInTime(getCurrentLocalTime()), 0);
-      return () => window.clearTimeout(timeoutId);
+      Promise.resolve().then(() => {
+        setStayPeriod((prev) => ({ ...prev, actualCheckInTime: getCurrentLocalTime() }));
+      });
     }
   }, [isOpen]);
 
-  // Load Hotels
   useEffect(() => {
     hotelService
       .filter({ pageSize: 50, status: 'ACTIVE' })
       .then((res) => {
-        if (res.result?.content && res.result.content.length > 0) {
+        if (res.result?.content?.length) {
           setHotels(res.result.content);
           setSelectedHotelId(res.result.content[0].id);
         }
@@ -212,39 +231,27 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err));
   }, []);
 
-  // Load Hotel Room Types
   useEffect(() => {
-    if (selectedHotelId) {
-      hotelRoomTypeService
-        .filter({ hotelId: selectedHotelId, pageSize: 50, status: 'ACTIVE' })
-        .then((res) => {
-          if (res.result?.content) {
-            setRoomTypes(res.result.content);
-          }
-        })
-        .catch((err) => console.error('Lỗi tải hạng phòng:', err));
-    }
+    if (!selectedHotelId) return;
+
+    Promise.all([
+      hotelRoomTypeService.filter({ hotelId: selectedHotelId, pageSize: 50, status: 'ACTIVE' }),
+      roomInstanceService.filter({ hotelId: selectedHotelId, currentStatus: 'READY', pageSize: 100 }),
+    ])
+      .then(([roomTypesRes, roomsRes]) => {
+        if (roomTypesRes.result?.content) setRoomTypes(roomTypesRes.result.content);
+        if (roomsRes.result?.content) setReadyRooms(roomsRes.result.content);
+      })
+      .catch((err) => console.error('Lỗi tải dữ liệu phòng:', err));
   }, [selectedHotelId]);
 
-  // Load Physical Rooms with status 'READY'
-  useEffect(() => {
-    if (selectedHotelId) {
-      roomInstanceService
-        .filter({ hotelId: selectedHotelId, currentStatus: 'READY', pageSize: 100 })
-        .then((res) => {
-          if (res.result?.content) {
-            setReadyRooms(res.result.content);
-          }
-        })
-        .catch((err) => console.error('Lỗi tải phòng sẵn sàng:', err));
-    }
-  }, [selectedHotelId]);
-
-  // Quản lý danh sách phòng (Thêm / Xóa / Cập nhật)
+  // --------------------------------------------------------------------------
+  // ROOM HANDLERS
+  // --------------------------------------------------------------------------
   const handleAddRoom = () => {
     if (rooms.length >= 5) return;
-    setRooms([
-      ...rooms,
+    setRooms((prev) => [
+      ...prev,
       {
         id: `room_${Date.now()}`,
         hotelRoomTypeId: '',
@@ -253,96 +260,100 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         childCount: 0,
         infantCount: 0,
         extraBeds: 0,
-        stayGuests: [
-          {
-            fullName: '',
-            birthDate: '',
-            guestType: 'ADULT',
-            gender: 'MALE',
-            identityType: 'CCCD',
-            identityNumber: '',
-            nationality: 'Việt Nam',
-            isPrimaryGuest: true,
-          },
-        ],
+        stayGuests: [{ ...INITIAL_GUEST, isPrimaryGuest: false }],
       },
     ]);
   };
 
   const handleRemoveRoom = (index: number) => {
     if (rooms.length <= 1) return;
-    setRooms(rooms.filter((_, idx) => idx !== index));
+    setRooms((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const updateRoomField = (index: number, field: keyof RoomConfig, value: RoomConfig[keyof RoomConfig]) => {
-    const updated = [...rooms];
-    updated[index] = { ...updated[index], [field]: value };
-    // Nếu đổi hạng phòng thì reset roomInstanceId đã chọn
-    if (field === 'hotelRoomTypeId') {
-      updated[index].roomInstanceId = '';
-    }
-    setRooms(updated);
+  const updateRoomField = <K extends keyof RoomConfig>(
+    index: number,
+    field: K,
+    value: RoomConfig[K]
+  ) => {
+    setRooms((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      if (field === 'hotelRoomTypeId') {
+        updated[index].roomInstanceId = '';
+      }
+      return updated;
+    });
   };
 
-  // Tra cứu nhanh khách cũ qua SĐT
+  const updateStayGuest = (
+    roomIndex: number,
+    guestIndex: number,
+    field: keyof WalkInStayGuestRequest,
+    value: unknown
+  ) => {
+    setRooms((prev) => {
+      const updated = [...prev];
+      const guests = [...updated[roomIndex].stayGuests];
+      guests[guestIndex] = { ...guests[guestIndex], [field]: value };
+      updated[roomIndex] = { ...updated[roomIndex], stayGuests: guests };
+      return updated;
+    });
+  };
+
+  // --------------------------------------------------------------------------
+  // SEARCH & AUTOCOMPLETE
+  // --------------------------------------------------------------------------
   const handleSearchGuestByPhone = async () => {
-    if (!guestPhone.trim()) return;
+    if (!leadGuest.phone.trim()) return;
     setIsSearchingGuest(true);
     setGuestFoundMessage(null);
     try {
-      interface GuestSearchResult {
-        id?: number;
-        fullName?: string;
-        firstName?: string;
-        lastName?: string;
-        email?: string;
-        identityNumber?: string;
-        identityType?: string;
-        nationality?: string;
-      }
-      const res = await apiClient.get<GuestSearchResult>(`/api/v1/guests/phone/${guestPhone.trim()}`);
+      const res = await apiClient.get<Record<string, unknown>>(`/api/v1/guests/phone/${leadGuest.phone.trim()}`);
       if (res.result) {
-        setSelectedGuestId(res.result.id);
-        const name = res.result.fullName || `${res.result.lastName || ''} ${res.result.firstName || ''}`.trim();
-        if (name) setGuestFullName(name);
-        if (res.result.email) setGuestEmail(res.result.email);
-        if (res.result.identityNumber) setGuestIdentityNumber(res.result.identityNumber);
-        if (res.result.identityType) setGuestIdentityType(res.result.identityType);
-        if (res.result.nationality) setGuestNationality(res.result.nationality);
-        setGuestFoundMessage(`Đã tìm thấy hồ sơ khách: ${res.result.fullName || 'Khách quen'} (ID #${res.result.id})`);
+        const result = res.result;
+        const name = (result.fullName as string) || `${(result.lastName as string) || ''} ${(result.firstName as string) || ''}`.trim();
+        setLeadGuest((prev) => ({
+          ...prev,
+          id: result.id as number | undefined,
+          fullName: name || prev.fullName,
+          email: (result.email as string) || prev.email,
+          identityNumber: (result.identityNumber as string) || prev.identityNumber,
+          identityType: (result.identityType as 'CCCD' | 'PASSPORT') || prev.identityType,
+          nationality: (result.nationality as string) || prev.nationality,
+        }));
+        setGuestFoundMessage(`Đã tìm thấy khách: ${name || 'Khách quen'} (ID #${result.id})`);
       }
     } catch {
-      setSelectedGuestId(undefined);
-      setGuestFoundMessage('Khách mới - Hệ thống sẽ tự động lưu hồ sơ khách.');
+      setLeadGuest((prev) => ({ ...prev, id: undefined }));
+      setGuestFoundMessage('Khách mới - Hệ thống sẽ tự động lưu hồ sơ.');
     } finally {
       setIsSearchingGuest(false);
     }
   };
 
-  // Tra cứu nhanh Doanh nghiệp (Autocomplete)
   const handleSearchCompany = async (query: string) => {
-    setCompanyName(query);
-    setSelectedCompanyId(undefined);
+    setCompany((prev) => ({ ...prev, name: query, id: undefined }));
     if (!query.trim() || query.trim().length < 2) {
       setCompanySuggestions([]);
       return;
     }
     setIsSearchingCompany(true);
     try {
-      const res = await apiClient.post<{ content?: Array<{ id: number; name?: string; taxCode?: string; address?: string; contactName?: string; contactPhone?: string }> }>('/api/v1/companies/filter', {
+      const res = await apiClient.post<{ content?: CompanySuggestionItem[] }>('/api/v1/companies/filter', {
         keyword: query.trim(),
         pageSize: 5,
       });
       if (res.result?.content) {
-        const mapped: CompanySuggestionItem[] = res.result.content.map((item) => ({
-          id: item.id,
-          name: item.name || '',
-          taxCode: item.taxCode,
-          address: item.address,
-          contactName: item.contactName,
-          contactPhone: item.contactPhone,
-        }));
-        setCompanySuggestions(mapped);
+        setCompanySuggestions(
+          res.result.content.map((item: CompanySuggestionItem) => ({
+            id: item.id,
+            name: item.name || '',
+            taxCode: item.taxCode,
+            address: item.address,
+            contactName: item.contactName,
+            contactPhone: item.contactPhone,
+          }))
+        );
       }
     } catch {
       setCompanySuggestions([]);
@@ -352,69 +363,67 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   };
 
   const handleSelectCompany = (comp: CompanySuggestionItem) => {
-    setSelectedCompanyId(comp.id);
-    setCompanyName(comp.name || '');
-    setTaxCode(comp.taxCode || '');
-    setCompanyAddress(comp.address || '');
-    setCompanyContactName(comp.contactName || '');
-    setCompanyContactPhone(comp.contactPhone || '');
+    setCompany({
+      id: comp.id,
+      name: comp.name,
+      taxCode: comp.taxCode || '',
+      address: comp.address || '',
+      contactName: comp.contactName || '',
+      contactPhone: comp.contactPhone || '',
+    });
     setCompanySuggestions([]);
   };
 
-  // Nút 1-click: Gán người đặt vào phòng #1
   const copyLeadGuestToRoom1 = () => {
-    if (!guestFullName) {
+    if (!leadGuest.fullName) {
       alert('Vui lòng nhập họ tên người đặt trước.');
       return;
     }
-    const updated = [...rooms];
-    if (updated[0]) {
-      const guests = [...updated[0].stayGuests];
-      guests[0] = {
-        ...guests[0],
-        fullName: guestFullName,
-        identityType: guestIdentityType,
-        identityNumber: guestIdentityNumber,
-        nationality: guestNationality,
-        birthDate: guestDateOfBirth || guests[0].birthDate,
-        gender: guestGender || guests[0].gender,
-        isPrimaryGuest: true,
-      };
-      updated[0].stayGuests = guests;
-      setRooms(updated);
-    }
+    setRooms((prev) => {
+      const next = [...prev];
+      if (next[0]) {
+        const guests = [...next[0].stayGuests];
+        guests[0] = {
+          ...guests[0],
+          fullName: leadGuest.fullName,
+          identityType: leadGuest.identityType,
+          identityNumber: leadGuest.identityNumber,
+          nationality: leadGuest.nationality,
+          birthDate: leadGuest.dateOfBirth || guests[0].birthDate,
+          gender: leadGuest.gender || guests[0].gender,
+          isPrimaryGuest: true,
+        };
+        next[0].stayGuests = guests;
+      }
+      return next;
+    });
   };
 
-  // OCR Modal Handlers
-  const handleOpenOcrForLead = () => {
-    setOcrTarget({ type: 'LEAD_GUEST' });
-    setIsOcrModalOpen(true);
-  };
-
-  const handleOpenOcrForStayGuest = (roomIndex: number, guestIndex: number) => {
-    setOcrTarget({ type: 'STAY_GUEST', roomIndex, guestIndex });
-    setIsOcrModalOpen(true);
-  };
-
+  // --------------------------------------------------------------------------
+  // OCR HANDLERS
+  // --------------------------------------------------------------------------
   const handleApplyOcrResult = (result: ExtractedOcrResult) => {
     if (!ocrTarget) return;
 
     if (ocrTarget.type === 'LEAD_GUEST') {
-      setGuestFullName(result.fullName);
-      setGuestIdentityType(result.documentType);
-      setGuestIdentityNumber(result.documentNumber);
-      setGuestDateOfBirth(result.dateOfBirth);
-      setGuestGender(result.gender);
-      setGuestNationality(result.nationality || 'Việt Nam');
-      setGuestAddress(result.permanentAddress);
+      setLeadGuest((prev) => ({
+        ...prev,
+        fullName: result.fullName,
+        identityType: result.documentType,
+        identityNumber: result.documentNumber,
+        dateOfBirth: result.dateOfBirth,
+        gender: result.gender,
+        nationality: result.nationality || 'Việt Nam',
+        address: result.permanentAddress,
+      }));
 
-      // Tự động đồng bộ ngay sang khách chính lưu trú ở Phòng #1
-      setRooms((prevRooms) => {
-        const nextRooms = [...prevRooms];
-        if (nextRooms[0] && nextRooms[0].stayGuests.length > 0) {
-          const nextGuests = [...nextRooms[0].stayGuests];
-          nextGuests[0] = {
-            ...nextGuests[0],
+      // Tự động đồng bộ khách chính sang phòng #1
+      setRooms((prev) => {
+        const next = [...prev];
+        if (next[0]?.stayGuests?.length > 0) {
+          const guests = [...next[0].stayGuests];
+          guests[0] = {
+            ...guests[0],
             fullName: result.fullName,
             identityType: result.documentType,
             identityNumber: result.documentNumber,
@@ -423,18 +432,18 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             nationality: result.nationality || 'Việt Nam',
             isPrimaryGuest: true,
           };
-          nextRooms[0] = { ...nextRooms[0], stayGuests: nextGuests };
+          next[0] = { ...next[0], stayGuests: guests };
         }
-        return nextRooms;
+        return next;
       });
-    } else if (ocrTarget.type === 'STAY_GUEST') {
+    } else {
       const { roomIndex, guestIndex } = ocrTarget;
-      setRooms((prevRooms) => {
-        const nextRooms = [...prevRooms];
-        if (nextRooms[roomIndex] && nextRooms[roomIndex].stayGuests[guestIndex]) {
-          const nextGuests = [...nextRooms[roomIndex].stayGuests];
-          nextGuests[guestIndex] = {
-            ...nextGuests[guestIndex],
+      setRooms((prev) => {
+        const next = [...prev];
+        if (next[roomIndex]?.stayGuests[guestIndex]) {
+          const guests = [...next[roomIndex].stayGuests];
+          guests[guestIndex] = {
+            ...guests[guestIndex],
             fullName: result.fullName,
             identityType: result.documentType,
             identityNumber: result.documentNumber,
@@ -442,81 +451,36 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             gender: result.gender,
             nationality: result.nationality || 'Việt Nam',
           };
-          nextRooms[roomIndex] = { ...nextRooms[roomIndex], stayGuests: nextGuests };
+          next[roomIndex] = { ...next[roomIndex], stayGuests: guests };
         }
-        return nextRooms;
+        return next;
       });
     }
   };
 
-  // Thêm người ở cho từng phòng
-  const handleAddStayGuest = (roomIndex: number) => {
-    const updated = [...rooms];
-    updated[roomIndex].stayGuests.push({
-      fullName: '',
-      birthDate: '',
-      guestType: 'ADULT',
-      gender: 'MALE',
-      identityType: 'CCCD',
-      identityNumber: '',
-      nationality: 'Việt Nam',
-      isPrimaryGuest: false,
-    });
-    setRooms(updated);
-  };
-
-  const handleRemoveStayGuest = (roomIndex: number, guestIndex: number) => {
-    const updated = [...rooms];
-    if (updated[roomIndex].stayGuests.length > 1) {
-      updated[roomIndex].stayGuests = updated[roomIndex].stayGuests.filter((_, gIdx) => gIdx !== guestIndex);
-      setRooms(updated);
-    }
-  };
-
-  const updateStayGuestField = (
-    roomIndex: number,
-    guestIndex: number,
-    field: keyof WalkInStayGuestRequest,
-    value: WalkInStayGuestRequest[keyof WalkInStayGuestRequest]
-  ) => {
-    const updated = [...rooms];
-    const guests = [...updated[roomIndex].stayGuests];
-    guests[guestIndex] = { ...guests[guestIndex], [field]: value };
-    updated[roomIndex].stayGuests = guests;
-    setRooms(updated);
-  };
-
-  // Chuyển sang Bước 3: Tính báo giá và phụ thu
+  // --------------------------------------------------------------------------
+  // CALCULATION & PRICING
+  // --------------------------------------------------------------------------
   const fetchQuoteAndProceedToStep3 = async () => {
-    // Validate Bước 1
     for (let i = 0; i < rooms.length; i++) {
-      if (!rooms[i].hotelRoomTypeId) {
-        setFormError(`Phòng #${i + 1} chưa chọn hạng phòng.`);
-        return;
-      }
-      if (!rooms[i].roomInstanceId) {
-        setFormError(`Phòng #${i + 1} chưa chọn số phòng vật lý (READY).`);
-        return;
-      }
+      if (!rooms[i].hotelRoomTypeId) return setFormError(`Phòng #${i + 1} chưa chọn hạng phòng.`);
+      if (!rooms[i].roomInstanceId) return setFormError(`Phòng #${i + 1} chưa chọn số phòng vật lý.`);
     }
-    // Validate Bước 2
-    if (!guestPhone.trim() || !guestFullName.trim()) {
-      setFormError('Vui lòng nhập số điện thoại và họ tên người đặt/đại diện.');
-      return;
+    if (!leadGuest.phone.trim() || !leadGuest.fullName.trim()) {
+      return setFormError('Vui lòng nhập số điện thoại và họ tên người đặt.');
     }
-    if (bookingType === 'CORPORATE' && !companyName.trim()) {
-      setFormError('Đơn Doanh nghiệp yêu cầu nhập Tên công ty.');
-      return;
+    if (bookingType === 'CORPORATE' && !company.name.trim()) {
+      return setFormError('Đơn Doanh nghiệp yêu cầu nhập Tên công ty.');
     }
 
     setFormError(null);
     setIsLoadingQuote(true);
     try {
-      const quotePayload = {
+      const res = await bookingService.calculateWalkInQuote({
         hotelId: selectedHotelId,
-        checkInDate,
-        checkOutDate,
-        actualCheckInTime,
+        checkInDate: stayPeriod.checkInDate,
+        checkOutDate: stayPeriod.checkOutDate,
+        actualCheckInTime: stayPeriod.actualCheckInTime,
         rooms: rooms.map((r) => ({
           hotelRoomTypeId: Number(r.hotelRoomTypeId),
           adultCount: r.adultCount,
@@ -524,22 +488,21 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           infantCount: r.infantCount,
           extraBeds: r.extraBeds,
         })),
-      };
+      });
 
-      const res = await bookingService.calculateWalkInQuote(quotePayload);
       if (res.result) {
         setQuoteResponse(res.result);
-
-        // Khởi tạo danh sách phụ thu phát hiện được để lễ tân phê duyệt
         const detectedCharges: ConfirmedChargeItem[] = [];
+
         res.result.rooms.forEach((r, idx) => {
           const roomInstanceId = Number(rooms[idx]?.roomInstanceId);
-          // Early check-in
+          const roomNumber = readyRooms.find((rm) => rm.id === roomInstanceId)?.roomNumber || idx + 1;
+
           if (r.earlyCheckinProposal?.applicable) {
             detectedCharges.push({
               roomInstanceId,
               chargeType: 'EARLY_CHECKIN',
-              title: `P.${readyRooms.find((rm) => rm.id === roomInstanceId)?.roomNumber || idx + 1}: ${r.earlyCheckinProposal.suggestedItemName}`,
+              title: `P.${roomNumber}: ${r.earlyCheckinProposal.suggestedItemName}`,
               amount: r.earlyCheckinProposal.suggestedAmount,
               suggestedAmount: r.earlyCheckinProposal.suggestedAmount,
               action: 'APPLY',
@@ -547,17 +510,17 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               ruleDescription: r.earlyCheckinProposal.policyRule,
             });
           }
-          // Extra capacity / extra beds
+
           if (r.capacitySurcharge && r.capacitySurcharge.totalSurchargeAmount > 0) {
             detectedCharges.push({
               roomInstanceId,
               chargeType: 'OTHER',
-              title: `P.${readyRooms.find((rm) => rm.id === roomInstanceId)?.roomNumber || idx + 1}: Phụ thu vượt sức chứa / Giường phụ`,
+              title: `P.${roomNumber}: Phụ thu vượt sức chứa / Giường phụ`,
               amount: r.capacitySurcharge.totalSurchargeAmount,
               suggestedAmount: r.capacitySurcharge.totalSurchargeAmount,
               action: 'APPLY',
               waivedReason: '',
-              ruleDescription: r.capacitySurcharge.surchargeNotes?.join(', ') || 'Theo biểu phí phụ thu hạng phòng',
+              ruleDescription: r.capacitySurcharge.surchargeNotes?.join(', ') || 'Biểu phí hạng phòng',
             });
           }
         });
@@ -566,53 +529,53 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         setStep(3);
       }
     } catch (err: unknown) {
-      setFormError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Lỗi tính báo giá phòng và phụ thu.');
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Lỗi tính báo giá phòng và phụ thu.';
+      setFormError(msg);
     } finally {
       setIsLoadingQuote(false);
     }
   };
 
-  // Tính tổng tiền đơn hàng
   const totalRoomGross = quoteResponse?.totalAmount || 0;
-  const totalApprovedCharges = confirmedCharges.reduce((acc, c) => {
-    if (c.action === 'WAIVE') return acc;
-    return acc + (c.action === 'CUSTOM' ? c.amount : c.suggestedAmount);
-  }, 0);
-  const totalServices = selectedServices.reduce((acc, s) => acc + s.price * s.quantity, 0);
+  const totalApprovedCharges = useMemo(
+    () =>
+      confirmedCharges.reduce((acc, c) => {
+        if (c.action === 'WAIVE') return acc;
+        return acc + (c.action === 'CUSTOM' ? c.amount : c.suggestedAmount);
+      }, 0),
+    [confirmedCharges]
+  );
+  const totalServices = useMemo(
+    () => selectedServices.reduce((acc, s) => acc + s.price * s.quantity, 0),
+    [selectedServices]
+  );
   const grandTotal = totalRoomGross + totalApprovedCharges + totalServices;
-
-  // Ràng buộc thanh toán: Đặt ít phòng (≤ 2 phòng) hoặc FIT -> Bắt buộc 100%
   const isSmallOrFit = rooms.length <= 2 && bookingType === 'FIT';
 
-  // Khi sang Bước 5, tự động tính số tiền thanh toán
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (step === 5) {
-        if (isSmallOrFit) {
-          setPaymentPurpose('FULL_PAYMENT');
-          setCustomPaidAmount(grandTotal);
+    if (step === 5) {
+      Promise.resolve().then(() => {
+        if (isSmallOrFit || payment.purpose === 'FULL_PAYMENT') {
+          setPayment((prev) => ({ ...prev, purpose: 'FULL_PAYMENT', customAmount: grandTotal }));
         } else {
-          if (paymentPurpose === 'FULL_PAYMENT') {
-            setCustomPaidAmount(grandTotal);
-          } else {
-            setCustomPaidAmount(Math.round(grandTotal * 0.5));
-          }
+          setPayment((prev) => ({ ...prev, customAmount: Math.round(grandTotal * 0.5) }));
         }
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [step, grandTotal, isSmallOrFit, paymentPurpose]);
+      });
+    }
+  }, [step, grandTotal, isSmallOrFit, payment.purpose]);
 
-  // Xử lý tạo đơn Walk-In và Check-in ngay
+  // --------------------------------------------------------------------------
+  // SUBMISSION
+  // --------------------------------------------------------------------------
   const handleCompleteWalkIn = async () => {
     setFormError(null);
     setIsSubmitting(true);
-
     try {
-      const finalAmount = customPaidAmount > 0 ? customPaidAmount : grandTotal;
-
-      if (isSmallOrFit && (paymentPurpose !== 'FULL_PAYMENT' || finalAmount < grandTotal)) {
-        setFormError('Khách vãng lai đặt ít phòng (≤ 2 phòng) bắt buộc thanh toán 100% khi nhận phòng.');
+      const finalAmount = payment.customAmount > 0 ? payment.customAmount : grandTotal;
+      if (isSmallOrFit && (payment.purpose !== 'FULL_PAYMENT' || finalAmount < grandTotal)) {
+        setFormError('Khách vãng lai đặt ≤ 2 phòng bắt buộc thanh toán 100% khi nhận phòng.');
         setIsSubmitting(false);
         return;
       }
@@ -620,32 +583,32 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       const payload: WalkInBookingRequest = {
         hotelId: selectedHotelId,
         bookingType,
-        companyId: selectedCompanyId,
+        companyId: company.id,
         newCompany:
-          bookingType === 'CORPORATE' && !selectedCompanyId && companyName.trim()
+          bookingType === 'CORPORATE' && !company.id && company.name.trim()
             ? {
-                name: companyName,
-                taxCode,
-                address: companyAddress,
-                contactName: companyContactName,
-                contactPhone: companyContactPhone,
-              }
-            : undefined,
-        guestId: selectedGuestId,
-        newGuest: !selectedGuestId
-          ? {
-              fullName: guestFullName,
-              phone: guestPhone,
-              email: guestEmail,
-              identityType: guestIdentityType,
-              identityNumber: guestIdentityNumber,
-              birthDate: guestDateOfBirth || undefined,
-              nationality: guestNationality,
+              name: company.name,
+              taxCode: company.taxCode,
+              address: company.address,
+              contactName: company.contactName,
+              contactPhone: company.contactPhone,
             }
+            : undefined,
+        guestId: leadGuest.id,
+        newGuest: !leadGuest.id
+          ? {
+            fullName: leadGuest.fullName,
+            phone: leadGuest.phone,
+            email: leadGuest.email,
+            identityType: leadGuest.identityType,
+            identityNumber: leadGuest.identityNumber,
+            birthDate: leadGuest.dateOfBirth || undefined,
+            nationality: leadGuest.nationality,
+          }
           : undefined,
-        checkInDate,
-        checkOutDate,
-        notes: `Khách vãng lai Check-in ngay tại quầy lúc ${actualCheckInTime}.`,
+        checkInDate: stayPeriod.checkInDate,
+        checkOutDate: stayPeriod.checkOutDate,
+        notes: `Khách vãng lai Check-in quầy lúc ${stayPeriod.actualCheckInTime}.`,
         rooms: rooms.map((r) => ({
           hotelRoomTypeId: Number(r.hotelRoomTypeId),
           roomInstanceId: Number(r.roomInstanceId),
@@ -671,10 +634,10 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             quantity: s.quantity,
           })),
         payment: {
-          paymentMethod,
-          paymentPurpose,
+          paymentMethod: payment.method,
+          paymentPurpose: payment.purpose,
           amount: finalAmount,
-          transactionReference: transactionRef,
+          transactionReference: payment.transactionRef,
         },
       };
 
@@ -684,11 +647,19 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         onClose();
       }
     } catch (err: unknown) {
-      setFormError((err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Có lỗi xảy ra khi hoàn tất nhận khách vãng lai.');
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Có lỗi xảy ra khi hoàn tất nhận khách vãng lai.';
+      setFormError(msg);
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const hotelSelectOptions: SelectOption<number>[] = useMemo(
+    () => hotels.map((h) => ({ value: h.id, label: h.name })),
+    [hotels]
+  );
 
   return (
     <Modal
@@ -710,22 +681,20 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           ].map((item) => (
             <div
               key={item.num}
-              className={`flex items-center gap-2 cursor-pointer ${
-                step === item.num
-                  ? 'text-red-600 font-bold'
-                  : step > item.num
+              className={`flex items-center gap-2 ${step === item.num
+                ? 'text-red-600 font-bold'
+                : step > item.num
                   ? 'text-neutral-900 font-medium'
                   : 'text-neutral-400'
-              }`}
+                }`}
             >
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
-                  step === item.num
-                    ? 'bg-red-600 text-white shadow-md'
-                    : step > item.num
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${step === item.num
+                  ? 'bg-red-600 text-white shadow-md'
+                  : step > item.num
                     ? 'bg-green-600 text-white'
                     : 'bg-neutral-100 text-neutral-500'
-                }`}
+                  }`}
               >
                 {step > item.num ? <Check className="w-4 h-4" /> : item.num}
               </div>
@@ -742,58 +711,55 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* BƯỚC 1: NHU CẦU LƯU TRÚ & CẤU HÌNH PHÒNG TỐI ĐA 5 PHÒNG */}
-        {/* ======================================================== */}
+        {/* STEP 1: NHU CẦU & CẤU HÌNH PHÒNG */}
         {step === 1 && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            {/* Thông tin cơ sở & Mốc thời gian */}
+          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-200">
               <div>
-                <label htmlFor={hotelSelectId} className="block text-xs font-semibold text-neutral-600 mb-1">Khách sạn cơ sở</label>
-                <select
-                  id={hotelSelectId}
+                <label className="block text-xs font-semibold text-neutral-600 mb-1">Khách sạn cơ sở</label>
+                <Select<number>
                   value={selectedHotelId}
-                  onChange={(e) => setSelectedHotelId(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600"
-                >
-                  {hotels.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedHotelId(val)}
+                  options={hotelSelectOptions}
+                  placeholder="Chọn khách sạn..."
+                />
               </div>
               <div>
-                <label htmlFor={checkInDateId} className="block text-xs font-semibold text-neutral-600 mb-1">Ngày nhận phòng</label>
+                <label htmlFor={checkInDateId} className="block text-xs font-semibold text-neutral-600 mb-1">
+                  Ngày nhận phòng
+                </label>
                 <input
                   id={checkInDateId}
                   type="date"
-                  value={checkInDate}
+                  value={stayPeriod.checkInDate}
                   min={DEFAULT_TODAY}
-                  onChange={(e) => setCheckInDate(e.target.value)}
+                  onChange={(e) => setStayPeriod((p) => ({ ...p, checkInDate: e.target.value }))}
                   className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600"
                 />
               </div>
               <div>
-                <label htmlFor={checkOutDateId} className="block text-xs font-semibold text-neutral-600 mb-1">Ngày trả phòng</label>
+                <label htmlFor={checkOutDateId} className="block text-xs font-semibold text-neutral-600 mb-1">
+                  Ngày trả phòng
+                </label>
                 <input
                   id={checkOutDateId}
                   type="date"
-                  value={checkOutDate}
-                  min={checkInDate || DEFAULT_TODAY}
-                  onChange={(e) => setCheckOutDate(e.target.value)}
+                  value={stayPeriod.checkOutDate}
+                  min={stayPeriod.checkInDate || DEFAULT_TODAY}
+                  onChange={(e) => setStayPeriod((p) => ({ ...p, checkOutDate: e.target.value }))}
                   className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600"
                 />
               </div>
               <div>
-                <label htmlFor={checkInTimeId} className="block text-xs font-semibold text-neutral-600 mb-1">Giờ đến thực tế</label>
+                <label htmlFor={checkInTimeId} className="block text-xs font-semibold text-neutral-600 mb-1">
+                  Giờ đến thực tế
+                </label>
                 <div className="relative">
                   <input
                     id={checkInTimeId}
                     type="time"
-                    value={actualCheckInTime}
-                    onChange={(e) => setActualCheckInTime(e.target.value)}
+                    value={stayPeriod.actualCheckInTime}
+                    onChange={(e) => setStayPeriod((p) => ({ ...p, actualCheckInTime: e.target.value }))}
                     className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600"
                   />
                   <Clock className="w-4 h-4 text-neutral-400 absolute right-3 top-2.5 pointer-events-none" />
@@ -801,17 +767,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               </div>
             </div>
 
-            {/* Danh sách phòng đã chọn (Tối đa 5 phòng) */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-base font-bold text-neutral-900 flex items-center gap-2">
-                    <BedDouble className="w-5 h-5 text-red-600" />
-                    Cấu hình từng phòng đón khách
+                    <BedDouble className="w-5 h-5 text-red-600" /> Cấu hình từng phòng đón khách
                   </h3>
-                  <p className="text-xs text-neutral-500">
-                    Mỗi phòng được cấu hình khách riêng biệt và gán trực tiếp phòng vật lý sẵn sàng (READY).
-                  </p>
+                  <p className="text-xs text-neutral-500">Mỗi phòng gán trực tiếp số phòng vật lý sẵn sàng (READY).</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="px-3 py-1 bg-neutral-100 text-neutral-700 font-semibold text-xs rounded-full border border-neutral-200">
@@ -829,7 +791,6 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               </div>
 
               {rooms.map((room, idx) => {
-                // Lọc danh sách phòng READY của loại phòng này mà chưa bị các phòng khác trong form chọn
                 const otherSelectedRoomInstanceIds = rooms
                   .filter((_, rIdx) => rIdx !== idx)
                   .map((r) => r.roomInstanceId);
@@ -840,14 +801,9 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 );
 
                 return (
-                  <div
-                    key={room.id}
-                    className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4 relative"
-                  >
+                  <div key={room.id} className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
                     <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
-                      <span className="text-sm font-bold text-red-600 flex items-center gap-2">
-                        Phòng #{idx + 1}
-                      </span>
+                      <span className="text-sm font-bold text-red-600">Phòng #{idx + 1}</span>
                       {rooms.length > 1 && (
                         <button
                           type="button"
@@ -860,57 +816,63 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Chọn Hạng phòng */}
                       <div>
                         <label className="block text-xs font-semibold text-neutral-600 mb-1">
                           Hạng phòng <span className="text-red-500">*</span>
                         </label>
-                        <select
-                          value={room.hotelRoomTypeId}
-                          onChange={(e) =>
-                            updateRoomField(idx, 'hotelRoomTypeId', e.target.value ? Number(e.target.value) : '')
+                        <Select<number>
+                          value={room.hotelRoomTypeId ? Number(room.hotelRoomTypeId) : 0}
+                          onChange={(val) =>
+                            updateRoomField(idx, 'hotelRoomTypeId', val ? Number(val) : '')
                           }
-                          className="w-full px-3 py-2 bg-neutral-50 border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600"
-                        >
-                          <option value="">-- Chọn loại phòng --</option>
-                          {roomTypes.map((rt) => (
-                            <option key={rt.id} value={rt.id}>
-                              {rt.roomTypeName} (Chuẩn: {rt.standardAdults} lớn, Tối đa: {rt.maxTotalGuests || 4} khách)
-                            </option>
-                          ))}
-                        </select>
+                          options={[
+                            { value: 0, label: 'Chọn loại phòng', disabled: true },
+                            ...roomTypes.map((rt) => ({
+                              value: rt.id,
+                              label: `${rt.roomTypeName} (Chuẩn: ${rt.standardAdults} lớn, Tối đa: ${rt.maxTotalGuests || 4} khách)`,
+                            })),
+                          ]}
+                          size="sm"
+                        />
                       </div>
 
-                      {/* Chọn Số phòng vật lý (Chỉ hiển thị phòng READY) */}
                       <div>
                         <label className="block text-xs font-semibold text-neutral-600 mb-1">
                           Số phòng vật lý sẵn sàng (READY) <span className="text-red-500">*</span>
                         </label>
-                        <select
-                          value={room.roomInstanceId}
+                        <Select<number>
+                          value={room.roomInstanceId ? Number(room.roomInstanceId) : 0}
                           disabled={!room.hotelRoomTypeId}
-                          onChange={(e) =>
-                            updateRoomField(idx, 'roomInstanceId', e.target.value ? Number(e.target.value) : '')
+                          onChange={(val) =>
+                            updateRoomField(idx, 'roomInstanceId', val ? Number(val) : '')
                           }
-                          className="w-full px-3 py-2 bg-neutral-50 border border-neutral-300 rounded-xl text-sm font-medium focus:ring-2 focus:ring-red-600 disabled:opacity-50"
-                        >
-                          <option value="">
-                            {room.hotelRoomTypeId
+                          placeholder={
+                            room.hotelRoomTypeId
                               ? availablePhysicalRooms.length > 0
-                                ? `-- Chọn phòng (${availablePhysicalRooms.length} phòng sẵn sàng) --`
-                                : '-- Không có phòng READY nào --'
-                              : '-- Vui lòng chọn loại phòng trước --'}
-                          </option>
-                          {availablePhysicalRooms.map((pr) => (
-                            <option key={pr.id} value={pr.id}>
-                              Phòng {pr.roomNumber} (Sạch sẽ, sẵn sàng)
-                            </option>
-                          ))}
-                        </select>
+                                ? `Chọn phòng (${availablePhysicalRooms.length} phòng sẵn sàng)`
+                                : 'Không có phòng khả dụng'
+                              : 'Vui lòng chọn loại phòng trước'
+                          }
+                          options={[
+                            {
+                              value: 0,
+                              label: room.hotelRoomTypeId
+                                ? availablePhysicalRooms.length > 0
+                                  ? `Chọn phòng (${availablePhysicalRooms.length}`
+                                  : 'Không có phòng khả dụng'
+                                : 'Vui lòng chọn loại phòng trước',
+                              disabled: true,
+                            },
+                            ...availablePhysicalRooms.map((pr) => ({
+                              value: pr.id,
+                              label: `Phòng ${pr.roomNumber} (Sạch sẽ, sẵn sàng)`,
+                            })),
+                          ]}
+                          size="sm"
+                        />
                       </div>
                     </div>
 
-                    {/* Số lượng khách chi tiết theo từng phòng */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                       <div>
                         <label className="block text-xs font-medium text-neutral-600 mb-1">Người lớn</label>
@@ -974,49 +936,42 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* BƯỚC 2: KHAI BÁO KHÁCH HÀNG & DOANH NGHIỆP & NGƯỜI Ở     */}
-        {/* ======================================================== */}
+        {/* STEP 2: KHAI BÁO KHÁCH & DOANH NGHIỆP */}
         {step === 2 && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            {/* Toggle Loại hình đặt phòng */}
+          <div className="space-y-6">
             <div className="flex items-center gap-4 p-3 bg-neutral-50 rounded-2xl border border-neutral-200">
               <span className="text-xs font-bold text-neutral-600">Loại khách:</span>
               <button
                 type="button"
                 onClick={() => setBookingType('FIT')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  bookingType === 'FIT'
-                    ? 'bg-red-600 text-white shadow-xs'
-                    : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${bookingType === 'FIT'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
               >
                 Khách Cá Nhân (FIT)
               </button>
               <button
                 type="button"
                 onClick={() => setBookingType('CORPORATE')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  bookingType === 'CORPORATE'
-                    ? 'bg-red-600 text-white shadow-xs'
-                    : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
-                }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${bookingType === 'CORPORATE'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-white text-neutral-700 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
               >
-                Doanh Nghiệp / Công Ty (CORPORATE)
+                Doanh Nghiệp (CORPORATE)
               </button>
             </div>
 
-            {/* Thông tin Doanh nghiệp nếu chọn CORPORATE */}
             {bookingType === 'CORPORATE' && (
               <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-200 space-y-4">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-blue-900 flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-blue-600" />
-                    Thông tin Doanh nghiệp bảo trợ / Đối tác công tác
+                    <Briefcase className="w-4 h-4 text-blue-600" /> Doanh nghiệp bảo trợ
                   </h4>
-                  {selectedCompanyId && (
+                  {company.id && (
                     <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-1 rounded-full border border-blue-300">
-                      Đã chọn đối tác #{selectedCompanyId}
+                      Đã chọn đối tác #{company.id}
                     </span>
                   )}
                 </div>
@@ -1028,9 +983,9 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     <input
                       type="text"
                       placeholder="Gõ tìm hoặc nhập mới..."
-                      value={companyName}
+                      value={company.name}
                       onChange={(e) => handleSearchCompany(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500"
                     />
                     {isSearchingCompany && (
                       <span className="absolute right-3 top-8 text-xs text-neutral-400">Đang tìm...</span>
@@ -1044,9 +999,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                             className="p-2.5 hover:bg-blue-50 cursor-pointer border-b border-neutral-100 last:border-b-0 text-left"
                           >
                             <div className="font-semibold text-xs text-neutral-900">{c.name}</div>
-                            <div className="text-[11px] text-neutral-500">
-                              MST: {c.taxCode || 'N/A'} {c.contactPhone ? `| SĐT: ${c.contactPhone}` : ''}
-                            </div>
+                            <div className="text-[11px] text-neutral-500">MST: {c.taxCode || 'N/A'}</div>
                           </div>
                         ))}
                       </div>
@@ -1057,8 +1010,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     <input
                       type="text"
                       placeholder="0101234567"
-                      value={taxCode}
-                      onChange={(e) => setTaxCode(e.target.value)}
+                      value={company.taxCode}
+                      onChange={(e) => setCompany((p) => ({ ...p, taxCode: e.target.value }))}
                       className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm"
                     />
                   </div>
@@ -1067,28 +1020,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     <input
                       type="text"
                       placeholder="Hà Nội, Việt Nam"
-                      value={companyAddress}
-                      onChange={(e) => setCompanyAddress(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-700 mb-1">Người đại diện liên hệ</label>
-                    <input
-                      type="text"
-                      placeholder="Nguyễn Văn Đại diện"
-                      value={companyContactName}
-                      onChange={(e) => setCompanyContactName(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-neutral-700 mb-1">SĐT người liên hệ</label>
-                    <input
-                      type="text"
-                      placeholder="0912345678"
-                      value={companyContactPhone}
-                      onChange={(e) => setCompanyContactPhone(e.target.value)}
+                      value={company.address}
+                      onChange={(e) => setCompany((p) => ({ ...p, address: e.target.value }))}
                       className="w-full px-3 py-2 bg-white border border-neutral-300 rounded-xl text-sm"
                     />
                   </div>
@@ -1096,12 +1029,11 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               </div>
             )}
 
-            {/* Người đặt / Đại diện thanh toán (BookingGuest) */}
+            {/* Thông tin Lead Guest */}
             <div className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-neutral-100 pb-2 gap-2">
                 <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-                  <UserCheck className="w-5 h-5 text-red-600" />
-                  Thông tin khách chính (Lead Guest)
+                  <UserCheck className="w-5 h-5 text-red-600" /> Thông tin khách chính (Lead Guest)
                 </h4>
                 <div className="flex items-center gap-2">
                   {guestFoundMessage && (
@@ -1111,19 +1043,18 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   )}
                   <button
                     type="button"
-                    onClick={handleOpenOcrForLead}
-                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                    title="Tải ảnh CCCD / Hộ chiếu để tự động trích xuất thông tin"
+                    onClick={() => {
+                      setOcrTarget({ type: 'LEAD_GUEST' });
+                      setIsOcrModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
                   >
-                    <Camera className="w-4 h-4" />
-                    <span>📷 Tải ảnh CCCD / Passport</span>
+                    <Camera className="w-4 h-4" /> Quét CCCD / Passport
                   </button>
                 </div>
               </div>
 
-              {/* Hàng 1: SĐT, Họ tên, Số CCCD/Hộ chiếu, Email */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                {/* Số điện thoại + Tìm kiếm nhanh */}
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
                     Số điện thoại <span className="text-red-500">*</span>
@@ -1132,15 +1063,15 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     <input
                       type="text"
                       placeholder="0912345678"
-                      value={guestPhone}
-                      onChange={(e) => setGuestPhone(e.target.value)}
+                      value={leadGuest.phone}
+                      onChange={(e) => setLeadGuest((p) => ({ ...p, phone: e.target.value }))}
                       className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm font-medium"
                     />
                     <button
                       type="button"
                       onClick={handleSearchGuestByPhone}
                       disabled={isSearchingGuest}
-                      className="px-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl text-xs font-semibold transition-colors shrink-0"
+                      className="px-3 bg-neutral-100 hover:bg-neutral-200 rounded-xl text-xs font-semibold"
                     >
                       <Search className="w-4 h-4" />
                     </button>
@@ -1152,9 +1083,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="NGUYỄN VĂN A"
-                    value={guestFullName}
-                    onChange={(e) => setGuestFullName(e.target.value.toUpperCase())}
+                    value={leadGuest.fullName}
+                    onChange={(e) => setLeadGuest((p) => ({ ...p, fullName: e.target.value.toUpperCase() }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm font-bold"
                   />
                 </div>
@@ -1162,9 +1092,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">Số CCCD / Hộ chiếu</label>
                   <input
                     type="text"
-                    placeholder="001200001234"
-                    value={guestIdentityNumber}
-                    onChange={(e) => setGuestIdentityNumber(e.target.value)}
+                    value={leadGuest.identityNumber}
+                    onChange={(e) => setLeadGuest((p) => ({ ...p, identityNumber: e.target.value }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
                   />
                 </div>
@@ -1172,99 +1101,71 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">Email</label>
                   <input
                     type="email"
-                    placeholder="khach@gmail.com"
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
+                    value={leadGuest.email}
+                    onChange={(e) => setLeadGuest((p) => ({ ...p, email: e.target.value }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
                   />
                 </div>
               </div>
 
-              {/* Hàng 2: Ngày sinh, Giới tính, Địa chỉ thường trú, Quốc tịch (Tự động điền qua OCR) */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Ngày sinh (dateOfBirth)
-                  </label>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Ngày sinh</label>
                   <input
                     type="date"
-                    value={guestDateOfBirth}
-                    onChange={(e) => setGuestDateOfBirth(e.target.value)}
+                    value={leadGuest.dateOfBirth}
+                    onChange={(e) => setLeadGuest((p) => ({ ...p, dateOfBirth: e.target.value }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Giới tính (gender)
-                  </label>
-                  <select
-                    value={guestGender}
-                    onChange={(e) => setGuestGender(e.target.value as 'MALE' | 'FEMALE' | 'OTHER')}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm bg-white"
-                  >
-                    <option value="MALE">Nam</option>
-                    <option value="FEMALE">Nữ</option>
-                    <option value="OTHER">Khác</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Địa chỉ thường trú (address)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Số nhà, đường, phường/xã, tỉnh/thành..."
-                    value={guestAddress}
-                    onChange={(e) => setGuestAddress(e.target.value)}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Giới tính</label>
+                  <Select<'MALE' | 'FEMALE' | 'OTHER'>
+                    value={leadGuest.gender}
+                    onChange={(val) => setLeadGuest((p) => ({ ...p, gender: val }))}
+                    options={[
+                      { value: 'MALE', label: 'Nam' },
+                      { value: 'FEMALE', label: 'Nữ' },
+                      { value: 'OTHER', label: 'Khác' },
+                    ]}
+                    size="sm"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Quốc tịch
-                  </label>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Địa chỉ thường trú</label>
                   <input
                     type="text"
-                    placeholder="Việt Nam"
-                    value={guestNationality}
-                    onChange={(e) => setGuestNationality(e.target.value)}
+                    value={leadGuest.address}
+                    onChange={(e) => setLeadGuest((p) => ({ ...p, address: e.target.value }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Danh sách người lưu trú thực tế theo từng phòng (StayGuest) */}
+            {/* Stay Guests */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-neutral-700" />
-                  Danh sách người thực tế lưu trú (Đồng bộ khai báo tạm trú BCA)
+                  <ShieldCheck className="w-5 h-5 text-neutral-700" /> Khách thực tế lưu trú (Khai báo tạm trú BCA)
                 </h4>
                 <button
                   type="button"
                   onClick={copyLeadGuestToRoom1}
-                  className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-xs font-bold transition-colors"
+                  className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-xs font-bold"
                 >
-                  ⚡ Gán người đặt trực tiếp ở Phòng #1
+                  ⚡ Gán người đặt vào Phòng #1
                 </button>
               </div>
 
               {rooms.map((room, rIdx) => {
-                const assignedRoomNumber = readyRooms.find((r) => r.id === room.roomInstanceId)?.roomNumber;
+                const roomNum = readyRooms.find((r) => r.id === room.roomInstanceId)?.roomNumber;
                 return (
                   <div key={room.id} className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-3">
                     <div className="flex items-center justify-between border-b border-neutral-200 pb-2">
                       <span className="text-xs font-bold text-neutral-900">
-                        Phòng #{rIdx + 1} {assignedRoomNumber && `(P.${assignedRoomNumber})`} — {room.adultCount} lớn, {room.childCount} trẻ
+                        Phòng #{rIdx + 1} {roomNum && `(P.${roomNum})`} — {room.adultCount} lớn, {room.childCount} trẻ
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleAddStayGuest(rIdx)}
-                        className="text-xs text-red-600 hover:text-red-700 font-semibold flex items-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Thêm khách ở phòng này
-                      </button>
                     </div>
 
                     {room.stayGuests.map((guest, gIdx) => (
@@ -1274,57 +1175,50 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                             type="text"
                             placeholder="Họ và tên khách"
                             value={guest.fullName}
-                            onChange={(e) => updateStayGuestField(rIdx, gIdx, 'fullName', e.target.value.toUpperCase())}
+                            onChange={(e) => updateStayGuest(rIdx, gIdx, 'fullName', e.target.value.toUpperCase())}
                             className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-semibold"
                           />
                         </div>
                         <div>
                           <input
                             type="text"
-                            placeholder="Số CCCD / Hộ chiếu"
+                            placeholder="CCCD / Hộ chiếu"
                             value={guest.identityNumber || ''}
-                            onChange={(e) => updateStayGuestField(rIdx, gIdx, 'identityNumber', e.target.value)}
+                            onChange={(e) => updateStayGuest(rIdx, gIdx, 'identityNumber', e.target.value)}
                             className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs"
                           />
                         </div>
                         <div>
-                          <select
-                            value={guest.gender || 'MALE'}
-                            onChange={(e) => updateStayGuestField(rIdx, gIdx, 'gender', e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-medium"
-                          >
-                            <option value="MALE">Nam</option>
-                            <option value="FEMALE">Nữ</option>
-                            <option value="OTHER">Khác</option>
-                          </select>
+                          <Select<'MALE' | 'FEMALE' | 'OTHER'>
+                            value={(guest.gender as 'MALE' | 'FEMALE' | 'OTHER') || 'MALE'}
+                            onChange={(val) => updateStayGuest(rIdx, gIdx, 'gender', val)}
+                            options={[
+                              { value: 'MALE', label: 'Nam' },
+                              { value: 'FEMALE', label: 'Nữ' },
+                              { value: 'OTHER', label: 'Khác' },
+                            ]}
+                            size="sm"
+                          />
                         </div>
                         <div>
                           <input
                             type="date"
                             value={guest.birthDate || ''}
-                            onChange={(e) => updateStayGuestField(rIdx, gIdx, 'birthDate', e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-medium"
+                            onChange={(e) => updateStayGuest(rIdx, gIdx, 'birthDate', e.target.value)}
+                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs"
                           />
                         </div>
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            onClick={() => handleOpenOcrForStayGuest(rIdx, gIdx)}
-                            className="text-neutral-500 hover:text-red-600 hover:bg-red-50 p-1.5 rounded-lg transition-colors cursor-pointer"
-                            title="Quét CCCD / Hộ chiếu cho khách này"
+                            onClick={() => {
+                              setOcrTarget({ type: 'STAY_GUEST', roomIndex: rIdx, guestIndex: gIdx });
+                              setIsOcrModalOpen(true);
+                            }}
+                            className="text-neutral-500 hover:text-red-600 p-1.5"
                           >
-                            <Camera className="w-3.5 h-3.5" />
+                            <Camera className="w-4 h-4" />
                           </button>
-                          {room.stayGuests.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveStayGuest(rIdx, gIdx)}
-                              className="text-neutral-400 hover:text-red-600 p-1 rounded-lg transition-colors cursor-pointer"
-                              title="Xóa người ở này"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -1349,44 +1243,36 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* BƯỚC 3: PHỤ THU TỰ ĐỘNG & LỄ TÂN PHÊ DUYỆT (SURCHARGES)  */}
-        {/* ======================================================== */}
+        {/* STEP 3: PHỤ THU TỰ ĐỘNG */}
         {step === 3 && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            {/* Tóm tắt tiền phòng ban đầu từ PriceEngine */}
+          <div className="space-y-6">
             <div className="p-4 bg-neutral-50 rounded-2xl border border-neutral-200 flex items-center justify-between">
               <div>
-                <span className="text-xs font-semibold text-neutral-500 uppercase">Tiền phòng tạm tính (Đã gồm VAT & Phí DV):</span>
+                <span className="text-xs font-semibold text-neutral-500 uppercase">Tiền phòng tạm tính:</span>
                 <div className="text-xl font-extrabold text-neutral-900 mt-0.5">
                   {totalRoomGross.toLocaleString('vi-VN')} đ
                 </div>
               </div>
               <div className="text-right">
-                <span className="text-xs font-medium text-neutral-500">Giờ vào thực tế:</span>
+                <span className="text-xs font-medium text-neutral-500">Giờ đến:</span>
                 <div className="text-sm font-bold text-red-600 flex items-center gap-1">
-                  <Clock className="w-4 h-4" /> {actualCheckInTime} (Chuẩn: 14:00)
+                  <Clock className="w-4 h-4" /> {stayPeriod.actualCheckInTime}
                 </div>
               </div>
             </div>
 
-            {/* Danh sách phụ thu tự động phát hiện được */}
             <div className="space-y-3">
               <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                Phụ thu tự động phát hiện theo mốc giờ và sức chứa từng phòng
+                <Sparkles className="w-4 h-4 text-amber-500" /> Phụ thu tự động phát hiện
               </h4>
 
               {confirmedCharges.length === 0 ? (
                 <div className="p-6 bg-white rounded-2xl border border-dashed border-neutral-300 text-center text-neutral-500 text-sm">
-                  Không phát sinh phụ thu tự động nào (Nhận phòng đúng giờ và đúng số người chuẩn).
+                  Không phát sinh phụ thu.
                 </div>
               ) : (
                 confirmedCharges.map((charge, cIdx) => (
-                  <div
-                    key={cIdx}
-                    className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-3"
-                  >
+                  <div key={cIdx} className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <div className="text-sm font-bold text-neutral-900">{charge.title}</div>
@@ -1402,74 +1288,45 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Lựa chọn xử lý của Lễ tân */}
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-neutral-100">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...confirmedCharges];
-                          updated[cIdx].action = 'APPLY';
-                          setConfirmedCharges(updated);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                          charge.action === 'APPLY'
-                            ? 'bg-blue-600 text-white'
+                      {(['APPLY', 'WAIVE', 'CUSTOM'] as const).map((action) => (
+                        <button
+                          key={action}
+                          type="button"
+                          onClick={() => {
+                            const updated = [...confirmedCharges];
+                            updated[cIdx].action = action;
+                            setConfirmedCharges(updated);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${charge.action === action
+                            ? action === 'APPLY'
+                              ? 'bg-blue-600 text-white'
+                              : action === 'WAIVE'
+                                ? 'bg-green-600 text-white'
+                                : 'bg-purple-600 text-white'
                             : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                        }`}
-                      >
-                        ✓ Áp dụng đề xuất ({charge.suggestedAmount.toLocaleString('vi-VN')} đ)
-                      </button>
+                            }`}
+                        >
+                          {action === 'APPLY' && `✓ Áp dụng (${charge.suggestedAmount.toLocaleString('vi-VN')} đ)`}
+                          {action === 'WAIVE' && 'Miễn phí (0đ)'}
+                          {action === 'CUSTOM' && 'Điều chỉnh giá'}
+                        </button>
+                      ))}
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...confirmedCharges];
-                          updated[cIdx].action = 'WAIVE';
-                          setConfirmedCharges(updated);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                          charge.action === 'WAIVE'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                        }`}
-                      >
-                        Miễn phí (0đ)
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = [...confirmedCharges];
-                          updated[cIdx].action = 'CUSTOM';
-                          setConfirmedCharges(updated);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                          charge.action === 'CUSTOM'
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
-                        }`}
-                      >
-                        Điều chỉnh số tiền
-                      </button>
-
-                      {/* Input nếu miễn phí */}
                       {charge.action === 'WAIVE' && (
-                        <div className="w-full mt-2">
-                          <input
-                            type="text"
-                            placeholder="Nhập lý do miễn phụ thu (VD: Khách VIP, Duyệt ban giám đốc...)"
-                            value={charge.waivedReason}
-                            onChange={(e) => {
-                              const updated = [...confirmedCharges];
-                              updated[cIdx].waivedReason = e.target.value;
-                              setConfirmedCharges(updated);
-                            }}
-                            className="w-full px-3 py-1.5 border border-green-300 rounded-xl text-xs bg-green-50/50"
-                          />
-                        </div>
+                        <input
+                          type="text"
+                          placeholder="Lý do miễn phụ thu..."
+                          value={charge.waivedReason}
+                          onChange={(e) => {
+                            const updated = [...confirmedCharges];
+                            updated[cIdx].waivedReason = e.target.value;
+                            setConfirmedCharges(updated);
+                          }}
+                          className="w-full mt-2 px-3 py-1.5 border border-green-300 rounded-xl text-xs bg-green-50/50"
+                        />
                       )}
 
-                      {/* Input nếu điều chỉnh */}
                       {charge.action === 'CUSTOM' && (
                         <div className="w-full mt-2 flex items-center gap-2">
                           <input
@@ -1508,68 +1365,49 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* BƯỚC 4: DỊCH VỤ ĐI KÈM (ADD-ON SERVICES / POS)            */}
-        {/* ======================================================== */}
+        {/* STEP 4: DỊCH VỤ ĐI KÈM */}
         {step === 4 && (
-          <div className="space-y-6 animate-in fade-in duration-150">
+          <div className="space-y-6">
             <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-              <Coffee className="w-4 h-4 text-red-600" />
-              Dịch vụ đón tiếp và tiện ích yêu cầu thêm (Tùy chọn)
+              <Coffee className="w-4 h-4 text-red-600" /> Dịch vụ đón tiếp và tiện ích
             </h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {availableServices.map((svc) => {
-                const selected = selectedServices.find((s) => s.id === svc.id);
-                const qty = selected?.quantity || 0;
-
-                return (
-                  <div
-                    key={svc.id}
-                    className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs flex items-center justify-between"
-                  >
-                    <div>
-                      <div className="text-sm font-bold text-neutral-900">{svc.name}</div>
-                      <div className="text-xs font-semibold text-red-600 mt-0.5">
-                        {svc.price.toLocaleString('vi-VN')} đ / gói
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (qty > 0) {
-                            setSelectedServices(
-                              selectedServices
-                                .map((s) => (s.id === svc.id ? { ...s, quantity: s.quantity - 1 } : s))
-                                .filter((s) => s.quantity > 0)
-                            );
-                          }
-                        }}
-                        className="w-8 h-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center font-bold text-neutral-700"
-                      >
-                        -
-                      </button>
-                      <span className="w-8 text-center text-sm font-bold">{qty}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (selected) {
-                            setSelectedServices(
-                              selectedServices.map((s) => (s.id === svc.id ? { ...s, quantity: s.quantity + 1 } : s))
-                            );
-                          } else {
-                            setSelectedServices([...selectedServices, { ...svc, quantity: 1 }]);
-                          }
-                        }}
-                        className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center font-bold text-red-600"
-                      >
-                        +
-                      </button>
+              {selectedServices.map((svc) => (
+                <div key={svc.id} className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-bold text-neutral-900">{svc.name}</div>
+                    <div className="text-xs font-semibold text-red-600 mt-0.5">
+                      {svc.price.toLocaleString('vi-VN')} đ / gói
                     </div>
                   </div>
-                );
-              })}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedServices((prev) =>
+                          prev.map((s) => (s.id === svc.id ? { ...s, quantity: Math.max(0, s.quantity - 1) } : s))
+                        )
+                      }
+                      className="w-8 h-8 rounded-lg bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center font-bold"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center text-sm font-bold">{svc.quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedServices((prev) =>
+                          prev.map((s) => (s.id === svc.id ? { ...s, quantity: s.quantity + 1 } : s))
+                        )
+                      }
+                      className="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 flex items-center justify-center font-bold text-red-600"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="flex justify-between pt-4 border-t border-neutral-200">
@@ -1581,30 +1419,27 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 onClick={() => setStep(5)}
                 className="bg-red-600 hover:bg-red-700 text-white font-semibold flex items-center gap-2"
               >
-                Tiếp tục: Quyết toán & Thanh toán <ChevronRight className="w-4 h-4" />
+                Tiếp tục: Thanh toán <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* BƯỚC 5: QUYẾT TOÁN, THANH TOÁN TẠI QUẦY & CHECK-IN NGAY */}
-        {/* ======================================================== */}
+        {/* STEP 5: QUYẾT TOÁN & THANH TOÁN */}
         {step === 5 && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            {/* Bảng Kê Chi Phí Toàn Đơn */}
+          <div className="space-y-6">
             <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-neutral-600 font-medium">Tiền phòng ({rooms.length} phòng):</span>
-                <span className="font-bold text-neutral-900">{totalRoomGross.toLocaleString('vi-VN')} đ</span>
+                <span className="text-neutral-600">Tiền phòng ({rooms.length} phòng):</span>
+                <span className="font-bold">{totalRoomGross.toLocaleString('vi-VN')} đ</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-neutral-600 font-medium">Phụ thu đã phê duyệt:</span>
-                <span className="font-bold text-neutral-900">{totalApprovedCharges.toLocaleString('vi-VN')} đ</span>
+                <span className="text-neutral-600">Phụ thu:</span>
+                <span className="font-bold">{totalApprovedCharges.toLocaleString('vi-VN')} đ</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-neutral-600 font-medium">Dịch vụ đi kèm:</span>
-                <span className="font-bold text-neutral-900">{totalServices.toLocaleString('vi-VN')} đ</span>
+                <span className="text-neutral-600">Dịch vụ đi kèm:</span>
+                <span className="font-bold">{totalServices.toLocaleString('vi-VN')} đ</span>
               </div>
               <div className="border-t border-neutral-200 pt-3 flex justify-between items-center">
                 <span className="text-base font-extrabold text-neutral-900">TỔNG CẦN THANH TOÁN:</span>
@@ -1612,105 +1447,84 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               </div>
             </div>
 
-            {/* Quy Tắc Thanh Toán Walk-In */}
             <div className="p-4 bg-white rounded-2xl border border-neutral-200 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-bold text-neutral-900 flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-red-600" />
-                  Phương thức thanh toán tại quầy
+                  <CreditCard className="w-5 h-5 text-red-600" /> Phương thức thanh toán
                 </h4>
                 {isSmallOrFit && (
                   <span className="text-xs text-red-700 bg-red-50 border border-red-200 px-3 py-1 rounded-full font-bold">
-                    ⚠️ Đặt ít phòng (≤ 2 phòng): Bắt buộc thu 100%
+                    ⚠️ Bắt buộc thu 100%
                   </span>
                 )}
               </div>
 
-              {/* Loại thanh toán: 100% vs Đặt cọc */}
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentPurpose('FULL_PAYMENT');
-                    setCustomPaidAmount(grandTotal);
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    paymentPurpose === 'FULL_PAYMENT'
-                      ? 'border-red-600 bg-red-50/50 shadow-xs'
-                      : 'border-neutral-200 hover:bg-neutral-50'
-                  }`}
+                  onClick={() => setPayment((p) => ({ ...p, purpose: 'FULL_PAYMENT', customAmount: grandTotal }))}
+                  className={`p-3 rounded-xl border text-left ${payment.purpose === 'FULL_PAYMENT' ? 'border-red-600 bg-red-50/50 shadow-xs' : 'border-neutral-200'
+                    }`}
                 >
-                  <div className="text-xs font-bold text-neutral-900">Thanh toán 100% (Khuyến nghị)</div>
-                  <div className="text-sm font-extrabold text-red-600 mt-1">
-                    {grandTotal.toLocaleString('vi-VN')} đ
-                  </div>
+                  <div className="text-xs font-bold text-neutral-900">Thanh toán 100%</div>
+                  <div className="text-sm font-extrabold text-red-600 mt-1">{grandTotal.toLocaleString('vi-VN')} đ</div>
                 </button>
 
                 <button
                   type="button"
                   disabled={isSmallOrFit}
-                  onClick={() => {
-                    if (!isSmallOrFit) {
-                      setPaymentPurpose('DEPOSIT');
-                      setCustomPaidAmount(Math.round(grandTotal * 0.5));
-                    }
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    isSmallOrFit
-                      ? 'opacity-40 cursor-not-allowed bg-neutral-100 border-neutral-200'
-                      : paymentPurpose === 'DEPOSIT'
-                      ? 'border-red-600 bg-red-50/50 shadow-xs'
-                      : 'border-neutral-200 hover:bg-neutral-50'
-                  }`}
+                  onClick={() =>
+                    setPayment((p) => ({ ...p, purpose: 'DEPOSIT', customAmount: Math.round(grandTotal * 0.5) }))
+                  }
+                  className={`p-3 rounded-xl border text-left ${isSmallOrFit
+                    ? 'opacity-40 cursor-not-allowed bg-neutral-100'
+                    : payment.purpose === 'DEPOSIT'
+                      ? 'border-red-600 bg-red-50/50'
+                      : 'border-neutral-200'
+                    }`}
                 >
-                  <div className="text-xs font-bold text-neutral-900">Đặt cọc (Tối thiểu 50%)</div>
+                  <div className="text-xs font-bold text-neutral-900">Đặt cọc (50%)</div>
                   <div className="text-sm font-extrabold text-neutral-700 mt-1">
                     {(grandTotal * 0.5).toLocaleString('vi-VN')} đ
                   </div>
                 </button>
               </div>
 
-              {/* Số tiền thực thu */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Số tiền thực thu tại quầy (VNĐ) <span className="text-red-500">*</span>
-                  </label>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Số tiền thực thu (VNĐ)</label>
                   <input
                     type="number"
                     min="0"
-                    step="10000"
                     disabled={isSmallOrFit}
-                    value={customPaidAmount}
-                    onChange={(e) => setCustomPaidAmount(parseFloat(e.target.value) || 0)}
+                    value={payment.customAmount}
+                    onChange={(e) => setPayment((p) => ({ ...p, customAmount: parseFloat(e.target.value) || 0 }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-base font-black text-red-600 disabled:bg-neutral-100"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">Hình thức thanh toán</label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as 'CASH' | 'BANK_TRANSFER' | 'CREDIT_CARD')}
-                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm font-semibold"
-                  >
-                    <option value="CASH">Tiền mặt tại quầy (CASH)</option>
-                    <option value="CREDIT_CARD">Quẹt thẻ POS (CREDIT_CARD)</option>
-                    <option value="BANK_TRANSFER">Chuyển khoản ngân hàng (BANK_TRANSFER)</option>
-                    <option value="VNPAY">Quét mã VNPAY-QR</option>
-                  </select>
+                  <Select<'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY'>
+                    value={payment.method}
+                    onChange={(val) => setPayment((p) => ({ ...p, method: val }))}
+                    options={[
+                      { value: 'CASH', label: 'Tiền mặt tại quầy (CASH)' },
+                      { value: 'CREDIT_CARD', label: 'Quẹt thẻ POS (CREDIT_CARD)' },
+                      { value: 'BANK_TRANSFER', label: 'Chuyển khoản (BANK_TRANSFER)' },
+                      { value: 'VNPAY', label: 'VNPAY-QR' },
+                    ]}
+                    size="sm"
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Mã tham chiếu / Số biên lai giao dịch (Tùy chọn)
-                </label>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1">Mã tham chiếu / Số biên lai</label>
                 <input
                   type="text"
-                  placeholder="VD: POS-998822 hoặc STK MBBank..."
-                  value={transactionRef}
-                  onChange={(e) => setTransactionRef(e.target.value)}
+                  placeholder="VD: POS-998822..."
+                  value={payment.transactionRef}
+                  onChange={(e) => setPayment((p) => ({ ...p, transactionRef: e.target.value }))}
                   className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
                 />
               </div>
@@ -1726,14 +1540,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 isLoading={isSubmitting}
                 className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2"
               >
-                <CheckCircle2 className="w-5 h-5" /> Hoàn tất Check-in & Đón khách (IN-HOUSE)
+                <CheckCircle2 className="w-5 h-5" /> Hoàn tất Check-in (IN-HOUSE)
               </Button>
             </div>
           </div>
         )}
       </div>
 
-      {/* OCR Quét CCCD / Hộ chiếu Modal */}
       <OcrIdentityScannerModal
         isOpen={isOcrModalOpen}
         onClose={() => {
@@ -1745,8 +1558,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           ocrTarget?.type === 'LEAD_GUEST'
             ? 'Quét CCCD / Hộ chiếu - Khách chính'
             : ocrTarget?.type === 'STAY_GUEST'
-            ? `Quét CCCD / Hộ chiếu - Phòng #${ocrTarget.roomIndex + 1}`
-            : 'Quét & Nhận diện CCCD / Hộ chiếu (OCR)'
+              ? `Quét CCCD / Hộ chiếu - Phòng #${ocrTarget.roomIndex + 1}`
+              : 'Quét & Nhận diện CCCD / Hộ chiếu (OCR)'
         }
         targetDescription={
           ocrTarget?.type === 'LEAD_GUEST'
