@@ -208,32 +208,38 @@ export const BookingListPage: React.FC = () => {
   // Fetch active hotels on mount
   useEffect(() => {
     let isMounted = true;
-    setIsHotelsLoading(true);
-    hotelService
-      .filter({ pageSize: 50, status: 'ACTIVE' })
-      .then((res) => {
-        if (!isMounted) return;
-        const rawList = res.result?.content || [];
-        const mapped = rawList.map((h) => ({ id: h.id, name: h.name || `Khách sạn #${h.id}` }));
-        setHotelList(mapped);
-        if (mapped.length > 0) {
-          setSelectedHotelId((prev) => prev ?? mapped[0].id);
-        }
-      })
-      .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
-      .finally(() => {
-        if (isMounted) setIsHotelsLoading(false);
-      });
+    const timer = setTimeout(() => {
+      setIsHotelsLoading(true);
+      hotelService
+        .filter({ pageSize: 50, status: 'ACTIVE' })
+        .then((res) => {
+          if (!isMounted) return;
+          const rawList = res.result?.content || [];
+          const mapped = rawList.map((h) => ({ id: h.id, name: h.name || `Khách sạn #${h.id}` }));
+          setHotelList(mapped);
+          if (mapped.length > 0) {
+            setSelectedHotelId((prev) => prev ?? mapped[0].id);
+          }
+        })
+        .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
+        .finally(() => {
+          if (isMounted) setIsHotelsLoading(false);
+        });
+    }, 0);
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
     };
   }, []);
 
   // Load timeline data when viewing timeline or selected hotel changes
   useEffect(() => {
     if (viewMode === 'TIMELINE' && selectedHotelId) {
-      void loadTimelineData(selectedHotelId);
+      const timer = setTimeout(() => {
+        void loadTimelineData(selectedHotelId);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [viewMode, selectedHotelId, loadTimelineData]);
 
