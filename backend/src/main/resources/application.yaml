@@ -19,6 +19,10 @@ spring:
     default-schema: public
     drop-first: false
 
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
+    date-format: "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"
+
   jpa:
     show-sql: true
     hibernate:
@@ -27,6 +31,8 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
 
   data:
     redis:

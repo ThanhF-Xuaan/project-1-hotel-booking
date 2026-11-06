@@ -24,6 +24,10 @@ RUN mvn clean package -DskipTests
 # Chỉ sử dụng JRE (Môi trường chạy) thay vì JDK để image cực nhẹ
 FROM eclipse-temurin:21-jre-alpine
 
+# Cài đặt tzdata để hệ điều hành Alpine nhận diện múi giờ IANA
+RUN apk add --no-cache tzdata
+ENV TZ=Asia/Ho_Chi_Minh
+
 WORKDIR /app
 
 # Copy file .jar đã được build thành công từ Stage 1 sang Stage 2
@@ -32,5 +36,5 @@ COPY --from=builder /build/target/*.jar app.jar
 # Mở cổng 8080 cho Spring Boot
 EXPOSE 8080
 
-# Lệnh khởi động Backend
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Lệnh khởi động Backend với múi giờ chuẩn
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Ho_Chi_Minh", "-jar", "app.jar"]
