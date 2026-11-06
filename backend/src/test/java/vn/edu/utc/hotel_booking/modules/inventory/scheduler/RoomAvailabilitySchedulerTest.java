@@ -39,3 +39,4 @@ class RoomAvailabilitySchedulerTest {
         verify(generationService, times(1)).rollHorizonForAllActiveRoomTypes(365);
     }
 }
+
