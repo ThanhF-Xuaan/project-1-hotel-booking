@@ -8,7 +8,7 @@ INSERT INTO regions (code, name, description, status) VALUES
     ('NORTH', 'Miá»n Báº¯c', 'Khu vá»±c phÃ­a Báº¯c (HÃ  Ná»™i, Sapa)', 'ACTIVE'),
     ('CENTRAL', 'Miá»n Trung', 'Khu vá»±c miá»n Trung (ÄÃ  Náºµng, Huáº¿)', 'ACTIVE'),
     ('SOUTH', 'Miá»n Nam', 'Khu vá»±c phÃ­a Nam (TP.HCM, PhÃº Quá»‘c)', 'ACTIVE')
-ON CONFLICT (code) DO NOTHING;
+ON CONFLICT (code) WHERE is_deleted = FALSE DO NOTHING;
 
 -- 2. DEPARTMENTS
 INSERT INTO departments (code, name, status) VALUES
@@ -16,7 +16,7 @@ INSERT INTO departments (code, name, status) VALUES
     ('HOUSEKEEPING', 'Buá»“ng phÃ²ng', 'ACTIVE'),
     ('ENGINEERING', 'Ká»¹ thuáº­t & Báº£o trÃ¬', 'ACTIVE'),
     ('FINANCE', 'TÃ i chÃ­nh & Káº¿ toÃ¡n', 'ACTIVE')
-ON CONFLICT (code) DO NOTHING;
+ON CONFLICT (code) WHERE is_deleted = FALSE DO NOTHING;
 
 -- 3. HOTELS (2 acceptance hotels)
 INSERT INTO hotels (id, region_id, name, address, phone, check_in_time, check_out_time, service_fee_percent, status)
@@ -44,14 +44,14 @@ CROSS JOIN (
         ('ADULT', 12, 99)
 ) AS p(guest_type, min_age, max_age)
 WHERE h.id IN (1, 2)
-ON CONFLICT (hotel_id, guest_type) DO UPDATE SET
+ON CONFLICT (hotel_id, guest_type) WHERE is_deleted = FALSE DO UPDATE SET
     min_age = EXCLUDED.min_age,
     max_age = EXCLUDED.max_age;
 
 -- 5. TAX CATEGORY
 INSERT INTO tax_categories (category_code, category_name, description)
 VALUES ('ROOM', 'Room Rental', 'Dá»‹ch vá»¥ lÆ°u trÃº')
-ON CONFLICT (category_code) DO NOTHING;
+ON CONFLICT (category_code) WHERE is_deleted = FALSE DO NOTHING;
 
 -- 6. HOTEL ROOM TYPES
 INSERT INTO hotel_room_types (
@@ -107,7 +107,7 @@ VALUES
     (1, 3, '301', 'READY'),
     (2, 4, '101', 'READY'),
     (2, 5, '201', 'READY')
-ON CONFLICT (hotel_id, room_number) DO UPDATE SET
+ON CONFLICT (hotel_id, room_number) WHERE is_deleted = FALSE DO UPDATE SET
     current_status = EXCLUDED.current_status;
 
 -- 9. NIGHTLY ROOM AVAILABILITY (60 days from CURRENT_DATE)
