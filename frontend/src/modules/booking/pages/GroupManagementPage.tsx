@@ -14,6 +14,7 @@ import {
   Filter,
   Building2,
   Receipt,
+  Upload,
 } from 'lucide-react';
 import { groupBookingService } from '../services/groupBooking.service';
 import { hotelService } from '../../organization/services/hotel.service';
@@ -26,6 +27,7 @@ import { GroupCreateContractModal } from '../components/GroupCreateContractModal
 import { GroupDetailDrawer } from '../components/GroupDetailDrawer';
 import { Select } from '../../../core/components/ui/Select';
 import { MasterFolioModal } from '../../finance/components/MasterFolioModal';
+import { RoomingListImportModal } from '../components/RoomingListImportModal';
 
 export const GroupManagementPage: React.FC = () => {
   const [contracts, setContracts] = useState<GroupContractResponse[]>([]);
@@ -47,6 +49,8 @@ export const GroupManagementPage: React.FC = () => {
   const [selectedContract, setSelectedContract] = useState<GroupContractResponse | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedMasterFolioContractId, setSelectedMasterFolioContractId] = useState<number | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedImportContract, setSelectedImportContract] = useState<GroupContractResponse | null>(null);
 
   // Lazy fetch hotel list when user opens the hotel Select dropdown
   const handleOpenHotelSelect = useCallback(async () => {
@@ -148,10 +152,22 @@ export const GroupManagementPage: React.FC = () => {
           <button
             type="button"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-300 hover:bg-neutral-100 rounded-lg text-xs font-bold text-neutral-700 shadow-2xs transition-colors cursor-pointer"
+            onClick={() => {
+              setSelectedImportContract(null);
+              setIsImportModalOpen(true);
+            }}
+            title="Nhập danh sách khách đoàn từ file Excel Rooming List"
+          >
+            <Upload className="w-3.5 h-3.5 text-blue-600" />
+            <span>Import</span>
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-300 hover:bg-neutral-100 rounded-lg text-xs font-bold text-neutral-700 shadow-2xs transition-colors cursor-pointer"
             onClick={() => alert('Xuất báo cáo hợp đồng đoàn Excel thành công!')}
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-green-600" />
-            <span>Xuất Excel</span>
+            <span>Export</span>
           </button>
           <button
             type="button"
@@ -412,6 +428,18 @@ export const GroupManagementPage: React.FC = () => {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             type="button"
+                            onClick={() => {
+                              setSelectedImportContract(c);
+                              setIsImportModalOpen(true);
+                            }}
+                            title="Nhập danh sách khách đoàn (Excel Rooming List)"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Import</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => setSelectedMasterFolioContractId(c.id)}
                             title="Mở Sổ Cái Master Folio & Quyết toán"
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs transition-colors cursor-pointer"
@@ -489,6 +517,21 @@ export const GroupManagementPage: React.FC = () => {
           isOpen={true}
           onClose={() => setSelectedMasterFolioContractId(null)}
           contractId={selectedMasterFolioContractId}
+        />
+      )}
+
+      {/* Modal Nhập danh sách khách đoàn (Excel Rooming List) */}
+      {isImportModalOpen && (
+        <RoomingListImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => {
+            setIsImportModalOpen(false);
+            setSelectedImportContract(null);
+          }}
+          contract={selectedImportContract}
+          onSuccess={() => {
+            loadData(page);
+          }}
         />
       )}
     </div>
