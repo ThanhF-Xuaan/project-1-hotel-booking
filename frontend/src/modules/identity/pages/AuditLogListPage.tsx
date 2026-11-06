@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import auditLogService from '../services/auditLog.service';
@@ -148,19 +149,20 @@ export const AuditLogListPage: React.FC = () => {
       <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs">
         <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
           <div className="lg:col-span-3">
-            <select
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+            <Select<string>
               value={actionType}
-              onChange={(e) => setActionType(e.target.value)}
-            >
-              <option value="">-- Tất cả hành động --</option>
-              <option value="CREATE">CREATE (Tạo mới)</option>
-              <option value="UPDATE">UPDATE (Cập nhật)</option>
-              <option value="DELETE">DELETE (Xóa)</option>
-              <option value="STATUS_UPDATE">STATUS_UPDATE (Đổi trạng thái)</option>
-              <option value="PASSWORD_RESET">PASSWORD_RESET (Đặt lại mật khẩu)</option>
-              <option value="LOGIN">LOGIN (Đăng nhập)</option>
-            </select>
+              onChange={(val) => setActionType(val)}
+              options={[
+                { value: '', label: 'Tất cả hành động' },
+                { value: 'CREATE', label: 'Tạo mới' },
+                { value: 'UPDATE', label: 'Cập nhật' },
+                { value: 'DELETE', label: 'Xóa' },
+                { value: 'STATUS_UPDATE', label: 'Đổi trạng thái' },
+                { value: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
+                { value: 'LOGIN', label: 'Đăng nhập' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="lg:col-span-3">

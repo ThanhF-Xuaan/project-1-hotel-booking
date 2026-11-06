@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
+import Select from '../../../core/components/ui/Select';
 import { operationService } from '../../operation/services/operation.service';
 import type {
   MenuResponse,
@@ -214,15 +215,18 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
                 />
               </div>
 
-              <select
-                className="h-10 px-3 text-xs bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value as 'ALL' | MenuType)}
-              >
-                <option value="ALL">Tất cả</option>
-                <option value="PRODUCT">Sản phẩm / Món ăn</option>
-                <option value="SERVICE">Dịch vụ</option>
-              </select>
+              <div className="w-44 shrink-0">
+                <Select<'ALL' | MenuType>
+                  value={categoryFilter}
+                  onChange={(val) => setCategoryFilter(val)}
+                  options={[
+                    { value: 'ALL', label: 'Tất cả' },
+                    { value: 'PRODUCT', label: 'Sản phẩm / Món ăn' },
+                    { value: 'SERVICE', label: 'Dịch vụ' },
+                  ]}
+                  size="sm"
+                />
+              </div>
             </div>
 
             {/* Menu List */}

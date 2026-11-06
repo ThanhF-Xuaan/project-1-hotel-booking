@@ -567,7 +567,7 @@ export const HotelListPage: React.FC = () => {
                 value={Number(formRegionId) || 0}
                 onChange={(val) => setFormRegionId(val ? Number(val) : '')}
                 options={[
-                  { value: 0, label: '-- Chọn khu vực --', disabled: true },
+                  { value: 0, label: 'Chọn khu vực', disabled: true },
                   ...regions.map((r) => ({ value: r.id, label: `${r.name} (${r.code})` })),
                 ]}
                 prefixIcon={<Globe className="w-4 h-4 text-neutral-400" />}

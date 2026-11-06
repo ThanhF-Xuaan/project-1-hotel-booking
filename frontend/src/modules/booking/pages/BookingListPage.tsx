@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import bookingService from '../services/booking.service';
@@ -706,17 +707,18 @@ export const BookingListPage: React.FC = () => {
               />
             </div>
 
-            <div className="w-48">
-              <select
-                className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600"
+            <div className="w-56">
+              <Select<BookingStatus | ''>
                 value={searchStatus}
-                onChange={(e) => setSearchStatus(e.target.value as BookingStatus | '')}
-              >
-                <option value="">Tất cả trạng thái</option>
-                <option value="CONFIRMED">Đã xác nhận</option>
-                <option value="CANCELLED">Đã hủy</option>
-                <option value="NO_SHOW">Vắng mặt (No-show)</option>
-              </select>
+                onChange={(val) => setSearchStatus(val)}
+                options={[
+                  { value: '', label: 'Tất cả trạng thái' },
+                  { value: 'CONFIRMED', label: 'Đã xác nhận' },
+                  { value: 'CANCELLED', label: 'Đã hủy' },
+                  { value: 'NO_SHOW', label: 'Vắng mặt (No-show)' },
+                ]}
+                size="md"
+              />
             </div>
 
             <Button variant="primary" onClick={() => { setPage(0); loadData(); }}>
@@ -1213,18 +1215,18 @@ export const BookingListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Phòng vật lý khả dụng
             </label>
-            <select
-              className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-              value={selectedRoomInstanceId}
-              onChange={(e) => setSelectedRoomInstanceId(Number(e.target.value))}
-            >
-              <option value="">-- Chọn số phòng --</option>
-              {availableRooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  Phòng {r.roomNumber} - {r.currentStatus}
-                </option>
-              ))}
-            </select>
+            <Select<number>
+              value={selectedRoomInstanceId || 0}
+              onChange={(val) => setSelectedRoomInstanceId(val ? Number(val) : 0)}
+              options={[
+                { value: 0, label: 'Chọn số phòng', disabled: true },
+                ...availableRooms.map((r) => ({
+                  value: r.id,
+                  label: `Phòng ${r.roomNumber} - ${r.currentStatus}`,
+                })),
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
@@ -1251,16 +1253,17 @@ export const BookingListPage: React.FC = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">Loại phụ phí</label>
-            <select
-              className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+            <Select<BookingChargeType>
               value={chargeType}
-              onChange={(e) => setChargeType(e.target.value as BookingChargeType)}
-            >
-              <option value="EARLY_CHECKIN">Nhận phòng sớm (Early Check-in)</option>
-              <option value="LATE_CHECKOUT">Trả phòng muộn (Late Check-out)</option>
-              <option value="PENALTY">Phạt vi phạm / Hỏng hóc</option>
-              <option value="OTHER">Dịch vụ khác</option>
-            </select>
+              onChange={(val) => setChargeType(val)}
+              options={[
+                { value: 'EARLY_CHECKIN', label: 'Nhận phòng sớm (Early Check-in)' },
+                { value: 'LATE_CHECKOUT', label: 'Trả phòng muộn (Late Check-out)' },
+                { value: 'PENALTY', label: 'Phạt vi phạm / Hỏng hóc' },
+                { value: 'OTHER', label: 'Dịch vụ khác' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div>

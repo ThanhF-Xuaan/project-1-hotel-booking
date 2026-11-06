@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import { dashboardService } from '../services/dashboard.service';
 import type {
   DashboardKpiResponse,
@@ -76,15 +77,16 @@ export const ManagementDashboard: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="w-56">
-            <select
+            <Select<number>
               value={hotelId}
-              onChange={(e) => setHotelId(Number(e.target.value))}
-              className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-            >
-              <option value={1}>Khách sạn Grand Hà Nội</option>
-              <option value={2}>Khách sạn Premier Đà Nẵng</option>
-              <option value={3}>Khách sạn Boutique Sài Gòn</option>
-            </select>
+              onChange={(val) => setHotelId(Number(val))}
+              options={[
+                { value: 1, label: 'Khách sạn Grand Hà Nội' },
+                { value: 2, label: 'Khách sạn Premier Đà Nẵng' },
+                { value: 3, label: 'Khách sạn Boutique Sài Gòn' },
+              ]}
+              size="md"
+            />
           </div>
 
           <div className="w-44">

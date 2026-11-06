@@ -12,6 +12,7 @@ import {
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import CurrencyInput from '../../../core/components/ui/CurrencyInput';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import { operationService } from '../services/operation.service';
@@ -221,33 +222,35 @@ export const MenuListPage: React.FC = () => {
             leftIcon={<Search className="w-4 h-4 text-neutral-400" />}
           />
         </div>
-        <div className="w-48">
-          <select
+        <div className="w-56">
+          <Select<MenuType | ''>
             value={searchType}
-            onChange={(e) => {
-              setSearchType(e.target.value as MenuType | '');
+            onChange={(val) => {
+              setSearchType(val);
               setPage(0);
             }}
-            className="w-full h-12 px-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-          >
-            <option value="">Tất cả loại danh mục</option>
-            <option value="PRODUCT">Sản phẩm vật lý (F&B, Minibar)</option>
-            <option value="SERVICE">Dịch vụ (Giặt là, Spa, Xe...)</option>
-          </select>
+            options={[
+              { value: '', label: 'Tất cả loại danh mục' },
+              { value: 'PRODUCT', label: 'Sản phẩm vật lý (F&B, Minibar)' },
+              { value: 'SERVICE', label: 'Dịch vụ (Giặt là, Spa, Xe...)' },
+            ]}
+            size="lg"
+          />
         </div>
-        <div className="w-44">
-          <select
+        <div className="w-52">
+          <Select<string>
             value={searchStatus}
-            onChange={(e) => {
-              setSearchStatus(e.target.value);
+            onChange={(val) => {
+              setSearchStatus(val);
               setPage(0);
             }}
-            className="w-full h-12 px-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang phục vụ (Active)</option>
-            <option value="INACTIVE">Tạm ngưng (Inactive)</option>
-          </select>
+            options={[
+              { value: '', label: 'Tất cả trạng thái' },
+              { value: 'ACTIVE', label: 'Đang phục vụ (Active)' },
+              { value: 'INACTIVE', label: 'Tạm ngưng (Inactive)' },
+            ]}
+            size="lg"
+          />
         </div>
         <Button
           variant="secondary"
@@ -449,15 +452,16 @@ export const MenuListPage: React.FC = () => {
               <label className="block text-xs font-medium text-neutral-700 mb-1">
                 Loại mục <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select<MenuType>
                 value={formData.menuType}
-                onChange={(e) => setFormData({ ...formData, menuType: e.target.value as MenuType })}
+                onChange={(val) => setFormData({ ...formData, menuType: val })}
                 disabled={!!editingItem}
-                className="w-full h-12 px-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white disabled:bg-neutral-100"
-              >
-                <option value="PRODUCT">Sản phẩm vật lý (F&B / Minibar)</option>
-                <option value="SERVICE">Dịch vụ (Giặt là, Spa, Massage)</option>
-              </select>
+                options={[
+                  { value: 'PRODUCT', label: 'Sản phẩm vật lý (F&B / Minibar)' },
+                  { value: 'SERVICE', label: 'Dịch vụ (Giặt là, Spa, Massage)' },
+                ]}
+                size="lg"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-neutral-700 mb-1">
@@ -491,16 +495,17 @@ export const MenuListPage: React.FC = () => {
               <label className="block text-xs font-medium text-neutral-700 mb-1">
                 Hình thức tính giá <span className="text-red-500">*</span>
               </label>
-              <select
+              <Select<ServicePricingType>
                 value={formData.pricingType}
-                onChange={(e) => setFormData({ ...formData, pricingType: e.target.value as ServicePricingType })}
-                className="w-full h-12 px-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-              >
-                <option value="PER_UNIT">Theo lượt / từng lần gọi</option>
-                <option value="PER_STAY">Theo cả chuyến lưu trú</option>
-                <option value="PER_NIGHT">Theo từng đêm nghỉ</option>
-                <option value="PER_PERSON">Theo số lượng khách</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, pricingType: val })}
+                options={[
+                  { value: 'PER_UNIT', label: 'Theo lượt / từng lần gọi' },
+                  { value: 'PER_STAY', label: 'Theo cả chuyến lưu trú' },
+                  { value: 'PER_NIGHT', label: 'Theo từng đêm nghỉ' },
+                  { value: 'PER_PERSON', label: 'Theo số lượng khách' },
+                ]}
+                size="lg"
+              />
             </div>
           )}
 
@@ -518,14 +523,15 @@ export const MenuListPage: React.FC = () => {
           {editingItem && (
             <div>
               <label className="block text-xs font-medium text-neutral-700 mb-1">Trạng thái phục vụ</label>
-              <select
+              <Select<string>
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full h-12 px-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-              >
-                <option value="ACTIVE">Sẵn sàng phục vụ</option>
-                <option value="INACTIVE">Tạm dừng phục vụ</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, status: val })}
+                options={[
+                  { value: 'ACTIVE', label: 'Sẵn sàng phục vụ' },
+                  { value: 'INACTIVE', label: 'Tạm dừng phục vụ' },
+                ]}
+                size="lg"
+              />
             </div>
           )}
 

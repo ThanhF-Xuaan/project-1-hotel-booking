@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Filter,
   Building2,
+  Receipt,
 } from 'lucide-react';
 import { groupBookingService } from '../services/groupBooking.service';
 import { hotelService } from '../../organization/services/hotel.service';
@@ -24,6 +25,7 @@ import type {
 import { GroupCreateContractModal } from '../components/GroupCreateContractModal';
 import { GroupDetailDrawer } from '../components/GroupDetailDrawer';
 import { Select } from '../../../core/components/ui/Select';
+import { MasterFolioModal } from '../../finance/components/MasterFolioModal';
 
 export const GroupManagementPage: React.FC = () => {
   const [contracts, setContracts] = useState<GroupContractResponse[]>([]);
@@ -37,27 +39,33 @@ export const GroupManagementPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<GroupContractStatus | 'ALL'>('ALL');
   const [hotelFilter, setHotelFilter] = useState<number>(0);
   const [hotelList, setHotelList] = useState<{ id: number; name: string }[]>([]);
+  const [isHotelsLoading, setIsHotelsLoading] = useState(false);
+  const [hasLoadedHotels, setHasLoadedHotels] = useState(false);
 
   // Modals & Drawers
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<GroupContractResponse | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedMasterFolioContractId, setSelectedMasterFolioContractId] = useState<number | null>(null);
 
-  // Fetch real hotel list
-  useEffect(() => {
-    hotelService
-      .filter({ page: 0, pageSize: 50 })
-      .then((res) => {
-        const list = (res.result?.content || []).map((h) => ({
-          id: h.id,
-          name: h.name || `Khách sạn #${h.id}`,
-        }));
-        setHotelList(list);
-      })
-      .catch((err: unknown) => {
-        console.warn('Lỗi khi tải danh sách khách sạn:', err);
-      });
-  }, []);
+  // Lazy fetch hotel list when user opens the hotel Select dropdown
+  const handleOpenHotelSelect = useCallback(async () => {
+    if (hasLoadedHotels || isHotelsLoading) return;
+    setIsHotelsLoading(true);
+    try {
+      const res = await hotelService.filter({ page: 0, pageSize: 50 });
+      const list = (res.result?.content || []).map((h) => ({
+        id: h.id,
+        name: h.name || `Khách sạn #${h.id}`,
+      }));
+      setHotelList(list);
+      setHasLoadedHotels(true);
+    } catch (err: unknown) {
+      console.warn('Lỗi khi tải danh sách khách sạn:', err);
+    } finally {
+      setIsHotelsLoading(false);
+    }
+  }, [hasLoadedHotels, isHotelsLoading]);
 
   const loadData = useCallback(async (targetPage = 0) => {
     setIsLoading(true);
@@ -103,8 +111,8 @@ export const GroupManagementPage: React.FC = () => {
     loadData(0);
   };
 
-  const handleCreateSubmit = async (dto: GroupContractCreateRequest) => {
-    await groupBookingService.create(dto);
+  const handleCreateSubmit = async (dto: GroupContractCreateRequest, staffId?: number) => {
+    await groupBookingService.create(dto, staffId);
     alert('Tạo hợp đồng khách đoàn thành công! Khối phòng đã được giữ 3 ngày.');
     await loadData(0);
   };
@@ -239,6 +247,8 @@ export const GroupManagementPage: React.FC = () => {
             <Select<number>
               value={hotelFilter}
               onChange={(val) => setHotelFilter(val)}
+              onOpen={handleOpenHotelSelect}
+              isLoading={isHotelsLoading}
               options={[
                 { value: 0, label: 'Tất cả cơ sở' },
                 ...hotelList.map((h) => ({
@@ -399,17 +409,28 @@ export const GroupManagementPage: React.FC = () => {
 
                       {/* Thao tác */}
                       <td className="p-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedContract(c);
-                            setIsDrawerOpen(true);
-                          }}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs transition-colors cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-neutral-600" />
-                          <span>Chi tiết</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMasterFolioContractId(c.id)}
+                            title="Mở Sổ Cái Master Folio & Quyết toán"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            <Receipt className="w-3.5 h-3.5 text-red-600" />
+                            <span>Master Folio</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedContract(c);
+                              setIsDrawerOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-neutral-600" />
+                            <span>Chi tiết</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -461,6 +482,15 @@ export const GroupManagementPage: React.FC = () => {
         onClose={() => setIsDrawerOpen(false)}
         onRefresh={handleRefreshDetail}
       />
+
+      {/* Sổ Cái Master Folio Modal */}
+      {selectedMasterFolioContractId !== null && (
+        <MasterFolioModal
+          isOpen={true}
+          onClose={() => setSelectedMasterFolioContractId(null)}
+          contractId={selectedMasterFolioContractId}
+        />
+      )}
     </div>
   );
 };

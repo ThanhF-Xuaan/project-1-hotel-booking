@@ -14,6 +14,7 @@ import {
   Users,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
+import Select from '../../../core/components/ui/Select';
 import PublicFooter from '../../../core/components/layout/PublicFooter';
 import type { CustomerSearchCriteria, AvailableRoomOffer } from '../types/portal.types';
 import { RoomAdvisorWidget } from '../components/RoomAdvisor/RoomAdvisorWidget';
@@ -219,15 +220,16 @@ export const SearchPage: React.FC = () => {
                 <Building2 className="w-3.5 h-3.5 text-red-600" />
                 Khách sạn cơ sở
               </label>
-              <select
+              <Select<number>
                 value={criteria.hotelId}
-                onChange={(e) => setCriteria({ ...criteria, hotelId: Number(e.target.value) })}
-                className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-              >
-                <option value={1}>Grand Hà Nội Hotel</option>
-                <option value={2}>Premier Đà Nẵng Resort</option>
-                <option value={3}>Boutique Sài Gòn Hotel</option>
-              </select>
+                onChange={(val) => setCriteria({ ...criteria, hotelId: Number(val) })}
+                options={[
+                  { value: 1, label: 'Grand Hà Nội Hotel' },
+                  { value: 2, label: 'Premier Đà Nẵng Resort' },
+                  { value: 3, label: 'Boutique Sài Gòn Hotel' },
+                ]}
+                size="md"
+              />
             </div>
 
             <div>
@@ -261,24 +263,25 @@ export const SearchPage: React.FC = () => {
                 <Users className="w-3.5 h-3.5 text-red-600" />
                 Số lượng phòng
               </label>
-              <select
+              <Select<number>
                 value={criteria.roomsCount ?? 1}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  setCriteria({ ...criteria, roomsCount: val });
-                  if (val >= 6) {
+                onChange={(val) => {
+                  const numVal = Number(val);
+                  setCriteria({ ...criteria, roomsCount: numVal });
+                  if (numVal >= 6) {
                     setIsGroupModalOpen(true);
                   }
                 }}
-                className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-600 bg-white cursor-pointer"
-              >
-                <option value={1}>1 Phòng (Khách lẻ)</option>
-                <option value={2}>2 Phòng (Khách lẻ)</option>
-                <option value={3}>3 Phòng (Khách lẻ)</option>
-                <option value={4}>4 Phòng (Khách lẻ)</option>
-                <option value={5}>5 Phòng (Tối đa FIT)</option>
-                <option value={6}>6+ Phòng (Khách đoàn GIT)</option>
-              </select>
+                options={[
+                  { value: 1, label: '1 Phòng (Khách lẻ)' },
+                  { value: 2, label: '2 Phòng (Khách lẻ)' },
+                  { value: 3, label: '3 Phòng (Khách lẻ)' },
+                  { value: 4, label: '4 Phòng (Khách lẻ)' },
+                  { value: 5, label: '5 Phòng (Tối đa FIT)' },
+                  { value: 6, label: '6+ Phòng (Khách đoàn GIT)' },
+                ]}
+                size="md"
+              />
             </div>
 
             <div className="flex items-end">

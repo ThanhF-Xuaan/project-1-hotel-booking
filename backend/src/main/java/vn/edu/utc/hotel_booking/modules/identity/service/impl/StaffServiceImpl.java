@@ -114,19 +114,8 @@ public class StaffServiceImpl implements StaffService {
         Role role = roleRepository.findByIdAndIsDeletedFalse(request.getRoleId())
                 .orElseThrow(() -> new AppException(ErrorCode.ROLE_NOT_FOUND));
 
-        // 1. Create User on Keycloak IAM first
-        UUID keycloakId = keycloakService.createUser(
-                username,
-                request.getEmail(),
-                request.getFirstName(),
-                request.getLastName(),
-                role.getCode(),
-                request.getPassword()
-        );
-
-        // 2. Map and persist to local Database with compensating transaction
+        // 1. Map and validate local entity completely BEFORE Keycloak user creation
         Staff staff = staffMapper.toEntity(request);
-        staff.setKeycloakId(keycloakId);
         staff.setRole(role);
         staff.setUsername(username);
         staff.setFirstName(request.getFirstName().trim());
@@ -135,6 +124,18 @@ public class StaffServiceImpl implements StaffService {
 
         validateAndApplyScope(staff, request.getScopeType().trim().toUpperCase(), request.getScopeEntityId(), request.getDepartmentId());
 
+        // 2. Create User on Keycloak IAM only after all validations succeed
+        UUID keycloakId = keycloakService.createUser(
+                username,
+                request.getEmail(),
+                request.getFirstName(),
+                request.getLastName(),
+                role.getCode(),
+                request.getPassword()
+        );
+        staff.setKeycloakId(keycloakId);
+
+        // 3. Persist to local Database with compensating transaction
         Staff saved;
         try {
             saved = staffRepository.save(staff);
@@ -247,8 +248,8 @@ public class StaffServiceImpl implements StaffService {
                 "STAFF_STATUS_UPDATE",
                 "Staff",
                 staff.getId().toString(),
-                oldStatus,
-                newStatus + (StringUtils.hasText(request.getReason()) ? " (" + request.getReason().trim() + ")" : ""),
+                "{\"status\":\"" + oldStatus + "\"}",
+                "{\"status\":\"" + newStatus + "\"" + (StringUtils.hasText(request.getReason()) ? ",\"reason\":\"" + request.getReason().trim().replace("\"", "\\\"") + "\"" : "") + "}",
                 null,
                 null
         );
@@ -280,7 +281,7 @@ public class StaffServiceImpl implements StaffService {
                 "Staff",
                 staff.getId().toString(),
                 null,
-                "Mật khẩu đã được quản trị viên đặt lại",
+                "{\"note\":\"Mật khẩu đã được quản trị viên đặt lại\"}",
                 null,
                 null
         );

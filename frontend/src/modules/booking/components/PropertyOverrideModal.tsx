@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AlertCircle, Building2, BedDouble } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { Select } from '../../../core/components/ui/Select';
 import policyService from '../services/policy.service';
 import hotelService from '../../organization/services/hotel.service';
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service';
@@ -33,9 +34,16 @@ export const PropertyOverrideModal: React.FC<PropertyOverrideModalProps> = ({
 
   // Reference data
   const [hotels, setHotels] = useState<HotelDto[]>([]);
+  const [isHotelsLoading, setIsHotelsLoading] = useState(false);
+
   const [roomTypes, setRoomTypes] = useState<HotelRoomTypeDto[]>([]);
+  const [isRoomTypesLoading, setIsRoomTypesLoading] = useState(false);
+
   const [cancellationPolicies, setCancellationPolicies] = useState<CancellationPolicyResponse[]>([]);
+  const [isCancelLoading, setIsCancelLoading] = useState(false);
+
   const [noShowPolicies, setNoShowPolicies] = useState<NoShowPolicyResponse[]>([]);
+  const [isNoShowLoading, setIsNoShowLoading] = useState(false);
 
   // Form State
   const [selectedHotelId, setSelectedHotelId] = useState<number | ''>('');
@@ -47,62 +55,86 @@ export const PropertyOverrideModal: React.FC<PropertyOverrideModalProps> = ({
   const [overrideReason, setOverrideReason] = useState('');
   const [isActive, setIsActive] = useState(true);
 
-  // Load hotels & master policies
+  // Lazy loaders for onOpen
+  const loadHotels = useCallback(async () => {
+    if (hotels.length > 0 || isHotelsLoading) return;
+    setIsHotelsLoading(true);
+    try {
+      const res = await hotelService.filter({ page: 0, pageSize: 100 });
+      if (res.result?.content) setHotels(res.result.content);
+    } catch (err) {
+      console.error('Lỗi tải danh mục khách sạn', err);
+    } finally {
+      setIsHotelsLoading(false);
+    }
+  }, [hotels.length, isHotelsLoading]);
+
+  const loadRoomTypes = useCallback(async () => {
+    if (!selectedHotelId || isRoomTypesLoading) return;
+    setIsRoomTypesLoading(true);
+    try {
+      const res = await hotelRoomTypeService.filter({
+        hotelId: Number(selectedHotelId),
+        page: 0,
+        pageSize: 100,
+      });
+      if (res.result?.content) setRoomTypes(res.result.content);
+    } catch (err) {
+      console.error('Lỗi tải danh sách hạng phòng', err);
+    } finally {
+      setIsRoomTypesLoading(false);
+    }
+  }, [selectedHotelId, isRoomTypesLoading]);
+
+  const loadCancelPolicies = useCallback(async () => {
+    if (cancellationPolicies.length > 0 || isCancelLoading) return;
+    setIsCancelLoading(true);
+    try {
+      const res = await policyService.filterCancellationPolicies({ page: 0, pageSize: 100, isActive: true });
+      if (res.result?.content) setCancellationPolicies(res.result.content);
+    } catch (err) {
+      console.error('Lỗi tải chính sách hủy', err);
+    } finally {
+      setIsCancelLoading(false);
+    }
+  }, [cancellationPolicies.length, isCancelLoading]);
+
+  const loadNoShowPolicies = useCallback(async () => {
+    if (noShowPolicies.length > 0 || isNoShowLoading) return;
+    setIsNoShowLoading(true);
+    try {
+      const res = await policyService.filterNoShowPolicies({ page: 0, pageSize: 100, isActive: true });
+      if (res.result?.content) setNoShowPolicies(res.result.content);
+    } catch (err) {
+      console.error('Lỗi tải chính sách no-show', err);
+    } finally {
+      setIsNoShowLoading(false);
+    }
+  }, [noShowPolicies.length, isNoShowLoading]);
+
+  // When editing, load relevant options to display labels properly
   useEffect(() => {
-    if (!isOpen) return;
-
-    const loadInitialData = async () => {
-      try {
-        const [hotelsRes, cancelRes, noShowRes] = await Promise.all([
-          hotelService.filter({ page: 0, pageSize: 100 }),
-          policyService.filterCancellationPolicies({ page: 0, pageSize: 100, isActive: true }),
-          policyService.filterNoShowPolicies({ page: 0, pageSize: 100, isActive: true }),
-        ]);
-
-        if (hotelsRes.result?.content) {
-          setHotels(hotelsRes.result.content);
-        }
-        if (cancelRes.result?.content) {
-          setCancellationPolicies(cancelRes.result.content);
-        }
-        if (noShowRes.result?.content) {
-          setNoShowPolicies(noShowRes.result.content);
-        }
-      } catch (err) {
-        console.error('Lỗi tải danh mục khách sạn & chính sách', err);
+    if (!isOpen || !isEdit) return;
+    let ignore = false;
+    Promise.resolve().then(() => {
+      if (ignore) return;
+      void loadHotels();
+      void loadCancelPolicies();
+      void loadNoShowPolicies();
+      if (override?.hotelId) {
+        hotelRoomTypeService.filter({
+          hotelId: Number(override.hotelId),
+          page: 0,
+          pageSize: 100,
+        }).then((res) => {
+          if (!ignore && res.result?.content) setRoomTypes(res.result.content);
+        }).catch(console.error);
       }
+    });
+    return () => {
+      ignore = true;
     };
-
-    loadInitialData();
-  }, [isOpen]);
-
-  // Load room types when hotel changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!selectedHotelId) {
-        setRoomTypes([]);
-        return;
-      }
-
-      const loadRoomTypes = async () => {
-        try {
-          const res = await hotelRoomTypeService.filter({
-            hotelId: Number(selectedHotelId),
-            page: 0,
-            pageSize: 100,
-          });
-          if (res.result?.content) {
-            setRoomTypes(res.result.content);
-          }
-        } catch (err) {
-          console.error('Lỗi tải danh sách hạng phòng', err);
-        }
-      };
-
-      void loadRoomTypes();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [selectedHotelId]);
+  }, [isOpen, isEdit, override?.hotelId, loadHotels, loadCancelPolicies, loadNoShowPolicies]);
 
   // Sync form with edit target
   useEffect(() => {
@@ -223,23 +255,26 @@ export const PropertyOverrideModal: React.FC<PropertyOverrideModalProps> = ({
               <Building2 className="w-4 h-4 text-red-600" />
               Khách Sạn Cơ Sở <span className="text-red-500">*</span>
             </label>
-            <select
+            <Select<number | ''>
               value={selectedHotelId}
-              onChange={(e) => {
-                setSelectedHotelId(e.target.value ? Number(e.target.value) : '');
+              onChange={(val) => {
+                setSelectedHotelId(val);
                 setSelectedRoomTypeId('');
+                setRoomTypes([]);
               }}
+              onOpen={loadHotels}
+              isLoading={isHotelsLoading}
               disabled={isEdit}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none disabled:bg-neutral-100"
-              required
-            >
-              <option value="">-- Chọn khách sạn cơ sở --</option>
-              {hotels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name} (#{h.id})
-                </option>
-              ))}
-            </select>
+              placeholder="Chọn khách sạn cơ sở"
+              options={[
+                { value: '', label: 'Chọn khách sạn cơ sở' },
+                ...hotels.map((h) => ({
+                  value: h.id,
+                  label: `${h.name} (#${h.id})`,
+                })),
+              ]}
+              prefixIcon={<Building2 className="w-4 h-4 text-red-600" />}
+            />
           </div>
 
           <div>
@@ -247,19 +282,22 @@ export const PropertyOverrideModal: React.FC<PropertyOverrideModalProps> = ({
               <BedDouble className="w-4 h-4 text-neutral-600" />
               Hạng Phòng (Tùy chọn)
             </label>
-            <select
+            <Select<number | ''>
               value={selectedRoomTypeId}
-              onChange={(e) => setSelectedRoomTypeId(e.target.value ? Number(e.target.value) : '')}
+              onChange={(val) => setSelectedRoomTypeId(val)}
+              onOpen={loadRoomTypes}
+              isLoading={isRoomTypesLoading}
               disabled={isEdit || !selectedHotelId}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none disabled:bg-neutral-100"
-            >
-              <option value="">-- Áp dụng cho toàn bộ khách sạn --</option>
-              {roomTypes.map((rt) => (
-                <option key={rt.id} value={rt.id}>
-                  {rt.roomTypeName || `Hạng phòng #${rt.id}`}
-                </option>
-              ))}
-            </select>
+              placeholder="Áp dụng cho toàn bộ khách sạn"
+              options={[
+                { value: '', label: 'Áp dụng cho toàn bộ khách sạn' },
+                ...roomTypes.map((rt) => ({
+                  value: rt.id,
+                  label: rt.roomTypeName || `Hạng phòng #${rt.id}`,
+                })),
+              ]}
+              prefixIcon={<BedDouble className="w-4 h-4 text-neutral-600" />}
+            />
             <p className="text-xs text-neutral-500 mt-1">
               Để trống nếu muốn áp dụng chung cho mọi phòng của khách sạn này.
             </p>
@@ -272,43 +310,46 @@ export const PropertyOverrideModal: React.FC<PropertyOverrideModalProps> = ({
             <label className="block text-sm font-semibold text-neutral-800 mb-1">
               Chính Sách Hủy Phòng Gán Mới
             </label>
-            <select
+            <Select<number | ''>
               value={selectedCancelPolicyId}
-              onChange={(e) => {
-                const val = e.target.value ? Number(e.target.value) : '';
+              onChange={(val) => {
                 setSelectedCancelPolicyId(val);
                 const policyObj = cancellationPolicies.find((p) => p.id === val);
                 if (policyObj?.cancellationFeeType === 'TIERED') {
                   setFreeDaysOverride('');
                 }
               }}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="">-- Mặc định chuỗi (Không ghi đè policy) --</option>
-              {cancellationPolicies.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.policyCode} - {p.name} ({p.cancellationFeeType})
-                </option>
-              ))}
-            </select>
+              onOpen={loadCancelPolicies}
+              isLoading={isCancelLoading}
+              placeholder="Mặc định chuỗi"
+              options={[
+                { value: '', label: 'Mặc định chuỗi' },
+                ...cancellationPolicies.map((p) => ({
+                  value: p.id,
+                  label: `${p.policyCode} - ${p.name} (${p.cancellationFeeType})`,
+                })),
+              ]}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-neutral-800 mb-1">
               Chính Sách No-Show Gán Mới
             </label>
-            <select
+            <Select<number | ''>
               value={selectedNoShowPolicyId}
-              onChange={(e) => setSelectedNoShowPolicyId(e.target.value ? Number(e.target.value) : '')}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="">-- Mặc định chuỗi (Không ghi đè policy) --</option>
-              {noShowPolicies.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.policyCode} - {p.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedNoShowPolicyId(val)}
+              onOpen={loadNoShowPolicies}
+              isLoading={isNoShowLoading}
+              placeholder="Mặc định chuỗi"
+              options={[
+                { value: '', label: 'Mặc định chuỗi' },
+                ...noShowPolicies.map((p) => ({
+                  value: p.id,
+                  label: `${p.policyCode} - ${p.name}`,
+                })),
+              ]}
+            />
           </div>
         </div>
 

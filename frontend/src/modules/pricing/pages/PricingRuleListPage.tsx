@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, RefreshCw, Search, Edit2, TrendingUp } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
+import Select from '../../../core/components/ui/Select'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
 import Pagination from '../../../core/components/ui/Pagination'
 import pricingService from '../services/pricing.service'
@@ -247,45 +248,47 @@ export const PricingRuleListPage: React.FC = () => {
       <div className="bg-white p-4 rounded-2xl border border-neutral-200/80 shadow-xs">
         <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           <div>
-            <select
+            <Select<number | ''>
               value={selectedRoomTypeId || ''}
-              onChange={(e) =>
-                setSelectedRoomTypeId(e.target.value ? Number(e.target.value) : undefined)
+              onChange={(val) =>
+                setSelectedRoomTypeId(val ? Number(val) : undefined)
               }
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả loại phòng</option>
-              {hotelRoomTypes.map((hrt) => (
-                <option key={hrt.id} value={hrt.id}>
-                  {hrt.hotelName} - {hrt.roomTypeName}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Tất cả loại phòng' },
+                ...hotelRoomTypes.map((hrt) => ({
+                  value: hrt.id,
+                  label: `${hrt.hotelName} - ${hrt.roomTypeName}`,
+                })),
+              ]}
+              size="lg"
+            />
           </div>
 
           <div>
-            <select
+            <Select<string>
               value={ruleTypeCode}
-              onChange={(e) => setRuleTypeCode(e.target.value)}
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả loại quy tắc</option>
-              <option value="PEAK_SEASON">Mùa cao điểm (PEAK_SEASON)</option>
-              <option value="HOLIDAY">Lễ tết (HOLIDAY)</option>
-              <option value="WEEKEND">Cuối tuần (WEEKEND)</option>
-            </select>
+              onChange={(val) => setRuleTypeCode(val)}
+              options={[
+                { value: '', label: 'Tất cả loại quy tắc' },
+                { value: 'PEAK_SEASON', label: 'Mùa cao điểm (PEAK_SEASON)' },
+                { value: 'HOLIDAY', label: 'Lễ tết (HOLIDAY)' },
+                { value: 'WEEKEND', label: 'Cuối tuần (WEEKEND)' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div>
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Tạm dừng (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm dừng (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="flex gap-2">
@@ -479,20 +482,19 @@ export const PricingRuleListPage: React.FC = () => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Loại Phòng Áp Dụng <span className="text-red-500">*</span>
             </label>
-            <select
-              value={formRoomTypeId}
-              onChange={(e) => setFormRoomTypeId(Number(e.target.value))}
+            <Select<number | ''>
+              value={formRoomTypeId || ''}
+              onChange={(val) => setFormRoomTypeId(Number(val))}
               disabled={!!editingRule}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-              required
-            >
-              <option value="">Chọn loại phòng</option>
-              {hotelRoomTypes.map((hrt) => (
-                <option key={hrt.id} value={hrt.id}>
-                  {hrt.hotelName} - {hrt.roomTypeName}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Chọn loại phòng', disabled: true },
+                ...hotelRoomTypes.map((hrt) => ({
+                  value: hrt.id,
+                  label: `${hrt.hotelName} - ${hrt.roomTypeName}`,
+                })),
+              ]}
+              size="md"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -500,30 +502,32 @@ export const PricingRuleListPage: React.FC = () => {
               <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Loại Quy Tắc
               </label>
-              <select
+              <Select<string>
                 value={formRuleTypeCode}
-                onChange={(e) => setFormRuleTypeCode(e.target.value)}
+                onChange={(val) => setFormRuleTypeCode(val)}
                 disabled={!!editingRule}
-                className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-              >
-                <option value="PEAK_SEASON">Mùa cao điểm (PEAK_SEASON)</option>
-                <option value="HOLIDAY">Lễ tết (HOLIDAY)</option>
-                <option value="WEEKEND">Cuối tuần (WEEKEND)</option>
-              </select>
+                options={[
+                  { value: 'PEAK_SEASON', label: 'Mùa cao điểm (PEAK_SEASON)' },
+                  { value: 'HOLIDAY', label: 'Lễ tết (HOLIDAY)' },
+                  { value: 'WEEKEND', label: 'Cuối tuần (WEEKEND)' },
+                ]}
+                size="md"
+              />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">
                 Kiểu Điều Chỉnh
               </label>
-              <select
+              <Select<string>
                 value={formAdjustmentType}
-                onChange={(e) => setFormAdjustmentType(e.target.value)}
-                className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-              >
-                <option value="PERCENT">Phần trăm (%)</option>
-                <option value="FIXED">Số tiền cố định (VNĐ)</option>
-              </select>
+                onChange={(val) => setFormAdjustmentType(val)}
+                options={[
+                  { value: 'PERCENT', label: 'Phần trăm (%)' },
+                  { value: 'FIXED', label: 'Số tiền cố định (VNĐ)' },
+                ]}
+                size="md"
+              />
             </div>
           </div>
 
@@ -571,14 +575,15 @@ export const PricingRuleListPage: React.FC = () => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Trạng Thái
             </label>
-            <select
+            <Select<string>
               value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value)}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Tạm dừng (INACTIVE)</option>
-            </select>
+              onChange={(val) => setFormStatus(val)}
+              options={[
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm dừng (INACTIVE)' },
+              ]}
+              size="md"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200">

@@ -10,6 +10,7 @@ import {
   Info,
 } from 'lucide-react';
 import Button from '../../../../core/components/ui/Button';
+import Select from '../../../../core/components/ui/Select';
 import Pagination from '../../../../core/components/ui/Pagination';
 import { ConfirmModal } from '../../../../core/components/ui/Modal';
 import { operationService } from '../../services/operation.service';
@@ -128,37 +129,43 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           {/* Block Type */}
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-neutral-600">Loại:</label>
-            <select
-              value={filterBlockType}
-              onChange={(e) => {
-                setFilterBlockType(e.target.value);
-                setPage(0);
-              }}
-              className="h-9 px-3 border border-neutral-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-            >
-              <option value="ALL">Tất cả loại</option>
-              <option value="OOO">OOO (Out of Order)</option>
-              <option value="OOS">OOS (Out of Service)</option>
-            </select>
+            <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Loại:</label>
+            <div className="w-40">
+              <Select<string>
+                value={filterBlockType}
+                onChange={(val) => {
+                  setFilterBlockType(val);
+                  setPage(0);
+                }}
+                options={[
+                  { value: 'ALL', label: 'Tất cả loại' },
+                  { value: 'OOO', label: 'OOO (Out of Order)' },
+                  { value: 'OOS', label: 'OOS (Out of Service)' },
+                ]}
+                size="sm"
+              />
+            </div>
           </div>
 
           {/* Status */}
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-neutral-600">Trạng thái:</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setPage(0);
-              }}
-              className="h-9 px-3 border border-neutral-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang khóa (ACTIVE)</option>
-              <option value="COMPLETED">Đã hoàn tất (COMPLETED)</option>
-              <option value="CANCELLED">Đã hủy (CANCELLED)</option>
-            </select>
+            <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Trạng thái:</label>
+            <div className="w-44">
+              <Select<string>
+                value={filterStatus}
+                onChange={(val) => {
+                  setFilterStatus(val);
+                  setPage(0);
+                }}
+                options={[
+                  { value: 'ALL', label: 'Tất cả trạng thái' },
+                  { value: 'ACTIVE', label: 'Đang khóa (ACTIVE)' },
+                  { value: 'COMPLETED', label: 'Đã hoàn tất (COMPLETED)' },
+                  { value: 'CANCELLED', label: 'Đã hủy (CANCELLED)' },
+                ]}
+                size="sm"
+              />
+            </div>
           </div>
 
           {/* Date Range */}

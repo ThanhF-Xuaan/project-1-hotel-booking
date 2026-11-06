@@ -3,6 +3,7 @@ import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { Select } from '../../../core/components/ui/Select';
 import policyService from '../services/policy.service';
 import type {
   CancellationPolicyResponse,
@@ -187,30 +188,30 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-semibold text-neutral-800 mb-1">Loại Đối Tượng</label>
-            <select
+            <Select<BookingType>
               value={bookingType}
-              onChange={(e) => setBookingType(e.target.value as BookingType)}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="FIT">Khách lẻ (FIT)</option>
-              <option value="GIT">Khách đoàn (GIT)</option>
-              <option value="CORPORATE">Doanh nghiệp (CORPORATE)</option>
-              <option value="ALL">Toàn bộ khách (ALL)</option>
-            </select>
+              onChange={(val) => setBookingType(val)}
+              options={[
+                { value: 'FIT', label: 'Khách lẻ (FIT)' },
+                { value: 'GIT', label: 'Khách đoàn (GIT)' },
+                { value: 'CORPORATE', label: 'Doanh nghiệp (CORPORATE)' },
+                { value: 'ALL', label: 'Toàn bộ khách (ALL)' },
+              ]}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-neutral-800 mb-1">Loại Cơ Chế Phạt</label>
-            <select
+            <Select<CancellationFeeType>
               value={cancellationFeeType}
-              onChange={(e) => setCancellationFeeType(e.target.value as CancellationFeeType)}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="TIERED">Bậc thang thời gian (TIERED)</option>
-              <option value="FULL_DEPOSIT">Tỷ lệ trên tiền cọc thực tế (FULL_DEPOSIT)</option>
-              <option value="PERCENTAGE">Tỷ lệ cố định (PERCENTAGE)</option>
-              <option value="FIXED">Số tiền cố định (FIXED)</option>
-            </select>
+              onChange={(val) => setCancellationFeeType(val)}
+              options={[
+                { value: 'TIERED', label: 'Bậc thang thời gian (TIERED)' },
+                { value: 'FULL_DEPOSIT', label: 'Tỷ lệ trên tiền cọc thực tế (FULL_DEPOSIT)' },
+                { value: 'PERCENTAGE', label: 'Tỷ lệ cố định (PERCENTAGE)' },
+                { value: 'FIXED', label: 'Số tiền cố định (FIXED)' },
+              ]}
+            />
           </div>
 
           <div>

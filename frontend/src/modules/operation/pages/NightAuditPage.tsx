@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import { ConfirmModal } from '../../../core/components/ui/Modal';
 import { operationService } from '../services/operation.service';
 import type { NightAuditResponse } from '../types/operation.types';
@@ -90,15 +91,16 @@ export const NightAuditPage: React.FC = () => {
             <Building2 className="w-3.5 h-3.5 text-neutral-500" />
             Khách sạn cơ sở
           </label>
-          <select
+          <Select<number>
             value={hotelId}
-            onChange={(e) => setHotelId(Number(e.target.value))}
-            className="w-full h-12 px-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-          >
-            <option value={1}>Khách sạn Grand Hà Nội</option>
-            <option value={2}>Khách sạn Premier Đà Nẵng</option>
-            <option value={3}>Khách sạn Boutique Sài Gòn</option>
-          </select>
+            onChange={(val) => setHotelId(Number(val))}
+            options={[
+              { value: 1, label: 'Khách sạn Grand Hà Nội' },
+              { value: 2, label: 'Khách sạn Premier Đà Nẵng' },
+              { value: 3, label: 'Khách sạn Boutique Sài Gòn' },
+            ]}
+            size="lg"
+          />
         </div>
 
         <div className="w-56">
