@@ -1,12 +1,15 @@
+import type { PaymentMethod } from './finance.types';
+
 export type MasterFolioStatus = 'OPEN' | 'LOCKED_FOR_SETTLEMENT' | 'SETTLED' | 'CLOSED';
 
 export type ChargeCategory =
   | 'ROOM_RATE'
+  | 'MINIBAR'
+  | 'LAUNDRY'
   | 'BREAKFAST'
   | 'BANQUET'
-  | 'LAUNDRY'
-  | 'MINIBAR'
-  | 'ALL'
+  | 'SPA'
+  | 'TRANSPORT'
   | 'CUSTOM';
 
 export type RoutingTarget = 'MASTER' | 'SUB_FOLIO';
@@ -18,14 +21,7 @@ export interface BillingRoutingRuleResponse {
   routeTarget: RoutingTarget;
   maxCoveredAmount?: number;
   isActive: boolean;
-  createdAt?: string;
-}
-
-export interface BillingRoutingRuleRequest {
-  chargeCategory: ChargeCategory;
-  routeTarget: RoutingTarget;
-  maxCoveredAmount?: number;
-  isActive?: boolean;
+  createdAt: string;
 }
 
 export interface MasterFolioLineItemDto {
@@ -33,30 +29,30 @@ export interface MasterFolioLineItemDto {
   itemType: string;
   chargeCategory: ChargeCategory;
   description: string;
-  itemDate?: string;
+  itemDate: string;
   roomNumber?: string;
   guestName?: string;
-  quantity?: number;
-  unitPrice?: number;
+  quantity: number;
+  unitPrice: number;
   subtotal: number;
-  serviceFeeRate?: number;
-  serviceFeeAmount?: number;
-  vatRate?: number;
-  vatAmount?: number;
+  serviceFeeRate: number;
+  serviceFeeAmount: number;
+  vatRate: number;
+  vatAmount: number;
   totalAmount: number;
   routingTarget: RoutingTarget;
-  isManuallyAdjusted?: boolean;
+  isManuallyAdjusted: boolean;
   adjustmentReason?: string;
 }
 
 export interface SubFolioSummaryDto {
   bookingId: number;
   bookingNumber: string;
-  bookingRoomId?: number;
-  roomNumber?: string;
-  roomTypeName?: string;
+  bookingRoomId: number;
+  roomNumber: string;
+  roomTypeName: string;
   guestName?: string;
-  roomStatus?: string;
+  roomStatus: string;
   coveredByMasterAmount: number;
   personalDebitAmount: number;
   personalPaidAmount: number;
@@ -67,10 +63,10 @@ export interface MasterFolioResponse {
   id: number;
   folioNumber: string;
   contractId: number;
-  contractNumber?: string;
+  contractNumber: string;
   hotelId: number;
-  hotelName?: string;
-  companyId: number;
+  hotelName: string;
+  companyId?: number;
   companyName?: string;
   buyerLegalName?: string;
   buyerTaxCode?: string;
@@ -85,10 +81,43 @@ export interface MasterFolioResponse {
   balance: number;
   status: MasterFolioStatus;
   closedAt?: string;
-  createdAt?: string;
+  createdAt: string;
   routingRules: BillingRoutingRuleResponse[];
   debits: MasterFolioLineItemDto[];
   subFolios: SubFolioSummaryDto[];
+}
+
+export interface GroupCheckoutRequest {
+  paymentMethod: PaymentMethod;
+  paymentReference?: string;
+  waiveUnpaidSubFolios?: boolean;
+  notes?: string;
+  buyerLegalName?: string;
+  buyerTaxCode?: string;
+  buyerAddress?: string;
+  buyerEmailForInvoice?: string;
+}
+
+export interface GroupCheckoutResponse {
+  masterFolioId: number;
+  folioNumber: string;
+  contractId: number;
+  contractNumber: string;
+  groupName: string;
+  status: MasterFolioStatus;
+  subtotalAmount: number;
+  serviceFeeAmount: number;
+  totalVatAmount: number;
+  totalChargesAmount: number;
+  depositCredited: number;
+  finalPaymentAmount: number;
+  remainingBalance: number;
+  paymentMethod: PaymentMethod;
+  paymentReference?: string;
+  checkedOutRoomsCount: number;
+  checkedOutRoomNumbers: string[];
+  settledAt: string;
+  settledBy: string;
 }
 
 export interface MasterFolioAdjustmentRequest {
@@ -101,9 +130,3 @@ export interface MasterFolioAdjustmentRequest {
   amount: number;
   adjustmentReason: string;
 }
-
-export interface MasterFolioStatusUpdateRequest {
-  status: MasterFolioStatus;
-  note?: string;
-}
-
