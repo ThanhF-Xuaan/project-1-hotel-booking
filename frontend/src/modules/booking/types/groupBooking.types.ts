@@ -111,5 +111,6 @@ export interface GroupContractDepositRequest {
 }
 
 export interface GroupContractCancelRequest {
-  reason: string;
+  cancellationReason?: string;
+  reason?: string;
 }
