@@ -18,3 +18,4 @@ public interface StaffProvisioningService {
      */
     Staff provisionOrUpdateFromJwt(String accessToken, String fallbackUsername);
 }
+

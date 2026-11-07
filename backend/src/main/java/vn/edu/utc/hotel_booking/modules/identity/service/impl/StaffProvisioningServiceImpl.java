@@ -176,3 +176,4 @@ public class StaffProvisioningServiceImpl implements StaffProvisioningService {
         return roleRepository.findAll().stream().findFirst().orElse(null);
     }
 }
+

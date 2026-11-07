@@ -80,3 +80,4 @@ public class StaffBaselineReconciliationRunner implements ApplicationRunner {
         log.info("Staff baseline reconciliation: Seeded initial System Admin (@admin) into PostgreSQL with role CHAIN_ADMIN");
     }
 }
+
