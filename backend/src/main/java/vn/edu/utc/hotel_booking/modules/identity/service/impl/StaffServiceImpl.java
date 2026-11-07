@@ -25,7 +25,6 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.StaffMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.RoleRepository;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
-import vn.edu.utc.hotel_booking.modules.identity.service.AuditLogService;
 import vn.edu.utc.hotel_booking.modules.identity.service.KeycloakService;
 import vn.edu.utc.hotel_booking.modules.identity.service.StaffService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Department;
@@ -50,7 +49,6 @@ public class StaffServiceImpl implements StaffService {
     private final HotelRepository hotelRepository;
     private final StaffMapper staffMapper;
     private final KeycloakService keycloakService;
-    private final AuditLogService auditLogService;
 
     @Override
     public PageResponse<StaffResponse> filter(StaffSearchDto searchDto) {
@@ -243,16 +241,6 @@ public class StaffServiceImpl implements StaffService {
         }
 
         Staff updated = staffRepository.save(staff);
-        auditLogService.recordLog(
-                null,
-                "STAFF_STATUS_UPDATE",
-                "Staff",
-                staff.getId().toString(),
-                "{\"status\":\"" + oldStatus + "\"}",
-                "{\"status\":\"" + newStatus + "\"" + (StringUtils.hasText(request.getReason()) ? ",\"reason\":\"" + request.getReason().trim().replace("\"", "\\\"") + "\"" : "") + "}",
-                null,
-                null
-        );
 
         log.info("Đã cập nhật trạng thái nhân viên: id={}, username={}, oldStatus={}, newStatus={}", updated.getId(), updated.getUsername(), oldStatus, newStatus);
         return staffMapper.toResponse(updated);
@@ -274,17 +262,6 @@ public class StaffServiceImpl implements StaffService {
                 null
         );
         keycloakService.logoutUser(staff.getKeycloakId());
-
-        auditLogService.recordLog(
-                null,
-                "STAFF_PASSWORD_RESET",
-                "Staff",
-                staff.getId().toString(),
-                null,
-                "{\"note\":\"Mật khẩu đã được quản trị viên đặt lại\"}",
-                null,
-                null
-        );
 
         log.info("Đã đặt lại mật khẩu thành công cho nhân viên: id={}, username={}", staff.getId(), staff.getUsername());
     }

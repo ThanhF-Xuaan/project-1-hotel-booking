@@ -19,6 +19,9 @@ public class AuditLogSearchDto extends BaseSearchDto {
     @Schema(description = "ID nhân viên thực hiện thao tác", example = "1")
     Integer staffId;
 
+    @Schema(description = "Từ khóa tìm kiếm theo nhân sự thực hiện (Tên hoặc Username)", example = "admin")
+    String staffKeyword;
+
     @Schema(description = "Loại hành động: CREATE, UPDATE, DELETE, LOGIN, APPROVE, REFUND", example = "CREATE")
     String actionType;
 
