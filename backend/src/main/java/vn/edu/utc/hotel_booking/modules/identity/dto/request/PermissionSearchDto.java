@@ -26,6 +26,9 @@ public class PermissionSearchDto {
     @Schema(description = "Hành động (VIEW, CREATE, UPDATE, DELETE...)", example = "VIEW")
     String action;
 
+    @Schema(description = "Trạng thái (ACTIVE hoặc INACTIVE)", example = "ACTIVE")
+    String status;
+
     @Schema(description = "Trường sắp xếp", example = "resource")
     String sortBy;
 

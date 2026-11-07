@@ -33,6 +33,8 @@ public enum ErrorCode {
     CANNOT_DELETE_SYSTEM_ROLE(3003, "Không thể xóa hoặc thay đổi mã định danh của vai trò hệ thống mặc định", HttpStatus.BAD_REQUEST),
     ROLE_IN_USE(3004, "Vai trò đang được gán cho nhân viên hoạt động, không thể xóa", HttpStatus.CONFLICT),
     PERMISSION_NOT_FOUND(3011, "Không tìm thấy quyền hạn (Permission)", HttpStatus.NOT_FOUND),
+    PERMISSION_ALREADY_EXISTS(3012, "Quyền hạn với hành động và tài nguyên này đã tồn tại", HttpStatus.CONFLICT),
+    PERMISSION_IN_USE(3013, "Không thể xóa quyền hạn đang được gán cho vai trò trong hệ thống", HttpStatus.BAD_REQUEST),
     STAFF_NOT_FOUND(3021, "Không tìm thấy thông tin nhân viên", HttpStatus.NOT_FOUND),
     USERNAME_ALREADY_EXISTS(3022, "Tên tài khoản đã tồn tại", HttpStatus.CONFLICT),
     EMAIL_ALREADY_EXISTS(3023, "Địa chỉ email đã được sử dụng", HttpStatus.CONFLICT),

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -33,4 +34,10 @@ public class PermissionResponse {
 
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
+
+    @Schema(description = "Thời gian tạo")
+    OffsetDateTime createdAt;
+
+    @Schema(description = "Thời gian cập nhật")
+    OffsetDateTime updatedAt;
 }
