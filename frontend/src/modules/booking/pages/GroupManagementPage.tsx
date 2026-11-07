@@ -51,6 +51,7 @@ export const GroupManagementPage: React.FC = () => {
   const [selectedMasterFolioContractId, setSelectedMasterFolioContractId] = useState<number | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedImportContract, setSelectedImportContract] = useState<GroupContractResponse | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Lazy fetch hotel list when user opens the hotel Select dropdown
   const handleOpenHotelSelect = useCallback(async () => {
@@ -131,6 +132,36 @@ export const GroupManagementPage: React.FC = () => {
     await loadData(page);
   };
 
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await groupBookingService.exportExcel({
+        contractNumber: keyword.trim() || undefined,
+        groupName: keyword.trim() || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        hotelId: hotelFilter ? Number(hotelFilter) : undefined,
+        sortBy: 'id',
+        sortDirection: 'DESC',
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      link.setAttribute('download', `Bao_Cao_Hop_Dong_Doan_${today}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      console.error('Lỗi khi xuất file Excel báo cáo hợp đồng đoàn:', err);
+      const message = err instanceof Error ? err.message : 'Không thể xuất file Excel. Vui lòng thử lại sau.';
+      alert(message);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Stats computed from current page/total
   const totalRoomsBlocked = contracts.reduce((acc, c) => acc + (c.totalRooms || 0), 0);
   const totalDepositReceived = contracts.reduce(
@@ -164,10 +195,12 @@ export const GroupManagementPage: React.FC = () => {
           <button
             type="button"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-300 hover:bg-neutral-100 rounded-lg text-xs font-bold text-neutral-700 shadow-2xs transition-colors cursor-pointer"
-            onClick={() => alert('Xuất báo cáo hợp đồng đoàn Excel thành công!')}
+            disabled={isExporting}
+            onClick={handleExportExcel}
+            title="Xuất báo cáo danh sách hợp đồng đoàn ra tệp Excel (.xlsx)"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-green-600" />
-            <span>Export</span>
+            <FileSpreadsheet className={`w-3.5 h-3.5 ${isExporting ? 'animate-spin text-neutral-400' : 'text-green-600'}`} />
+            <span>{isExporting ? 'Đang xuất...' : 'Export'}</span>
           </button>
           <button
             type="button"
@@ -497,12 +530,14 @@ export const GroupManagementPage: React.FC = () => {
       </div>
 
       {/* Modals & Drawers */}
-      <GroupCreateContractModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSubmit={handleCreateSubmit}
-        hotelList={hotelList}
-      />
+      {isCreateOpen && (
+        <GroupCreateContractModal
+          isOpen={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          onSubmit={handleCreateSubmit}
+          hotelList={hotelList}
+        />
+      )}
 
       <GroupDetailDrawer
         contract={selectedContract}

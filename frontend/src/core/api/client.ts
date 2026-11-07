@@ -163,6 +163,37 @@ export const apiClient = {
 
   delete: <T>(url: string, config?: AxiosRequestConfig) =>
     axiosInstance.delete<ApiResponse<T>>(url, config).then((res) => res.data),
+
+  postBlob: async (url: string, data?: unknown, config?: AxiosRequestConfig): Promise<Blob> => {
+    try {
+      const res = await axiosInstance.post(url, data, {
+        ...config,
+        responseType: 'blob',
+      })
+      return res.data as Blob
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        (err as AxiosError).response?.data instanceof Blob
+      ) {
+        const errorBlob = (err as AxiosError).response!.data as Blob
+        if (errorBlob.type?.includes('application/json')) {
+          const text = await errorBlob.text()
+          try {
+            const json = JSON.parse(text)
+            throw new Error(json.message || 'Lỗi khi tải file từ máy chủ', { cause: err })
+          } catch (parseErr) {
+            if (parseErr instanceof Error && parseErr.message !== text) {
+              throw parseErr
+            }
+          }
+        }
+      }
+      throw err
+    }
+  },
 }
 
 export default apiClient

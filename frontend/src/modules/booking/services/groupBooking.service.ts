@@ -42,6 +42,12 @@ export const groupBookingService = {
     apiClient.post<PageResponse<GroupContractResponse>>(`${BASE_URL}/filter`, searchDto),
 
   /**
+   * Xuất danh sách hợp đồng khách đoàn ra tệp Excel (.xlsx)
+   */
+  exportExcel: (searchDto?: GroupContractSearchDto) =>
+    apiClient.postBlob(`${BASE_URL}/export`, searchDto),
+
+  /**
    * Xem chi tiết hợp đồng khách đoàn theo ID
    */
   getById: (id: number) =>
