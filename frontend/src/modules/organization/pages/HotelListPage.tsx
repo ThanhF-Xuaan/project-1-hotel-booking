@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, RefreshCw, Search, Edit2, Building, Globe, Filter, BedDouble, Check } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Edit2, Building, Globe, Filter, BedDouble, Check, Image as ImageIcon } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
@@ -10,6 +10,7 @@ import regionService from '../services/region.service'
 import roomTypeService from '../../inventory/services/roomType.service'
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service'
 import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone'
+import HotelMediaGalleryModal from '../components/HotelMediaGalleryModal'
 import type { HotelDto, HotelCreateRequest, HotelUpdateRequest, RegionDto } from '../types/organization.types'
 import type { RoomTypeDto } from '../../inventory/types/inventory.types'
 
@@ -61,6 +62,9 @@ export const HotelListPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deletingIds, setDeletingIds] = useState<number[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Gallery Modal
+  const [galleryHotel, setGalleryHotel] = useState<{ id: number; name: string } | null>(null)
 
   // Load Regions and System Room Types on mount
   useEffect(() => {
@@ -479,7 +483,22 @@ export const HotelListPage: React.FC = () => {
                           className="w-4 h-4 rounded text-red-600 focus:ring-red-600 cursor-pointer"
                         />
                       </td>
-                      <td className="p-4 font-bold text-neutral-900">{item.name}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          {item.coverImageUrl ? (
+                            <img
+                              src={item.coverImageUrl}
+                              alt={item.name}
+                              className="w-10 h-10 rounded-lg object-cover border border-neutral-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-400 shrink-0">
+                              <Building className="w-5 h-5" />
+                            </div>
+                          )}
+                          <span className="font-bold text-neutral-900">{item.name}</span>
+                        </div>
+                      </td>
                       <td className="p-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-700">
                           {item.regionName}
@@ -512,6 +531,14 @@ export const HotelListPage: React.FC = () => {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setGalleryHotel({ id: item.id, name: item.name })}
+                            className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                            title="Quản lý ảnh cơ sở"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(item)}
@@ -786,6 +813,17 @@ export const HotelListPage: React.FC = () => {
         variant="danger"
         isLoading={isDeleting}
       />
+
+      {/* HOTEL MEDIA GALLERY MODAL */}
+      {galleryHotel && (
+        <HotelMediaGalleryModal
+          isOpen={!!galleryHotel}
+          onClose={() => setGalleryHotel(null)}
+          hotelId={galleryHotel.id}
+          hotelName={galleryHotel.name}
+          onCoverImageChanged={loadData}
+        />
+      )}
     </div>
   )
 }

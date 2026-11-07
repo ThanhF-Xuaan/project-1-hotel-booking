@@ -48,6 +48,9 @@ public class HotelResponse {
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
 
+    @Schema(description = "URL ảnh đại diện chính của khách sạn", example = "http://localhost:9000/hotel-booking-storage/public/hotels/1/properties/abc_cover.jpg")
+    String coverImageUrl;
+
     @Schema(description = "Thời gian tạo")
     OffsetDateTime createdAt;
 

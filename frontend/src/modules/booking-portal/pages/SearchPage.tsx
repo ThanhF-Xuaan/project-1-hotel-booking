@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -12,6 +12,7 @@ import {
   Star,
   FileSearch,
   Users,
+  Camera,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Select from '../../../core/components/ui/Select';
@@ -19,6 +20,9 @@ import PublicFooter from '../../../core/components/layout/PublicFooter';
 import type { CustomerSearchCriteria, AvailableRoomOffer } from '../types/portal.types';
 import { RoomAdvisorWidget } from '../components/RoomAdvisor/RoomAdvisorWidget';
 import { GroupInquiryModal } from '../components/GroupInquiryModal';
+import { HotelGalleryViewerModal } from '../components/HotelGalleryViewerModal';
+import hotelService from '../../organization/services/hotel.service';
+import type { HotelImageDto } from '../../organization/types/organization.types';
 import type { AdvisorRecommendation, AdvisorSearchCriteria } from '../types/roomAdvisor.types';
 
 const DEFAULT_CHECK_IN = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -38,8 +42,27 @@ export const SearchPage: React.FC = () => {
 
   const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [hotelImages, setHotelImages] = useState<HotelImageDto[]>([]);
 
   const [criteria, setCriteria] = useState<CustomerSearchCriteria>(INITIAL_CRITERIA);
+
+  useEffect(() => {
+    if (!criteria.hotelId) return;
+    hotelService
+      .getPublicHotelImages(criteria.hotelId)
+      .then((res) => {
+        if (res && res.result) {
+          setHotelImages(res.result);
+        } else {
+          setHotelImages([]);
+        }
+      })
+      .catch((err) => {
+        console.error('Lỗi khi tải ảnh khách sạn:', err);
+        setHotelImages([]);
+      });
+  }, [criteria.hotelId]);
 
   const [mockOffers] = useState<AvailableRoomOffer[]>([
     {
@@ -95,6 +118,15 @@ export const SearchPage: React.FC = () => {
       : criteria.hotelId === 3
       ? 'Boutique Sài Gòn Hotel'
       : 'Grand Hà Nội Hotel';
+
+  const primaryCoverImage =
+    hotelImages.find((img) => img.isPrimary)?.url ||
+    hotelImages[0]?.url ||
+    (criteria.hotelId === 2
+      ? 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=1200&q=80'
+      : criteria.hotelId === 3
+      ? 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80'
+      : 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80');
 
   const handleSearchRooms = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -297,6 +329,45 @@ export const SearchPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Hotel Spotlight Banner */}
+      <div className="max-w-5xl mx-auto px-4 mt-8">
+        <div className="relative rounded-3xl overflow-hidden border border-neutral-200 shadow-md group">
+          <div className="h-52 sm:h-64 w-full overflow-hidden bg-neutral-900 relative">
+            <img
+              src={primaryCoverImage}
+              alt={selectedHotelName}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 brightness-90"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+
+            <div className="absolute bottom-5 left-5 right-5 flex flex-col sm:flex-row sm:items-end justify-between gap-4 text-white">
+              <div>
+                <div className="flex items-center gap-1.5 text-amber-400 mb-1">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  ))}
+                  <span className="text-xs font-semibold text-white/90 ml-1">Tiêu chuẩn 5 sao quốc tế</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{selectedHotelName}</h2>
+                <p className="text-xs sm:text-sm text-neutral-300 mt-1 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-red-500" />
+                  Chuỗi khách sạn & nghỉ dưỡng Hotel Grand Collection
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsGalleryOpen(true)}
+                className="px-4 py-2.5 bg-white/95 hover:bg-white text-neutral-900 rounded-2xl font-bold text-xs flex items-center gap-2 shadow-lg backdrop-blur-xs transition-all hover:scale-105 cursor-pointer shrink-0"
+              >
+                <Camera className="w-4 h-4 text-red-600" />
+                <span>Xem hình ảnh khách sạn ({hotelImages.length > 0 ? `${hotelImages.length} ảnh` : 'Khám phá'})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Room Offers List */}
       <div className="max-w-5xl mx-auto px-4 mt-8 space-y-6">
         <div className="flex justify-between items-center">
@@ -406,6 +477,14 @@ export const SearchPage: React.FC = () => {
         onCloseExternal={() => setIsAdvisorOpen(false)}
         onOpenExternal={() => setIsAdvisorOpen(true)}
         onViewRoomDetails={handleAdvisorViewDetails}
+      />
+
+      {/* Hotel Photo Gallery Modal */}
+      <HotelGalleryViewerModal
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
+        hotelName={selectedHotelName}
+        images={hotelImages}
       />
 
       <PublicFooter />
