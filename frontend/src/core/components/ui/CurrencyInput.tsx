@@ -1,4 +1,11 @@
-import React, { forwardRef, useState, useEffect, useRef, useImperativeHandle } from 'react'
+import React, {
+  forwardRef,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useImperativeHandle,
+} from 'react'
 import { Input, type InputProps } from './Input'
 import {
   formatCurrencyInput,
@@ -11,6 +18,7 @@ export interface CurrencyInputProps
   value?: number | string
   onChangeValue?: (numericValue: number) => void
   suffix?: string
+  maxDigits?: number
 }
 
 export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
@@ -22,6 +30,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       placeholder = '0',
       rightIcon,
       className,
+      maxDigits = 13,
       onKeyDown,
       ...props
     },
@@ -36,82 +45,161 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       return num > 0 ? formatCurrencyInput(num) : ''
     })
 
-    // Đồng bộ khi value bên ngoài thay đổi (ví dụ nạp số tiền ban đầu hoặc reset form)
+    // Lưu vị trí số chữ số trước con trỏ để phục hồi đồng bộ trong useLayoutEffect
+    const cursorDigitsRef = useRef<number | null>(null)
+
+    // Phục hồi vị trí con trỏ ngay sau khi React commit DOM (trước khi browser paint)
+    useLayoutEffect(() => {
+      if (
+        cursorDigitsRef.current !== null &&
+        internalInputRef.current === document.activeElement
+      ) {
+        const targetDigits = cursorDigitsRef.current
+        cursorDigitsRef.current = null
+        const newPos = getCursorPosFromDigitCount(displayValue, targetDigits)
+        internalInputRef.current?.setSelectionRange(newPos, newPos)
+      }
+    }, [displayValue])
+
+    // Đồng bộ khi value từ props bên ngoài thay đổi (ví dụ reset form, nạp dữ liệu edit)
     useEffect(() => {
-      const num = parseCurrency(value)
-      if (num === 0 && (value === 0 || value === '0' || value === '')) {
-        // Nếu người dùng đang tập trung gõ thì giữ nguyên, ngược lại cập nhật
-        if (internalInputRef.current !== document.activeElement) {
-          const nextVal = value === 0 ? '0' : ''
-          setDisplayValue((prev) => (prev !== nextVal ? nextVal : prev))
+      const inputEl = internalInputRef.current
+      const numProp = parseCurrency(value)
+      const numCurrent = parseCurrency(inputEl?.value)
+
+      // Nếu người dùng đang focus gõ thì không can thiệp nếu giá trị số khớp nhau
+      if (inputEl && inputEl === document.activeElement) {
+        if (numProp === numCurrent) {
+          return
         }
+      }
+
+      if (numProp === 0 && (value === 0 || value === '0' || value === '' || value === undefined)) {
+        setDisplayValue((prev) => (prev !== '' ? '' : prev))
       } else {
-        const formatted = formatCurrencyInput(num)
+        const clean = String(numProp).slice(0, maxDigits)
+        const formatted = formatCurrencyInput(Number(clean))
         setDisplayValue((prev) => (prev !== formatted ? formatted : prev))
       }
-    }, [value])
+    }, [value, maxDigits])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const raw = e.target.value
       const inputEl = internalInputRef.current
 
-      // Đếm số chữ số trước con trỏ để giữ vị trí chính xác sau khi thêm dấu chấm
+      // Đếm số chữ số trước con trỏ
       const selStart = inputEl ? inputEl.selectionStart || 0 : raw.length
       const rawBeforeCursor = raw.slice(0, selStart)
-      const digitsBeforeCursor = rawBeforeCursor.replace(/[^\d]/g, '').length
+      let digitsBeforeCursor = rawBeforeCursor.replace(/[^\d]/g, '').length
 
-      const num = parseCurrency(raw)
-      const formatted = raw ? (num === 0 ? '0' : formatCurrencyInput(num)) : ''
+      // Lấy toàn bộ chữ số và khống chế tối đa maxDigits
+      let cleanDigits = raw.replace(/[^\d]/g, '')
+      if (cleanDigits.length > maxDigits) {
+        cleanDigits = cleanDigits.slice(0, maxDigits)
+        digitsBeforeCursor = Math.min(digitsBeforeCursor, maxDigits)
+      }
+
+      const num = cleanDigits ? parseCurrency(cleanDigits) : 0
+      const formatted = cleanDigits
+        ? num === 0
+          ? '0'
+          : formatCurrencyInput(cleanDigits)
+        : ''
+
+      // Lưu số lượng chữ số trước con trỏ để useLayoutEffect phục hồi
+      cursorDigitsRef.current = digitsBeforeCursor
 
       setDisplayValue(formatted)
       onChangeValue?.(num)
-
-      // Cập nhật vị trí con trỏ sau khi React re-render
-      requestAnimationFrame(() => {
-        if (internalInputRef.current) {
-          const newPos = getCursorPosFromDigitCount(formatted, digitsBeforeCursor)
-          internalInputRef.current.setSelectionRange(newPos, newPos)
-        }
-      })
     }
 
-    // Xử lý phím Backspace khi con trỏ đứng ngay sau dấu chấm
+    // Xử lý bàn phím: Backspace, Delete, dấu chấm / phẩy, giới hạn maxDigits
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       onKeyDown?.(e)
       if (e.defaultPrevented) return
 
-      if (e.key === 'Backspace' && internalInputRef.current) {
-        const inputEl = internalInputRef.current
-        const selStart = inputEl.selectionStart
-        const selEnd = inputEl.selectionEnd
+      const inputEl = internalInputRef.current
+      if (!inputEl) return
 
-        // Nếu không bôi đen vùng chọn và ký tự ngay trước con trỏ là dấu chấm '.'
-        if (selStart !== null && selStart === selEnd && selStart > 1) {
-          if (inputEl.value[selStart - 1] === '.') {
-            e.preventDefault()
-            const curVal = inputEl.value
-            // Xóa chữ số đứng trước dấu chấm (vị trí selStart - 2)
-            const nextVal = curVal.slice(0, selStart - 2) + curVal.slice(selStart - 1)
-            const num = parseCurrency(nextVal)
-            const formatted = nextVal ? (num === 0 ? '0' : formatCurrencyInput(num)) : ''
+      const selStart = inputEl.selectionStart ?? 0
+      const selEnd = inputEl.selectionEnd ?? 0
 
-            setDisplayValue(formatted)
-            onChangeValue?.(num)
+      // 1. Chặn nhập thêm số nếu đã đạt tối đa maxDigits và không có bôi đen vùng chọn
+      const isDigit = /^[0-9]$/.test(e.key)
+      if (isDigit) {
+        const currentDigits = inputEl.value.replace(/[^\d]/g, '').length
+        const selectedDigits = inputEl.value
+          .slice(selStart, selEnd)
+          .replace(/[^\d]/g, '').length
+        if (currentDigits - selectedDigits >= maxDigits) {
+          e.preventDefault()
+          return
+        }
+      }
 
-            const targetDigits = curVal
-              .slice(0, selStart - 2)
-              .replace(/[^\d]/g, '').length
+      // 2. Chặn nhập dấu chấm / phẩy gây nhảy số (tiền VNĐ là số nguyên)
+      if (e.key === '.' || e.key === ',') {
+        e.preventDefault()
+        // Nếu con trỏ đang đứng ngay trước dấu chấm, nhảy con trỏ qua dấu chấm
+        if (inputEl.value[selStart] === '.') {
+          inputEl.setSelectionRange(selStart + 1, selStart + 1)
+        }
+        return
+      }
 
-            requestAnimationFrame(() => {
-              if (internalInputRef.current) {
-                const newPos = getCursorPosFromDigitCount(formatted, targetDigits)
-                internalInputRef.current.setSelectionRange(newPos, newPos)
-              }
-            })
-          }
+      // 3. Xử lý Backspace khi đứng ngay sau dấu chấm '.'
+      if (e.key === 'Backspace') {
+        if (selStart === selEnd && selStart > 1 && inputEl.value[selStart - 1] === '.') {
+          e.preventDefault()
+          const curVal = inputEl.value
+          // Xóa chữ số đứng trước dấu chấm (vị trí selStart - 2)
+          const nextVal = curVal.slice(0, selStart - 2) + curVal.slice(selStart - 1)
+          const cleanDigits = nextVal.replace(/[^\d]/g, '').slice(0, maxDigits)
+          const num = cleanDigits ? parseCurrency(cleanDigits) : 0
+          const formatted = cleanDigits
+            ? num === 0
+              ? '0'
+              : formatCurrencyInput(cleanDigits)
+            : ''
+
+          const targetDigits = curVal
+            .slice(0, selStart - 2)
+            .replace(/[^\d]/g, '').length
+
+          cursorDigitsRef.current = targetDigits
+          setDisplayValue(formatted)
+          onChangeValue?.(num)
+        }
+      }
+
+      // 4. Xử lý Delete khi đứng ngay trước dấu chấm '.'
+      if (e.key === 'Delete') {
+        if (selStart === selEnd && selStart < inputEl.value.length && inputEl.value[selStart] === '.') {
+          e.preventDefault()
+          const curVal = inputEl.value
+          // Xóa chữ số đứng sau dấu chấm (vị trí selStart + 1)
+          const nextVal = curVal.slice(0, selStart) + curVal.slice(selStart + 2)
+          const cleanDigits = nextVal.replace(/[^\d]/g, '').slice(0, maxDigits)
+          const num = cleanDigits ? parseCurrency(cleanDigits) : 0
+          const formatted = cleanDigits
+            ? num === 0
+              ? '0'
+              : formatCurrencyInput(cleanDigits)
+            : ''
+
+          const targetDigits = curVal
+            .slice(0, selStart)
+            .replace(/[^\d]/g, '').length
+
+          cursorDigitsRef.current = targetDigits
+          setDisplayValue(formatted)
+          onChangeValue?.(num)
         }
       }
     }
+
+    // 13 số + 4 dấu chấm = 17 ký tự hiển thị
+    const maxFormattedLength = maxDigits + Math.floor((maxDigits - 1) / 3)
 
     return (
       <Input
@@ -122,6 +210,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
         value={displayValue}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        maxLength={maxFormattedLength}
         className={className}
         rightIcon={
           rightIcon || (
