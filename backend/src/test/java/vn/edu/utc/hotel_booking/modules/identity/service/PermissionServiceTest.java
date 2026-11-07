@@ -7,12 +7,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.PermissionSearchDto;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.PermissionResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Permission;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.PermissionMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.PermissionRepository;
+import vn.edu.utc.hotel_booking.modules.identity.repository.RoleRepository;
 import vn.edu.utc.hotel_booking.modules.identity.service.impl.PermissionServiceImpl;
 
 import java.util.Collections;
@@ -29,6 +35,9 @@ class PermissionServiceTest {
 
     @Mock
     private PermissionRepository permissionRepository;
+
+    @Mock
+    private RoleRepository roleRepository;
 
     @Mock
     private PermissionMapper permissionMapper;
@@ -54,14 +63,38 @@ class PermissionServiceTest {
     @DisplayName("Happy path: Lấy tất cả quyền hạn hệ thống thành công")
     void getAllPermissions_Success() {
         when(permissionRepository.findAllByIsDeletedFalse()).thenReturn(List.of(p1, p2));
-        when(permissionMapper.toResponseList(List.of(p1, p2))).thenReturn(List.of(res1, res2));
+        when(roleRepository.findAllWithPermissions()).thenReturn(Collections.emptyList());
+        when(permissionMapper.toResponse(p1)).thenReturn(res1);
+        when(permissionMapper.toResponse(p2)).thenReturn(res2);
 
         List<PermissionResponse> results = permissionService.getAllPermissions();
 
         assertThat(results).hasSize(2);
         assertThat(results.get(0).getAction()).isEqualTo("VIEW");
         verify(permissionRepository).findAllByIsDeletedFalse();
-        verify(permissionMapper).toResponseList(List.of(p1, p2));
+    }
+
+    @Test
+    @DisplayName("Happy path: Tìm kiếm và phân trang danh mục quyền hạn thành công")
+    void filter_Success() {
+        PermissionSearchDto searchDto = PermissionSearchDto.builder()
+                .keyword("ROOM")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        Page<Permission> page = new PageImpl<>(List.of(p1, p2));
+        when(permissionRepository.searchPermissions(eq("ROOM"), isNull(), isNull(), eq("ACTIVE"), any(Pageable.class)))
+                .thenReturn(page);
+        when(roleRepository.findAllWithPermissions()).thenReturn(Collections.emptyList());
+        when(permissionMapper.toResponse(p1)).thenReturn(res1);
+        when(permissionMapper.toResponse(p2)).thenReturn(res2);
+
+        PageResponse<PermissionResponse> response = permissionService.filter(searchDto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getTotalElements()).isEqualTo(2);
     }
 
     @Test
