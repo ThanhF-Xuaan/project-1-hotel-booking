@@ -6,11 +6,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
+import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
 import vn.edu.utc.hotel_booking.modules.organization.dto.response.HotelImageResponse;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelMediaService;
 
@@ -30,9 +29,8 @@ public class HotelMediaController {
     @Operation(summary = "Tải lên một hoặc nhiều ảnh cơ sở khách sạn")
     public ApiResponse<List<HotelImageResponse>> uploadImages(
             @PathVariable Short hotelId,
-            @RequestParam("files") List<MultipartFile> files,
-            @AuthenticationPrincipal Jwt jwt) {
-        String uploaderId = jwt != null ? jwt.getClaimAsString("preferred_username") : "admin";
+            @RequestParam("files") List<MultipartFile> files) {
+        String uploaderId = SecurityUtils.getCurrentUsername().orElse("admin");
         return ApiResponse.<List<HotelImageResponse>>builder()
                 .code(HttpStatus.CREATED.value())
                 .message("Tải lên ảnh khách sạn thành công")

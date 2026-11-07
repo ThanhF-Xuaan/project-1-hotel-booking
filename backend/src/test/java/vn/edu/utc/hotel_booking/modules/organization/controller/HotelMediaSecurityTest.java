@@ -56,7 +56,7 @@ class HotelMediaSecurityTest {
     @WithMockUser(roles = "CHAIN_ADMIN")
     @DisplayName("CHAIN_ADMIN được phép upload ảnh")
     void uploadImages_chainAdminRole_allowed() {
-        assertDoesNotThrow(() -> controller.uploadImages((short) 1, List.of(sampleFile), null));
+        assertDoesNotThrow(() -> controller.uploadImages((short) 1, List.of(sampleFile)));
     }
 
     @Test
@@ -72,14 +72,14 @@ class HotelMediaSecurityTest {
     @DisplayName("RECEPTIONIST được phép xem ảnh nhưng KHÔNG được phép upload ảnh")
     void uploadImages_receptionistRole_denied() {
         assertDoesNotThrow(() -> controller.getImages((short) 1));
-        assertThrows(Exception.class, () -> controller.uploadImages((short) 1, List.of(sampleFile), null));
+        assertThrows(Exception.class, () -> controller.uploadImages((short) 1, List.of(sampleFile)));
     }
 
     @Test
     @WithMockUser(roles = "CUSTOMER")
     @DisplayName("CUSTOMER bị từ chối khi gọi API quản lý ảnh")
     void uploadImages_customerRole_denied() {
-        assertThrows(Exception.class, () -> controller.uploadImages((short) 1, List.of(sampleFile), null));
+        assertThrows(Exception.class, () -> controller.uploadImages((short) 1, List.of(sampleFile)));
         assertThrows(Exception.class, () -> controller.setPrimaryImage((short) 1, 100L));
         assertThrows(Exception.class, () -> controller.deleteImage((short) 1, 100L));
     }
