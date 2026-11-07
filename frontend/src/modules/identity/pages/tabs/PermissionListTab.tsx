@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, RefreshCw, Key, ShieldCheck } from 'lucide-react';
+import { Search, RefreshCw, Plus, Trash2, Pen, ShieldCheck, AlertCircle } from 'lucide-react';
 import Button from '../../../../core/components/ui/Button';
 import Input from '../../../../core/components/ui/Input';
 import Select from '../../../../core/components/ui/Select';
+import Modal, { ConfirmModal } from '../../../../core/components/ui/Modal';
 import Pagination from '../../../../core/components/ui/Pagination';
 import permissionService from '../../services/permission.service';
 import type { PermissionDto } from '../../types/role.types';
@@ -16,40 +17,72 @@ export const PermissionListTab: React.FC = () => {
   const [keyword, setKeyword] = useState('');
   const [selectedResource, setSelectedResource] = useState<string>('');
   const [selectedAction, setSelectedAction] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Danh sách các resources để đưa vào dropdown filter
-  const resourceOptions = useMemo(() => {
-    return [
-      { value: '', label: 'Tất cả Module / Tài nguyên' },
-      { value: 'BOOKING', label: 'BOOKING (Đơn đặt phòng)' },
-      { value: 'STAFF', label: 'STAFF (Nhân sự & Tài khoản)' },
-      { value: 'PROPERTY', label: 'PROPERTY (Khách sạn cơ sở)' },
-      { value: 'INVENTORY', label: 'INVENTORY (Quỹ phòng & Tồn)' },
-      { value: 'PRICING', label: 'PRICING (Bảng giá & Phụ thu)' },
-      { value: 'GUEST', label: 'GUEST (Hồ sơ Khách lưu trú)' },
-      { value: 'CHAIN_DASHBOARD', label: 'CHAIN_DASHBOARD (Báo cáo Chuỗi)' },
-      { value: 'REGION_DASHBOARD', label: 'REGION_DASHBOARD (Báo cáo Vùng)' },
-      { value: 'PROPERTY_DASHBOARD', label: 'PROPERTY_DASHBOARD (Báo cáo Khách sạn)' },
-      { value: 'SERVICE_ORDER', label: 'SERVICE_ORDER (Dịch vụ phòng)' },
-      { value: 'ROOM_STATUS', label: 'ROOM_STATUS (Trạng thái phòng)' },
-      { value: 'MAINTENANCE_TICKET', label: 'MAINTENANCE_TICKET (Bảo trì)' },
-    ];
+  // Dynamic lists from backend
+  const [availableResources, setAvailableResources] = useState<string[]>([]);
+  const [availableActions, setAvailableActions] = useState<string[]>([]);
+
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+
+  // Create / Edit Modal State
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [editingPermission, setEditingPermission] = useState<PermissionDto | null>(null);
+  const [formResource, setFormResource] = useState('');
+  const [formAction, setFormAction] = useState('');
+  const [formStatus, setFormStatus] = useState('ACTIVE');
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Delete Confirmation State
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<number[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Load distinct filter options on mount
+  const loadFilterOptions = useCallback(async () => {
+    try {
+      const [resResources, resActions] = await Promise.all([
+        permissionService.getResources().catch(() => null),
+        permissionService.getActions().catch(() => null),
+      ]);
+      if (resResources?.result) setAvailableResources(resResources.result);
+      if (resActions?.result) setAvailableActions(resActions.result);
+    } catch (err) {
+      console.warn('Không thể tải danh sách tài nguyên/hành động động:', err);
+    }
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void loadFilterOptions();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loadFilterOptions]);
+
+  // Dropdown options
+  const resourceOptions = useMemo(() => {
+    const list = availableResources.map((res) => ({ value: res, label: res }));
+    return [{ value: '', label: 'Tất cả Module / Tài nguyên' }, ...list];
+  }, [availableResources]);
+
   const actionOptions = useMemo(() => {
-    return [
-      { value: '', label: 'Tất cả Hành động (Actions)' },
-      { value: 'VIEW', label: 'VIEW (Xem / Tra cứu)' },
-      { value: 'CREATE', label: 'CREATE (Thêm mới)' },
-      { value: 'UPDATE', label: 'UPDATE (Chỉnh sửa / Cập nhật)' },
-      { value: 'CANCEL', label: 'CANCEL (Hủy bỏ)' },
-      { value: 'DELETE', label: 'DELETE (Xóa)' },
-    ];
-  }, []);
+    const list = availableActions.map((act) => ({ value: act, label: act }));
+    return [{ value: '', label: 'Tất cả Hành động (Actions)' }, ...list];
+  }, [availableActions]);
+
+  const statusOptions = useMemo(() => [
+    { value: '', label: 'Tất cả trạng thái' },
+    { value: 'ACTIVE', label: 'Kích hoạt (ACTIVE)' },
+    { value: 'INACTIVE', label: 'Tạm khóa (INACTIVE)' },
+  ], []);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
+    setDeleteError(null);
     try {
       const response = await permissionService.filter({
         page,
@@ -57,6 +90,7 @@ export const PermissionListTab: React.FC = () => {
         keyword: keyword.trim() || undefined,
         resource: selectedResource || undefined,
         action: selectedAction || undefined,
+        status: selectedStatus || undefined,
       });
 
       if (response?.result) {
@@ -69,7 +103,7 @@ export const PermissionListTab: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, keyword, selectedResource, selectedAction]);
+  }, [page, pageSize, keyword, selectedResource, selectedAction, selectedStatus]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -88,7 +122,122 @@ export const PermissionListTab: React.FC = () => {
     setKeyword('');
     setSelectedResource('');
     setSelectedAction('');
+    setSelectedStatus('');
     setPage(0);
+  };
+
+  // Selection handlers
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(permissions.map((p) => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Modal open handlers
+  const openCreateModal = () => {
+    setEditingPermission(null);
+    setFormResource('');
+    setFormAction('');
+    setFormStatus('ACTIVE');
+    setFormError(null);
+    setIsFormModalOpen(true);
+  };
+
+  const openEditModal = (p: PermissionDto) => {
+    setEditingPermission(p);
+    setFormResource(p.resource);
+    setFormAction(p.action);
+    setFormStatus(p.status || 'ACTIVE');
+    setFormError(null);
+    setIsFormModalOpen(true);
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanResource = formResource.trim().toUpperCase();
+    const cleanAction = formAction.trim().toUpperCase();
+
+    if (!cleanResource) {
+      setFormError('Vui lòng nhập tên tài nguyên (resource).');
+      return;
+    }
+    if (!cleanAction) {
+      setFormError('Vui lòng nhập tên hành động (action).');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormError(null);
+    try {
+      if (editingPermission) {
+        await permissionService.update(editingPermission.id, {
+          resource: cleanResource,
+          action: cleanAction,
+          status: formStatus,
+        });
+      } else {
+        await permissionService.create({
+          resource: cleanResource,
+          action: cleanAction,
+          status: formStatus,
+        });
+      }
+
+      setIsFormModalOpen(false);
+      void loadData();
+      void loadFilterOptions();
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setFormError(
+        errObj.response?.data?.message ||
+          'Không thể lưu quyền hạn. Cặp (hành động, tài nguyên) có thể đã tồn tại.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Delete handlers
+  const openDeleteOne = (id: number) => {
+    setDeletingIds([id]);
+    setDeleteError(null);
+    setDeleteConfirmOpen(true);
+  };
+
+  const openDeleteBatch = () => {
+    if (selectedIds.length === 0) return;
+    setDeletingIds(selectedIds);
+    setDeleteError(null);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deletingIds.length === 0) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await permissionService.deleteBatch(deletingIds);
+      setDeleteConfirmOpen(false);
+      setSelectedIds([]);
+      void loadData();
+      void loadFilterOptions();
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      setDeleteError(
+        errObj.response?.data?.message ||
+          'Không thể xóa quyền hạn. Quyền hạn này đang được gán cho vai trò hoạt động trong hệ thống.'
+      );
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const getActionBadgeColor = (action: string) => {
@@ -102,13 +251,46 @@ export const PermissionListTab: React.FC = () => {
       case 'CANCEL':
       case 'DELETE':
         return 'bg-red-50 text-red-700 border-red-200';
+      case 'EXECUTE':
+      case 'MANAGE':
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       default:
         return 'bg-neutral-100 text-neutral-700 border-neutral-200';
     }
   };
 
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '---';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="space-y-4 animate-in fade-in duration-150">
+      {/* Alert banner if delete failed due to integrity constraint */}
+      {deleteError && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{deleteError}</span>
+          </div>
+          <button
+            onClick={() => setDeleteError(null)}
+            className="text-red-500 hover:text-red-700 font-bold ml-4"
+          >
+            Đóng
+          </button>
+        </div>
+      )}
+
       {/* STANDARD 3-ROW LAYOUT */}
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden">
         {/* ROW 1: SEARCH & FILTER BAR */}
@@ -125,7 +307,7 @@ export const PermissionListTab: React.FC = () => {
             />
           </div>
 
-          <div className="w-full md:w-56">
+          <div className="w-full md:w-52">
             <Select<string>
               value={selectedResource}
               onChange={(val) => {
@@ -136,7 +318,7 @@ export const PermissionListTab: React.FC = () => {
             />
           </div>
 
-          <div className="w-full md:w-48">
+          <div className="w-full md:w-44">
             <Select<string>
               value={selectedAction}
               onChange={(val) => {
@@ -144,6 +326,17 @@ export const PermissionListTab: React.FC = () => {
                 setPage(0);
               }}
               options={actionOptions}
+            />
+          </div>
+
+          <div className="w-full md:w-40">
+            <Select<string>
+              value={selectedStatus}
+              onChange={(val) => {
+                setSelectedStatus(val);
+                setPage(0);
+              }}
+              options={statusOptions}
             />
           </div>
 
@@ -171,21 +364,31 @@ export const PermissionListTab: React.FC = () => {
         {/* ROW 2: ACTION TOOLBAR */}
         <div className="px-5 py-3.5 border-b border-neutral-200 bg-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="p-1.5 bg-neutral-100 text-neutral-700 rounded-lg">
-              <Key className="w-4 h-4" />
-            </span>
-            <div>
-              <span className="text-xs font-bold text-neutral-900 uppercase tracking-wider">
-                Danh mục đặc quyền hệ thống
-              </span>
-              <p className="text-[11px] text-neutral-500">
-                Các quyền hạn được gắn cứng với API endpoints và cơ chế kiểm soát truy cập `@PreAuthorize`
-              </p>
-            </div>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={openCreateModal}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-4 rounded-xl shadow-xs text-xs"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              Thêm quyền hạn mới
+            </Button>
+
+            {selectedIds.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openDeleteBatch}
+                className="h-10 px-3.5 rounded-xl text-red-600 border-red-200 hover:bg-red-50 text-xs font-bold transition-colors"
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />
+                Xóa đã chọn ({selectedIds.length})
+              </Button>
+            )}
           </div>
 
           <div className="text-xs font-semibold text-neutral-600 bg-neutral-100 px-3 py-1.5 rounded-full self-end sm:self-auto">
-            Tổng cộng: <span className="font-bold text-neutral-900">{totalElements}</span> quyền hạn
+            Tổng số: <span className="font-bold text-neutral-900">{totalElements}</span> quyền hạn
           </div>
         </div>
 
@@ -194,18 +397,32 @@ export const PermissionListTab: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-neutral-50/80 border-b border-neutral-200 text-[11px] font-bold text-neutral-600 uppercase tracking-wider">
-                <th className="p-3.5 pl-5">Tài nguyên (Resource)</th>
+                <th className="p-3.5 pl-5 w-10">
+                  <input
+                    type="checkbox"
+                    className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
+                    checked={
+                      permissions.length > 0 &&
+                      selectedIds.length === permissions.length
+                    }
+                    onChange={handleSelectAll}
+                  />
+                </th>
+                <th className="p-3.5 w-16">ID</th>
+                <th className="p-3.5">Tài nguyên (Resource)</th>
                 <th className="p-3.5">Hành động</th>
                 <th className="p-3.5">Mã quyền RBAC</th>
                 <th className="p-3.5">Mô tả nghiệp vụ</th>
                 <th className="p-3.5">Vai trò đang sở hữu</th>
-                <th className="p-3.5 text-center pr-5">Trạng thái</th>
+                <th className="p-3.5 text-center">Trạng thái</th>
+                <th className="p-3.5">Ngày cập nhật</th>
+                <th className="p-3.5 text-center pr-5 w-24">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-neutral-400">
+                  <td colSpan={10} className="text-center py-12 text-neutral-400">
                     <div className="inline-flex items-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-red-600" />
                       <span>Đang tải danh mục quyền hạn...</span>
@@ -214,15 +431,33 @@ export const PermissionListTab: React.FC = () => {
                 </tr>
               ) : permissions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-neutral-400">
+                  <td colSpan={10} className="text-center py-12 text-neutral-400">
                     Không tìm thấy quyền hạn nào phù hợp với bộ lọc.
                   </td>
                 </tr>
               ) : (
                 permissions.map((p) => {
+                  const isChecked = selectedIds.includes(p.id);
+                  const isInactive = p.status?.toUpperCase() === 'INACTIVE';
                   return (
-                    <tr key={p.id} className="hover:bg-neutral-50/60 transition-colors">
-                      <td className="p-3.5 pl-5 font-bold text-neutral-900">
+                    <tr
+                      key={p.id}
+                      className={`hover:bg-neutral-50/60 transition-colors ${
+                        isChecked ? 'bg-red-50/30' : ''
+                      }`}
+                    >
+                      <td className="p-3.5 pl-5">
+                        <input
+                          type="checkbox"
+                          className="rounded text-red-600 focus:ring-red-500 w-4 h-4 cursor-pointer"
+                          checked={isChecked}
+                          onChange={() => handleSelectOne(p.id)}
+                        />
+                      </td>
+                      <td className="p-3.5 font-mono text-neutral-500 text-[11px]">
+                        #{p.id}
+                      </td>
+                      <td className="p-3.5 font-bold text-neutral-900">
                         <span className="inline-flex items-center gap-1.5">
                           <ShieldCheck className="w-4 h-4 text-neutral-400 shrink-0" />
                           {p.resource}
@@ -256,13 +491,44 @@ export const PermissionListTab: React.FC = () => {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-neutral-400 italic text-[11px]">Chưa gán vai trò nào</span>
+                          <span className="text-neutral-400 italic text-[11px]">
+                            Chưa gán vai trò nào
+                          </span>
                         )}
                       </td>
-                      <td className="p-3.5 text-center pr-5">
-                        <span className="inline-block px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200">
-                          Kích hoạt
+                      <td className="p-3.5 text-center">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 text-[11px] font-bold rounded-full border ${
+                            isInactive
+                              ? 'bg-neutral-100 text-neutral-600 border-neutral-300'
+                              : 'bg-green-50 text-green-700 border-green-200'
+                          }`}
+                        >
+                          {isInactive ? 'Tạm khóa' : 'Kích hoạt'}
                         </span>
+                      </td>
+                      <td className="p-3.5 text-neutral-500 text-[11px]">
+                        {formatDate(p.updatedAt)}
+                      </td>
+                      <td className="p-3.5 text-center pr-5">
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(p)}
+                            className="p-1.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors"
+                            title="Chỉnh sửa quyền hạn"
+                          >
+                            <Pen className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openDeleteOne(p.id)}
+                            className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Xóa quyền hạn"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -281,6 +547,107 @@ export const PermissionListTab: React.FC = () => {
           onPageChange={(newPage) => setPage(newPage)}
         />
       </div>
+
+      {/* CREATE / EDIT MODAL */}
+      <Modal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        title={editingPermission ? 'Chỉnh sửa Quyền hạn Hệ thống' : 'Thêm mới Quyền hạn Hệ thống'}
+      >
+        <form onSubmit={handleFormSubmit} className="space-y-4">
+          {formError && (
+            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+              Tài nguyên (Resource) <span className="text-red-600">*</span>
+            </label>
+            <Input
+              placeholder="VD: BOOKING, STAFF, GUEST..."
+              value={formResource}
+              onChange={(e) => setFormResource(e.target.value)}
+              className="uppercase font-mono"
+              required
+            />
+            <p className="text-[11px] text-neutral-500 mt-1">
+              Nhập mã phân hệ hoặc module chức năng (viết hoa, không dấu, phân cách bằng dấu gạch dưới).
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+              Hành động (Action) <span className="text-red-600">*</span>
+            </label>
+            <Input
+              placeholder="VD: VIEW, CREATE, UPDATE, DELETE..."
+              value={formAction}
+              onChange={(e) => setFormAction(e.target.value)}
+              className="uppercase font-mono"
+              required
+            />
+            <p className="text-[11px] text-neutral-500 mt-1">
+              Hành động thực thi: VIEW, CREATE, UPDATE, DELETE, EXECUTE, MANAGE, REFUND...
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+              Trạng thái
+            </label>
+            <Select<string>
+              value={formStatus}
+              onChange={(val) => setFormStatus(val)}
+              options={[
+                { value: 'ACTIVE', label: 'Kích hoạt (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm khóa (INACTIVE)' },
+              ]}
+            />
+          </div>
+
+          {formResource && formAction && (
+            <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs">
+              <span className="text-neutral-500">Mã quyền RBAC dự kiến: </span>
+              <span className="font-mono font-bold text-neutral-900">
+                ROLE_{formResource.trim().toUpperCase()}_{formAction.trim().toUpperCase()}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsFormModalOpen(false)}
+              className="text-neutral-600"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmitting}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              {editingPermission ? 'Lưu thay đổi' : 'Tạo quyền hạn'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      <ConfirmModal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        title="Xác nhận xóa quyền hạn"
+        description={`Bạn có chắc chắn muốn xóa ${deletingIds.length} quyền hạn đã chọn? Lưu ý: Nếu quyền hạn đang được bất kỳ vai trò nào sử dụng, hệ thống sẽ từ chối xóa để đảm bảo an toàn.`}
+        confirmText="Xác nhận xóa"
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

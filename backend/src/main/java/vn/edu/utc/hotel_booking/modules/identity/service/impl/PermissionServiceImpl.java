@@ -12,7 +12,9 @@ import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.PermissionCreateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.PermissionSearchDto;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.PermissionUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.PermissionResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Permission;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Role;
@@ -35,18 +37,19 @@ public class PermissionServiceImpl implements PermissionService {
 
     @Override
     public PageResponse<PermissionResponse> filter(PermissionSearchDto searchDto) {
-        int page = searchDto.getPage() != null && searchDto.getPage() >= 0 ? searchDto.getPage() : 0;
-        int pageSize = searchDto.getPageSize() != null && searchDto.getPageSize() > 0 ? searchDto.getPageSize() : 50;
-        String sortBy = StringUtils.hasText(searchDto.getSortBy()) ? searchDto.getSortBy() : "resource";
-        Sort.Direction direction = "DESC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        int page = searchDto != null && searchDto.getPage() != null && searchDto.getPage() >= 0 ? searchDto.getPage() : 0;
+        int pageSize = searchDto != null && searchDto.getPageSize() != null && searchDto.getPageSize() > 0 ? searchDto.getPageSize() : 50;
+        String sortBy = searchDto != null && StringUtils.hasText(searchDto.getSortBy()) ? searchDto.getSortBy() : "resource";
+        Sort.Direction direction = searchDto != null && "DESC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.DESC : Sort.Direction.ASC;
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
 
-        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : null;
-        String resource = StringUtils.hasText(searchDto.getResource()) ? searchDto.getResource().trim() : null;
-        String action = StringUtils.hasText(searchDto.getAction()) ? searchDto.getAction().trim() : null;
+        String keyword = searchDto != null && StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : null;
+        String resource = searchDto != null && StringUtils.hasText(searchDto.getResource()) ? searchDto.getResource().trim().toUpperCase() : null;
+        String action = searchDto != null && StringUtils.hasText(searchDto.getAction()) ? searchDto.getAction().trim().toUpperCase() : null;
+        String status = searchDto != null && StringUtils.hasText(searchDto.getStatus()) ? searchDto.getStatus().trim().toUpperCase() : null;
 
-        Page<Permission> pageResult = permissionRepository.searchPermissions(keyword, resource, action, "ACTIVE", pageable);
+        Page<Permission> pageResult = permissionRepository.searchPermissions(keyword, resource, action, status, pageable);
 
         Map<Short, List<Role>> permRoleMap = roleLookupService.getPermissionRoleMap();
         Page<PermissionResponse> responsePage = pageResult.map(p -> toEnhancedResponse(p, permRoleMap));
@@ -81,6 +84,79 @@ public class PermissionServiceImpl implements PermissionService {
         }
         return permissionRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
+    }
+
+    @Override
+    @Transactional
+    public PermissionResponse create(PermissionCreateRequest request) {
+        String action = request.getAction().trim().toUpperCase();
+        String resource = request.getResource().trim().toUpperCase();
+
+        if (permissionRepository.existsByActionAndResourceAndIsDeletedFalse(action, resource)) {
+            throw new AppException(ErrorCode.PERMISSION_ALREADY_EXISTS);
+        }
+
+        Permission permission = permissionMapper.toEntity(request);
+        permission.setAction(action);
+        permission.setResource(resource);
+        if (!StringUtils.hasText(permission.getStatus())) {
+            permission.setStatus("ACTIVE");
+        } else {
+            permission.setStatus(permission.getStatus().trim().toUpperCase());
+        }
+
+        Permission saved = permissionRepository.save(permission);
+        log.info("Đã tạo mới quyền hạn: id={}, action={}, resource={}", saved.getId(), saved.getAction(), saved.getResource());
+        return toEnhancedResponse(saved, roleLookupService.getPermissionRoleMap());
+    }
+
+    @Override
+    @Transactional
+    public PermissionResponse update(Short id, PermissionUpdateRequest request) {
+        Permission permission = permissionRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
+
+        String action = request.getAction().trim().toUpperCase();
+        String resource = request.getResource().trim().toUpperCase();
+
+        if (permissionRepository.existsByActionAndResourceAndIdNotAndIsDeletedFalse(action, resource, id)) {
+            throw new AppException(ErrorCode.PERMISSION_ALREADY_EXISTS);
+        }
+
+        permission.setAction(action);
+        permission.setResource(resource);
+        if (StringUtils.hasText(request.getStatus())) {
+            permission.setStatus(request.getStatus().trim().toUpperCase());
+        }
+
+        Permission updated = permissionRepository.save(permission);
+        log.info("Đã cập nhật quyền hạn: id={}, action={}, resource={}, status={}", updated.getId(), updated.getAction(), updated.getResource(), updated.getStatus());
+        return toEnhancedResponse(updated, roleLookupService.getPermissionRoleMap());
+    }
+
+    @Override
+    @Transactional
+    public void deleteBatch(List<Short> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return;
+        }
+
+        if (permissionRepository.hasActiveRolesUsingPermissions(ids)) {
+            throw new AppException(ErrorCode.PERMISSION_IN_USE);
+        }
+
+        int count = permissionRepository.softDeleteBatch(ids);
+        log.info("Đã xóa mềm {} quyền hạn với danh sách IDs: {}", count, ids);
+    }
+
+    @Override
+    public List<String> getAllResources() {
+        return permissionRepository.findDistinctResources();
+    }
+
+    @Override
+    public List<String> getAllActions() {
+        return permissionRepository.findDistinctActions();
     }
 
     private PermissionResponse toEnhancedResponse(Permission permission, Map<Short, List<Role>> permRoleMap) {
@@ -127,6 +203,36 @@ public class PermissionServiceImpl implements PermissionService {
                 case "UPDATE" -> "Cập nhật thông tin khách lưu trú";
                 default -> "Quản lý hồ sơ khách hàng";
             };
+            case "PAYMENT" -> switch (act) {
+                case "VIEW" -> "Tra cứu giao dịch và lịch sử thanh toán";
+                case "CREATE" -> "Tạo giao dịch thanh toán hoặc thu tiền";
+                case "REFUND" -> "Hoàn tiền giao dịch cho khách";
+                default -> "Quản lý thanh toán";
+            };
+            case "INVOICE" -> act.equals("CREATE") ? "Xuất hóa đơn dịch vụ" : "Tra cứu hóa đơn và chứng từ";
+            case "NIGHT_AUDIT" -> act.equals("EXECUTE") ? "Thực thi khóa sổ và kiểm toán đêm" : "Xem báo cáo kiểm toán đêm";
+            case "COMPANY" -> switch (act) {
+                case "VIEW" -> "Tra cứu danh sách doanh nghiệp đối tác";
+                case "CREATE" -> "Thêm mới hồ sơ doanh nghiệp";
+                case "UPDATE" -> "Cập nhật thông tin doanh nghiệp";
+                default -> "Quản lý đối tác doanh nghiệp";
+            };
+            case "MENU" -> switch (act) {
+                case "VIEW" -> "Xem thực đơn F&B và dịch vụ";
+                case "CREATE" -> "Thêm món mới vào thực đơn";
+                case "UPDATE" -> "Cập nhật giá và trạng thái món";
+                default -> "Quản lý thực đơn F&B";
+            };
+            case "ROOM_INSTANCE" -> "Tra cứu và quản lý phòng vật lý cụ thể";
+            case "ROLE" -> "Quản trị vai trò và phân quyền hệ thống";
+            case "UTILITY" -> switch (act) {
+                case "VIEW" -> "Tra cứu đồng hồ và chỉ số điện nước";
+                case "CREATE" -> "Ghi nhận chỉ số tiêu thụ tiện ích mới";
+                case "UPDATE" -> "Điều chỉnh chỉ số điện nước";
+                default -> "Quản lý tiện ích điện nước";
+            };
+            case "PAYROLL" -> "Nhập liệu và xem bảng lương nhân sự";
+            case "LODGING" -> "Khai báo và xuất dữ liệu lưu trú cho cơ quan chức năng";
             default -> act + " " + res;
         };
     }

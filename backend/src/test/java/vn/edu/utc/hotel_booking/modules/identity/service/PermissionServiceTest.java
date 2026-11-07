@@ -13,7 +13,9 @@ import org.springframework.data.domain.Pageable;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.PermissionCreateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.PermissionSearchDto;
+import vn.edu.utc.hotel_booking.modules.identity.dto.request.PermissionUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.PermissionResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Permission;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.PermissionMapper;
@@ -84,7 +86,7 @@ class PermissionServiceTest {
                 .build();
 
         Page<Permission> page = new PageImpl<>(List.of(p1, p2));
-        when(permissionRepository.searchPermissions(eq("ROOM"), isNull(), isNull(), eq("ACTIVE"), any(Pageable.class)))
+        when(permissionRepository.searchPermissions(eq("ROOM"), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(page);
         when(roleLookupService.getPermissionRoleMap()).thenReturn(Collections.emptyMap());
         when(permissionMapper.toResponse(p1)).thenReturn(res1);
@@ -150,5 +152,134 @@ class PermissionServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERMISSION_NOT_FOUND);
         verify(permissionRepository, never()).findByIdAndIsDeletedFalse(any());
+    }
+
+    @Test
+    @DisplayName("Happy path: Tạo mới quyền hạn thành công")
+    void create_Success() {
+        PermissionCreateRequest request = PermissionCreateRequest.builder()
+                .resource("ROOM")
+                .action("VIEW")
+                .status("ACTIVE")
+                .build();
+
+        when(permissionRepository.existsByActionAndResourceAndIsDeletedFalse("VIEW", "ROOM")).thenReturn(false);
+        when(permissionMapper.toEntity(request)).thenReturn(p1);
+        when(permissionRepository.save(any(Permission.class))).thenReturn(p1);
+        when(roleLookupService.getPermissionRoleMap()).thenReturn(Collections.emptyMap());
+        when(permissionMapper.toResponse(p1)).thenReturn(res1);
+
+        PermissionResponse response = permissionService.create(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getAction()).isEqualTo("VIEW");
+        verify(permissionRepository).save(any(Permission.class));
+    }
+
+    @Test
+    @DisplayName("Error path: Ném PERMISSION_ALREADY_EXISTS khi cặp (action, resource) đã tồn tại")
+    void create_Duplicate_ThrowsException() {
+        PermissionCreateRequest request = PermissionCreateRequest.builder()
+                .resource("ROOM")
+                .action("VIEW")
+                .build();
+
+        when(permissionRepository.existsByActionAndResourceAndIsDeletedFalse("VIEW", "ROOM")).thenReturn(true);
+
+        AppException exception = assertThrows(AppException.class, () -> permissionService.create(request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERMISSION_ALREADY_EXISTS);
+        verify(permissionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Happy path: Cập nhật quyền hạn thành công")
+    void update_Success() {
+        PermissionUpdateRequest request = PermissionUpdateRequest.builder()
+                .resource("ROOM")
+                .action("UPDATE")
+                .status("ACTIVE")
+                .build();
+
+        when(permissionRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(p1));
+        when(permissionRepository.existsByActionAndResourceAndIdNotAndIsDeletedFalse("UPDATE", "ROOM", (short) 1)).thenReturn(false);
+        when(permissionRepository.save(any(Permission.class))).thenReturn(p1);
+        when(roleLookupService.getPermissionRoleMap()).thenReturn(Collections.emptyMap());
+        when(permissionMapper.toResponse(p1)).thenReturn(res1);
+
+        PermissionResponse response = permissionService.update((short) 1, request);
+
+        assertThat(response).isNotNull();
+        verify(permissionRepository).save(p1);
+    }
+
+    @Test
+    @DisplayName("Error path: Ném PERMISSION_NOT_FOUND khi cập nhật quyền không tồn tại")
+    void update_NotFound_ThrowsException() {
+        PermissionUpdateRequest request = PermissionUpdateRequest.builder()
+                .resource("ROOM")
+                .action("UPDATE")
+                .build();
+
+        when(permissionRepository.findByIdAndIsDeletedFalse((short) 99)).thenReturn(Optional.empty());
+
+        AppException exception = assertThrows(AppException.class, () -> permissionService.update((short) 99, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERMISSION_NOT_FOUND);
+        verify(permissionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Error path: Ném PERMISSION_ALREADY_EXISTS khi cập nhật trùng lặp với quyền khác")
+    void update_Duplicate_ThrowsException() {
+        PermissionUpdateRequest request = PermissionUpdateRequest.builder()
+                .resource("ROOM")
+                .action("CREATE")
+                .build();
+
+        when(permissionRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(p1));
+        when(permissionRepository.existsByActionAndResourceAndIdNotAndIsDeletedFalse("CREATE", "ROOM", (short) 1)).thenReturn(true);
+
+        AppException exception = assertThrows(AppException.class, () -> permissionService.update((short) 1, request));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERMISSION_ALREADY_EXISTS);
+        verify(permissionRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Happy path: Xóa mềm danh sách quyền hạn khi không bị vai trò nào sử dụng")
+    void deleteBatch_Success() {
+        List<Short> ids = List.of((short) 1, (short) 2);
+        when(permissionRepository.hasActiveRolesUsingPermissions(ids)).thenReturn(false);
+        when(permissionRepository.softDeleteBatch(ids)).thenReturn(2);
+
+        permissionService.deleteBatch(ids);
+
+        verify(permissionRepository).softDeleteBatch(ids);
+    }
+
+    @Test
+    @DisplayName("Error path: Ném PERMISSION_IN_USE khi quyền hạn đang được gán cho vai trò")
+    void deleteBatch_InUse_ThrowsException() {
+        List<Short> ids = List.of((short) 1);
+        when(permissionRepository.hasActiveRolesUsingPermissions(ids)).thenReturn(true);
+
+        AppException exception = assertThrows(AppException.class, () -> permissionService.deleteBatch(ids));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PERMISSION_IN_USE);
+        verify(permissionRepository, never()).softDeleteBatch(any());
+    }
+
+    @Test
+    @DisplayName("Happy path: Lấy danh sách tài nguyên và hành động động")
+    void getDistinctResourcesAndActions_Success() {
+        when(permissionRepository.findDistinctResources()).thenReturn(List.of("BOOKING", "STAFF"));
+        when(permissionRepository.findDistinctActions()).thenReturn(List.of("VIEW", "CREATE"));
+
+        List<String> resources = permissionService.getAllResources();
+        List<String> actions = permissionService.getAllActions();
+
+        assertThat(resources).containsExactly("BOOKING", "STAFF");
+        assertThat(actions).containsExactly("VIEW", "CREATE");
     }
 }
