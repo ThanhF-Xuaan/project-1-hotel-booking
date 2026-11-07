@@ -147,54 +147,41 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
         return
       }
 
-      // 3. Xử lý Backspace khi đứng ngay sau dấu chấm '.'
-      if (e.key === 'Backspace') {
-        if (selStart === selEnd && selStart > 1 && inputEl.value[selStart - 1] === '.') {
-          e.preventDefault()
-          const curVal = inputEl.value
-          // Xóa chữ số đứng trước dấu chấm (vị trí selStart - 2)
-          const nextVal = curVal.slice(0, selStart - 2) + curVal.slice(selStart - 1)
-          const cleanDigits = nextVal.replace(/[^\d]/g, '').slice(0, maxDigits)
-          const num = cleanDigits ? parseCurrency(cleanDigits) : 0
-          const formatted = cleanDigits
-            ? num === 0
-              ? '0'
-              : formatCurrencyInput(cleanDigits)
-            : ''
+      // 3. Xử lý đồng nhất cho cả Backspace và Delete:
+      // Xóa chữ số phía trước con trỏ chuột (ngăn việc bấm Delete lại xóa ký tự phía sau con trỏ)
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault()
+        const curVal = inputEl.value
 
-          const targetDigits = curVal
-            .slice(0, selStart - 2)
-            .replace(/[^\d]/g, '').length
+        let nextVal: string
+        let targetDigits: number
 
-          cursorDigitsRef.current = targetDigits
-          setDisplayValue(formatted)
-          onChangeValue?.(num)
+        if (selStart !== selEnd) {
+          // Xóa vùng đang bôi đen chọn
+          nextVal = curVal.slice(0, selStart) + curVal.slice(selEnd)
+          targetDigits = curVal.slice(0, selStart).replace(/[^\d]/g, '').length
+        } else if (selStart > 0) {
+          if (curVal[selStart - 1] === '.') {
+            // Đứng sau dấu chấm '.', xóa chữ số đứng trước dấu chấm
+            nextVal = curVal.slice(0, selStart - 2) + curVal.slice(selStart - 1)
+            targetDigits = curVal.slice(0, selStart - 2).replace(/[^\d]/g, '').length
+          } else {
+            // Xóa chữ số đứng ngay trước con trỏ
+            nextVal = curVal.slice(0, selStart - 1) + curVal.slice(selStart)
+            targetDigits = curVal.slice(0, selStart - 1).replace(/[^\d]/g, '').length
+          }
+        } else {
+          // Con trỏ đang ở đầu ô nhập (vị trí 0), không có gì để xóa
+          return
         }
-      }
 
-      // 4. Xử lý Delete khi đứng ngay trước dấu chấm '.'
-      if (e.key === 'Delete') {
-        if (selStart === selEnd && selStart < inputEl.value.length && inputEl.value[selStart] === '.') {
-          e.preventDefault()
-          const curVal = inputEl.value
-          // Xóa chữ số đứng sau dấu chấm (vị trí selStart + 1)
-          const nextVal = curVal.slice(0, selStart) + curVal.slice(selStart + 2)
-          const cleanDigits = nextVal.replace(/[^\d]/g, '').slice(0, maxDigits)
-          const num = cleanDigits ? parseCurrency(cleanDigits) : 0
-          const formatted = cleanDigits
-            ? num === 0
-              ? '0'
-              : formatCurrencyInput(cleanDigits)
-            : ''
+        const cleanDigits = nextVal.replace(/[^\d]/g, '').slice(0, maxDigits)
+        const num = cleanDigits ? parseCurrency(cleanDigits) : 0
+        const formatted = num > 0 ? formatCurrencyInput(cleanDigits) : ''
 
-          const targetDigits = curVal
-            .slice(0, selStart)
-            .replace(/[^\d]/g, '').length
-
-          cursorDigitsRef.current = targetDigits
-          setDisplayValue(formatted)
-          onChangeValue?.(num)
-        }
+        cursorDigitsRef.current = targetDigits
+        setDisplayValue(formatted)
+        onChangeValue?.(num)
       }
     }
 
