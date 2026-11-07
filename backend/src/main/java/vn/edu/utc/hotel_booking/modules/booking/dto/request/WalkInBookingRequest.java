@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.booking.dto.request;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -32,10 +33,12 @@ public class WalkInBookingRequest {
 
     // --- Khách hàng Doanh nghiệp (Company) ---
     Long companyId;
+    @Valid
     NewCompanyRequest newCompany;
 
     // --- Người đặt / Đại diện thanh toán (BookingGuest) ---
     Long guestId;
+    @Valid
     NewGuestRequest newGuest;
 
     @NotNull(message = "Ngày nhận phòng không được để trống")
@@ -72,6 +75,7 @@ public class WalkInBookingRequest {
         String taxCode;
         String address;
         String contactName;
+        @Pattern(regexp = "^$|^(0|\\+84)(2[0-9]{9}|[35789][0-9]{8})$", message = "Số điện thoại liên hệ doanh nghiệp không đúng định dạng")
         String contactPhone;
         String contactEmail;
     }
@@ -83,6 +87,7 @@ public class WalkInBookingRequest {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class NewGuestRequest {
         String fullName;
+        @Pattern(regexp = "^$|^(0|\\+84)(2[0-9]{9}|[35789][0-9]{8})$", message = "Số điện thoại khách không đúng định dạng")
         String phone;
         String email;
         String identityType;

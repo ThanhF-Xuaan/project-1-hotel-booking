@@ -28,6 +28,7 @@ import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service
 import roomInstanceService from '../../inventory/services/roomInstance.service';
 import bookingService from '../services/booking.service';
 import { apiClient } from '../../../core/api/client';
+import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone';
 import type { HotelDto } from '../../organization/types/organization.types';
 import type { HotelRoomTypeDto, RoomInstanceDto } from '../../inventory/types/inventory.types';
 import type {
@@ -469,8 +470,16 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     if (!leadGuest.phone.trim() || !leadGuest.fullName.trim()) {
       return setFormError('Vui lòng nhập số điện thoại và họ tên người đặt.');
     }
-    if (bookingType === 'CORPORATE' && !company.name.trim()) {
-      return setFormError('Đơn Doanh nghiệp yêu cầu nhập Tên công ty.');
+    if (!isValidVietnamesePhone(leadGuest.phone.trim())) {
+      return setFormError('Số điện thoại người đặt không đúng định dạng (VD: 0912345678 hoặc 02466668888).');
+    }
+    if (bookingType === 'CORPORATE') {
+      if (!company.name.trim()) {
+        return setFormError('Đơn Doanh nghiệp yêu cầu nhập Tên công ty.');
+      }
+      if (company.contactPhone.trim() && !isValidVietnamesePhone(company.contactPhone.trim())) {
+        return setFormError('Số điện thoại người liên hệ doanh nghiệp không hợp lệ (VD: 02462556789 hoặc 0912345678).');
+      }
     }
 
     setFormError(null);
@@ -591,14 +600,14 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               taxCode: company.taxCode,
               address: company.address,
               contactName: company.contactName,
-              contactPhone: company.contactPhone,
+              contactPhone: company.contactPhone ? cleanPhoneNumber(company.contactPhone) : undefined,
             }
             : undefined,
         guestId: leadGuest.id,
         newGuest: !leadGuest.id
           ? {
             fullName: leadGuest.fullName,
-            phone: leadGuest.phone,
+            phone: cleanPhoneNumber(leadGuest.phone),
             email: leadGuest.email,
             identityType: leadGuest.identityType,
             identityNumber: leadGuest.identityNumber,

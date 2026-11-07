@@ -29,6 +29,7 @@ public class HotelCreateRequest {
     String address;
 
     @Schema(description = "Số điện thoại liên hệ", example = "02466668888")
+    @Pattern(regexp = "^$|^(0|\\+84)(2[0-9]{9}|[35789][0-9]{8})$", message = "Số điện thoại không đúng định dạng (VD: 02466668888 hoặc 0912345678)")
     @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự")
     String phone;
 

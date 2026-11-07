@@ -9,6 +9,7 @@ import hotelService from '../services/hotel.service'
 import regionService from '../services/region.service'
 import roomTypeService from '../../inventory/services/roomType.service'
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service'
+import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone'
 import type { HotelDto, HotelCreateRequest, HotelUpdateRequest, RegionDto } from '../types/organization.types'
 import type { RoomTypeDto } from '../../inventory/types/inventory.types'
 
@@ -219,6 +220,10 @@ export const HotelListPage: React.FC = () => {
       setFormError('Vui lòng nhập địa chỉ')
       return
     }
+    if (formPhone.trim() && !isValidVietnamesePhone(formPhone.trim())) {
+      setFormError('Số điện thoại không hợp lệ (Ví dụ: 02466668888 đối với máy bàn hoặc 0912345678 đối với di động)')
+      return
+    }
     if (selectedRoomTypeIds.length === 0) {
       setFormError('Vui lòng chọn ít nhất 1 loại phòng kinh doanh cho cơ sở')
       return
@@ -228,12 +233,13 @@ export const HotelListPage: React.FC = () => {
     setFormError(null)
     try {
       let hotelId: number
+      const sanitizedPhone = formPhone.trim() ? cleanPhoneNumber(formPhone.trim()) : undefined
       if (editingHotel) {
         const updatePayload: HotelUpdateRequest = {
           regionId: Number(formRegionId),
           name: formName.trim(),
           address: formAddress.trim(),
-          phone: formPhone.trim() || undefined,
+          phone: sanitizedPhone,
           checkInTime: formCheckInTime,
           checkOutTime: formCheckOutTime,
           serviceFeePercent: Number(formServiceFee),
@@ -246,7 +252,7 @@ export const HotelListPage: React.FC = () => {
           regionId: Number(formRegionId),
           name: formName.trim(),
           address: formAddress.trim(),
-          phone: formPhone.trim() || undefined,
+          phone: sanitizedPhone,
           checkInTime: formCheckInTime,
           checkOutTime: formCheckOutTime,
           serviceFeePercent: Number(formServiceFee),
@@ -597,6 +603,11 @@ export const HotelListPage: React.FC = () => {
               placeholder="VD: 02466668888"
               value={formPhone}
               onChange={(e) => setFormPhone(e.target.value)}
+              error={
+                formPhone.trim() && !isValidVietnamesePhone(formPhone.trim())
+                  ? 'Số điện thoại không hợp lệ (VD: 02466668888 hoặc 0912345678)'
+                  : undefined
+              }
             />
 
             <Input
