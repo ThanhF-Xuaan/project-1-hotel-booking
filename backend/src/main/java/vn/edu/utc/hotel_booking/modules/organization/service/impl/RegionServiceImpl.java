@@ -12,12 +12,14 @@ import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.identity.service.StaffLookupService;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.RegionCreateRequest;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.RegionSearchDto;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.RegionUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.organization.dto.response.RegionResponse;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Region;
 import vn.edu.utc.hotel_booking.modules.organization.mapper.RegionMapper;
+import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 import vn.edu.utc.hotel_booking.modules.organization.repository.RegionRepository;
 import vn.edu.utc.hotel_booking.modules.organization.service.RegionService;
 
@@ -30,6 +32,8 @@ import java.util.List;
 public class RegionServiceImpl implements RegionService {
 
     private final RegionRepository regionRepository;
+    private final HotelRepository hotelRepository;
+    private final StaffLookupService staffLookupService;
     private final RegionMapper regionMapper;
 
     @Override
@@ -102,6 +106,12 @@ public class RegionServiceImpl implements RegionService {
     public void deleteBatch(List<Short> ids) {
         if (ids == null || ids.isEmpty()) {
             return;
+        }
+        if (hotelRepository.existsByRegionIdInAndIsDeletedFalse(ids)) {
+            throw new AppException(ErrorCode.REGION_IN_USE);
+        }
+        if (staffLookupService.hasActiveStaffInRegions(ids)) {
+            throw new AppException(ErrorCode.REGION_HAS_ACTIVE_STAFF);
         }
         int count = regionRepository.softDeleteBatch(ids);
         log.info("Đã xóa mềm {} khu vực với danh sách IDs: {}", count, ids);

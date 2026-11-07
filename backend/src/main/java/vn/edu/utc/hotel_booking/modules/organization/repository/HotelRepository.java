@@ -33,5 +33,8 @@ public interface HotelRepository extends JpaRepository<Hotel, Short>, JpaSpecifi
 
     List<Hotel> findByRegionIdAndIsDeletedFalse(Short regionId);
 
+    @Query("SELECT COUNT(h) > 0 FROM Hotel h WHERE h.region.id IN :regionIds AND h.isDeleted = false")
+    boolean existsByRegionIdInAndIsDeletedFalse(@Param("regionIds") List<Short> regionIds);
+
     List<Hotel> findByIsDeletedFalse();
 }
