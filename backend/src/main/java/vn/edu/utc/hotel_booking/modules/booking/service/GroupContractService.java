@@ -18,6 +18,8 @@ public interface GroupContractService {
 
     PageResponse<GroupContractResponse> filterContracts(GroupContractSearchDto searchDto);
 
+    byte[] exportContractsToExcel(GroupContractSearchDto searchDto);
+
     GroupContractResponse getContractById(Long id);
 
     GroupContractResponse confirmDeposit(Long id, GroupContractDepositRequest request);

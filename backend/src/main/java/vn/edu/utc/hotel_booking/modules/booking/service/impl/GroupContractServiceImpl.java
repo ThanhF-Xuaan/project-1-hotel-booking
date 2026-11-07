@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.booking.service.impl;
 
 import jakarta.persistence.criteria.Predicate;
+import lombok.extern.slf4j.Slf4j;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -22,6 +23,7 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchD
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.GroupContractResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.GroupRoomBlockResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
+import vn.edu.utc.hotel_booking.modules.booking.export.GroupContractWorkbookWriter;
 import vn.edu.utc.hotel_booking.modules.booking.repository.GroupContractRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.GroupContractService;
 import vn.edu.utc.hotel_booking.modules.booking.service.GroupInquiryService;
@@ -36,6 +38,8 @@ import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -47,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -59,6 +64,7 @@ public class GroupContractServiceImpl implements GroupContractService {
     CompanyService companyService;
     StaffLookupService staffLookupService;
     MasterFolioService masterFolioService;
+    GroupContractWorkbookWriter groupContractWorkbookWriter;
 
     @Override
     @Transactional
@@ -306,6 +312,51 @@ public class GroupContractServiceImpl implements GroupContractService {
 
         Page<GroupContract> page = groupContractRepository.findAll(spec, pageable);
         return PageResponse.from(page.map(c -> mapToResponse(c, null)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportContractsToExcel(GroupContractSearchDto searchDto) {
+        GroupContractSearchDto filter = searchDto != null ? searchDto : new GroupContractSearchDto();
+        Sort sort = Sort.by(
+                "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
+                StringUtils.hasText(filter.getSortBy()) ? filter.getSortBy() : "id"
+        );
+        Specification<GroupContract> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.isFalse(root.get("isDeleted")));
+
+            if (filter.getHotelId() != null) {
+                predicates.add(cb.equal(root.get("hotel").get("id"), filter.getHotelId()));
+            }
+            if (StringUtils.hasText(filter.getContractNumber())) {
+                predicates.add(cb.like(cb.lower(root.get("contractNumber")), "%" + filter.getContractNumber().toLowerCase().trim() + "%"));
+            }
+            if (StringUtils.hasText(filter.getGroupName())) {
+                predicates.add(cb.like(cb.lower(root.get("groupName")), "%" + filter.getGroupName().toLowerCase().trim() + "%"));
+            }
+            if (filter.getStatus() != null) {
+                predicates.add(cb.equal(root.get("status"), filter.getStatus()));
+            }
+            if (filter.getCheckInDateFrom() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("checkInDate"), filter.getCheckInDateFrom()));
+            }
+            if (filter.getCheckInDateTo() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), filter.getCheckInDateTo()));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        List<GroupContract> contracts = groupContractRepository.findAll(spec, sort);
+
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            groupContractWorkbookWriter.write(contracts, bos);
+            return bos.toByteArray();
+        } catch (IOException e) {
+            log.error("Lỗi khi xuất file Excel báo cáo hợp đồng đoàn", e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Không thể xuất file Excel báo cáo hợp đồng đoàn");
+        }
     }
 
     @Override

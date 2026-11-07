@@ -18,6 +18,7 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlock;
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlockDaily;
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlockDailyStatus;
 import vn.edu.utc.hotel_booking.modules.booking.entity.GroupRoomBlockStatus;
+import vn.edu.utc.hotel_booking.modules.booking.export.GroupContractWorkbookWriter;
 import vn.edu.utc.hotel_booking.modules.booking.repository.GroupContractRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.GroupInquiryService;
 import vn.edu.utc.hotel_booking.modules.booking.service.impl.GroupContractServiceImpl;
@@ -69,6 +70,9 @@ class GroupContractServiceTest {
 
     @Mock
     private MasterFolioService masterFolioService;
+
+    @Mock
+    private GroupContractWorkbookWriter groupContractWorkbookWriter;
 
     @InjectMocks
     private GroupContractServiceImpl groupContractService;
@@ -232,7 +236,6 @@ class GroupContractServiceTest {
         verify(groupContractRepository, times(1)).save(contract);
         verifyNoInteractions(masterFolioService);
     }
-
     @Test
     @DisplayName("Ném lỗi khi số tiền thanh toán không đủ 50% giá trị cọc theo Điều 328 BLDS 2015")
     void confirmDeposit_whenAmountInsufficient_shouldThrowException() {
@@ -329,5 +332,30 @@ class GroupContractServiceTest {
         assertThat(block.getStatus()).isEqualTo(GroupRoomBlockStatus.CANCELLED);
         assertThat(daily.getStatus()).isEqualTo(GroupRoomBlockDailyStatus.EXPIRED);
         verify(groupContractRepository, times(1)).save(contract);
+    }
+
+    @Test
+    @DisplayName("exportContractsToExcel: Tìm kiếm theo spec và ghi dữ liệu ra workbook stream")
+    @SuppressWarnings("unchecked")
+    void exportContractsToExcel_shouldQueryRepositoryAndWriteToWorkbook() throws Exception {
+        GroupContract contract = GroupContract.builder()
+                .id(1L)
+                .contractNumber("GC-20261107-0001")
+                .groupName("Đoàn công tác Hà Nội")
+                .build();
+
+        when(groupContractRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Sort.class)))
+                .thenReturn(List.of(contract));
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchDto searchDto =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchDto.builder()
+                        .contractNumber("GC-20261107")
+                        .build();
+
+        byte[] result = groupContractService.exportContractsToExcel(searchDto);
+
+        assertThat(result).isNotNull();
+        verify(groupContractRepository, times(1)).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Sort.class));
+        verify(groupContractWorkbookWriter, times(1)).write(eq(List.of(contract)), any());
     }
 }
