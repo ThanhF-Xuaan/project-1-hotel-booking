@@ -34,6 +34,12 @@ public class AuditLogResponse {
     @Schema(description = "ID thực thể", example = "101")
     String entityId;
 
+    @Schema(description = "Tài khoản bị tác động", example = "hoang tien dat (@ndt)")
+    String targetAccount;
+
+    @Schema(description = "Mô tả tóm tắt nội dung thao tác", example = "Đăng nhập hệ thống")
+    String description;
+
     @Schema(description = "Dữ liệu trước thay đổi (JSON string)")
     String oldValues;
 

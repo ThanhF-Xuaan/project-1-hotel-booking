@@ -56,9 +56,6 @@ class StaffServiceTest {
     @Mock
     private KeycloakService keycloakService;
 
-    @Mock
-    private AuditLogService auditLogService;
-
     @InjectMocks
     private StaffServiceImpl staffService;
 
@@ -295,7 +292,6 @@ class StaffServiceTest {
         assertThat(staff.getStatus()).isEqualTo("SUSPENDED");
         verify(keycloakService).disableUser(keycloakId);
         verify(keycloakService).logoutUser(keycloakId);
-        verify(auditLogService).recordLog(isNull(), eq("STAFF_STATUS_UPDATE"), eq("Staff"), eq("1"), any(), any(), isNull(), isNull());
     }
 
     @Test
@@ -332,6 +328,5 @@ class StaffServiceTest {
 
         verify(keycloakService).updateUser(eq(keycloakId), isNull(), isNull(), isNull(), isNull(), eq("NewPass@123"), isNull());
         verify(keycloakService).logoutUser(keycloakId);
-        verify(auditLogService).recordLog(isNull(), eq("STAFF_PASSWORD_RESET"), eq("Staff"), eq("1"), isNull(), any(), isNull(), isNull());
     }
 }

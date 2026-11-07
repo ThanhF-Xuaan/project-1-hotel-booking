@@ -782,7 +782,11 @@ export const StaffListPage: React.FC = () => {
         description="Thông tin nhân sự được đồng bộ tự động vào Keycloak IAM và kiểm soát quyền truy cập."
         maxWidth="4xl"
       >
-        <form onSubmit={handleSubmitForm} noValidate className="space-y-4">
+        <form onSubmit={handleSubmitForm} noValidate className="space-y-4" autoComplete="off">
+          {/* Ngăn chặn trình duyệt tự động điền (autofill) thông tin đăng nhập đã lưu */}
+          <input type="text" name="prevent_autofill_user" className="hidden" tabIndex={-1} autoComplete="username" readOnly />
+          <input type="password" name="prevent_autofill_pwd" className="hidden" tabIndex={-1} autoComplete="current-password" readOnly />
+
           {formError && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
@@ -881,7 +885,10 @@ export const StaffListPage: React.FC = () => {
               </label>
               <Input
                 type="tel"
-                placeholder="0988889999"
+                name="staff_contact_phone"
+                id="staff_contact_phone"
+                autoComplete="off"
+                placeholder="0901234567"
                 value={formPhone}
                 onChange={(e) => {
                   setFormPhone(e.target.value);
@@ -1026,6 +1033,9 @@ export const StaffListPage: React.FC = () => {
                     </label>
                     <Input
                       type={showFormPassword ? 'text' : 'password'}
+                      name="staff_creation_password"
+                      id="staff_creation_password"
+                      autoComplete="new-password"
                       placeholder="Nhập tối thiểu 6 ký tự..."
                       value={formPassword}
                       onChange={(e) => {
@@ -1051,6 +1061,9 @@ export const StaffListPage: React.FC = () => {
                     </label>
                     <Input
                       type={showFormPassword ? 'text' : 'password'}
+                      name="staff_creation_confirm_password"
+                      id="staff_creation_confirm_password"
+                      autoComplete="new-password"
                       placeholder="Nhập lại mật khẩu..."
                       value={formConfirmPassword}
                       onChange={(e) => {

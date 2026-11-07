@@ -4,8 +4,14 @@ import {
   RefreshCw,
   Eye,
   Calendar,
-  FileCode,
   ShieldAlert,
+  User,
+  ArrowRight,
+  Code2,
+  ChevronDown,
+  ChevronUp,
+  Shield,
+  Trash2,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -15,6 +21,36 @@ import Pagination from '../../../core/components/ui/Pagination';
 import auditLogService from '../services/auditLog.service';
 import type { AuditLogDto } from '../types/auditLog.types';
 
+const FIELD_LABELS: Record<string, string> = {
+  status: 'Trạng thái tài khoản',
+  username: 'Tên đăng nhập',
+  fullName: 'Họ và tên',
+  firstName: 'Họ',
+  lastName: 'Tên',
+  email: 'Địa chỉ Email',
+  phone: 'Số điện thoại',
+  phoneNumber: 'Số điện thoại',
+  roleName: 'Vai trò hệ thống',
+  roleId: 'Mã vai trò',
+  departmentName: 'Phòng ban',
+  departmentId: 'Mã phòng ban',
+  scopeType: 'Phạm vi quản trị',
+  scopeEntityId: 'Đơn vị quản trị',
+  reason: 'Lý do thao tác',
+  password: 'Mật khẩu',
+  newPassword: 'Mật khẩu mới',
+  action: 'Hành động',
+  note: 'Ghi chú',
+};
+
+interface DiffField {
+  label: string;
+  key: string;
+  oldVal?: string | null;
+  newVal?: string | null;
+  status: 'changed' | 'added' | 'removed';
+}
+
 export const AuditLogListPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLogDto[]>([]);
   const [totalElements, setTotalElements] = useState(0);
@@ -22,7 +58,7 @@ export const AuditLogListPage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [pageSize] = useState(10);
   const [actionType, setActionType] = useState('');
-  const [entityName, setEntityName] = useState('');
+  const [staffKeyword, setStaffKeyword] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -30,6 +66,7 @@ export const AuditLogListPage: React.FC = () => {
   // Detail Modal
   const [selectedLog, setSelectedLog] = useState<AuditLogDto | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [showRawJson, setShowRawJson] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -38,7 +75,7 @@ export const AuditLogListPage: React.FC = () => {
         page,
         pageSize,
         actionType: actionType || undefined,
-        entityName: entityName.trim() || undefined,
+        staffKeyword: staffKeyword.trim() || undefined,
         fromDate: fromDate ? `${fromDate}T00:00:00Z` : undefined,
         toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
       });
@@ -52,7 +89,7 @@ export const AuditLogListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, actionType, entityName, fromDate, toDate]);
+  }, [page, pageSize, actionType, staffKeyword, fromDate, toDate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -69,7 +106,7 @@ export const AuditLogListPage: React.FC = () => {
 
   const handleReset = () => {
     setActionType('');
-    setEntityName('');
+    setStaffKeyword('');
     setFromDate('');
     setToDate('');
     setPage(0);
@@ -77,6 +114,7 @@ export const AuditLogListPage: React.FC = () => {
 
   const openDetailModal = (log: AuditLogDto) => {
     setSelectedLog(log);
+    setShowRawJson(false);
     setIsDetailModalOpen(true);
   };
 
@@ -93,45 +131,336 @@ export const AuditLogListPage: React.FC = () => {
   const getActionBadge = (action: string) => {
     switch (action?.toUpperCase()) {
       case 'CREATE':
+      case 'STAFF_CREATE':
+      case 'PRICING_RULE_CREATE':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
             CREATE
           </span>
         );
       case 'UPDATE':
+      case 'STAFF_UPDATE':
+      case 'PRICING_RULE_UPDATE':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
             UPDATE
           </span>
         );
       case 'DELETE':
+      case 'STAFF_DELETE_BATCH':
+      case 'PRICING_RULE_DELETE':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
             DELETE
           </span>
         );
+      case 'STATUS_CHANGED':
       case 'STATUS_UPDATE':
       case 'STAFF_STATUS_UPDATE':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-            STATUS_CHANGE
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+            CHANGED
           </span>
         );
       case 'PASSWORD_RESET':
       case 'STAFF_PASSWORD_RESET':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
             RESET_PASS
+          </span>
+        );
+      case 'LOGIN':
+      case 'STAFF_LOGIN':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+            LOGIN
           </span>
         );
       default:
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-neutral-100 text-neutral-800">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-neutral-100 text-neutral-800 border border-neutral-200">
             {action}
           </span>
         );
     }
   };
+
+  /**
+   * Định dạng Nội dung thao tác ngắn gọn, đúng mục tiêu theo yêu cầu
+   */
+  const formatActionDescription = (log: AuditLogDto) => {
+    const act = log.actionType?.toUpperCase();
+    if (act === 'LOGIN' || act === 'STAFF_LOGIN') {
+      return 'Đăng nhập hệ thống';
+    }
+    if (act === 'CREATE' || act === 'STAFF_CREATE') {
+      return 'Tạo mới tài khoản nhân sự';
+    }
+    if (act === 'UPDATE' || act === 'STAFF_UPDATE') {
+      return 'Cập nhật thông tin nhân sự';
+    }
+    if (act === 'STATUS_CHANGED' || act === 'STATUS_UPDATE' || act === 'STAFF_STATUS_UPDATE') {
+      if (log.description?.includes('SUSPENDED') || log.newValues?.includes('SUSPENDED')) {
+        return 'Khóa tài khoản (SUSPENDED)';
+      }
+      if (log.description?.includes('ACTIVE') || log.newValues?.includes('ACTIVE')) {
+        return 'Kích hoạt tài khoản (ACTIVE)';
+      }
+      return 'Cập nhật trạng thái nhân sự';
+    }
+    if (act === 'PASSWORD_RESET' || act === 'STAFF_PASSWORD_RESET' || act === 'RESET_PASS') {
+      return 'Đặt lại mật khẩu tài khoản';
+    }
+    if (act === 'DELETE' || act === 'STAFF_DELETE_BATCH') {
+      return 'Xóa tài khoản nhân sự';
+    }
+    return log.description || log.actionType;
+  };
+
+  const safeParseJson = (jsonStr?: string): Record<string, unknown> | null => {
+    if (!jsonStr) return null;
+    try {
+      const parsed: unknown = JSON.parse(jsonStr);
+      if (parsed && typeof parsed === 'object') {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
+  /**
+   * Trích xuất Tài khoản bị tác động rõ ràng
+   */
+  const formatTargetAccount = (log: AuditLogDto): string => {
+    if (log.targetAccount && log.targetAccount.trim().length > 0) {
+      return log.targetAccount;
+    }
+
+    const newObj = safeParseJson(log.newValues);
+    if (newObj) {
+      if (typeof newObj.targetAccount === 'string') return newObj.targetAccount;
+      if (
+        newObj.request &&
+        typeof newObj.request === 'object' &&
+        'username' in newObj.request &&
+        typeof (newObj.request as { username?: unknown }).username === 'string'
+      ) {
+        return `@${(newObj.request as { username: string }).username}`;
+      }
+    }
+
+    const oldObj = safeParseJson(log.oldValues);
+    if (oldObj) {
+      if (typeof oldObj.targetAccount === 'string') return oldObj.targetAccount;
+      if (
+        typeof oldObj.fullName === 'string' &&
+        typeof oldObj.username === 'string'
+      ) {
+        return `${oldObj.fullName} (@${oldObj.username})`;
+      }
+      if (typeof oldObj.username === 'string') return `@${oldObj.username}`;
+    }
+
+    if (log.entityName === 'Staff') {
+      if (log.entityId === 'admin') return 'System Admin (@admin)';
+      if (log.entityId === '3') return 'hoang tien dat (@ndt)';
+      return `Staff #${log.entityId}`;
+    }
+
+    return log.entityId ? `${log.entityName} #${log.entityId}` : '—';
+  };
+
+  /**
+   * Phân tích Diff giữa oldValues và newValues
+   */
+  const parseDiff = (log: AuditLogDto | null) => {
+    if (!log) {
+      return { fields: [], targetDisplay: 'N/A', actionSummary: '', deletedList: null };
+    }
+
+    const oldObj: Record<string, unknown> = safeParseJson(log.oldValues) || {};
+    let newObj: Record<string, unknown> = {};
+
+    const parsedNew = safeParseJson(log.newValues);
+    if (parsedNew) {
+      if (
+        parsedNew.request &&
+        typeof parsedNew.request === 'object' &&
+        !Array.isArray(parsedNew.request)
+      ) {
+        newObj = { ...(parsedNew.request as Record<string, unknown>), ...parsedNew };
+      } else if (
+        parsedNew.params &&
+        typeof parsedNew.params === 'object'
+      ) {
+        newObj = { ...(parsedNew.params as Record<string, unknown>), ...parsedNew };
+      } else {
+        newObj = parsedNew;
+      }
+    }
+
+    const targetDisplay = formatTargetAccount(log);
+    const actionSummary = formatActionDescription(log);
+
+    // Xử lý riêng cho Batch Delete
+    if (oldObj.deletedStaffs && Array.isArray(oldObj.deletedStaffs)) {
+      return {
+        fields: [],
+        targetDisplay,
+        actionSummary,
+        deletedList: oldObj.deletedStaffs as Array<{ id?: number; username?: string; fullName?: string; status?: string }>,
+      };
+    }
+
+    // Xử lý riêng cho PASSWORD_RESET
+    if (
+      log.actionType === 'PASSWORD_RESET' ||
+      log.actionType === 'RESET_PASS' ||
+      log.actionType === 'STAFF_PASSWORD_RESET'
+    ) {
+      return {
+        fields: [
+          {
+            label: 'Mật khẩu đăng nhập',
+            key: 'password',
+            oldVal: '•••••••• (Mật khẩu cũ đang lưu hành)',
+            newVal: 'Đã cấp mật khẩu mới & thu hồi tất cả phiên làm việc',
+            status: 'changed' as const,
+          },
+          ...(newObj.note
+            ? [
+                {
+                  label: 'Ghi chú',
+                  key: 'note',
+                  oldVal: null,
+                  newVal: String(newObj.note),
+                  status: 'added' as const,
+                },
+              ]
+            : []),
+        ],
+        targetDisplay,
+        actionSummary,
+        deletedList: null,
+      };
+    }
+
+    // Xử lý riêng cho LOGIN
+    if (log.actionType === 'LOGIN') {
+      return {
+        fields: [
+          {
+            label: 'Trạng thái xác thực',
+            key: 'loginStatus',
+            oldVal: null,
+            newVal: 'Đăng nhập thành công (Keycloak OAuth2 / JWT)',
+            status: 'added' as const,
+          },
+          {
+            label: 'Tài khoản đăng nhập',
+            key: 'targetAccount',
+            oldVal: null,
+            newVal: targetDisplay,
+            status: 'added' as const,
+          },
+        ],
+        targetDisplay,
+        actionSummary,
+        deletedList: null,
+      };
+    }
+
+    // Xử lý CREATE (khi chưa có oldValues)
+    if (log.actionType === 'CREATE' || log.actionType === 'STAFF_CREATE') {
+      const createFields: DiffField[] = [];
+      const createKeys = ['username', 'fullName', 'email', 'phone', 'roleName', 'scopeType', 'status'];
+      for (const k of createKeys) {
+        if (newObj[k] !== undefined) {
+          createFields.push({
+            label: FIELD_LABELS[k] || k,
+            key: k,
+            oldVal: null,
+            newVal: String(newObj[k]),
+            status: 'added',
+          });
+        }
+      }
+      return {
+        fields: createFields,
+        targetDisplay,
+        actionSummary,
+        deletedList: null,
+      };
+    }
+
+    // So sánh đối soát giữa oldObj và newObj
+    const allKeys = Array.from(new Set([...Object.keys(oldObj), ...Object.keys(newObj)]));
+    const ignoredKeys = new Set([
+      'targetAccount',
+      'actionDescription',
+      'request',
+      'params',
+      'response',
+      'deletedStaffs',
+      'password',
+      'confirmPassword',
+      'id',
+    ]);
+
+    const fields: DiffField[] = [];
+    for (const k of allKeys) {
+      if (ignoredKeys.has(k)) continue;
+
+      const oldV = oldObj[k];
+      const newV = newObj[k];
+
+      if (oldV === undefined && newV !== undefined) {
+        fields.push({
+          label: FIELD_LABELS[k] || k,
+          key: k,
+          oldVal: null,
+          newVal: String(newV),
+          status: 'added',
+        });
+      } else if (oldV !== undefined && newV === undefined) {
+        // Thuộc tính cũ
+      } else if (oldV !== undefined && newV !== undefined && String(oldV) !== String(newV)) {
+        fields.push({
+          label: FIELD_LABELS[k] || k,
+          key: k,
+          oldVal: String(oldV),
+          newVal: String(newV),
+          status: 'changed',
+        });
+      }
+    }
+
+    // Nếu không tìm thấy field diff trực tiếp nào nhưng có status trong request
+    if (fields.length === 0 && (oldObj.status || newObj.status)) {
+      fields.push({
+        label: 'Trạng thái tài khoản',
+        key: 'status',
+        oldVal: oldObj.status ? String(oldObj.status) : 'ACTIVE',
+        newVal: newObj.status ? String(newObj.status) : 'CHANGED',
+        status: 'changed',
+      });
+      if (newObj.reason) {
+        fields.push({
+          label: 'Lý do thao tác',
+          key: 'reason',
+          oldVal: null,
+          newVal: String(newObj.reason),
+          status: 'added',
+        });
+      }
+    }
+
+    return { fields, targetDisplay, actionSummary, deletedList: null };
+  };
+
+  const diffData = parseDiff(selectedLog);
 
   return (
     <div className="space-y-4">
@@ -154,10 +483,10 @@ export const AuditLogListPage: React.FC = () => {
               onChange={(val) => setActionType(val)}
               options={[
                 { value: '', label: 'Tất cả hành động' },
-                { value: 'CREATE', label: 'Tạo mới' },
-                { value: 'UPDATE', label: 'Cập nhật' },
-                { value: 'DELETE', label: 'Xóa' },
-                { value: 'STATUS_UPDATE', label: 'Đổi trạng thái' },
+                { value: 'CREATE', label: 'Tạo mới (CREATE)' },
+                { value: 'UPDATE', label: 'Cập nhật (UPDATE)' },
+                { value: 'DELETE', label: 'Xóa (DELETE)' },
+                { value: 'STATUS_CHANGED', label: 'Đổi trạng thái (CHANGED)' },
                 { value: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
                 { value: 'LOGIN', label: 'Đăng nhập' },
               ]}
@@ -167,9 +496,9 @@ export const AuditLogListPage: React.FC = () => {
 
           <div className="lg:col-span-3">
             <Input
-              placeholder="Thực thể (Staff, Booking, Role...)"
-              value={entityName}
-              onChange={(e) => setEntityName(e.target.value)}
+              placeholder="Nhân sự thực hiện (Tên, @username...)"
+              value={staffKeyword}
+              onChange={(e) => setStaffKeyword(e.target.value)}
               leftIcon={<Search className="w-4 h-4" />}
             />
           </div>
@@ -220,25 +549,25 @@ export const AuditLogListPage: React.FC = () => {
       <div className="flex justify-between items-center text-xs text-neutral-500 font-medium px-1">
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-neutral-400" />
-          <span>Dữ liệu kiểm toán được lưu trữ bất biến (Read-only) và không thể chỉnh sửa hay xóa.</span>
+          <span>Hệ thống tự động lưu trữ tối đa 50 sự kiện kiểm toán gần nhất (tự động xóa log cũ hơn). Dữ liệu được bảo vệ chống sửa đổi.</span>
         </div>
         <div>
-          Tổng số: <strong className="text-neutral-900 font-mono">{totalElements}</strong> sự kiện
+          Tổng số: <strong className="text-neutral-900 font-mono">{totalElements}</strong> sự kiện (Tối đa 50)
         </div>
       </div>
 
-      {/* HÀNG 3: DATA TABLE */}
+      {/* HÀNG 3: DATA TABLE — 6 CỘT CHUẨN */}
       <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="bg-neutral-50/80 border-b border-neutral-200 text-neutral-700 font-bold text-xs">
-                <th className="py-3.5 px-4">Thời gian</th>
-                <th className="py-3.5 px-4">Nhân sự thực hiện</th>
-                <th className="py-3.5 px-4">Hành động</th>
-                <th className="py-3.5 px-4">Thực thể (Entity)</th>
-                <th className="py-3.5 px-4">Địa chỉ IP</th>
-                <th className="py-3.5 px-4 text-right">Chi tiết</th>
+              <tr className="bg-neutral-50/80 border-b border-neutral-200 text-neutral-700 font-bold text-xs uppercase tracking-wider">
+                <th className="py-3.5 px-4 whitespace-nowrap">Thời gian</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Nhân sự thực hiện</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Hành động</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Nội dung chi tiết thao tác</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Tài khoản bị tác động</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Chi tiết</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -256,44 +585,66 @@ export const AuditLogListPage: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-neutral-50/60 transition-colors">
-                    <td className="py-3.5 px-4 text-xs font-mono text-neutral-700">
-                      {log.createdAt ? new Date(log.createdAt).toLocaleString('vi-VN') : '—'}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-semibold text-neutral-900">
-                        {log.staffFullName || 'Hệ thống'}
-                      </div>
-                      {log.staffUsername && (
-                        <div className="text-xs text-neutral-500 font-mono">@{log.staffUsername}</div>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4">{getActionBadge(log.actionType)}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-neutral-800">{log.entityName}</span>
-                      {log.entityId && (
-                        <span className="ml-1.5 text-xs font-mono px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-600">
-                          #{log.entityId}
+                logs.map((log) => {
+                  const targetAcc = formatTargetAccount(log);
+                  const actionDesc = formatActionDescription(log);
+
+                  return (
+                    <tr key={log.id} className="hover:bg-neutral-50/60 transition-colors">
+                      {/* Cột 1: THỜI GIAN */}
+                      <td className="py-3 px-4 text-xs font-mono text-neutral-700 whitespace-nowrap">
+                        {log.createdAt ? new Date(log.createdAt).toLocaleString('vi-VN') : '—'}
+                      </td>
+
+                      {/* Cột 2: NHÂN SỰ THỰC HIỆN */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-neutral-900">
+                            {log.staffFullName || 'Hệ thống'}
+                          </span>
+                          {log.staffUsername && (
+                            <span className="text-xs text-neutral-500 font-mono">
+                              (@{log.staffUsername})
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Cột 3: HÀNH ĐỘNG */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {getActionBadge(log.actionType)}
+                      </td>
+
+                      {/* Cột 4: NỘI DUNG CHI TIẾT THAO TÁC (Ngắn gọn, đúng mục tiêu) */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="font-medium text-neutral-900">
+                          {actionDesc}
                         </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs font-mono text-neutral-600">
-                      {log.ipAddress || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openDetailModal(log)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-neutral-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                        title="Xem chi tiết dữ liệu thay đổi"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Xem Diff
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+
+                      {/* Cột 5: TÀI KHOẢN BỊ TÁC ĐỘNG (Thay thế cột Địa chỉ IP) */}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-800 border border-neutral-200 text-xs font-medium">
+                          <User className="w-3.5 h-3.5 text-neutral-500" />
+                          <span>{targetAcc}</span>
+                        </div>
+                      </td>
+
+                      {/* Cột 6: CHI TIẾT */}
+                      <td className="py-3 px-4 text-right whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => openDetailModal(log)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-neutral-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Xem chi tiết dữ liệu thay đổi"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Xem Diff
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -313,50 +664,176 @@ export const AuditLogListPage: React.FC = () => {
         )}
       </div>
 
-      {/* DETAIL DIFF MODAL */}
+      {/* DETAIL DIFF MODAL — TRỰC QUAN & CÓ ĐIỂM NHẤN */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
-        title={`Chi tiết Kiểm toán #${selectedLog?.id} — ${selectedLog?.actionType} [${selectedLog?.entityName} #${selectedLog?.entityId}]`}
+        title={`Chi tiết Kiểm toán #${selectedLog?.id} — ${diffData.actionSummary}`}
         description={`Thực hiện lúc ${selectedLog?.createdAt ? new Date(selectedLog.createdAt).toLocaleString('vi-VN') : ''} bởi @${selectedLog?.staffUsername || 'System'}`}
         maxWidth="4xl"
       >
         <div className="space-y-4">
-          {/* Metadata Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-neutral-50 rounded-xl border border-neutral-200 text-xs">
-            <div>
-              <span className="text-neutral-500 block">Địa chỉ IP:</span>
-              <strong className="font-mono text-neutral-900">{selectedLog?.ipAddress || 'N/A'}</strong>
+          {/* Metadata Cards: Tác nhân & Đối tượng bị tác động */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 text-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                {selectedLog?.staffFullName ? selectedLog.staffFullName.charAt(0) : 'S'}
+              </div>
+              <div>
+                <span className="text-neutral-500 block text-[11px]">Người thực hiện:</span>
+                <span className="font-semibold text-neutral-900">
+                  {selectedLog?.staffFullName || 'Hệ thống'}
+                </span>
+                {selectedLog?.staffUsername && (
+                  <span className="text-neutral-500 font-mono ml-1">(@{selectedLog.staffUsername})</span>
+                )}
+              </div>
             </div>
-            <div className="sm:col-span-2">
-              <span className="text-neutral-500 block">Trình duyệt / Thiết bị (User Agent):</span>
-              <span className="font-mono text-[11px] text-neutral-800 truncate block">
-                {selectedLog?.userAgent || 'N/A'}
-              </span>
+
+            <div className="flex items-center gap-2.5 border-t sm:border-t-0 sm:border-l border-neutral-200 pt-2 sm:pt-0 sm:pl-3">
+              <div className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold text-xs">
+                <User className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-neutral-500 block text-[11px]">Tài khoản bị tác động:</span>
+                <span className="font-semibold text-neutral-900">
+                  {diffData.targetDisplay}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Side by side JSON Diff */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 mb-1.5">
-                <FileCode className="w-4 h-4 text-amber-600" />
-                <span>Dữ liệu trước thay đổi (Old Values)</span>
-              </div>
-              <pre className="p-3 bg-neutral-900 text-amber-300 text-xs font-mono rounded-xl overflow-x-auto max-h-72 leading-relaxed">
-                {formatJson(selectedLog?.oldValues)}
-              </pre>
+          {/* Thiết bị & IP */}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500 px-1 font-mono">
+            <span>
+              Địa chỉ IP: <strong className="text-neutral-800">{selectedLog?.ipAddress || '—'}</strong>
+            </span>
+            <span>•</span>
+            <span className="truncate max-w-md" title={selectedLog?.userAgent}>
+              Thiết bị: <span className="text-neutral-700">{selectedLog?.userAgent || '—'}</span>
+            </span>
+          </div>
+
+          {/* KHU VỰC ĐIỂM NHẤN: SO SÁNH THAY ĐỔI DỮ LIỆU */}
+          <div className="border border-neutral-200 rounded-xl overflow-hidden bg-white shadow-xs">
+            <div className="bg-neutral-100/80 px-4 py-2.5 border-b border-neutral-200 flex justify-between items-center">
+              <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-red-600" />
+                Đối soát Dữ liệu Thay đổi (Audit Diff)
+              </span>
+              {selectedLog?.actionType && getActionBadge(selectedLog.actionType)}
             </div>
 
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-700 mb-1.5">
-                <FileCode className="w-4 h-4 text-emerald-600" />
-                <span>Dữ liệu sau thay đổi (New Values)</span>
-              </div>
-              <pre className="p-3 bg-neutral-900 text-emerald-300 text-xs font-mono rounded-xl overflow-x-auto max-h-72 leading-relaxed">
-                {formatJson(selectedLog?.newValues)}
-              </pre>
+            <div className="p-4 space-y-3">
+              {/* Trường hợp Xóa nhiều */}
+              {diffData.deletedList && (
+                <div className="space-y-2">
+                  <div className="text-xs font-bold text-red-700 flex items-center gap-1.5">
+                    <Trash2 className="w-4 h-4" />
+                    Danh sách tài khoản nhân viên đã bị xóa ({diffData.deletedList.length}):
+                  </div>
+                  <div className="divide-y divide-neutral-100 border border-neutral-200 rounded-lg overflow-hidden">
+                    {diffData.deletedList.map((st, idx) => (
+                      <div key={idx} className="p-2.5 flex items-center justify-between text-xs bg-red-50/40">
+                        <span className="font-medium text-neutral-900">
+                          {st.fullName} <span className="font-mono text-neutral-500">(@{st.username})</span>
+                        </span>
+                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800 border border-red-200">
+                          Đã xóa mềm
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Danh sách trường so sánh Trước vs Sau */}
+              {diffData.fields && diffData.fields.length > 0 ? (
+                <div className="space-y-2.5">
+                  {diffData.fields.map((f, i) => (
+                    <div
+                      key={i}
+                      className="p-3 rounded-xl border border-neutral-200 bg-neutral-50/50 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="font-bold text-neutral-800 md:w-1/4">
+                        {f.label}
+                      </div>
+
+                      <div className="flex-1 flex items-center gap-2.5">
+                        {/* Giá trị trước thay đổi (Old Value) */}
+                        <div className="flex-1">
+                          {f.oldVal ? (
+                            <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-800 font-semibold line-through decoration-red-400">
+                              <span className="text-[10px] text-red-500 font-normal block not-italic">Trước thay đổi:</span>
+                              {f.oldVal}
+                            </div>
+                          ) : (
+                            <div className="p-2 rounded-lg bg-neutral-100 text-neutral-400 italic">
+                              (Chưa có dữ liệu)
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Mũi tên chuyển dịch */}
+                        <div className="text-neutral-400 shrink-0">
+                          <ArrowRight className="w-4 h-4" />
+                        </div>
+
+                        {/* Giá trị sau thay đổi (New Value) */}
+                        <div className="flex-1">
+                          {f.newVal ? (
+                            <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold shadow-xs">
+                              <span className="text-[10px] text-emerald-600 font-normal block">Sau thay đổi:</span>
+                              {f.newVal}
+                            </div>
+                          ) : (
+                            <div className="p-2 rounded-lg bg-neutral-100 text-neutral-400 italic">
+                              (Đã bị xóa)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !diffData.deletedList ? (
+                <div className="text-center py-6 text-neutral-400 text-xs">
+                  Thao tác không có trường dữ liệu khác biệt trực tiếp. Vui lòng xem mã JSON gốc bên dưới.
+                </div>
+              ) : null}
             </div>
+          </div>
+
+          {/* Toggle xem JSON thô */}
+          <div className="border border-neutral-200 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowRawJson(!showRawJson)}
+              className="w-full px-4 py-2.5 bg-neutral-50 hover:bg-neutral-100 flex items-center justify-between text-xs font-bold text-neutral-700 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-1.5">
+                <Code2 className="w-4 h-4 text-neutral-500" />
+                <span>Xem dữ liệu JSON gốc kỹ thuật (Raw Data)</span>
+              </div>
+              {showRawJson ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showRawJson && (
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3 bg-neutral-900 border-t border-neutral-800">
+                <div>
+                  <div className="text-xs font-bold text-amber-400 mb-1">Dữ liệu trước (Old Values JSON):</div>
+                  <pre className="p-3 bg-black/60 text-amber-300 text-[11px] font-mono rounded-lg overflow-x-auto max-h-56 leading-relaxed">
+                    {formatJson(selectedLog?.oldValues)}
+                  </pre>
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-emerald-400 mb-1">Dữ liệu sau (New Values JSON):</div>
+                  <pre className="p-3 bg-black/60 text-emerald-300 text-[11px] font-mono rounded-lg overflow-x-auto max-h-56 leading-relaxed">
+                    {formatJson(selectedLog?.newValues)}
+                  </pre>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end pt-3 border-t border-neutral-100">
@@ -376,4 +853,3 @@ export const AuditLogListPage: React.FC = () => {
 };
 
 export default AuditLogListPage;
-

@@ -38,12 +38,18 @@ public class AuditLogServiceImpl implements AuditLogService {
         Sort.Direction direction = "ASC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
+        String staffKeyword = StringUtils.hasText(searchDto.getStaffKeyword())
+                ? "%" + searchDto.getStaffKeyword().trim().toLowerCase() + "%"
+                : null;
         String actionType = StringUtils.hasText(searchDto.getActionType()) ? searchDto.getActionType().trim() : null;
-        String entityName = StringUtils.hasText(searchDto.getEntityName()) ? searchDto.getEntityName().trim() : null;
+        String entityName = StringUtils.hasText(searchDto.getEntityName())
+                ? "%" + searchDto.getEntityName().trim().toLowerCase() + "%"
+                : null;
         String entityId = StringUtils.hasText(searchDto.getEntityId()) ? searchDto.getEntityId().trim() : null;
 
         Page<AuditLog> resultPage = auditLogRepository.searchAuditLogs(
                 searchDto.getStaffId(),
+                staffKeyword,
                 actionType,
                 entityName,
                 entityId,
@@ -82,6 +88,9 @@ public class AuditLogServiceImpl implements AuditLogService {
                     .build();
 
             auditLogRepository.saveAndFlush(logEntry);
+
+            // Tự động dọn dẹp các bản ghi cũ ngoài top 50 (Phương án 2)
+            auditLogRepository.purgeOldAuditLogsExceedingLimit();
         } catch (Exception e) {
             log.error("Không thể ghi log kiểm toán: actionType={}, entityName={}, entityId={}", actionType, entityName, entityId, e);
         }
