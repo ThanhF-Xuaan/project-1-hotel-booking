@@ -1,8 +1,8 @@
 package vn.edu.utc.hotel_booking.common.aspect;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -18,18 +18,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import vn.edu.utc.hotel_booking.common.annotation.Auditable;
+import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.util.AuditDataMasker;
 import vn.edu.utc.hotel_booking.common.util.ClientInfoResolver;
 import vn.edu.utc.hotel_booking.common.util.SecurityUtils;
+import vn.edu.utc.hotel_booking.modules.identity.dto.response.StaffResponse;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.identity.service.AuditLogService;
 
 import java.lang.reflect.Method;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * AOP Aspect tự động đón bắt và ghi vết các thao tác quản trị nhạy cảm vào bảng audit_logs.
@@ -40,24 +39,44 @@ import java.util.UUID;
  */
 @Aspect
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class AuditLogAspect {
 
     private final AuditLogService auditLogService;
     private final StaffRepository staffRepository;
+    private final ObjectMapper objectMapper;
 
     private final ExpressionParser expressionParser = new SpelExpressionParser();
     private final ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
 
+    public AuditLogAspect(AuditLogService auditLogService, StaffRepository staffRepository) {
+        this(auditLogService, staffRepository, new ObjectMapper());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AuditLogAspect(AuditLogService auditLogService, StaffRepository staffRepository, ObjectMapper objectMapper) {
+        this.auditLogService = auditLogService;
+        this.staffRepository = staffRepository;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+    }
+
+    private record OldSnapshot(String json, String targetAccount) {}
+
     @Around("@annotation(auditable)")
     public Object audit(ProceedingJoinPoint joinPoint, Auditable auditable) throws Throwable {
+        OldSnapshot oldSnapshot = null;
+        try {
+            oldSnapshot = captureOldSnapshot(joinPoint, auditable);
+        } catch (Exception e) {
+            log.debug("Không thể capture oldValues trước khi thực thi: {}", e.getMessage());
+        }
+
         // 1. Thực thi phương thức nghiệp vụ chính trước
         Object result = joinPoint.proceed();
 
         // 2. Ghi nhật ký kiểm toán với cơ chế Fail-Safe (Không bao giờ làm gián đoạn nghiệp vụ chính)
         try {
-            processAuditLog(joinPoint, auditable, result);
+            processAuditLog(joinPoint, auditable, result, oldSnapshot);
         } catch (Exception e) {
             log.error("Lỗi khi ghi AOP Audit Log cho actionType={}, entityName={}: {}",
                     auditable.actionType(), auditable.entityName(), e.getMessage(), e);
@@ -66,7 +85,106 @@ public class AuditLogAspect {
         return result;
     }
 
-    private void processAuditLog(ProceedingJoinPoint joinPoint, Auditable auditable, Object result) {
+    private OldSnapshot captureOldSnapshot(ProceedingJoinPoint joinPoint, Auditable auditable) {
+        if (!"Staff".equalsIgnoreCase(auditable.entityName())) {
+            return null;
+        }
+
+        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
+        Method method = signature.getMethod();
+        Object[] args = joinPoint.getArgs();
+        String[] paramNames = parameterNameDiscoverer.getParameterNames(method);
+
+        Map<String, Object> params = new HashMap<>();
+        if (paramNames != null && args != null) {
+            for (int i = 0; i < paramNames.length; i++) {
+                if (i < args.length) {
+                    params.put(paramNames[i], args[i]);
+                }
+            }
+        }
+
+        // 1. Trường hợp id đơn lẻ (UPDATE, STATUS_CHANGED, PASSWORD_RESET)
+        Object idVal = params.get("id");
+        if (idVal instanceof Integer id) {
+            return staffRepository.findByIdWithDetails(id)
+                    .map(this::buildStaffSnapshot)
+                    .orElse(null);
+        } else if (idVal instanceof Long longId) {
+            return staffRepository.findByIdWithDetails(longId.intValue())
+                    .map(this::buildStaffSnapshot)
+                    .orElse(null);
+        }
+
+        // 2. Trường hợp xóa nhiều (DELETE Batch)
+        Object idsVal = params.get("ids");
+        if (idsVal instanceof List<?> idList && !idList.isEmpty()) {
+            List<Integer> intIds = idList.stream()
+                    .filter(o -> o instanceof Number)
+                    .map(o -> ((Number) o).intValue())
+                    .toList();
+            if (!intIds.isEmpty()) {
+                List<Staff> staffs = staffRepository.findAllById(intIds);
+                if (!staffs.isEmpty()) {
+                    return buildStaffListSnapshot(staffs);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private OldSnapshot buildStaffSnapshot(Staff staff) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", staff.getId());
+        map.put("username", staff.getUsername());
+        map.put("fullName", staff.getFullName());
+        map.put("email", staff.getEmail());
+        map.put("phone", staff.getPhone());
+        map.put("status", staff.getStatus());
+        if (staff.getRole() != null) {
+            map.put("roleName", staff.getRole().getName());
+        }
+        if (staff.getDepartment() != null) {
+            map.put("departmentName", staff.getDepartment().getName());
+        }
+        map.put("scopeType", staff.getScopeType());
+        map.put("scopeEntityId", staff.getScopeEntityId());
+        String targetAccount = staff.getFullName() + " (@" + staff.getUsername() + ")";
+        map.put("targetAccount", targetAccount);
+
+        try {
+            return new OldSnapshot(objectMapper.writeValueAsString(map), targetAccount);
+        } catch (Exception e) {
+            return new OldSnapshot(null, targetAccount);
+        }
+    }
+
+    private OldSnapshot buildStaffListSnapshot(List<Staff> staffs) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        List<String> targetAccounts = new ArrayList<>();
+        for (Staff staff : staffs) {
+            Map<String, Object> sMap = new LinkedHashMap<>();
+            sMap.put("id", staff.getId());
+            sMap.put("username", staff.getUsername());
+            sMap.put("fullName", staff.getFullName());
+            sMap.put("status", staff.getStatus());
+            list.add(sMap);
+            targetAccounts.add(staff.getFullName() + " (@" + staff.getUsername() + ")");
+        }
+        String targetAccount = String.join(", ", targetAccounts);
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("deletedStaffs", list);
+        map.put("targetAccount", targetAccount);
+
+        try {
+            return new OldSnapshot(objectMapper.writeValueAsString(map), targetAccount);
+        } catch (Exception e) {
+            return new OldSnapshot(null, targetAccount);
+        }
+    }
+
+    private void processAuditLog(ProceedingJoinPoint joinPoint, Auditable auditable, Object result, OldSnapshot oldSnapshot) {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         Method method = signature.getMethod();
         Object[] args = joinPoint.getArgs();
@@ -99,6 +217,8 @@ public class AuditLogAspect {
         // 2. Phân giải description
         String description = resolveDescription(auditable.description(), context);
 
+        String targetAccount = oldSnapshot != null ? oldSnapshot.targetAccount() : null;
+
         // 3. Phân giải newValues (dữ liệu sau thay đổi / tham số gửi lên)
         Map<String, Object> payloadMap = new HashMap<>();
         if (StringUtils.hasText(description)) {
@@ -106,7 +226,6 @@ public class AuditLogAspect {
         }
         if (auditable.captureRequest() && !requestParams.isEmpty()) {
             if (requestParams.size() == 1) {
-                // Nếu chỉ có 1 body request chính
                 payloadMap.put("request", requestParams.values().iterator().next());
             } else {
                 payloadMap.put("params", requestParams);
@@ -116,10 +235,35 @@ public class AuditLogAspect {
             payloadMap.put("response", result);
         }
 
-        String newValuesJson = AuditDataMasker.maskToJson(payloadMap, auditable.maskFields());
-
-        // 4. Bóc tách Staff ID từ Keycloak UUID
+        // 4. Bóc tách Staff ID từ Keycloak UUID hoặc từ username nếu là LOGIN
         Integer staffId = resolveStaffId();
+        if ("LOGIN".equals(auditable.actionType())) {
+            for (Object arg : requestParams.values()) {
+                if (arg instanceof vn.edu.utc.hotel_booking.modules.identity.dto.request.LoginRequest loginReq) {
+                    Staff loginStaff = staffRepository.findByUsernameAndIsDeletedFalse(loginReq.getUsername()).orElse(null);
+                    if (loginStaff != null) {
+                        if (staffId == null) {
+                            staffId = loginStaff.getId();
+                        }
+                        if (targetAccount == null) {
+                            targetAccount = loginStaff.getFullName() + " (@" + loginStaff.getUsername() + ")";
+                        }
+                    }
+                    break;
+                }
+            }
+        } else if ("CREATE".equals(auditable.actionType())) {
+            if (result instanceof ApiResponse<?> apiResp && apiResp.getResult() instanceof StaffResponse staffResp) {
+                targetAccount = staffResp.getFullName() + " (@" + staffResp.getUsername() + ")";
+            }
+        }
+
+        if (targetAccount != null) {
+            payloadMap.put("targetAccount", targetAccount);
+        }
+
+        String oldValuesJson = oldSnapshot != null ? oldSnapshot.json() : null;
+        String newValuesJson = AuditDataMasker.maskToJson(payloadMap, auditable.maskFields());
 
         // 5. Bóc tách IP và User-Agent
         ClientInfoResolver.ClientInfo clientInfo = ClientInfoResolver.getCurrentClientInfo();
@@ -130,7 +274,7 @@ public class AuditLogAspect {
                 auditable.actionType(),
                 auditable.entityName(),
                 entityId,
-                null, // oldValues: snapshot ban đầu (nếu có)
+                oldValuesJson,
                 newValuesJson,
                 clientInfo.ipAddress(),
                 clientInfo.userAgent()
@@ -186,9 +330,22 @@ public class AuditLogAspect {
         try {
             Optional<UUID> keycloakIdOpt = SecurityUtils.getCurrentUserKeycloakId();
             if (keycloakIdOpt.isPresent()) {
-                return staffRepository.findByKeycloakIdAndIsDeletedFalse(keycloakIdOpt.get())
-                        .map(Staff::getId)
-                        .orElse(null);
+                Optional<Staff> staffOpt = staffRepository.findByKeycloakIdAndIsDeletedFalse(keycloakIdOpt.get());
+                if (staffOpt.isPresent()) {
+                    return staffOpt.get().getId();
+                }
+            }
+
+            // Fallback: Tra cứu theo preferred_username trong JWT nếu keycloak_id chưa khớp
+            Optional<org.springframework.security.core.Authentication> authOpt = SecurityUtils.getAuthentication();
+            if (authOpt.isPresent() && authOpt.get().getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt jwt) {
+                String preferredUsername = jwt.getClaimAsString("preferred_username");
+                if (StringUtils.hasText(preferredUsername)) {
+                    Optional<Staff> staffOpt = staffRepository.findByUsernameAndIsDeletedFalse(preferredUsername);
+                    if (staffOpt.isPresent()) {
+                        return staffOpt.get().getId();
+                    }
+                }
             }
         } catch (Exception e) {
             log.debug("Không thể tra cứu staffId từ SecurityContext: {}", e.getMessage());

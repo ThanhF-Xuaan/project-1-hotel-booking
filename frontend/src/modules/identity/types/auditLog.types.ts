@@ -6,6 +6,8 @@ export interface AuditLogDto {
   actionType: string;
   entityName: string;
   entityId: string;
+  targetAccount?: string;
+  description?: string;
   oldValues?: string;
   newValues?: string;
   ipAddress?: string;
@@ -19,6 +21,7 @@ export interface AuditLogSearchDto {
   sortBy?: string;
   sortDirection?: 'ASC' | 'DESC';
   staffId?: number;
+  staffKeyword?: string;
   actionType?: string;
   entityName?: string;
   entityId?: string;

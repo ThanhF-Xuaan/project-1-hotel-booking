@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.LoginRequest;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.LogoutRequest;
@@ -23,6 +24,13 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Auditable(
+            actionType = "LOGIN",
+            entityName = "Staff",
+            entityId = "#request.username",
+            description = "'Đăng nhập hệ thống'",
+            maskFields = {"password"}
+    )
     @PostMapping("/login")
     @Operation(summary = "Đăng nhập hệ thống (Lấy Access Token & Refresh Token qua Keycloak)")
     public ApiResponse<TokenResponse> login(@RequestBody @Valid LoginRequest request) {
