@@ -191,10 +191,12 @@ export const PolicyManagementPage: React.FC = () => {
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">Bậc Thang (TIERED)</span>;
       case 'FULL_DEPOSIT':
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">Tiền Cọc (DEPOSIT)</span>;
-      case 'PERCENTAGE':
+      case 'PERCENT':
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Tỷ Lệ % Cố Định</span>;
-      case 'FIXED':
+      case 'FIXED_AMOUNT':
         return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-800 border border-neutral-300">Cố Định Số Tiền</span>;
+      case 'FIRST_NIGHT':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Phạt Đêm Đầu</span>;
       default:
         return <span>{feeType}</span>;
     }
@@ -407,7 +409,7 @@ export const PolicyManagementPage: React.FC = () => {
                           <div className="text-xs space-y-0.5">
                             {p.tiers.map((t, idx) => (
                               <div key={idx} className="text-neutral-600">
-                                ≥{t.minDays} ngày: <strong className="text-red-600">{t.penaltyPercent}%</strong>
+                                {t.maxDays !== null && t.maxDays !== undefined ? `${t.minDays} - ${t.maxDays} ngày` : `≥ ${t.minDays} ngày`}: <strong className="text-red-600">{t.penaltyPercent}%</strong>
                               </div>
                             ))}
                           </div>

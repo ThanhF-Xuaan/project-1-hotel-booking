@@ -44,21 +44,21 @@ public class NoShowPolicyController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('CHAIN_ADMIN')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     @Operation(summary = "Tạo mới chính sách No-Show cấp chuỗi (Chỉ Chain Admin)")
     public ApiResponse<NoShowPolicyResponse> create(@Valid @RequestBody NoShowPolicyCreateRequest request) {
         return ApiResponse.success("Tạo chính sách No-Show thành công", noShowPolicyService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('CHAIN_ADMIN')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     @Operation(summary = "Cập nhật chính sách No-Show cấp chuỗi (Chỉ Chain Admin)")
     public ApiResponse<NoShowPolicyResponse> update(@PathVariable Integer id, @Valid @RequestBody NoShowPolicyUpdateRequest request) {
         return ApiResponse.success("Cập nhật chính sách No-Show thành công", noShowPolicyService.update(id, request));
     }
 
     @DeleteMapping("/delete")
-    @PreAuthorize("hasRole('CHAIN_ADMIN')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     @Operation(summary = "Xóa mềm một hoặc nhiều chính sách No-Show (Chỉ Chain Admin, chặn nếu đã có đơn sử dụng)")
     public ApiResponse<Void> deleteBatch(@RequestBody List<Integer> ids) {
         noShowPolicyService.delete(ids);
