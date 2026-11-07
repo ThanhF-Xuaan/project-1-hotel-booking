@@ -40,6 +40,12 @@ class HotelServiceTest {
     @Mock
     private HotelMapper hotelMapper;
 
+    @Mock
+    private vn.edu.utc.hotel_booking.common.storage.repository.MediaObjectRepository mediaObjectRepository;
+
+    @Mock
+    private vn.edu.utc.hotel_booking.common.storage.service.InternalMediaDomainService internalMediaDomainService;
+
     @InjectMocks
     private HotelServiceImpl hotelService;
 

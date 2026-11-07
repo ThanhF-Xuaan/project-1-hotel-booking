@@ -14,6 +14,10 @@ import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.common.storage.domain.StorageCategory;
+import vn.edu.utc.hotel_booking.common.storage.entity.MediaObject;
+import vn.edu.utc.hotel_booking.common.storage.repository.MediaObjectRepository;
+import vn.edu.utc.hotel_booking.common.storage.service.InternalMediaDomainService;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.HotelCreateRequest;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.HotelSearchDto;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.HotelUpdateRequest;
@@ -37,6 +41,8 @@ public class HotelServiceImpl implements HotelService {
     private final HotelRepository hotelRepository;
     private final RegionRepository regionRepository;
     private final HotelMapper hotelMapper;
+    private final MediaObjectRepository mediaObjectRepository;
+    private final InternalMediaDomainService internalMediaDomainService;
 
     @Override
     public PageResponse<HotelResponse> filter(HotelSearchDto searchDto) {
@@ -69,14 +75,41 @@ public class HotelServiceImpl implements HotelService {
         };
 
         Page<Hotel> resultPage = hotelRepository.findAll(spec, pageable);
-        return PageResponse.from(resultPage.map(hotelMapper::toResponse));
+        Page<HotelResponse> responsePage = resultPage.map(hotelMapper::toResponse);
+        populateCoverImages(responsePage.getContent());
+        return PageResponse.from(responsePage);
     }
 
     @Override
     public HotelResponse getById(Short id) {
         Hotel hotel = hotelRepository.findByIdWithRegion(id)
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND));
-        return hotelMapper.toResponse(hotel);
+        HotelResponse response = hotelMapper.toResponse(hotel);
+        mediaObjectRepository.findByCategoryAndReferenceIdAndIsPrimaryTrueAndIsDeletedFalse(
+                StorageCategory.HOTEL_PROPERTY_PHOTO, id.longValue())
+                .ifPresent(mo -> response.setCoverImageUrl(internalMediaDomainService.getDownloadUrl(mo.getStorageKey(), null)));
+        return response;
+    }
+
+    private void populateCoverImages(List<HotelResponse> hotels) {
+        if (hotels == null || hotels.isEmpty()) {
+            return;
+        }
+        List<Long> hotelIds = hotels.stream()
+                .map(h -> h.getId().longValue())
+                .toList();
+        List<MediaObject> primaryImages = mediaObjectRepository
+                .findByCategoryAndReferenceIdInAndIsPrimaryTrueAndIsDeletedFalse(
+                        StorageCategory.HOTEL_PROPERTY_PHOTO, hotelIds);
+
+        java.util.Map<Long, String> coverUrlMap = primaryImages.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        MediaObject::getReferenceId,
+                        mo -> internalMediaDomainService.getDownloadUrl(mo.getStorageKey(), null),
+                        (existing, replacement) -> existing
+                ));
+
+        hotels.forEach(h -> h.setCoverImageUrl(coverUrlMap.get(h.getId().longValue())));
     }
 
     @Override

@@ -18,6 +18,12 @@ public interface MediaObjectRepository extends JpaRepository<MediaObject, Long> 
 
     List<MediaObject> findByCategoryAndReferenceIdAndIsDeletedFalse(StorageCategory category, Long referenceId);
 
+    Optional<MediaObject> findByCategoryAndReferenceIdAndIsPrimaryTrueAndIsDeletedFalse(StorageCategory category, Long referenceId);
+
+    List<MediaObject> findByCategoryAndReferenceIdAndIsDeletedFalseOrderByIsPrimaryDescCreatedAtDesc(StorageCategory category, Long referenceId);
+
+    List<MediaObject> findByCategoryAndReferenceIdInAndIsPrimaryTrueAndIsDeletedFalse(StorageCategory category, List<Long> referenceIds);
+
     List<MediaObject> findByHotelIdAndCategoryAndIsDeletedFalse(Short hotelId, StorageCategory category);
 
     List<MediaObject> findByLifecycleStatusAndIsDeletedFalse(MediaLifecycleStatus lifecycleStatus);

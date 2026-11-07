@@ -63,7 +63,9 @@ public class InternalMediaDomainService {
         // 4. Lưu bản ghi metadata vào cơ sở dữ liệu
         MediaLifecycleStatus initialStatus = (category == StorageCategory.GUEST_REVIEW_PHOTO)
                 ? MediaLifecycleStatus.PENDING_MODERATION
-                : (category == StorageCategory.BRAND_ASSET ? MediaLifecycleStatus.PUBLISHED : MediaLifecycleStatus.DRAFT);
+                : (category == StorageCategory.BRAND_ASSET || category == StorageCategory.HOTEL_PROPERTY_PHOTO 
+                    ? MediaLifecycleStatus.PUBLISHED 
+                    : MediaLifecycleStatus.DRAFT);
 
         MediaObject mediaObject = MediaObject.builder()
                 .storageKey(objectKey)

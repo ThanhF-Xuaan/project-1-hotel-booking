@@ -70,4 +70,8 @@ public class MediaObject extends BaseEntity {
 
     @Column(name = "scan_result")
     private String scanResult;
+
+    @Column(name = "is_primary", nullable = false)
+    @Builder.Default
+    private Boolean isPrimary = false;
 }
