@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, RefreshCw, Search, Edit2, Globe } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Edit2, Globe, AlertCircle } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Select from '../../../core/components/ui/Select'
@@ -35,6 +35,7 @@ export const RegionListPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deletingIds, setDeletingIds] = useState<number[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     setIsLoading(true)
@@ -148,24 +149,31 @@ export const RegionListPage: React.FC = () => {
 
   const confirmDeleteOne = (id: number) => {
     setDeletingIds([id])
+    setDeleteError(null)
     setDeleteConfirmOpen(true)
   }
 
   const confirmDeleteBatch = () => {
     if (selectedIds.length === 0) return
     setDeletingIds(selectedIds)
+    setDeleteError(null)
     setDeleteConfirmOpen(true)
   }
 
   const executeDelete = async () => {
     setIsDeleting(true)
+    setDeleteError(null)
     try {
       await regionService.deleteBatch(deletingIds)
       setDeleteConfirmOpen(false)
       setSelectedIds([])
-      loadData()
-    } catch (err) {
+      void loadData()
+    } catch (err: unknown) {
       console.error('Lỗi xóa khu vực:', err)
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Không thể xóa khu vực. Có thể khu vực đang có khách sạn hoặc nhân sự trực thuộc.'
+      setDeleteError(errorMsg)
     } finally {
       setIsDeleting(false)
     }
@@ -438,7 +446,12 @@ export const RegionListPage: React.FC = () => {
       {/* CONFIRM DELETE MODAL */}
       <ConfirmModal
         isOpen={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}
+        onClose={() => {
+          if (!isDeleting) {
+            setDeleteConfirmOpen(false)
+            setDeleteError(null)
+          }
+        }}
         onConfirm={executeDelete}
         title="Xác nhận xóa khu vực?"
         description={`Bạn có chắc chắn muốn xóa ${
@@ -446,7 +459,14 @@ export const RegionListPage: React.FC = () => {
         }? Dữ liệu sẽ được chuyển vào trạng thái xóa mềm.`}
         confirmText="Xác nhận xóa"
         isLoading={isDeleting}
-      />
+      >
+        {deleteError && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-700 animate-in fade-in duration-200">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+            <div className="font-medium">{deleteError}</div>
+          </div>
+        )}
+      </ConfirmModal>
     </div>
   )
 }

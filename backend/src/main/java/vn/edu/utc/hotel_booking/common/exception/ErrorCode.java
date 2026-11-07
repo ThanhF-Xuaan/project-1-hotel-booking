@@ -18,6 +18,8 @@ public enum ErrorCode {
     // Organization Module Errors
     REGION_NOT_FOUND(2001, "Không tìm thấy khu vực/vùng yêu cầu", HttpStatus.NOT_FOUND),
     REGION_CODE_ALREADY_EXISTS(2002, "Mã khu vực đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
+    REGION_IN_USE(2003, "Khu vực đang có khách sạn trực thuộc, không thể xóa", HttpStatus.CONFLICT),
+    REGION_HAS_ACTIVE_STAFF(2004, "Khu vực đang có nhân viên trực thuộc quản lý, không thể xóa", HttpStatus.CONFLICT),
     DEPARTMENT_NOT_FOUND(2011, "Không tìm thấy phòng ban yêu cầu", HttpStatus.NOT_FOUND),
     DEPARTMENT_CODE_ALREADY_EXISTS(2012, "Mã phòng ban đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
     DEPARTMENT_IN_USE(2013, "Phòng ban đang có nhân viên trực thuộc, không thể xóa", HttpStatus.CONFLICT),

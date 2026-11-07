@@ -13,11 +13,13 @@ import org.springframework.data.domain.Pageable;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.identity.service.StaffLookupService;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.RegionCreateRequest;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.RegionSearchDto;
 import vn.edu.utc.hotel_booking.modules.organization.dto.response.RegionResponse;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Region;
 import vn.edu.utc.hotel_booking.modules.organization.mapper.RegionMapper;
+import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 import vn.edu.utc.hotel_booking.modules.organization.repository.RegionRepository;
 import vn.edu.utc.hotel_booking.modules.organization.service.impl.RegionServiceImpl;
 
@@ -35,6 +37,12 @@ class RegionServiceTest {
 
     @Mock
     private RegionRepository regionRepository;
+
+    @Mock
+    private HotelRepository hotelRepository;
+
+    @Mock
+    private StaffLookupService staffLookupService;
 
     @Mock
     private RegionMapper regionMapper;
@@ -166,13 +174,42 @@ class RegionServiceTest {
     }
 
     @Test
-    @DisplayName("Batch Delete: Xóa mềm danh sách khu vực")
+    @DisplayName("Batch Delete: Xóa mềm danh sách khu vực khi không có khách sạn hay nhân sự nào")
     void deleteBatch_Success() {
         List<Short> ids = List.of((short) 1, (short) 2);
+        when(hotelRepository.existsByRegionIdInAndIsDeletedFalse(ids)).thenReturn(false);
+        when(staffLookupService.hasActiveStaffInRegions(ids)).thenReturn(false);
         when(regionRepository.softDeleteBatch(ids)).thenReturn(2);
 
         regionService.deleteBatch(ids);
 
+        verify(hotelRepository).existsByRegionIdInAndIsDeletedFalse(ids);
+        verify(staffLookupService).hasActiveStaffInRegions(ids);
         verify(regionRepository).softDeleteBatch(ids);
+    }
+
+    @Test
+    @DisplayName("Batch Delete: Ném ngoại lệ REGION_IN_USE khi khu vực đang có khách sạn trực thuộc")
+    void deleteBatch_RegionInUseWithHotels_ThrowsException() {
+        List<Short> ids = List.of((short) 1);
+        when(hotelRepository.existsByRegionIdInAndIsDeletedFalse(ids)).thenReturn(true);
+
+        AppException exception = assertThrows(AppException.class, () -> regionService.deleteBatch(ids));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.REGION_IN_USE);
+        verify(regionRepository, never()).softDeleteBatch(any());
+    }
+
+    @Test
+    @DisplayName("Batch Delete: Ném ngoại lệ REGION_HAS_ACTIVE_STAFF khi khu vực đang có nhân sự quản lý vùng")
+    void deleteBatch_RegionInUseWithStaff_ThrowsException() {
+        List<Short> ids = List.of((short) 1);
+        when(hotelRepository.existsByRegionIdInAndIsDeletedFalse(ids)).thenReturn(false);
+        when(staffLookupService.hasActiveStaffInRegions(ids)).thenReturn(true);
+
+        AppException exception = assertThrows(AppException.class, () -> regionService.deleteBatch(ids));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.REGION_HAS_ACTIVE_STAFF);
+        verify(regionRepository, never()).softDeleteBatch(any());
     }
 }
