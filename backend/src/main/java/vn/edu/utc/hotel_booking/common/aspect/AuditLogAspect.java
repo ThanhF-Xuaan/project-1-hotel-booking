@@ -252,13 +252,21 @@ public class AuditLogAspect {
                     break;
                 }
             }
-        } else if ("CREATE".equals(auditable.actionType())) {
+        }
+
+        String targetResource = targetAccount;
+        if ("Staff".equalsIgnoreCase(auditable.entityName()) && "CREATE".equals(auditable.actionType())) {
             if (result instanceof ApiResponse<?> apiResp && apiResp.getResult() instanceof StaffResponse staffResp) {
-                targetAccount = staffResp.getFullName() + " (@" + staffResp.getUsername() + ")";
+                targetResource = staffResp.getFullName() + " (@" + staffResp.getUsername() + ")";
+                targetAccount = targetResource;
             }
         }
 
-        if (targetAccount != null) {
+        if (targetResource != null) {
+            payloadMap.put("targetResource", targetResource);
+            payloadMap.put("targetAccount", targetResource);
+        } else if (targetAccount != null) {
+            payloadMap.put("targetResource", targetAccount);
             payloadMap.put("targetAccount", targetAccount);
         }
 
