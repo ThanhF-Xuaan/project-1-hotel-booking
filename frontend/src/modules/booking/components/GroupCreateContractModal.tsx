@@ -35,6 +35,34 @@ interface RoomTypeItem {
   basePrice: number;
 }
 
+const getInitialDates = () => {
+  const today = new Date();
+  const defCheckIn = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0];
+  const defCheckOut = new Date(today.getTime() + 10 * 86400000).toISOString().split('T')[0];
+  return { defCheckIn, defCheckOut };
+};
+
+const createDefaultRoomBlock = (roomTypes: RoomTypeItem[]) => {
+  if (roomTypes.length > 0) {
+    return [
+      {
+        hotelRoomTypeId: roomTypes[0].id,
+        roomTypeName: roomTypes[0].name,
+        blockedRooms: 6,
+        negotiatedRatePerNight: roomTypes[0].basePrice,
+      },
+    ];
+  }
+  return [
+    {
+      hotelRoomTypeId: 1,
+      roomTypeName: 'Standard Room',
+      blockedRooms: 6,
+      negotiatedRatePerNight: 1200000,
+    },
+  ];
+};
+
 export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> = ({
   isOpen,
   onClose,
@@ -114,12 +142,9 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
   const [signerName, setSignerName] = useState('');
   const [signerTitle, setSignerTitle] = useState('Đại diện ký kết');
 
-  const today = new Date();
-  const defCheckIn = new Date(today.getTime() + 7 * 86400000).toISOString().split('T')[0];
-  const defCheckOut = new Date(today.getTime() + 10 * 86400000).toISOString().split('T')[0];
-
-  const [checkInDate, setCheckInDate] = useState(defCheckIn);
-  const [checkOutDate, setCheckOutDate] = useState(defCheckOut);
+  const initialDates = getInitialDates();
+  const [checkInDate, setCheckInDate] = useState(initialDates.defCheckIn);
+  const [checkOutDate, setCheckOutDate] = useState(initialDates.defCheckOut);
   const [totalGuests, setTotalGuests] = useState(12);
 
   const [blocks, setBlocks] = useState<
@@ -140,6 +165,50 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
     });
     if (error) setError(null);
   };
+
+  const resetForm = useCallback(() => {
+    const { defCheckIn, defCheckOut } = getInitialDates();
+    setCompanyMode('NEW');
+    setNewCompanyName('');
+    setNewCompanyTaxCode('');
+    setNewCompanyAddress('');
+    setNewContactPhone('');
+    setNewContactEmail('');
+    setSelectedCompanyId(0);
+    setHotelId(0);
+    setSelectedStaffId('');
+    setGroupName('');
+    setCompanyLegalRep('');
+    setSignerName('');
+    setSignerTitle('Đại diện ký kết');
+    setCheckInDate(defCheckIn);
+    setCheckOutDate(defCheckOut);
+    setTotalGuests(12);
+    setBlocks(createDefaultRoomBlock(availableRoomTypes));
+    setSpecialRequests('');
+    setIsSubmitting(false);
+    setError(null);
+    setFieldErrors({});
+  }, [availableRoomTypes]);
+
+  const handleClose = useCallback(() => {
+    resetForm();
+    onClose();
+  }, [resetForm, onClose]);
+
+  const isFirstRender = useRef(true);
+  const prevIsOpen = useRef(isOpen);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (!isOpen || (isOpen && !prevIsOpen.current)) {
+      resetForm();
+    }
+    prevIsOpen.current = isOpen;
+  }, [isOpen, resetForm]);
 
   const loadCompanies = useCallback(async () => {
     if (companies.length > 0 || isLoadingCompanies) return;
@@ -451,6 +520,7 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
       };
 
       await onSubmit(payload, Number(selectedStaffId));
+      resetForm();
       onClose();
     } catch (err: unknown) {
       const msg =
@@ -483,7 +553,7 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Đóng"
             className="p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors cursor-pointer"
           >
@@ -1074,7 +1144,7 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
           <div className="flex items-center gap-3 shrink-0">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               disabled={isSubmitting}
               className="h-10 px-5 rounded-xl border border-neutral-300 font-bold text-xs text-neutral-700 hover:bg-neutral-100 transition-colors cursor-pointer"
             >
