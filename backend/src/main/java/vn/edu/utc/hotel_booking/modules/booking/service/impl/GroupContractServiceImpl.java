@@ -278,40 +278,18 @@ public class GroupContractServiceImpl implements GroupContractService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<GroupContractResponse> filterContracts(GroupContractSearchDto searchDto) {
+        GroupContractSearchDto filter = searchDto != null ? searchDto : new GroupContractSearchDto();
         Sort sort = Sort.by(
-                "ASC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
-                StringUtils.hasText(searchDto.getSortBy()) ? searchDto.getSortBy() : "id"
+                "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
+                StringUtils.hasText(filter.getSortBy()) ? filter.getSortBy() : "id"
         );
-        Pageable pageable = PageRequest.of(searchDto.getPage(), searchDto.getPageSize(), sort);
+        int page = filter.getPage() != null && filter.getPage() >= 0 ? filter.getPage() : 0;
+        int size = filter.getPageSize() != null && filter.getPageSize() > 0 ? filter.getPageSize() : 10;
+        Pageable pageable = PageRequest.of(page, size, sort);
 
-        Specification<GroupContract> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            predicates.add(cb.isFalse(root.get("isDeleted")));
-
-            if (searchDto.getHotelId() != null) {
-                predicates.add(cb.equal(root.get("hotel").get("id"), searchDto.getHotelId()));
-            }
-            if (StringUtils.hasText(searchDto.getContractNumber())) {
-                predicates.add(cb.like(cb.lower(root.get("contractNumber")), "%" + searchDto.getContractNumber().toLowerCase().trim() + "%"));
-            }
-            if (StringUtils.hasText(searchDto.getGroupName())) {
-                predicates.add(cb.like(cb.lower(root.get("groupName")), "%" + searchDto.getGroupName().toLowerCase().trim() + "%"));
-            }
-            if (searchDto.getStatus() != null) {
-                predicates.add(cb.equal(root.get("status"), searchDto.getStatus()));
-            }
-            if (searchDto.getCheckInDateFrom() != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("checkInDate"), searchDto.getCheckInDateFrom()));
-            }
-            if (searchDto.getCheckInDateTo() != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), searchDto.getCheckInDateTo()));
-            }
-
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        Page<GroupContract> page = groupContractRepository.findAll(spec, pageable);
-        return PageResponse.from(page.map(c -> mapToResponse(c, null)));
+        Specification<GroupContract> spec = buildFilterSpecification(filter);
+        Page<GroupContract> pageResult = groupContractRepository.findAll(spec, pageable);
+        return PageResponse.from(pageResult.map(c -> mapToResponse(c, null)));
     }
 
     @Override
@@ -322,19 +300,71 @@ public class GroupContractServiceImpl implements GroupContractService {
                 "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
                 StringUtils.hasText(filter.getSortBy()) ? filter.getSortBy() : "id"
         );
-        Specification<GroupContract> spec = (root, query, cb) -> {
+        Specification<GroupContract> spec = buildFilterSpecification(filter);
+        List<GroupContract> contracts = groupContractRepository.findAll(spec, sort);
+
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            groupContractWorkbookWriter.write(contracts, bos);
+            return bos.toByteArray();
+        } catch (IOException e) {
+            log.error("Lỗi khi xuất file Excel báo cáo hợp đồng đoàn", e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Không thể xuất file Excel báo cáo hợp đồng đoàn");
+        }
+    }
+
+    private Specification<GroupContract> buildFilterSpecification(GroupContractSearchDto filter) {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isFalse(root.get("isDeleted")));
+
+            if (filter == null) {
+                return cb.and(predicates.toArray(new Predicate[0]));
+            }
 
             if (filter.getHotelId() != null) {
                 predicates.add(cb.equal(root.get("hotel").get("id"), filter.getHotelId()));
             }
-            if (StringUtils.hasText(filter.getContractNumber())) {
-                predicates.add(cb.like(cb.lower(root.get("contractNumber")), "%" + filter.getContractNumber().toLowerCase().trim() + "%"));
+
+            // Keyword: tra cứu đa trường (Mã HĐ, Tên đoàn, Tên công ty, MST)
+            String keyword = filter.getKeyword();
+            // Fallback: nếu frontend cũ truyền đồng thời contractNumber == groupName
+            if (!StringUtils.hasText(keyword)
+                    && StringUtils.hasText(filter.getContractNumber())
+                    && filter.getContractNumber().equals(filter.getGroupName())) {
+                keyword = filter.getContractNumber();
             }
-            if (StringUtils.hasText(filter.getGroupName())) {
-                predicates.add(cb.like(cb.lower(root.get("groupName")), "%" + filter.getGroupName().toLowerCase().trim() + "%"));
+
+            if (StringUtils.hasText(keyword)) {
+                String pattern = "%" + keyword.toLowerCase().trim() + "%";
+                jakarta.persistence.criteria.Join<GroupContract, Company> companyJoin =
+                        root.join("company", jakarta.persistence.criteria.JoinType.LEFT);
+                query.distinct(true);
+
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("contractNumber")), pattern),
+                        cb.like(cb.lower(root.get("groupName")), pattern),
+                        cb.like(cb.lower(root.get("companyTaxCode")), pattern),
+                        cb.like(cb.lower(companyJoin.get("name")), pattern),
+                        cb.like(cb.lower(companyJoin.get("taxCode")), pattern)
+                ));
+            } else {
+                if (StringUtils.hasText(filter.getContractNumber())) {
+                    predicates.add(cb.like(cb.lower(root.get("contractNumber")),
+                            "%" + filter.getContractNumber().toLowerCase().trim() + "%"));
+                }
+                if (StringUtils.hasText(filter.getGroupName())) {
+                    predicates.add(cb.like(cb.lower(root.get("groupName")),
+                            "%" + filter.getGroupName().toLowerCase().trim() + "%"));
+                }
+                if (StringUtils.hasText(filter.getCompanyName())) {
+                    jakarta.persistence.criteria.Join<GroupContract, Company> companyJoin =
+                            root.join("company", jakarta.persistence.criteria.JoinType.LEFT);
+                    query.distinct(true);
+                    predicates.add(cb.like(cb.lower(companyJoin.get("name")),
+                            "%" + filter.getCompanyName().toLowerCase().trim() + "%"));
+                }
             }
+
             if (filter.getStatus() != null) {
                 predicates.add(cb.equal(root.get("status"), filter.getStatus()));
             }
@@ -347,16 +377,6 @@ public class GroupContractServiceImpl implements GroupContractService {
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-
-        List<GroupContract> contracts = groupContractRepository.findAll(spec, sort);
-
-        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
-            groupContractWorkbookWriter.write(contracts, bos);
-            return bos.toByteArray();
-        } catch (IOException e) {
-            log.error("Lỗi khi xuất file Excel báo cáo hợp đồng đoàn", e);
-            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Không thể xuất file Excel báo cáo hợp đồng đoàn");
-        }
     }
 
     @Override

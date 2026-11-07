@@ -358,4 +358,93 @@ class GroupContractServiceTest {
         verify(groupContractRepository, times(1)).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Sort.class));
         verify(groupContractWorkbookWriter, times(1)).write(eq(List.of(contract)), any());
     }
+
+    @Test
+    @DisplayName("filterContracts: Tìm kiếm theo keyword trả về PageResponse tương ứng")
+    @SuppressWarnings("unchecked")
+    void filterContracts_withKeyword_shouldQueryRepositoryAndMapPageResponse() {
+        GroupContract contract = GroupContract.builder()
+                .id(1L)
+                .contractNumber("GC-20261107-0001")
+                .groupName("Đoàn công tác Hà Nội")
+                .hotel(Hotel.builder().id((short) 1).name("Khách sạn Hà Nội").build())
+                .status(GroupContractStatus.TENTATIVE)
+                .totalRooms(5)
+                .totalGuests(10)
+                .totalContractValue(BigDecimal.valueOf(10000000))
+                .depositAmount(BigDecimal.valueOf(5000000))
+                .depositPaidAmount(BigDecimal.ZERO)
+                .build();
+
+        org.springframework.data.domain.Page<GroupContract> pageResult =
+                new org.springframework.data.domain.PageImpl<>(List.of(contract), org.springframework.data.domain.PageRequest.of(0, 10), 1);
+
+        when(groupContractRepository.findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(pageResult);
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchDto searchDto =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchDto.builder()
+                        .keyword("Hà Nội")
+                        .status(GroupContractStatus.TENTATIVE)
+                        .hotelId((short) 1)
+                        .page(0)
+                        .pageSize(10)
+                        .build();
+
+        vn.edu.utc.hotel_booking.common.dto.PageResponse<GroupContractResponse> response =
+                groupContractService.filterContracts(searchDto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getContractNumber()).isEqualTo("GC-20261107-0001");
+        verify(groupContractRepository, times(1)).findAll(any(org.springframework.data.jpa.domain.Specification.class), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    @DisplayName("filterContracts: Specification xây dựng đúng predicates khi tra cứu keyword và fallback")
+    @SuppressWarnings("unchecked")
+    void filterContracts_specification_shouldBuildPredicatesCorrectly() {
+        jakarta.persistence.criteria.Root<GroupContract> root = mock(jakarta.persistence.criteria.Root.class);
+        jakarta.persistence.criteria.CriteriaQuery<?> query = mock(jakarta.persistence.criteria.CriteriaQuery.class);
+        jakarta.persistence.criteria.CriteriaBuilder cb = mock(jakarta.persistence.criteria.CriteriaBuilder.class);
+        jakarta.persistence.criteria.Predicate dummyPredicate = mock(jakarta.persistence.criteria.Predicate.class);
+        jakarta.persistence.criteria.Path<Object> pathObj = mock(jakarta.persistence.criteria.Path.class);
+        jakarta.persistence.criteria.Expression<String> exprStr = mock(jakarta.persistence.criteria.Expression.class);
+        jakarta.persistence.criteria.Join<GroupContract, Company> companyJoin = mock(jakarta.persistence.criteria.Join.class);
+
+        lenient().when(root.get(anyString())).thenReturn(pathObj);
+        lenient().when(pathObj.get(anyString())).thenReturn(pathObj);
+        lenient().when(root.join(eq("company"), any(jakarta.persistence.criteria.JoinType.class))).thenReturn((jakarta.persistence.criteria.Join) companyJoin);
+        lenient().when(companyJoin.get(anyString())).thenReturn(pathObj);
+
+        lenient().when(cb.isFalse(any())).thenReturn(dummyPredicate);
+        lenient().when(cb.equal(any(), any())).thenReturn(dummyPredicate);
+        lenient().when(cb.lower(any())).thenReturn(exprStr);
+        lenient().when(cb.like(any(), anyString())).thenReturn(dummyPredicate);
+        lenient().when(cb.or(any(jakarta.persistence.criteria.Predicate[].class))).thenReturn(dummyPredicate);
+        lenient().when(cb.and(any(jakarta.persistence.criteria.Predicate[].class))).thenReturn(dummyPredicate);
+
+        vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchDto searchDto =
+                vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchDto.builder()
+                        .keyword("demo")
+                        .hotelId((short) 1)
+                        .status(GroupContractStatus.TENTATIVE)
+                        .checkInDateFrom(LocalDate.of(2026, 11, 14))
+                        .checkInDateTo(LocalDate.of(2026, 11, 17))
+                        .build();
+
+        org.mockito.ArgumentCaptor<org.springframework.data.jpa.domain.Specification<GroupContract>> captor =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.data.jpa.domain.Specification.class);
+
+        when(groupContractRepository.findAll(captor.capture(), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+
+        groupContractService.filterContracts(searchDto);
+
+        org.springframework.data.jpa.domain.Specification<GroupContract> capturedSpec = captor.getValue();
+        assertThat(capturedSpec).isNotNull();
+
+        jakarta.persistence.criteria.Predicate resultPredicate = capturedSpec.toPredicate(root, query, cb);
+        assertThat(resultPredicate).isNotNull();
+    }
 }

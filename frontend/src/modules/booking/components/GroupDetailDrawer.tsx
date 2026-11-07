@@ -171,8 +171,13 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
     }
     try {
       setIsCancelling(true);
-      await groupBookingService.cancel(contract.id, { reason: cancelReason.trim() });
+      const trimmedReason = cancelReason.trim();
+      await groupBookingService.cancel(contract.id, {
+        cancellationReason: trimmedReason,
+        reason: trimmedReason,
+      });
       setShowCancelModal(false);
+      setCancelReason('');
       await onRefresh();
       onClose();
     } catch (err: unknown) {
