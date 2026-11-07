@@ -22,6 +22,7 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.request.RefreshTokenRequest
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.KeycloakTokenResponse;
 import vn.edu.utc.hotel_booking.modules.identity.dto.response.TokenResponse;
 import vn.edu.utc.hotel_booking.modules.identity.service.AuthService;
+import vn.edu.utc.hotel_booking.modules.identity.service.StaffProvisioningService;
 import vn.edu.utc.hotel_booking.modules.identity.service.TokenBlacklistService;
 
 @Slf4j
@@ -30,6 +31,7 @@ import vn.edu.utc.hotel_booking.modules.identity.service.TokenBlacklistService;
 public class AuthServiceImpl implements AuthService {
 
     private final TokenBlacklistService tokenBlacklistService;
+    private final StaffProvisioningService staffProvisioningService;
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${keycloak.server-url}")
@@ -80,6 +82,13 @@ public class AuthServiceImpl implements AuthService {
             if (keycloakToken == null || keycloakToken.getAccessToken() == null) {
                 log.error("Empty token response from Keycloak for user: {}", request.getUsername());
                 throw new AppException(ErrorCode.KEYCLOAK_COMMUNICATION_ERROR);
+            }
+
+            // Just-In-Time (JIT) Provisioning/Reconciling hồ sơ Staff vào PostgreSQL
+            try {
+                staffProvisioningService.provisionOrUpdateFromJwt(keycloakToken.getAccessToken(), request.getUsername());
+            } catch (Exception e) {
+                log.warn("JIT Staff provisioning warning for user {}: {}", request.getUsername(), e.getMessage());
             }
 
             log.info("User '{}' logged in successfully via Keycloak", request.getUsername());

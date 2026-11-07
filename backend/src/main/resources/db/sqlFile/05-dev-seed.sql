@@ -466,3 +466,32 @@ ON CONFLICT (hotel_id, room_number) DO UPDATE
 SET 
     current_status = EXCLUDED.current_status,
     updated_at = CURRENT_TIMESTAMP;
+
+
+-- ==============================================================================
+-- LỚP 3.6: TÀI KHOẢN NHÂN SỰ MẪU (STAFF SEED - MAPPED KEYCLOAK REALM)
+-- Bảng: staffs (Khởi tạo tài khoản nhân sự đồng bộ với keycloak/realm-export.json)
+-- ==============================================================================
+
+INSERT INTO staffs (
+    id, keycloak_id, role_id, scope_type, scope_entity_id, department_id,
+    username, email, phone, first_name, last_name, full_name, status
+)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (1, '10000000-0000-0000-0000-000000000001', (SELECT id FROM roles WHERE code = 'CHAIN_ADMIN'),
+     'CHAIN', NULL, NULL,
+     'admin', 'admin@hotel.utc.edu.vn', '0901000001', 'System', 'Admin', 'System Admin', 'ACTIVE'),
+    (2, '10000000-0000-0000-0000-000000000004', (SELECT id FROM roles WHERE code = 'PROPERTY_MANAGER'),
+     'PROPERTY', (SELECT id FROM hotels WHERE name = 'Viettel Luxury Hà Nội' LIMIT 1), NULL,
+     'manager_hn', 'manager.hn@hotel.utc.edu.vn', '0901000002', 'Manager', 'Hà Nội', 'Manager Hà Nội', 'ACTIVE'),
+    (3, '10000000-0000-0000-0000-000000000005', (SELECT id FROM roles WHERE code = 'RECEPTIONIST'),
+     'PROPERTY', (SELECT id FROM hotels WHERE name = 'Viettel Luxury Hà Nội' LIMIT 1), (SELECT id FROM departments WHERE code = 'FRONT_OFFICE' LIMIT 1),
+     'reception_hn', 'reception.hn@hotel.utc.edu.vn', '0901000003', 'Lễ Tân', 'Hà Nội', 'Lễ Tân Hà Nội', 'ACTIVE')
+ON CONFLICT (keycloak_id) DO UPDATE SET
+    username = EXCLUDED.username,
+    email = EXCLUDED.email,
+    full_name = EXCLUDED.full_name,
+    status = EXCLUDED.status;
+
+SELECT setval('staffs_id_seq', (SELECT GREATEST(MAX(id), 5) FROM staffs));
