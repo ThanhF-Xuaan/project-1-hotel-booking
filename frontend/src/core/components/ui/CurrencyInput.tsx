@@ -32,6 +32,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       className,
       maxDigits = 13,
       onKeyDown,
+      error,
       ...props
     },
     ref
@@ -44,6 +45,9 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       const num = parseCurrency(value)
       return num > 0 ? formatCurrencyInput(num) : ''
     })
+
+    // Thông báo lỗi khi nhập quá giới hạn maxDigits
+    const [limitError, setLimitError] = useState<string>('')
 
     // Lưu vị trí số chữ số trước con trỏ để phục hồi đồng bộ trong useLayoutEffect
     const cursorDigitsRef = useRef<number | null>(null)
@@ -97,6 +101,9 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       if (cleanDigits.length > maxDigits) {
         cleanDigits = cleanDigits.slice(0, maxDigits)
         digitsBeforeCursor = Math.min(digitsBeforeCursor, maxDigits)
+        setLimitError('Không được nhập quá 13 số')
+      } else {
+        setLimitError('')
       }
 
       const num = cleanDigits ? parseCurrency(cleanDigits) : 0
@@ -133,6 +140,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
           .replace(/[^\d]/g, '').length
         if (currentDigits - selectedDigits >= maxDigits) {
           e.preventDefault()
+          setLimitError('Không được nhập quá 13 số')
           return
         }
       }
@@ -151,6 +159,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
       // Xóa chữ số phía trước con trỏ chuột (ngăn việc bấm Delete lại xóa ký tự phía sau con trỏ)
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault()
+        setLimitError('')
         const curVal = inputEl.value
 
         let nextVal: string
@@ -187,6 +196,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
 
     // 13 số + 4 dấu chấm = 17 ký tự hiển thị
     const maxFormattedLength = maxDigits + Math.floor((maxDigits - 1) / 3)
+    const effectiveError = error || limitError
 
     return (
       <Input
@@ -198,6 +208,7 @@ export const CurrencyInput = forwardRef<HTMLInputElement, CurrencyInputProps>(
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         maxLength={maxFormattedLength}
+        error={effectiveError}
         className={className}
         rightIcon={
           rightIcon || (

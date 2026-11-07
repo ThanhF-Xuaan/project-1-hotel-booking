@@ -56,9 +56,9 @@ export const MenuListPage: React.FC = () => {
     name: '',
     description: '',
     menuType: 'PRODUCT',
-    basePrice: 50000,
+    basePrice: 0,
     taxCategoryId: 1,
-    stockQuantity: 100,
+    stockQuantity: 0,
     pricingType: 'PER_UNIT',
     status: 'ACTIVE',
   });
