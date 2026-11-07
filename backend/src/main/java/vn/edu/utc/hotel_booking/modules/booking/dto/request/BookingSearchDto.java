@@ -25,4 +25,11 @@ public class BookingSearchDto extends BaseSearchDto {
     LocalDate checkInDate;
     LocalDate checkOutDate;
     Boolean isAssigned;
+    Long groupContractId;
+
+    public void setSize(Integer size) {
+        if (size != null) {
+            setPageSize(size);
+        }
+    }
 }
