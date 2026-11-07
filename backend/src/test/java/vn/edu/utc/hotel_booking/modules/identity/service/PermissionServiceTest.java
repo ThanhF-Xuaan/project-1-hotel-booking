@@ -18,7 +18,7 @@ import vn.edu.utc.hotel_booking.modules.identity.dto.response.PermissionResponse
 import vn.edu.utc.hotel_booking.modules.identity.entity.Permission;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.PermissionMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.PermissionRepository;
-import vn.edu.utc.hotel_booking.modules.identity.repository.RoleRepository;
+import vn.edu.utc.hotel_booking.modules.identity.service.RoleLookupService;
 import vn.edu.utc.hotel_booking.modules.identity.service.impl.PermissionServiceImpl;
 
 import java.util.Collections;
@@ -37,7 +37,7 @@ class PermissionServiceTest {
     private PermissionRepository permissionRepository;
 
     @Mock
-    private RoleRepository roleRepository;
+    private RoleLookupService roleLookupService;
 
     @Mock
     private PermissionMapper permissionMapper;
@@ -63,7 +63,7 @@ class PermissionServiceTest {
     @DisplayName("Happy path: Lấy tất cả quyền hạn hệ thống thành công")
     void getAllPermissions_Success() {
         when(permissionRepository.findAllByIsDeletedFalse()).thenReturn(List.of(p1, p2));
-        when(roleRepository.findAllWithPermissions()).thenReturn(Collections.emptyList());
+        when(roleLookupService.getPermissionRoleMap()).thenReturn(Collections.emptyMap());
         when(permissionMapper.toResponse(p1)).thenReturn(res1);
         when(permissionMapper.toResponse(p2)).thenReturn(res2);
 
@@ -86,7 +86,7 @@ class PermissionServiceTest {
         Page<Permission> page = new PageImpl<>(List.of(p1, p2));
         when(permissionRepository.searchPermissions(eq("ROOM"), isNull(), isNull(), eq("ACTIVE"), any(Pageable.class)))
                 .thenReturn(page);
-        when(roleRepository.findAllWithPermissions()).thenReturn(Collections.emptyList());
+        when(roleLookupService.getPermissionRoleMap()).thenReturn(Collections.emptyMap());
         when(permissionMapper.toResponse(p1)).thenReturn(res1);
         when(permissionMapper.toResponse(p2)).thenReturn(res2);
 

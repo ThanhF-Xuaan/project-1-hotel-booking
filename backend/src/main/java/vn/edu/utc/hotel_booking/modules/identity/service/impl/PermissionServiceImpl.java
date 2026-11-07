@@ -18,8 +18,8 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.Permission;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Role;
 import vn.edu.utc.hotel_booking.modules.identity.mapper.PermissionMapper;
 import vn.edu.utc.hotel_booking.modules.identity.repository.PermissionRepository;
-import vn.edu.utc.hotel_booking.modules.identity.repository.RoleRepository;
 import vn.edu.utc.hotel_booking.modules.identity.service.PermissionService;
+import vn.edu.utc.hotel_booking.modules.identity.service.RoleLookupService;
 
 import java.util.*;
 
@@ -30,7 +30,7 @@ import java.util.*;
 public class PermissionServiceImpl implements PermissionService {
 
     private final PermissionRepository permissionRepository;
-    private final RoleRepository roleRepository;
+    private final RoleLookupService roleLookupService;
     private final PermissionMapper permissionMapper;
 
     @Override
@@ -48,7 +48,7 @@ public class PermissionServiceImpl implements PermissionService {
 
         Page<Permission> pageResult = permissionRepository.searchPermissions(keyword, resource, action, "ACTIVE", pageable);
 
-        Map<Short, List<Role>> permRoleMap = buildPermissionRoleMap();
+        Map<Short, List<Role>> permRoleMap = roleLookupService.getPermissionRoleMap();
         Page<PermissionResponse> responsePage = pageResult.map(p -> toEnhancedResponse(p, permRoleMap));
 
         log.debug("Tra cứu danh mục quyền hạn: totalElements={}", responsePage.getTotalElements());
@@ -58,7 +58,7 @@ public class PermissionServiceImpl implements PermissionService {
     @Override
     public List<PermissionResponse> getAllPermissions() {
         List<Permission> permissions = permissionRepository.findAllByIsDeletedFalse();
-        Map<Short, List<Role>> permRoleMap = buildPermissionRoleMap();
+        Map<Short, List<Role>> permRoleMap = roleLookupService.getPermissionRoleMap();
 
         log.debug("Đã tải danh sách quyền hạn hệ thống: count={}", permissions.size());
         return permissions.stream()
@@ -81,23 +81,6 @@ public class PermissionServiceImpl implements PermissionService {
         }
         return permissionRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PERMISSION_NOT_FOUND));
-    }
-
-    private Map<Short, List<Role>> buildPermissionRoleMap() {
-        Map<Short, List<Role>> map = new HashMap<>();
-        try {
-            List<Role> roles = roleRepository.findAllWithPermissions();
-            for (Role role : roles) {
-                if (role.getPermissions() != null) {
-                    for (Permission p : role.getPermissions()) {
-                        map.computeIfAbsent(p.getId(), k -> new ArrayList<>()).add(role);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Lỗi khi tải quan hệ vai trò - quyền hạn: {}", e.getMessage());
-        }
-        return map;
     }
 
     private PermissionResponse toEnhancedResponse(Permission permission, Map<Short, List<Role>> permRoleMap) {

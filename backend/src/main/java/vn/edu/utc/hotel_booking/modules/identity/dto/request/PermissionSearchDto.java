@@ -32,3 +32,4 @@ public class PermissionSearchDto {
     @Schema(description = "Chiều sắp xếp (ASC hoặc DESC)", example = "ASC")
     String sortDirection;
 }
+
