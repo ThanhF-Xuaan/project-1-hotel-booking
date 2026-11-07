@@ -217,32 +217,51 @@ export const AuditLogListPage: React.FC = () => {
     return log.description || log.actionType;
   };
 
+  const safeParseJson = (jsonStr?: string): Record<string, unknown> | null => {
+    if (!jsonStr) return null;
+    try {
+      const parsed: unknown = JSON.parse(jsonStr);
+      if (parsed && typeof parsed === 'object') {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
   /**
    * Trích xuất Tài khoản bị tác động rõ ràng
    */
-  const formatTargetAccount = (log: AuditLogDto) => {
+  const formatTargetAccount = (log: AuditLogDto): string => {
     if (log.targetAccount && log.targetAccount.trim().length > 0) {
       return log.targetAccount;
     }
 
-    try {
-      if (log.newValues) {
-        const parsed = JSON.parse(log.newValues);
-        if (parsed.targetAccount) return parsed.targetAccount;
-        if (parsed.request?.username) return `@${parsed.request.username}`;
+    const newObj = safeParseJson(log.newValues);
+    if (newObj) {
+      if (typeof newObj.targetAccount === 'string') return newObj.targetAccount;
+      if (
+        newObj.request &&
+        typeof newObj.request === 'object' &&
+        'username' in newObj.request &&
+        typeof (newObj.request as { username?: unknown }).username === 'string'
+      ) {
+        return `@${(newObj.request as { username: string }).username}`;
       }
-    } catch {}
+    }
 
-    try {
-      if (log.oldValues) {
-        const parsed = JSON.parse(log.oldValues);
-        if (parsed.targetAccount) return parsed.targetAccount;
-        if (parsed.fullName && parsed.username) {
-          return `${parsed.fullName} (@${parsed.username})`;
-        }
-        if (parsed.username) return `@${parsed.username}`;
+    const oldObj = safeParseJson(log.oldValues);
+    if (oldObj) {
+      if (typeof oldObj.targetAccount === 'string') return oldObj.targetAccount;
+      if (
+        typeof oldObj.fullName === 'string' &&
+        typeof oldObj.username === 'string'
+      ) {
+        return `${oldObj.fullName} (@${oldObj.username})`;
       }
-    } catch {}
+      if (typeof oldObj.username === 'string') return `@${oldObj.username}`;
+    }
 
     if (log.entityName === 'Staff') {
       if (log.entityId === 'admin') return 'System Admin (@admin)';
@@ -261,27 +280,26 @@ export const AuditLogListPage: React.FC = () => {
       return { fields: [], targetDisplay: 'N/A', actionSummary: '', deletedList: null };
     }
 
-    let oldObj: Record<string, any> = {};
-    let newObj: Record<string, any> = {};
+    const oldObj: Record<string, unknown> = safeParseJson(log.oldValues) || {};
+    let newObj: Record<string, unknown> = {};
 
-    try {
-      if (log.oldValues) {
-        oldObj = JSON.parse(log.oldValues);
+    const parsedNew = safeParseJson(log.newValues);
+    if (parsedNew) {
+      if (
+        parsedNew.request &&
+        typeof parsedNew.request === 'object' &&
+        !Array.isArray(parsedNew.request)
+      ) {
+        newObj = { ...(parsedNew.request as Record<string, unknown>), ...parsedNew };
+      } else if (
+        parsedNew.params &&
+        typeof parsedNew.params === 'object'
+      ) {
+        newObj = { ...(parsedNew.params as Record<string, unknown>), ...parsedNew };
+      } else {
+        newObj = parsedNew;
       }
-    } catch {}
-
-    try {
-      if (log.newValues) {
-        const parsed = JSON.parse(log.newValues);
-        if (parsed.request && typeof parsed.request === 'object' && !Array.isArray(parsed.request)) {
-          newObj = { ...parsed.request, ...parsed };
-        } else if (parsed.params && typeof parsed.params === 'object') {
-          newObj = { ...parsed.params, ...parsed };
-        } else {
-          newObj = parsed;
-        }
-      }
-    } catch {}
+    }
 
     const targetDisplay = formatTargetAccount(log);
     const actionSummary = formatActionDescription(log);
