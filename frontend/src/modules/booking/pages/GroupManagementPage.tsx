@@ -133,6 +133,56 @@ export const GroupManagementPage: React.FC = () => {
   };
 
   const handleExportExcel = async () => {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const suggestedFileName = `Bao_Cao_Hop_Dong_Doan_${today}.xlsx`;
+
+    type NativeFileHandle = {
+      createWritable: () => Promise<{
+        write: (data: Blob) => Promise<void>;
+        close: () => Promise<void>;
+      }>;
+    };
+
+    let fileHandle: NativeFileHandle | null = null;
+
+    // 1. Mở cửa sổ Save As nếu trình duyệt hỗ trợ File System Access API (Chrome, Edge)
+    const windowWithPicker = window as unknown as {
+      showSaveFilePicker?: (options?: {
+        suggestedName?: string;
+        types?: Array<{
+          description?: string;
+          accept: Record<string, string[]>;
+        }>;
+      }) => Promise<NativeFileHandle>;
+    };
+
+    if (typeof windowWithPicker.showSaveFilePicker === 'function') {
+      try {
+        fileHandle = await windowWithPicker.showSaveFilePicker({
+          suggestedName: suggestedFileName,
+          types: [
+            {
+              description: 'Sổ làm việc Excel (*.xlsx)',
+              accept: {
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+              },
+            },
+          ],
+        });
+      } catch (pickerErr: unknown) {
+        // Người dùng nhấn Cancel / Hủy trong cửa sổ chọn đường dẫn lưu
+        if (
+          pickerErr &&
+          typeof pickerErr === 'object' &&
+          'name' in pickerErr &&
+          pickerErr.name === 'AbortError'
+        ) {
+          return;
+        }
+        console.warn('Không thể mở cửa sổ chọn nơi lưu file qua File System Access API, chuyển sang phương thức tải tiêu chuẩn:', pickerErr);
+      }
+    }
+
     setIsExporting(true);
     try {
       const blob = await groupBookingService.exportExcel({
@@ -144,15 +194,22 @@ export const GroupManagementPage: React.FC = () => {
         sortDirection: 'DESC',
       });
 
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      link.setAttribute('download', `Bao_Cao_Hop_Dong_Doan_${today}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.parentNode?.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      if (fileHandle) {
+        // Ghi trực tiếp vào file tại đúng đường dẫn người dùng đã chọn
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        // Fallback tự động tải cho trình duyệt không hỗ trợ File System Access API
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', suggestedFileName);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
     } catch (err: unknown) {
       console.error('Lỗi khi xuất file Excel báo cáo hợp đồng đoàn:', err);
       const message = err instanceof Error ? err.message : 'Không thể xuất file Excel. Vui lòng thử lại sau.';
