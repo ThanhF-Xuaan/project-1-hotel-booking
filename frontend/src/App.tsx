@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './core/components/auth/ProtectedRoute'
+import { UTILITY_READ_ROLES } from './modules/operation/types/utility.types'
 
 const AdminLayout = lazy(() => import('./core/components/layout/AdminLayout'))
 const LoginPage = lazy(() => import('./modules/auth/pages/LoginPage'))
@@ -22,6 +23,7 @@ const RoomServiceOrderPage = lazy(() => import('./modules/operation/pages/RoomSe
   .then((module) => ({ default: module.RoomServiceOrderPage })))
 const HousekeepingPage = lazy(() => import('./modules/operation/pages/HousekeepingPage')
   .then((module) => ({ default: module.HousekeepingPage })))
+const UtilityManagementPage = lazy(() => import('./modules/operation/pages/UtilityManagementPage'))
 const NightAuditPage = lazy(() => import('./modules/operation/pages/NightAuditPage')
   .then((module) => ({ default: module.NightAuditPage })))
 const ManagementDashboard = lazy(() => import('./modules/dashboard/pages/ManagementDashboard')
@@ -114,6 +116,10 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE']} />}>
                 <Route path="/operation/night-audit" element={<NightAuditPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute roles={UTILITY_READ_ROLES} />}>
+                <Route path="/operation/utility" element={<UtilityManagementPage />} />
               </Route>
 
               {/* Phân hệ Tài chính */}
