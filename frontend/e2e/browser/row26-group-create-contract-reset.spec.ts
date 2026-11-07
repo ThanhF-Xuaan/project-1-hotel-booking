@@ -35,7 +35,7 @@ test.describe('Row 26: GroupCreateContractModal form reset on close and reopen',
       });
     });
 
-    await page.route(/\/api\/v1\/hotel-room-types/, async (route) => {
+    await page.route(/\/api\/v1\/(inventory\/)?hotel-room-types/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -190,5 +190,53 @@ test.describe('Row 26: GroupCreateContractModal form reset on close and reopen',
     await expect(page.getByPlaceholder('VD: Tổng Công ty Cổ phần May 10')).toHaveValue('');
     await expect(page.getByPlaceholder('0100109106')).toHaveValue('');
     await expect(page.getByPlaceholder('VD: Đoàn Hội Thảo Tổng Kết Q4/2026')).toHaveValue('');
+  });
+
+  test('opens modal on /admin/groups page without white screen or useRef error', async ({ page }) => {
+    const consoleErrors: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text());
+      }
+    });
+
+
+    // Mock admin token in localStorage
+    const token = `header.${Buffer.from(
+      JSON.stringify({ sub: 'admin-user', realm_access: { roles: ['CHAIN_ADMIN', 'SALES_GROUP'] } })
+    ).toString('base64url')}.signature`;
+
+    await page.addInitScript((t) => {
+      localStorage.setItem('auth_token', t);
+    }, token);
+
+    // Mock group contracts API
+    await page.route(/\/api\/v1\/group-contracts/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        json: {
+          code: 200,
+          message: 'ok',
+          result: { content: [], totalPages: 1, totalElements: 0, pageNumber: 0 },
+        },
+      });
+    });
+
+    await page.goto('/admin/groups');
+    await expect(page.getByRole('heading', { name: 'Quản Lý Khách Đoàn' })).toBeVisible();
+
+    // Click "+ Tạo Hợp Đồng" button
+    const createBtn = page.getByRole('button', { name: /Tạo Hợp Đồng/i });
+    await expect(createBtn).toBeVisible();
+    await createBtn.click();
+
+    // Modal should be visible and NOT crash into white screen
+    await expect(page.getByRole('heading', { name: 'Tạo Hợp Đồng Khách Đoàn' })).toBeVisible();
+    await expect(page.getByPlaceholder('VD: Tổng Công ty Cổ phần May 10')).toBeVisible();
+
+    // Verify no "useRef is not defined" error occurred
+    const hasUseRefError = consoleErrors.some((e) => e.includes('useRef is not defined'));
+    expect(hasUseRefError).toBe(false);
   });
 });
