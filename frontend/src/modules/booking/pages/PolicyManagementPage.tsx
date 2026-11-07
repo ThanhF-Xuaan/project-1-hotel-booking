@@ -188,18 +188,80 @@ export const PolicyManagementPage: React.FC = () => {
   const renderFeeTypeBadge = (feeType: CancellationFeeType) => {
     switch (feeType) {
       case 'TIERED':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">Bậc Thang (TIERED)</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">Bậc Thang (TIERED)</span>;
       case 'FULL_DEPOSIT':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">Tiền Cọc (DEPOSIT)</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">Tiền Cọc (DEPOSIT)</span>;
       case 'PERCENT':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Tỷ Lệ % Cố Định</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">Tỷ Lệ % Cố Định</span>;
       case 'FIXED_AMOUNT':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-800 border border-neutral-300">Cố Định Số Tiền</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-800 border border-neutral-300 whitespace-nowrap">Cố Định Số Tiền</span>;
       case 'FIRST_NIGHT':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Phạt Đêm Đầu</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">Phạt Đêm Đầu</span>;
       default:
-        return <span>{feeType}</span>;
+        return <span className="whitespace-nowrap">{feeType}</span>;
     }
+  };
+
+  const renderPenaltyDetails = (p: CancellationPolicyResponse) => {
+    if (p.cancellationFeeType === 'TIERED') {
+      if (!p.tiers || p.tiers.length === 0) {
+        return <span className="text-xs text-neutral-400">Chưa cấu hình tiers</span>;
+      }
+      return (
+        <div className="text-xs space-y-0.5">
+          {p.tiers.map((t, idx) => (
+            <div key={idx} className="text-neutral-600">
+              {t.maxDays !== null && t.maxDays !== undefined ? `${t.minDays} - ${t.maxDays} ngày` : `≥ ${t.minDays} ngày`}: <strong className="text-red-600">{t.penaltyPercent}%</strong>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'PERCENT') {
+      return (
+        <div className="text-xs">
+          Phạt: <strong className="text-red-600 font-bold text-sm">{p.defaultPenaltyPercent}%</strong>
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'FIXED_AMOUNT') {
+      return (
+        <div className="text-xs">
+          Phạt: <strong className="text-red-600 font-bold text-sm">{Number(p.defaultPenaltyPercent).toLocaleString()} đ</strong>
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'FIRST_NIGHT') {
+      return (
+        <div className="text-xs font-semibold text-neutral-700">
+          Phạt 100% giá đêm đầu
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'FULL_DEPOSIT') {
+      if (p.tiers && p.tiers.length > 0) {
+        return (
+          <div className="text-xs space-y-0.5">
+            {p.tiers.map((t, idx) => (
+              <div key={idx} className="text-neutral-600">
+                {t.maxDays !== null && t.maxDays !== undefined ? `${t.minDays} - ${t.maxDays} ngày` : `≥ ${t.minDays} ngày`}: <strong className="text-purple-600">{t.penaltyPercent}% cọc</strong>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      return (
+        <div className="text-xs font-semibold text-purple-700">
+          100% tiền cọc thực tế
+        </div>
+      );
+    }
+
+    return <span className="text-xs font-bold text-red-600">{p.defaultPenaltyPercent}%</span>;
   };
 
   return (
@@ -369,7 +431,7 @@ export const PolicyManagementPage: React.FC = () => {
                   <th className="p-3">Đối Tượng</th>
                   <th className="p-3">Cơ Chế Phạt</th>
                   <th className="p-3">Miễn Phí Hủy</th>
-                  <th className="p-3">Bậc Phạt (Tiers)</th>
+                  <th className="p-3">Mức Phạt / Bậc Phạt</th>
                   <th className="p-3">Trạng Thái</th>
                   <th className="p-3 text-right">Thao Tác</th>
                 </tr>
@@ -404,19 +466,7 @@ export const PolicyManagementPage: React.FC = () => {
                       </td>
                       <td className="p-3">{renderFeeTypeBadge(p.cancellationFeeType)}</td>
                       <td className="p-3 font-semibold text-neutral-700">{p.freeCancellationBeforeDays} ngày</td>
-                      <td className="p-3">
-                        {p.tiers && p.tiers.length > 0 ? (
-                          <div className="text-xs space-y-0.5">
-                            {p.tiers.map((t, idx) => (
-                              <div key={idx} className="text-neutral-600">
-                                {t.maxDays !== null && t.maxDays !== undefined ? `${t.minDays} - ${t.maxDays} ngày` : `≥ ${t.minDays} ngày`}: <strong className="text-red-600">{t.penaltyPercent}%</strong>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-neutral-400">Không dùng tiers</span>
-                        )}
-                      </td>
+                      <td className="p-3">{renderPenaltyDetails(p)}</td>
                       <td className="p-3">
                         {p.isActive ? (
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
