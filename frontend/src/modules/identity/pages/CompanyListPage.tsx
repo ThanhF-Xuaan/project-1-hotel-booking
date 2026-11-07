@@ -6,6 +6,7 @@ import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import companyService from '../services/company.service';
+import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone';
 import type { CompanyDto } from '../types/company.types';
 
 export const CompanyListPage: React.FC = () => {
@@ -125,17 +126,22 @@ export const CompanyListPage: React.FC = () => {
       setFormError('Vui lòng nhập tên doanh nghiệp');
       return;
     }
+    if (formContactPhone.trim() && !isValidVietnamesePhone(formContactPhone.trim())) {
+      setFormError('Số điện thoại người liên hệ không hợp lệ (Ví dụ: 02462556789 hoặc 0912345678)');
+      return;
+    }
 
     setIsSubmitting(true);
     setFormError(null);
     try {
+      const sanitizedPhone = formContactPhone.trim() ? cleanPhoneNumber(formContactPhone.trim()) : undefined;
       if (editingCompany) {
         await companyService.update(editingCompany.id, {
           name: formName.trim(),
           taxCode: formTaxCode.trim() || undefined,
           address: formAddress.trim() || undefined,
           contactName: formContactName.trim() || undefined,
-          contactPhone: formContactPhone.trim() || undefined,
+          contactPhone: sanitizedPhone,
           contactEmail: formContactEmail.trim() || undefined,
           status: formStatus,
         });
@@ -145,7 +151,7 @@ export const CompanyListPage: React.FC = () => {
           taxCode: formTaxCode.trim() || undefined,
           address: formAddress.trim() || undefined,
           contactName: formContactName.trim() || undefined,
-          contactPhone: formContactPhone.trim() || undefined,
+          contactPhone: sanitizedPhone,
           contactEmail: formContactEmail.trim() || undefined,
           status: formStatus,
         });
@@ -468,6 +474,11 @@ export const CompanyListPage: React.FC = () => {
                 placeholder="VD: 02462556789"
                 value={formContactPhone}
                 onChange={(e) => setFormContactPhone(e.target.value)}
+                error={
+                  formContactPhone.trim() && !isValidVietnamesePhone(formContactPhone.trim())
+                    ? 'Số điện thoại không đúng định dạng (VD: 02462556789 hoặc 0912345678)'
+                    : undefined
+                }
               />
             </div>
 

@@ -17,6 +17,7 @@ import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import guestService from '../services/guest.service';
+import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone';
 import type { GuestDto, GuestStayHistoryResponse } from '../types/guest.types';
 
 export const GuestListPage: React.FC = () => {
@@ -164,14 +165,19 @@ export const GuestListPage: React.FC = () => {
       setFormError('Vui lòng nhập số điện thoại');
       return;
     }
+    if (!isValidVietnamesePhone(formPhone.trim())) {
+      setFormError('Số điện thoại không hợp lệ (Ví dụ: 0912345678 hoặc 02466668888)');
+      return;
+    }
 
     setIsSubmitting(true);
     setFormError(null);
     try {
+      const sanitizedPhone = cleanPhoneNumber(formPhone.trim());
       if (editingGuest) {
         await guestService.update(editingGuest.id, {
           fullName: formFullName.trim().toUpperCase(),
-          phone: formPhone.trim(),
+          phone: sanitizedPhone,
           email: formEmail.trim() || undefined,
           identityType: formIdentityType,
           identityNumber: formIdentityNumber.trim() || undefined,
@@ -182,7 +188,7 @@ export const GuestListPage: React.FC = () => {
       } else {
         await guestService.create({
           fullName: formFullName.trim().toUpperCase(),
-          phone: formPhone.trim(),
+          phone: sanitizedPhone,
           email: formEmail.trim() || undefined,
           identityType: formIdentityType,
           identityNumber: formIdentityNumber.trim() || undefined,
@@ -570,6 +576,11 @@ export const GuestListPage: React.FC = () => {
                 placeholder="0912345678"
                 value={formPhone}
                 onChange={(e) => setFormPhone(e.target.value)}
+                error={
+                  formPhone.trim() && !isValidVietnamesePhone(formPhone.trim())
+                    ? 'Số điện thoại không đúng định dạng (VD: 0912345678 hoặc 02466668888)'
+                    : undefined
+                }
                 required
               />
             </div>
