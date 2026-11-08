@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './core/components/auth/ProtectedRoute'
-import { UTILITY_READ_ROLES } from './modules/operation/types/utility.types'
 
 const AdminLayout = lazy(() => import('./core/components/layout/AdminLayout'))
 const LoginPage = lazy(() => import('./modules/auth/pages/LoginPage'))
@@ -118,7 +117,7 @@ export function App() {
                 <Route path="/operation/night-audit" element={<NightAuditPage />} />
               </Route>
 
-              <Route element={<ProtectedRoute roles={UTILITY_READ_ROLES} />}>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER']} />}>
                 <Route path="/operation/utility" element={<UtilityManagementPage />} />
               </Route>
 
