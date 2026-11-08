@@ -34,8 +34,14 @@ public class AuditLogResponse {
     @Schema(description = "ID thực thể", example = "101")
     String entityId;
 
-    @Schema(description = "Tài khoản bị tác động", example = "hoang tien dat (@ndt)")
+    @Schema(description = "Tài khoản bị tác động (legacy field, ưu tiên dùng targetResource)", example = "hoang tien dat (@ndt)")
     String targetAccount;
+
+    @Schema(description = "Định danh/tên đối tượng tài nguyên bị tác động", example = "Quy tắc giá 'Mùa hè 2026' (#12)")
+    String targetResource;
+
+    @Schema(description = "Nhóm tài nguyên đối tượng", example = "PRICING")
+    String resourceCategory;
 
     @Schema(description = "Mô tả tóm tắt nội dung thao tác", example = "Đăng nhập hệ thống")
     String description;

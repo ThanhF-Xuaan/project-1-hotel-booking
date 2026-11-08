@@ -89,8 +89,8 @@ public class AuditLogServiceImpl implements AuditLogService {
 
             auditLogRepository.saveAndFlush(logEntry);
 
-            // Tự động dọn dẹp các bản ghi cũ ngoài top 50 (Phương án 2)
-            auditLogRepository.purgeOldAuditLogsExceedingLimit();
+            // Lưu ý: Không tự động xóa log theo giới hạn 50 bản ghi để tuân thủ Điều 26 Luật An ninh mạng 2018
+            // và Nghị định 53/2022/NĐ-CP (yêu cầu lưu trữ vết nhật ký hệ thống tối thiểu 12 tháng).
         } catch (Exception e) {
             log.error("Không thể ghi log kiểm toán: actionType={}, entityName={}, entityId={}", actionType, entityName, entityId, e);
         }

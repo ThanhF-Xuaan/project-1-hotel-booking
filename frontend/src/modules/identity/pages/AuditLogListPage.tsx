@@ -12,6 +12,12 @@ import {
   ChevronUp,
   Shield,
   Trash2,
+  CalendarCheck,
+  CreditCard,
+  Tag,
+  Building2,
+  Layers,
+  ClipboardList,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -22,7 +28,8 @@ import auditLogService from '../services/auditLog.service';
 import type { AuditLogDto } from '../types/auditLog.types';
 
 const FIELD_LABELS: Record<string, string> = {
-  status: 'Trạng thái tài khoản',
+  // Staff & Identity
+  status: 'Trạng thái',
   username: 'Tên đăng nhập',
   fullName: 'Họ và tên',
   firstName: 'Họ',
@@ -41,6 +48,45 @@ const FIELD_LABELS: Record<string, string> = {
   newPassword: 'Mật khẩu mới',
   action: 'Hành động',
   note: 'Ghi chú',
+
+  // Pricing & Rules
+  name: 'Tên quy tắc / Đối tượng',
+  ruleName: 'Tên quy tắc giá',
+  adjustmentType: 'Loại điều chỉnh',
+  adjustmentValue: 'Giá trị điều chỉnh',
+  startDate: 'Ngày bắt đầu',
+  endDate: 'Ngày kết thúc',
+  priority: 'Mức độ ưu tiên',
+  discountType: 'Loại giảm giá',
+  discountValue: 'Giá trị giảm giá',
+  minBookingAmount: 'Giá trị đơn tối thiểu',
+  maxDiscountAmount: 'Giảm tối đa',
+
+  // Booking & Rooms
+  bookingCode: 'Mã đơn đặt phòng',
+  bookingId: 'Mã đơn đặt',
+  bookingRoomId: 'Mã phòng đặt',
+  fromRoomNumber: 'Từ phòng',
+  toRoomNumber: 'Sang phòng',
+  checkInDate: 'Ngày nhận phòng',
+  checkOutDate: 'Ngày trả phòng',
+  totalAmount: 'Tổng tiền',
+  refundAmount: 'Số tiền hoàn lại',
+  amount: 'Số tiền giao dịch',
+  paymentMethod: 'Phương thức thanh toán',
+  paymentStatus: 'Trạng thái thanh toán',
+  transactionId: 'Mã giao dịch',
+
+  // Operations & Legal Compliance (PDPD / ANTT / Kế toán)
+  identityNumber: 'Số CCCD/Hộ chiếu',
+  documentNumber: 'Số giấy tờ tùy thân',
+  nationality: 'Quốc tịch',
+  roomNumber: 'Số phòng lưu trú',
+  hotelId: 'Mã khách sạn',
+  auditDate: 'Ngày kiểm toán',
+  businessDate: 'Ngày kinh doanh',
+  invoiceNumber: 'Số hóa đơn GTGT',
+  folioNumber: 'Mã Sổ cái Folio',
 };
 
 interface DiffField {
@@ -58,6 +104,7 @@ export const AuditLogListPage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [pageSize] = useState(10);
   const [actionType, setActionType] = useState('');
+  const [entityName, setEntityName] = useState('');
   const [staffKeyword, setStaffKeyword] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -75,6 +122,7 @@ export const AuditLogListPage: React.FC = () => {
         page,
         pageSize,
         actionType: actionType || undefined,
+        entityName: entityName || undefined,
         staffKeyword: staffKeyword.trim() || undefined,
         fromDate: fromDate ? `${fromDate}T00:00:00Z` : undefined,
         toDate: toDate ? `${toDate}T23:59:59Z` : undefined,
@@ -89,7 +137,7 @@ export const AuditLogListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, actionType, staffKeyword, fromDate, toDate]);
+  }, [page, pageSize, actionType, entityName, staffKeyword, fromDate, toDate]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -106,6 +154,7 @@ export const AuditLogListPage: React.FC = () => {
 
   const handleReset = () => {
     setActionType('');
+    setEntityName('');
     setStaffKeyword('');
     setFromDate('');
     setToDate('');
@@ -133,6 +182,9 @@ export const AuditLogListPage: React.FC = () => {
       case 'CREATE':
       case 'STAFF_CREATE':
       case 'PRICING_RULE_CREATE':
+      case 'GUEST_CREATE':
+      case 'STAY_GUEST_CREATE':
+      case 'WALK_IN_CREATE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
             CREATE
@@ -141,6 +193,9 @@ export const AuditLogListPage: React.FC = () => {
       case 'UPDATE':
       case 'STAFF_UPDATE':
       case 'PRICING_RULE_UPDATE':
+      case 'GUEST_UPDATE':
+      case 'STAY_GUEST_UPDATE':
+      case 'CONSENT_UPDATE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
             UPDATE
@@ -149,6 +204,8 @@ export const AuditLogListPage: React.FC = () => {
       case 'DELETE':
       case 'STAFF_DELETE_BATCH':
       case 'PRICING_RULE_DELETE':
+      case 'GUEST_DELETE':
+      case 'STAY_GUEST_DELETE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
             DELETE
@@ -157,9 +214,52 @@ export const AuditLogListPage: React.FC = () => {
       case 'STATUS_CHANGED':
       case 'STATUS_UPDATE':
       case 'STAFF_STATUS_UPDATE':
+      case 'FOLIO_STATUS_UPDATE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
             CHANGED
+          </span>
+        );
+      case 'CHECK_IN':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 border border-teal-200">
+            CHECK_IN
+          </span>
+        );
+      case 'CHECK_OUT':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+            CHECK_OUT
+          </span>
+        );
+      case 'INVOICE_CREATE':
+      case 'INVOICE_ISSUE':
+      case 'PAYMENT_CREATE':
+      case 'PAYMENT_COMPLETE':
+      case 'PAYMENT_REFUND':
+      case 'FOLIO_ADJUSTMENT':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+            {action}
+          </span>
+        );
+      case 'OCR_SCAN':
+      case 'OCR_SCAN_FILE':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-100 text-cyan-800 border border-cyan-200">
+            OCR
+          </span>
+        );
+      case 'NIGHT_AUDIT_EXECUTE':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+            NIGHT_AUDIT
+          </span>
+        );
+      case 'LODGING_EXPORT':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            EXPORT_BCA
           </span>
         );
       case 'PASSWORD_RESET':
@@ -186,35 +286,144 @@ export const AuditLogListPage: React.FC = () => {
   };
 
   /**
-   * Định dạng Nội dung thao tác ngắn gọn, đúng mục tiêu theo yêu cầu
+   * Phân loại danh mục tài nguyên để gắn icon và màu sắc phù hợp
+   */
+  const getResourceCategory = (log: AuditLogDto): string => {
+    if (log.resourceCategory) return log.resourceCategory.toUpperCase();
+    const entity = (log.entityName || '').toUpperCase();
+    if (entity.includes('STAFF') || entity.includes('USER') || entity.includes('AUTH')) return 'STAFF';
+    if (entity.includes('GUEST') || entity.includes('OCR') || entity.includes('CONSENT')) return 'GUEST';
+    if (entity.includes('STAY') || entity.includes('LODGING') || entity.includes('NIGHT')) return 'OPERATION';
+    if (entity.includes('BOOKING')) return 'BOOKING';
+    if (entity.includes('PAYMENT') || entity.includes('FOLIO') || entity.includes('INVOICE')) return 'FINANCE';
+    if (entity.includes('PRICING') || entity.includes('RULE') || entity.includes('VOUCHER')) return 'PRICING';
+    if (entity.includes('HOTEL') || entity.includes('ROOM') || entity.includes('MEDIA')) return 'ORGANIZATION';
+    return 'OTHER';
+  };
+
+  /**
+   * Render Badge trực quan cho Đối tượng tác động kèm Icon tương ứng
+   */
+  const renderResourceBadge = (log: AuditLogDto, targetDisplay: string) => {
+    const category = getResourceCategory(log);
+    switch (category) {
+      case 'STAFF':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-xs font-medium">
+            <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'GUEST':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-900 border border-sky-200 text-xs font-medium">
+            <User className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'OPERATION':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 text-teal-900 border border-teal-200 text-xs font-medium">
+            <ClipboardList className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'BOOKING':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 text-xs font-medium">
+            <CalendarCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'FINANCE':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-900 border border-purple-200 text-xs font-medium">
+            <CreditCard className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'PRICING':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-xs font-medium">
+            <Tag className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'ORGANIZATION':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-900 border border-rose-200 text-xs font-medium">
+            <Building2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      default:
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-800 border border-neutral-200 text-xs font-medium">
+            <Layers className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+    }
+  };
+
+  /**
+   * Định dạng Nội dung thao tác ngắn gọn, tôn trọng mô tả từ backend
    */
   const formatActionDescription = (log: AuditLogDto) => {
-    const act = log.actionType?.toUpperCase();
+    // 1. Ưu tiên số 1: Tôn trọng mô tả chi tiết được truyền từ Backend (@Auditable.description)
+    if (log.description && log.description.trim().length > 0) {
+      return log.description;
+    }
+
+    // 2. Fallback động theo cặp (entityName, actionType)
+    const act = log.actionType?.toUpperCase() || '';
+    const entity = (log.entityName || '').toUpperCase();
+
+    if (act.includes('CHECK_IN')) return 'Check-in nhận phòng lưu trú';
+    if (act.includes('CHECK_OUT')) return 'Check-out trả phòng và đóng sổ';
+    if (act.includes('INVOICE_ISSUE')) return 'Phát hành hóa đơn GTGT điện tử';
+    if (act.includes('INVOICE_CREATE')) return 'Tạo mới hóa đơn VAT';
+    if (act.includes('NIGHT_AUDIT')) return 'Chốt sổ kiểm toán đêm';
+    if (act.includes('OCR')) return 'Quét OCR trích xuất giấy tờ tùy thân';
+    if (act.includes('LODGING_EXPORT')) return 'Xuất file báo cáo lưu trú gửi BCA';
+    if (act.includes('FOLIO')) return 'Điều chỉnh công nợ Sổ cái Folio';
+    if (act.includes('PAYMENT_REFUND')) return 'Hoàn tiền giao dịch';
+    if (act.includes('PAYMENT')) return 'Giao dịch thanh toán';
+
     if (act === 'LOGIN' || act === 'STAFF_LOGIN') {
       return 'Đăng nhập hệ thống';
-    }
-    if (act === 'CREATE' || act === 'STAFF_CREATE') {
-      return 'Tạo mới tài khoản nhân sự';
-    }
-    if (act === 'UPDATE' || act === 'STAFF_UPDATE') {
-      return 'Cập nhật thông tin nhân sự';
-    }
-    if (act === 'STATUS_CHANGED' || act === 'STATUS_UPDATE' || act === 'STAFF_STATUS_UPDATE') {
-      if (log.description?.includes('SUSPENDED') || log.newValues?.includes('SUSPENDED')) {
-        return 'Khóa tài khoản (SUSPENDED)';
-      }
-      if (log.description?.includes('ACTIVE') || log.newValues?.includes('ACTIVE')) {
-        return 'Kích hoạt tài khoản (ACTIVE)';
-      }
-      return 'Cập nhật trạng thái nhân sự';
     }
     if (act === 'PASSWORD_RESET' || act === 'STAFF_PASSWORD_RESET' || act === 'RESET_PASS') {
       return 'Đặt lại mật khẩu tài khoản';
     }
-    if (act === 'DELETE' || act === 'STAFF_DELETE_BATCH') {
-      return 'Xóa tài khoản nhân sự';
+    if (act.includes('STATUS')) {
+      if (log.newValues?.includes('SUSPENDED')) return 'Khóa trạng thái (SUSPENDED)';
+      if (log.newValues?.includes('ACTIVE')) return 'Kích hoạt trạng thái (ACTIVE)';
+      return `Cập nhật trạng thái ${log.entityName || ''}`;
     }
-    return log.description || log.actionType;
+
+    if (act.includes('CREATE')) {
+      if (entity.includes('STAFF')) return 'Tạo mới tài khoản nhân sự';
+      if (entity.includes('PRICING')) return 'Tạo mới quy tắc giá';
+      if (entity.includes('BOOKING')) return 'Tạo mới đơn đặt phòng';
+      if (entity.includes('HOTEL')) return 'Tạo mới khách sạn cơ sở';
+      return `Tạo mới ${log.entityName || 'đối tượng'}`;
+    }
+    if (act.includes('UPDATE')) {
+      if (entity.includes('STAFF')) return 'Cập nhật thông tin nhân sự';
+      if (entity.includes('PRICING')) return 'Cập nhật quy tắc giá';
+      if (entity.includes('BOOKING')) return 'Cập nhật đơn đặt phòng';
+      if (entity.includes('HOTEL')) return 'Cập nhật thông tin khách sạn';
+      return `Cập nhật ${log.entityName || 'đối tượng'}`;
+    }
+    if (act.includes('DELETE')) {
+      if (entity.includes('STAFF')) return 'Xóa tài khoản nhân sự';
+      if (entity.includes('PRICING')) return 'Xóa quy tắc giá';
+      if (entity.includes('BOOKING')) return 'Hủy/Xóa đơn đặt phòng';
+      return `Xóa ${log.entityName || 'đối tượng'}`;
+    }
+
+    return log.actionType;
   };
 
   const safeParseJson = (jsonStr?: string): Record<string, unknown> | null => {
@@ -231,15 +440,19 @@ export const AuditLogListPage: React.FC = () => {
   };
 
   /**
-   * Trích xuất Tài khoản bị tác động rõ ràng
+   * Trích xuất Đối tượng tác động (Target Resource) linh hoạt cho mọi thực thể
    */
-  const formatTargetAccount = (log: AuditLogDto): string => {
+  const formatTargetResource = (log: AuditLogDto): string => {
+    if (log.targetResource && log.targetResource.trim().length > 0) {
+      return log.targetResource;
+    }
     if (log.targetAccount && log.targetAccount.trim().length > 0) {
       return log.targetAccount;
     }
 
     const newObj = safeParseJson(log.newValues);
     if (newObj) {
+      if (typeof newObj.targetResource === 'string') return newObj.targetResource;
       if (typeof newObj.targetAccount === 'string') return newObj.targetAccount;
       if (
         newObj.request &&
@@ -249,10 +462,27 @@ export const AuditLogListPage: React.FC = () => {
       ) {
         return `@${(newObj.request as { username: string }).username}`;
       }
+      if (
+        newObj.request &&
+        typeof newObj.request === 'object' &&
+        'name' in newObj.request &&
+        typeof (newObj.request as { name?: unknown }).name === 'string'
+      ) {
+        return `${(newObj.request as { name: string }).name} (#${log.entityId})`;
+      }
+      if (
+        newObj.request &&
+        typeof newObj.request === 'object' &&
+        'bookingCode' in newObj.request &&
+        typeof (newObj.request as { bookingCode?: unknown }).bookingCode === 'string'
+      ) {
+        return `Đơn ${(newObj.request as { bookingCode: string }).bookingCode}`;
+      }
     }
 
     const oldObj = safeParseJson(log.oldValues);
     if (oldObj) {
+      if (typeof oldObj.targetResource === 'string') return oldObj.targetResource;
       if (typeof oldObj.targetAccount === 'string') return oldObj.targetAccount;
       if (
         typeof oldObj.fullName === 'string' &&
@@ -261,15 +491,15 @@ export const AuditLogListPage: React.FC = () => {
         return `${oldObj.fullName} (@${oldObj.username})`;
       }
       if (typeof oldObj.username === 'string') return `@${oldObj.username}`;
+      if (typeof oldObj.name === 'string') return `${oldObj.name} (#${log.entityId})`;
     }
 
     if (log.entityName === 'Staff') {
       if (log.entityId === 'admin') return 'System Admin (@admin)';
-      if (log.entityId === '3') return 'hoang tien dat (@ndt)';
-      return `Staff #${log.entityId}`;
+      return `Nhân sự #${log.entityId}`;
     }
 
-    return log.entityId ? `${log.entityName} #${log.entityId}` : '—';
+    return log.entityId ? `${log.entityName} #${log.entityId}` : (log.entityName || '—');
   };
 
   /**
@@ -301,7 +531,7 @@ export const AuditLogListPage: React.FC = () => {
       }
     }
 
-    const targetDisplay = formatTargetAccount(log);
+    const targetDisplay = formatTargetResource(log);
     const actionSummary = formatActionDescription(log);
 
     // Xử lý riêng cho Batch Delete
@@ -372,27 +602,42 @@ export const AuditLogListPage: React.FC = () => {
       };
     }
 
-    // Xử lý CREATE (khi chưa có oldValues)
-    if (log.actionType === 'CREATE' || log.actionType === 'STAFF_CREATE') {
+    // Xử lý CREATE (khi chưa có oldValues) cho mọi thực thể
+    if (log.actionType.toUpperCase().includes('CREATE')) {
       const createFields: DiffField[] = [];
-      const createKeys = ['username', 'fullName', 'email', 'phone', 'roleName', 'scopeType', 'status'];
-      for (const k of createKeys) {
-        if (newObj[k] !== undefined) {
+      const ignoredCreateKeys = new Set([
+        'targetAccount',
+        'targetResource',
+        'actionDescription',
+        'request',
+        'params',
+        'response',
+        'deletedStaffs',
+        'password',
+        'confirmPassword',
+        'id',
+      ]);
+
+      for (const [k, v] of Object.entries(newObj)) {
+        if (ignoredCreateKeys.has(k)) continue;
+        if (v !== undefined && v !== null && typeof v !== 'object') {
           createFields.push({
             label: FIELD_LABELS[k] || k,
             key: k,
             oldVal: null,
-            newVal: String(newObj[k]),
+            newVal: String(v),
             status: 'added',
           });
         }
       }
-      return {
-        fields: createFields,
-        targetDisplay,
-        actionSummary,
-        deletedList: null,
-      };
+      if (createFields.length > 0) {
+        return {
+          fields: createFields,
+          targetDisplay,
+          actionSummary,
+          deletedList: null,
+        };
+      }
     }
 
     // So sánh đối soát giữa oldObj và newObj
@@ -477,7 +722,30 @@ export const AuditLogListPage: React.FC = () => {
       {/* HÀNG 1: SEARCH & FILTER BAR */}
       <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs">
         <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-2">
+            <Select<string>
+              value={entityName}
+              onChange={(val) => setEntityName(val)}
+              options={[
+                { value: '', label: 'Tất cả phân hệ' },
+                { value: 'Staff', label: 'Nhân sự & Tài khoản' },
+                { value: 'Booking', label: 'Đơn đặt phòng' },
+                { value: 'BookingRoom', label: 'Phòng đặt' },
+                { value: 'StayGuest', label: 'Khách lưu trú phòng' },
+                { value: 'Guest', label: 'Hồ sơ khách hàng' },
+                { value: 'Payment', label: 'Thanh toán & Giao dịch' },
+                { value: 'Invoice', label: 'Hóa đơn GTGT' },
+                { value: 'MasterFolio', label: 'Sổ cái Master Folio' },
+                { value: 'NightAudit', label: 'Kiểm toán đêm' },
+                { value: 'LodgingQueue', label: 'Khai báo tạm trú BCA' },
+                { value: 'PricingRule', label: 'Quy tắc giá & Ưu đãi' },
+                { value: 'Hotel', label: 'Khách sạn cơ sở' },
+              ]}
+              size="lg"
+            />
+          </div>
+
+          <div className="lg:col-span-2">
             <Select<string>
               value={actionType}
               onChange={(val) => setActionType(val)}
@@ -487,6 +755,12 @@ export const AuditLogListPage: React.FC = () => {
                 { value: 'UPDATE', label: 'Cập nhật (UPDATE)' },
                 { value: 'DELETE', label: 'Xóa (DELETE)' },
                 { value: 'STATUS_CHANGED', label: 'Đổi trạng thái (CHANGED)' },
+                { value: 'CHECK_IN', label: 'Nhận phòng (Check-in)' },
+                { value: 'CHECK_OUT', label: 'Trả phòng (Check-out)' },
+                { value: 'INVOICE_ISSUE', label: 'Phát hành HĐ (Invoice)' },
+                { value: 'NIGHT_AUDIT_EXECUTE', label: 'Chốt kiểm toán đêm' },
+                { value: 'OCR_SCAN', label: 'Quét OCR giấy tờ' },
+                { value: 'LODGING_EXPORT', label: 'Xuất file tạm trú BCA' },
                 { value: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
                 { value: 'LOGIN', label: 'Đăng nhập' },
               ]}
@@ -494,9 +768,9 @@ export const AuditLogListPage: React.FC = () => {
             />
           </div>
 
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-2">
             <Input
-              placeholder="Nhân sự thực hiện (Tên, @username...)"
+              placeholder="Nhân sự thực hiện (@user...)"
               value={staffKeyword}
               onChange={(e) => setStaffKeyword(e.target.value)}
               leftIcon={<Search className="w-4 h-4" />}
@@ -548,11 +822,11 @@ export const AuditLogListPage: React.FC = () => {
       {/* HÀNG 2: TOOLBAR */}
       <div className="flex justify-between items-center text-xs text-neutral-500 font-medium px-1">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-neutral-400" />
-          <span>Hệ thống tự động lưu trữ tối đa 50 sự kiện kiểm toán gần nhất (tự động xóa log cũ hơn). Dữ liệu được bảo vệ chống sửa đổi.</span>
+          <ShieldAlert className="w-4 h-4 text-emerald-600" />
+          <span>Hệ thống lưu trữ vết kiểm toán tuân thủ Nghị định 13/2023/NĐ-CP (PDPD) và Luật An ninh mạng 2018 (thời hạn lưu trữ tối thiểu 12 tháng). Dữ liệu được bảo vệ chống sửa đổi.</span>
         </div>
         <div>
-          Tổng số: <strong className="text-neutral-900 font-mono">{totalElements}</strong> sự kiện (Tối đa 50)
+          Tổng số: <strong className="text-neutral-900 font-mono">{totalElements}</strong> sự kiện kiểm toán
         </div>
       </div>
 
@@ -566,7 +840,7 @@ export const AuditLogListPage: React.FC = () => {
                 <th className="py-3.5 px-4 whitespace-nowrap">Nhân sự thực hiện</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Hành động</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Nội dung chi tiết thao tác</th>
-                <th className="py-3.5 px-4 whitespace-nowrap">Tài khoản bị tác động</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Đối tượng tác động</th>
                 <th className="py-3.5 px-4 text-right whitespace-nowrap">Chi tiết</th>
               </tr>
             </thead>
@@ -586,7 +860,7 @@ export const AuditLogListPage: React.FC = () => {
                 </tr>
               ) : (
                 logs.map((log) => {
-                  const targetAcc = formatTargetAccount(log);
+                  const targetResource = formatTargetResource(log);
                   const actionDesc = formatActionDescription(log);
 
                   return (
@@ -622,12 +896,9 @@ export const AuditLogListPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Cột 5: TÀI KHOẢN BỊ TÁC ĐỘNG (Thay thế cột Địa chỉ IP) */}
+                      {/* Cột 5: ĐỐI TƯỢNG TÁC ĐỘNG (Linh hoạt theo phân hệ) */}
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-100 text-neutral-800 border border-neutral-200 text-xs font-medium">
-                          <User className="w-3.5 h-3.5 text-neutral-500" />
-                          <span>{targetAcc}</span>
-                        </div>
+                        {renderResourceBadge(log, targetResource)}
                       </td>
 
                       {/* Cột 6: CHI TIẾT */}
@@ -691,11 +962,23 @@ export const AuditLogListPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2.5 border-t sm:border-t-0 sm:border-l border-neutral-200 pt-2 sm:pt-0 sm:pl-3">
-              <div className="w-8 h-8 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-bold text-xs">
-                <User className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center font-bold text-xs">
+                {selectedLog && getResourceCategory(selectedLog) === 'STAFF' ? (
+                  <User className="w-4 h-4 text-blue-600" />
+                ) : selectedLog && getResourceCategory(selectedLog) === 'BOOKING' ? (
+                  <CalendarCheck className="w-4 h-4 text-emerald-600" />
+                ) : selectedLog && getResourceCategory(selectedLog) === 'FINANCE' ? (
+                  <CreditCard className="w-4 h-4 text-purple-600" />
+                ) : selectedLog && getResourceCategory(selectedLog) === 'PRICING' ? (
+                  <Tag className="w-4 h-4 text-amber-600" />
+                ) : selectedLog && getResourceCategory(selectedLog) === 'ORGANIZATION' ? (
+                  <Building2 className="w-4 h-4 text-rose-600" />
+                ) : (
+                  <Layers className="w-4 h-4 text-neutral-600" />
+                )}
               </div>
               <div>
-                <span className="text-neutral-500 block text-[11px]">Tài khoản bị tác động:</span>
+                <span className="text-neutral-500 block text-[11px]">Đối tượng tác động:</span>
                 <span className="font-semibold text-neutral-900">
                   {diffData.targetDisplay}
                 </span>

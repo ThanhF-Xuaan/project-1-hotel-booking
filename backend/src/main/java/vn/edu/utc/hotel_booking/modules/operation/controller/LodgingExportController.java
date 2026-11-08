@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.LodgingExportRequest;
 import vn.edu.utc.hotel_booking.modules.operation.service.LodgingExportService;
 
@@ -27,6 +28,11 @@ public class LodgingExportController {
 
     private final LodgingExportService lodgingExportService;
 
+    @Auditable(
+            actionType = "LODGING_EXPORT",
+            entityName = "LodgingQueue",
+            description = "'Xuất file Excel báo cáo lưu trú gửi BCA ngày ' + #request.date"
+    )
     @PostMapping("/download")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Xuất file Excel lưu trú theo định dạng kỹ thuật hiện có",

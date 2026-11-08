@@ -112,7 +112,8 @@ class AuditLogServiceTest {
                 "Staff".equals(logEntry.getEntityName()) &&
                 "1".equals(logEntry.getEntityId())
         ));
-        verify(auditLogRepository).purgeOldAuditLogsExceedingLimit();
+        // Đảm bảo không tự ý xóa log để tuân thủ thời hạn lưu trữ tối thiểu 12 tháng theo Luật An ninh mạng 2018
+        verify(auditLogRepository, never()).purgeOldAuditLogsExceedingLimit();
     }
 }
 

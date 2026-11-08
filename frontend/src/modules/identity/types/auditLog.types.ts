@@ -7,6 +7,8 @@ export interface AuditLogDto {
   entityName: string;
   entityId: string;
   targetAccount?: string;
+  targetResource?: string;
+  resourceCategory?: string;
   description?: string;
   oldValues?: string;
   newValues?: string;
