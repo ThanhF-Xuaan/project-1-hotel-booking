@@ -156,6 +156,49 @@ class IdentityDocumentOcrControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    @DisplayName("TC-23b: /extract-file với file vượt quá 5MB trực tiếp → 413 PAYLOAD TOO LARGE")
+    void tc23b_extractFile_fileExceeds5Mb_returns413() throws Exception {
+        byte[] oversized = new byte[(int) OcrUploadValidator.MAX_FILE_SIZE_BYTES + 1];
+        MockMultipartFile file = new MockMultipartFile("file", "oversized.jpg", "image/jpeg", oversized);
+
+        mockMvc.perform(multipart("/api/v1/ai/ocr/extract-file")
+                        .file(file))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value(413))
+                .andExpect(jsonPath("$.result.status").value("INVALID_FILE"));
+    }
+
+    @Test
+    @DisplayName("TC-23c: /extract-file với validator từ chối vượt 5MB → 413 PAYLOAD TOO LARGE")
+    void tc23c_extractFile_validatorRejects5Mb_returns413() throws Exception {
+        when(uploadValidator.validate(any()))
+                .thenReturn(OcrUploadValidator.ValidationResult.fail("File vượt quá giới hạn 5 MB"));
+
+        MockMultipartFile file = new MockMultipartFile("file", "doc.jpg", "image/jpeg", new byte[100]);
+
+        mockMvc.perform(multipart("/api/v1/ai/ocr/extract-file")
+                        .file(file))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value(413))
+                .andExpect(jsonPath("$.result.status").value("INVALID_FILE"));
+    }
+
+    @Test
+    @DisplayName("TC-23d: /extract-file khi bắt MaxUploadSizeExceededException → 413 PAYLOAD TOO LARGE")
+    void tc23d_extractFile_maxUploadSizeExceeded_returns413() {
+        IdentityDocumentOcrController controller =
+                new IdentityDocumentOcrController(ocrVisionPort, uploadValidator, engineProperties);
+        org.springframework.web.multipart.MaxUploadSizeExceededException ex =
+                new org.springframework.web.multipart.MaxUploadSizeExceededException(5_242_880L);
+
+        var response = controller.handleMaxUploadSizeExceeded(ex);
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.PAYLOAD_TOO_LARGE);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getCode()).isEqualTo(413);
+        assertThat(response.getBody().getResult().getStatus()).isEqualTo(OcrExtractionStatus.INVALID_FILE);
+    }
+
     // =====================================================================
     // TC-24: /extract-file – File hợp lệ → 200 OK
     // =====================================================================

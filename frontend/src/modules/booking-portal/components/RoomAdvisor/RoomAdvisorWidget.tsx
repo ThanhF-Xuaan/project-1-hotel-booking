@@ -30,18 +30,73 @@ interface RoomAdvisorWidgetProps {
   onOpenExternal?: () => void;
 }
 
-const QUICK_PROMPTS = [
-  'Tìm phòng 2 người lớn ở Hà Nội cuối tuần này',
-  'Phòng gia đình 2 người lớn 1 trẻ em có ăn sáng',
-  'Phòng cao cấp có ban công và bồn tắm',
-  'Tìm phòng công tác có bàn làm việc giá dưới 1.5 triệu',
-];
+const REQUIRED_SEARCH_FIELDS = ['Địa điểm', 'Ngày nhận & trả', 'Số khách', 'Ngân sách'];
+
+function dateFromToday(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function createStarterPrompt(): string {
+  return `Tìm phòng ở Hạ Long từ ${dateFromToday(2)} đến ${dateFromToday(4)} cho 2 người lớn, `
+    + 'ngân sách tối đa 7.000.000 VND cả kỳ theo báo giá hệ thống';
+}
 
 let messageIdCounter = 0;
 function createMessageId(prefix: string): string {
   messageIdCounter += 1;
-  return `${prefix}-${messageIdCounter}`;
+  return `${prefix}-${Date.now()}-${messageIdCounter}`;
 }
+
+const ADVISOR_STORAGE_KEY = 't12_advisor_chat_session';
+export const ADVISOR_AUTO_REOPEN_KEY = 't12_advisor_auto_reopen';
+const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 phút
+
+interface StoredAdvisorSession {
+  sessionId?: string;
+  sessionVersion?: number;
+  messages: Array<{
+    id: string;
+    sender: 'user' | 'assistant' | 'system';
+    text: string;
+    timestamp: string;
+    result?: AdvisorResultDto;
+    isError?: boolean;
+    rateLimitCountdown?: number;
+  }>;
+  lastUpdated: number;
+}
+
+const loadSavedSession = (): {
+  savedMessages: ChatMessage[];
+  savedSessionId?: string;
+  savedVersion?: number;
+} => {
+  try {
+    const raw = sessionStorage.getItem(ADVISOR_STORAGE_KEY);
+    if (!raw) return { savedMessages: [INITIAL_MESSAGE] };
+    const parsed: StoredAdvisorSession = JSON.parse(raw);
+    if (Date.now() - parsed.lastUpdated > SESSION_MAX_AGE_MS) {
+      sessionStorage.removeItem(ADVISOR_STORAGE_KEY);
+      return { savedMessages: [INITIAL_MESSAGE] };
+    }
+    const hydratedMessages: ChatMessage[] = (parsed.messages || []).map((m) => ({
+      ...m,
+      timestamp: new Date(m.timestamp),
+    }));
+    return {
+      savedMessages: hydratedMessages.length > 0 ? hydratedMessages : [INITIAL_MESSAGE],
+      savedSessionId: parsed.sessionId,
+      savedVersion: parsed.sessionVersion,
+    };
+  } catch {
+    return { savedMessages: [INITIAL_MESSAGE] };
+  }
+};
 
 const INITIAL_MESSAGE: ChatMessage = {
   id: 'welcome-msg',
@@ -62,11 +117,13 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | undefined>();
-  const [sessionVersion, setSessionVersion] = useState<number | undefined>();
+  const [initialData] = useState(loadSavedSession);
+  const [sessionId, setSessionId] = useState<string | undefined>(initialData.savedSessionId);
+  const [sessionVersion, setSessionVersion] = useState<number | undefined>(initialData.savedVersion);
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialData.savedMessages);
+  const [starterPrompt] = useState(createStarterPrompt);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +147,13 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     setInternalIsOpen(true);
     onOpenExternal?.();
   };
+
+  const handleUseStarterPrompt = () => {
+    setInputMessage(starterPrompt);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const showStarterPrompt = !isLoading && !messages.some((message) => message.sender === 'user');
 
   const handleClose = () => {
     setInternalIsOpen(false);
@@ -120,6 +184,26 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
+
+  // Tự động lưu hội thoại vào sessionStorage (chỉ lưu khi có tin nhắn thực tế của người dùng)
+  useEffect(() => {
+    const hasUserMessage = messages.some((m) => m.sender === 'user');
+    if (!hasUserMessage && !sessionId) return;
+    try {
+      const payload: StoredAdvisorSession = {
+        sessionId,
+        sessionVersion,
+        messages: messages.map((m) => ({
+          ...m,
+          timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : String(m.timestamp),
+        })),
+        lastUpdated: Date.now(),
+      };
+      sessionStorage.setItem(ADVISOR_STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('Không thể lưu session chat vào sessionStorage:', err);
+    }
+  }, [messages, sessionId, sessionVersion]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
@@ -182,6 +266,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
       setMessages((prev) => [...prev, errorMessage]);
 
       if (clientErr.isSessionExpired) {
+        sessionStorage.removeItem(ADVISOR_STORAGE_KEY);
+        sessionStorage.removeItem(ADVISOR_AUTO_REOPEN_KEY);
         setSessionId(undefined);
         setSessionVersion(undefined);
       }
@@ -220,6 +306,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   };
 
   const handleResetSession = () => {
+    sessionStorage.removeItem(ADVISOR_STORAGE_KEY);
+    sessionStorage.removeItem(ADVISOR_AUTO_REOPEN_KEY);
     requestGeneration.current += 1;
     activeRequest.current?.abort();
     activeRequest.current = null;
@@ -458,21 +546,6 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Prompts */}
-          {messages.length <= 2 && !isLoading && (
-            <div className="p-2.5 bg-neutral-100 border-t border-neutral-200 flex gap-2 overflow-x-auto no-scrollbar">
-              {QUICK_PROMPTS.map((prompt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(prompt)}
-                  className="shrink-0 text-xs bg-white text-neutral-700 hover:text-[#EE0000] hover:border-red-300 border border-neutral-200 px-3 py-1.5 rounded-full transition-colors font-medium shadow-2xs"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Cooldown Banner */}
           {cooldownSeconds > 0 && (
             <div className="bg-amber-50 border-t border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-800">
@@ -486,9 +559,44 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             </div>
           )}
 
+          {showStarterPrompt && (
+            <section
+              id="room-advisor-input-hint"
+              aria-label="Gợi ý yêu cầu tìm phòng"
+              className="border-t border-red-100 bg-red-50/70 px-3 py-2.5"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-800">
+                <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-red-600" />
+                <span>Yêu cầu mẫu đầy đủ</span>
+              </div>
+              <div aria-label="Thông tin nên cung cấp" className="mt-1.5 flex flex-wrap gap-1.5">
+                {REQUIRED_SEARCH_FIELDS.map((field) => (
+                  <span
+                    key={field}
+                    className="rounded-full border border-red-100 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-600"
+                  >
+                    {field}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleUseStarterPrompt}
+                aria-label="Điền yêu cầu mẫu đầy đủ"
+                className="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-left text-xs leading-relaxed text-neutral-700 transition-colors hover:border-red-400 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                “{starterPrompt}”
+              </button>
+            </section>
+          )}
+
           {/* Input Footer */}
           <div className="p-3 bg-white border-t border-neutral-200 flex items-center gap-2">
+            <label htmlFor="room-advisor-message" className="sr-only">
+              Nhu cầu tìm phòng
+            </label>
             <input
+              id="room-advisor-message"
               ref={inputRef}
               type="text"
               value={inputMessage}
@@ -502,8 +610,9 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
               placeholder={
                 cooldownSeconds > 0
                   ? `Vui lòng đợi ${cooldownSeconds}s trước khi gửi tiếp...`
-                  : 'Nhập nhu cầu: Ngày đi, số người, địa điểm...'
+                  : 'Nhập nhu cầu: địa điểm, ngày nhận/trả, số khách, ngân sách...'
               }
+              aria-describedby={showStarterPrompt ? 'room-advisor-input-hint' : undefined}
               disabled={isLoading || cooldownSeconds > 0}
               className="flex-1 bg-neutral-100 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#EE0000] focus:bg-white transition-all disabled:opacity-50"
             />

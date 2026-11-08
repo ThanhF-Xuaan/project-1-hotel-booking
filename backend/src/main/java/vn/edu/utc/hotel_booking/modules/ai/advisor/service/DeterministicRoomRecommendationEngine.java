@@ -87,8 +87,6 @@ public class DeterministicRoomRecommendationEngine {
                     .reasons(reasons)
                     .build();
 
-            List<String> warnings = buildDefaultWarnings(coverage.getStatus(), criteria, false);
-
             AdvisorStatus status;
             String reply;
             if (covStatus == CoverageStatus.COMPLETE) {
@@ -117,7 +115,7 @@ public class DeterministicRoomRecommendationEngine {
                     .coverage(coverage)
                     .knowledgeStatus("DISABLED")
                     .sources(Collections.emptyList())
-                    .warnings(warnings)
+                    .warnings(buildWarnings(coverage.getStatus(), List.of()))
                     .criteriaProvenance(finalProvenance)
                     .ambiguities(new ArrayList<>())
                     .build();
@@ -264,16 +262,6 @@ public class DeterministicRoomRecommendationEngine {
                 .reasons(reasonsList)
                 .build();
 
-        boolean hasUnverifiableBudget = false;
-        for (CandidateEvaluation item : qualifying) {
-            if (item.budgetResult.check == BudgetCheck.UNVERIFIABLE) {
-                hasUnverifiableBudget = true;
-                break;
-            }
-        }
-
-        List<String> warnings = buildDefaultWarnings(coverageStatus, criteria, hasUnverifiableBudget);
-
         AdvisorStatus outcomeStatus;
         String reply;
 
@@ -311,7 +299,7 @@ public class DeterministicRoomRecommendationEngine {
                 .coverage(coverage)
                 .knowledgeStatus("DISABLED")
                 .sources(Collections.emptyList())
-                .warnings(warnings)
+                .warnings(buildWarnings(coverageStatus, recommendations))
                 .criteriaProvenance(finalProvenance)
                 .ambiguities(new ArrayList<>())
                 .build();
@@ -587,19 +575,24 @@ public class DeterministicRoomRecommendationEngine {
                 .build();
     }
 
-    private List<String> buildDefaultWarnings(CoverageStatus coverageStatus, RoomSearchCriteriaDto criteria, boolean hasUnverifiableBudget) {
-        List<String> warnings = new ArrayList<>();
-        warnings.add(WarningCode.SERVICE_FEE_UNVERIFIED);
-        warnings.add(WarningCode.CURRENCY_SYNTHETIC_ASSUMPTION);
-        if (coverageStatus == CoverageStatus.PARTIAL) {
-            warnings.add(WarningCode.INCOMPLETE_COVERAGE);
-        }
-        if (criteria != null && criteria.getBudget() != null) {
-            if (!criteria.getBudget().isHard() && hasUnverifiableBudget) {
+    private List<String> buildWarnings(CoverageStatus coverageStatus, List<RoomRecommendationDto> recommendations) {
+        Set<String> warnings = new LinkedHashSet<>();
+        for (RoomRecommendationDto recommendation : recommendations) {
+            PriceQuoteDto price = recommendation.getPrice();
+            if (price.getServiceFeeStatus() == null || price.getServiceFeeStatus() == ServiceFeeStatus.UNKNOWN) {
+                warnings.add(WarningCode.SERVICE_FEE_UNVERIFIED);
+            }
+            if (price.getCurrency() == null || price.getCurrency().isBlank()) {
+                warnings.add(WarningCode.CURRENCY_SYNTHETIC_ASSUMPTION);
+            }
+            if (price.getBudgetCheck() == BudgetCheck.UNVERIFIABLE) {
                 warnings.add(WarningCode.BUDGET_UNVERIFIABLE);
             }
         }
-        return warnings;
+        if (coverageStatus == CoverageStatus.PARTIAL) {
+            warnings.add(WarningCode.INCOMPLETE_COVERAGE);
+        }
+        return List.copyOf(warnings);
     }
 
     private static class CandidateEvaluation {

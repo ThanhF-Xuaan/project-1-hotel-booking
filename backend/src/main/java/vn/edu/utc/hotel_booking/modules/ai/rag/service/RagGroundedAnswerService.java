@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagCitationDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
@@ -8,7 +9,9 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagAnswerStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.governance.RagCorpusGovernanceValidator;
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeChunk;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestRequestDto;
+import vn.edu.utc.hotel_booking.modules.ai.rag.llm.RagAnswerGenerationPort;
 
+import java.text.Normalizer;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -31,6 +34,32 @@ public class RagGroundedAnswerService {
             "(?iu)(payroll|salary|bảng\\s*lương|guest.*(?:email|phone|passport)|employee.*(?:salary|payroll)|giá\\s*phòng\\s*hiện\\s*tại|"
                     + "how\\s+many\\s+rooms.*available|(?:create|cancel|hold)\\s+(?:a\\s+)?(?:booking|inventory)|available\\s+tonight)");
 
+    private static final Pattern ROOM_CONTEXT = Pattern.compile(
+            "(?iuU)\\b(?:phong|deluxe|suite|superior|standard|rooms?)\\b");
+    private static final Pattern ROOM_PRICE_QUESTION = Pattern.compile(
+            "(?iuU)\\b(?:gia\\s+(?!treo\\b)(?:[\\p{L}\\p{N}-]+\\s+){0,5}(?:bao\\s*nhieu|the\\s*nao|hien\\s*tai)|bao\\s*gia|"
+                    + "bao\\s*nhieu\\s*(?:tien|dong|vnd|(?:mot|1)\\s*dem)|"
+                    + "how\\s+much\\s+(?:(?:does|would)\\b[^?!;\\r\\n]{0,80}\\bcost|(?:is|are|for|per)\\b)|"
+                    + "what(?:'s|\\s+is|\\s+are)\\s+(?:the\\s+)?(?:current\\s+)?(?:room\\s+)?(?:prices?|rates?)|"
+                    + "(?:room\\s+)?rates?\\s+(?:for|today|tonight))\\b");
+    private static final Pattern DIRECT_ROOM_PRICE_QUESTION = Pattern.compile(
+            "(?iuU)\\bgia\\s+(?:(?:hang|loai)\\s+)?(?:(?:phong\\s+)?(?:deluxe|suite|superior|standard)|phong)"
+                    + "(?:\\s+(?:hom\\s*nay|ngay\\s*mai|toi\\s*nay|hien\\s*tai))?\\s*[?!.]*$");
+    private static final Pattern ROOM_AVAILABILITY_QUESTION = Pattern.compile(
+            "(?iuU)\\b(?:con\\s+(?:(?:bao\\s+nhieu|\\d+)\\s+)?(?:phong|deluxe|suite)\\b(?!\\s+(?:tam|hop|gym)\\b)|"
+                    + "(?:phong|deluxe|suite)\\s+(?:[\\p{L}\\p{N}-]+\\s+){0,5}kha\\s*dung|"
+                    + "tinh\\s*trang\\s*phong|(?:rooms?(?!\\s+service\\b)|deluxe|suite)\\s+(?:[\\p{L}\\p{N}-]+\\s+){0,6}available|"
+                    + "(?:room\\s+)?availability|vacanc(?:y|ies)|available\\s+(?:rooms?|tonight))\\b");
+    // "trong phòng" describes the interior. Vacancy requires "trống" after the room subject.
+    private static final Pattern ROOM_VACANCY_QUESTION = Pattern.compile(
+            "(?iuU)\\b(?:phong(?:\\s+(?:deluxe|suite|superior|standard))?|deluxe|suite)"
+                    + "(?:\\s+(?:huong\\s+(?:bien|vuon|nui|ho|thanh\\s+pho)|giuong\\s+(?:doi|don)|king|queen|twin|double)){0,3}"
+                    + "\\s+(?:(?:nay|do)\\s+)?(?:co\\s+)?(?:con\\s+)?trong\\b"
+                    + "(?=\\s*(?:[?!.]|$)|\\s+(?:khong|(?:(?:vao|tu|den|cho)\\s+)?"
+                    + "(?:hom\\s*nay|toi\\s*nay|ngay\\s*mai|dem\\s*mai|cuoi\\s*tuan|ngay\\s+\\d{1,2}))\\b)");
+    private static final Pattern PET_TOPIC = Pattern.compile(
+            "(?iuU)\\b(?:thu\\s+cung|vat\\s+nuoi|cho\\s+(?:hoac\\s+)?meo|pets?|dogs?|cats?|animals?|chó|mèo)\\b");
+
     private static final Pattern ENGLISH_QUESTION_PATTERN = Pattern.compile(
             "(?i)\\b(what\\s*time|when\\s*(can|is|does)|where\\s*is|how\\s*much|is\\s*there|check-?in\\s*time|check-?out\\s*time)\\b"
     );
@@ -40,13 +69,24 @@ public class RagGroundedAnswerService {
 
     private final ScopedRagRetrievalService retrievalService;
     private final RagCorpusGovernanceValidator governanceValidator;
+    private final RagAnswerGenerationPort answerGenerator;
 
     public RagGroundedAnswerService(
             ScopedRagRetrievalService retrievalService,
             RagCorpusGovernanceValidator governanceValidator
     ) {
+        this(retrievalService, governanceValidator, RagAnswerGenerationPort.disabled());
+    }
+
+    @Autowired
+    public RagGroundedAnswerService(
+            ScopedRagRetrievalService retrievalService,
+            RagCorpusGovernanceValidator governanceValidator,
+            RagAnswerGenerationPort answerGenerator
+    ) {
         this.retrievalService = retrievalService;
         this.governanceValidator = governanceValidator;
+        this.answerGenerator = answerGenerator;
     }
 
     public RagQueryResultDto answerQuestion(RagQueryRequestDto request) {
@@ -58,6 +98,14 @@ public class RagGroundedAnswerService {
         }
 
         String question = RagCorpusGovernanceValidator.canonicalSafetyText(request.getQuestion()).trim();
+        if (isDynamicRoomInquiry(question)) {
+            return RagQueryResultDto.builder()
+                    .status(RagAnswerStatus.OUT_OF_SCOPE)
+                    .answer("Giá phòng và tình trạng phòng trống được kiểm tra qua Core Booking. "
+                            + "Vui lòng dùng chức năng tìm phòng để xem kết quả.")
+                    .build();
+        }
+
         if (NON_STATIC_REQUEST.matcher(question).find()) {
             return RagQueryResultDto.builder().status(RagAnswerStatus.OUT_OF_SCOPE)
                     .answer("Trợ lý kiến thức chỉ tra cứu chính sách công khai. Vui lòng dùng chức năng nghiệp vụ tương ứng hoặc liên hệ nhân viên.").build();
@@ -108,7 +156,9 @@ public class RagGroundedAnswerService {
         // 5. Grounded synthesis
         boolean isEnglish = "en".equalsIgnoreCase(request.getLanguage()) || ENGLISH_QUESTION_PATTERN.matcher(question).find();
 
+        boolean petInquiry = mentionsPets(question);
         List<RagCitationDto> citations = new ArrayList<>();
+        List<RagAnswerGenerationPort.Evidence> evidence = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
         StringBuilder answerBuilder = new StringBuilder();
 
@@ -122,9 +172,11 @@ public class RagGroundedAnswerService {
             var sanitized = governanceValidator.sanitizeChunkContent(content);
             content = sanitized.getSanitizedText();
             if (content.isBlank() || !hasRequestedTimeEvidence(question, content)) continue;
+            if (petInquiry && !mentionsPets(content)) continue;
             var citation = sc.toCitation();
             citation.setSnippet(content.length() > 150 ? content.substring(0, 150) + "..." : content);
             citations.add(citation);
+            evidence.add(new RagAnswerGenerationPort.Evidence(evidence.size() + 1, content));
             warnings.addAll(sanitized.getWarnings());
             if (chunk.getWarnings() != null) {
                 warnings.addAll(chunk.getWarnings());
@@ -143,8 +195,21 @@ public class RagGroundedAnswerService {
                 .answer("Các tài liệu có thông tin giờ nhận/trả phòng mâu thuẫn. Vui lòng liên hệ lễ tân để xác nhận.")
                 .citations(citations).warnings(List.of("CONFLICTING_POLICY_TIMES")).build();
         String finalAnswer;
+        boolean aiGenerated = false;
 
-        if (isEnglish) {
+        Optional<RagAnswerGenerationPort.GeneratedAnswer> generated = answerGenerator.generate(
+                question, isEnglish ? "en" : "vi", List.copyOf(evidence));
+        if (generated.isPresent()) {
+            var output = generated.get();
+            finalAnswer = output.answer();
+            List<RagCitationDto> availableCitations = List.copyOf(citations);
+            citations = output.evidenceIds().stream()
+                    .filter(id -> id != null && id > 0 && id <= availableCitations.size())
+                    .map(id -> availableCitations.get(id - 1))
+                    .distinct()
+                    .toList();
+            aiGenerated = true;
+        } else if (isEnglish) {
             // Multilingual response (T12-006)
             finalAnswer = synthesizeEnglishAnswer(question, rawAnswer);
         } else {
@@ -156,11 +221,32 @@ public class RagGroundedAnswerService {
                 .answer(finalAnswer)
                 .citations(citations)
                 .warnings(warnings)
-                .disclaimers(List.of(
+                .disclaimers(aiGenerated ? List.of(
+                        "Câu trả lời được Gemini tổng hợp từ tài liệu chính sách tĩnh đã được phê duyệt của khách sạn.",
+                        "Giá phòng và tình trạng phòng trống luôn được quản lý trực tiếp qua hệ thống Core Booking."
+                ) : List.of(
                         "Thông tin được trích xuất từ tài liệu chính sách tĩnh đã được phê duyệt của khách sạn.",
                         "Giá phòng và tình trạng phòng trống luôn được quản lý trực tiếp qua hệ thống Core Booking."
                 ))
                 .build();
+    }
+
+    private static boolean isDynamicRoomInquiry(String question) {
+        String intent = foldAccents(question);
+        return ROOM_CONTEXT.matcher(intent).find()
+                && (ROOM_PRICE_QUESTION.matcher(intent).find()
+                    || DIRECT_ROOM_PRICE_QUESTION.matcher(intent).find()
+                    || ROOM_AVAILABILITY_QUESTION.matcher(intent).find()
+                    || ROOM_VACANCY_QUESTION.matcher(intent).find());
+    }
+
+    private static boolean mentionsPets(String text) {
+        return PET_TOPIC.matcher(text).find() || PET_TOPIC.matcher(foldAccents(text)).find();
+    }
+
+    private static String foldAccents(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").replace('đ', 'd').replace('Đ', 'D');
     }
 
     private boolean hasRequestedTimeEvidence(String question, String content) {

@@ -10,7 +10,10 @@ import vn.edu.utc.hotel_booking.modules.ai.advisor.llm.RoomAdvisorLlmPort;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.InMemoryRoomAdvisorSessionStore;
 import vn.edu.utc.hotel_booking.modules.booking.service.PublicBookingSearchService;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.DestinationSuggestionResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.AvailableHotelResponse;
+import vn.edu.utc.hotel_booking.modules.booking.dto.response.UnifiedBookingSearchResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.DestinationType;
+import vn.edu.utc.hotel_booking.modules.organization.service.PublicHotelEligibilityReader;
 import java.time.LocalDate;
 import java.util.List;
 import static org.assertj.core.api.Assertions.*;
@@ -18,9 +21,18 @@ import static org.mockito.Mockito.*;
 
 class AdvisorDependencyReviewRegressionTest {
     final PublicBookingSearchService core = mock(PublicBookingSearchService.class);
+    final PublicHotelEligibilityReader publicHotels = mock(PublicHotelEligibilityReader.class);
     final InMemoryRoomAdvisorSessionStore sessions = new InMemoryRoomAdvisorSessionStore();
     final RoomAdvisorOrchestrationService service = new RoomAdvisorOrchestrationService(new CriteriaValidationService(),
-            new DeterministicRoomRecommendationEngine(), new PublicBookingCoreAdapter(core), sessions, mock(RoomAdvisorLlmPort.class));
+            new DeterministicRoomRecommendationEngine(), new PublicBookingCoreAdapter(core, publicHotels), sessions,
+            mock(RoomAdvisorLlmPort.class));
+
+    private void stubEmptyHotelSearch(int hotelId) {
+        when(publicHotels.isActivePublicHotel((short) hotelId)).thenReturn(true);
+        when(core.searchUnified(any())).thenReturn(UnifiedBookingSearchResponse.builder().searchType("ROOMS")
+                .selectedHotel(AvailableHotelResponse.builder().hotelId(hotelId).hotelName("Hotel").build())
+                .rooms(List.of()).build());
+    }
     RoomSearchCriteriaDto criteria() {
         return RoomSearchCriteriaDto.builder().locationKeyword("SYNTHETIC_CITY").adults(2).roomsCount(1)
                 .checkInDate(LocalDate.now().plusDays(1)).checkOutDate(LocalDate.now().plusDays(2)).build();
@@ -56,7 +68,8 @@ class AdvisorDependencyReviewRegressionTest {
     }
     @Test void nullRoomPayloadIsDependencyFailureRatherThanEmptySearch() {
         var c = criteria(); c.setHotelId(1);
-        when(core.searchRooms(any())).thenReturn(null);
+        when(publicHotels.isActivePublicHotel((short) 1)).thenReturn(true);
+        when(core.searchUnified(any())).thenReturn(null);
         var result = service.search(AdvisorSearchRequestDto.builder().criteria(c).build(),"synthetic-owner");
         assertThat(result.getStatus()).isEqualTo(AdvisorStatus.TEMP_UNAVAILABLE);
     }
@@ -67,7 +80,7 @@ class AdvisorDependencyReviewRegressionTest {
     }
     @Test void validEmptyCatalogRemainsCompleteNoMatch() {
         var c = criteria(); c.setHotelId(1);
-        when(core.searchRooms(any())).thenReturn(List.of());
+        stubEmptyHotelSearch(1);
         var result = service.search(AdvisorSearchRequestDto.builder().criteria(c).build(), "synthetic-owner");
         assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NO_MATCH);
         assertThat(result.getCoverage().getStatus()).isEqualTo(CoverageStatus.COMPLETE);
@@ -75,10 +88,10 @@ class AdvisorDependencyReviewRegressionTest {
     @Test void refreshUsesResolvedHotelAndPersistsNewVersion() {
         when(core.getDestinationSuggestions(anyString())).thenReturn(List.of(
                 DestinationSuggestionResponse.builder().id(2).type(DestinationType.HOTEL).title("SYNTHETIC_H2").build()));
-        when(core.searchRooms(any())).thenReturn(List.of());
+        stubEmptyHotelSearch(2);
         var result = invoke("refresh");
         assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NO_MATCH);
-        verify(core).searchRooms(argThat(request -> Integer.valueOf(2).equals(request.getHotelId())));
+        verify(core).searchUnified(argThat(request -> Integer.valueOf(2).equals(request.getHotelId())));
         var stored = sessions.getSession(result.getSessionId(), "synthetic-owner").orElseThrow();
         assertThat(stored.getSessionVersion()).isEqualTo(result.getSessionVersion());
         assertThat(stored.getLastResult().getStatus()).isEqualTo(AdvisorStatus.NO_MATCH);

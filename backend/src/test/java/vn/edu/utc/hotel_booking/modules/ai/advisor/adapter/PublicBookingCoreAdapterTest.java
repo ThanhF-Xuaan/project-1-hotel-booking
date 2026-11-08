@@ -18,6 +18,7 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.request.DestinationType;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.PublicBookingSearchService;
+import vn.edu.utc.hotel_booking.modules.organization.service.PublicHotelEligibilityReader;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PriceBreakdownDto;
 
 import java.math.BigDecimal;
@@ -35,11 +36,22 @@ class PublicBookingCoreAdapterTest {
     @Mock
     private PublicBookingSearchService publicBookingSearchService;
 
+    @Mock
+    private PublicHotelEligibilityReader publicHotelEligibilityReader;
+
     private PublicBookingCoreAdapter adapter;
 
     @BeforeEach
     void setUp() {
-        adapter = new PublicBookingCoreAdapter(publicBookingSearchService);
+        adapter = new PublicBookingCoreAdapter(publicBookingSearchService, publicHotelEligibilityReader);
+    }
+
+    private void stubHotelSearch(AvailableRoomTypeResponse room) {
+        when(publicHotelEligibilityReader.isActivePublicHotel((short) 1)).thenReturn(true);
+        var hotel = AvailableHotelResponse.builder().hotelId(1).hotelName("Khách sạn Hà Nội").currency("VND").build();
+        when(publicBookingSearchService.searchUnified(any(BookingSearchRequest.class)))
+                .thenReturn(UnifiedBookingSearchResponse.builder()
+                        .searchType("ROOMS").selectedHotel(hotel).rooms(List.of(room)).build());
     }
 
     @Test
@@ -113,8 +125,7 @@ class PublicBookingCoreAdapterTest {
                 .amenities(List.of(RoomAmenityDto.builder().code("WIFI").name("Wi-Fi").build()))
                 .build();
 
-        when(publicBookingSearchService.searchRooms(any(BookingSearchRequest.class)))
-                .thenReturn(List.of(room));
+        stubHotelSearch(room);
 
         RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
                 .hotelId(1)
@@ -143,7 +154,8 @@ class PublicBookingCoreAdapterTest {
         assertThat(result.getQuoteByRoomTypeId().get(101).getFinalTotalAmount()).isEqualTo("1155000");
         assertThat(result.getQuoteByRoomTypeId().get(101).getChargeCoverage()).isEqualTo(BudgetCoverage.BACKEND_QUOTED_TOTAL);
         assertThat(result.getQuoteByRoomTypeId().get(101).getServiceFeeStatus()).isEqualTo(ServiceFeeStatus.INCLUDED);
-        assertThat(result.getQuoteByRoomTypeId().get(101).getCurrency()).isNull();
+        assertThat(result.getQuoteByRoomTypeId().get(101).getCurrency()).isEqualTo("VND");
+        assertThat(result.getCandidates().get(0).getHotelName()).isEqualTo("Khách sạn Hà Nội");
     }
 
     @Test
@@ -156,6 +168,7 @@ class PublicBookingCoreAdapterTest {
 
         PriceBreakdownDto surchargePb = PriceBreakdownDto.builder()
                 .hotelRoomTypeId(101)
+                .totalNights(2)
                 .totalRoomNetAmount(new BigDecimal("1200000"))
                 .totalRoomServiceFee(new BigDecimal("60000"))
                 .vatPercent(new BigDecimal("10"))
@@ -165,6 +178,7 @@ class PublicBookingCoreAdapterTest {
 
         AvailableRoomTypeResponse room = AvailableRoomTypeResponse.builder()
                 .hotelRoomTypeId(101)
+                .roomTypeName("Standard")
                 .standardAdults((short) 1)
                 .maxAdults((short) 2)
                 .maxTotalGuests((short) 2)
@@ -172,8 +186,7 @@ class PublicBookingCoreAdapterTest {
                 .priceBreakdown(basePb)
                 .build();
 
-        when(publicBookingSearchService.searchRooms(any(BookingSearchRequest.class)))
-                .thenReturn(List.of(room));
+        stubHotelSearch(room);
 
         when(publicBookingSearchService.calculateRoomQuote(any(RoomPriceQuoteRequest.class)))
                 .thenReturn(RoomPriceQuoteResponse.builder().priceBreakdown(surchargePb).build());
@@ -210,8 +223,9 @@ class PublicBookingCoreAdapterTest {
                 // standardAdults, standardChildren, maxAdults, maxChildren, maxInfants, maxTotalGuests, extraBeds all null
                 .build();
 
-        when(publicBookingSearchService.searchRooms(any(BookingSearchRequest.class)))
-                .thenReturn(List.of(room));
+        stubHotelSearch(room);
+        when(publicBookingSearchService.calculateRoomQuote(any(RoomPriceQuoteRequest.class)))
+                .thenReturn(RoomPriceQuoteResponse.builder().priceBreakdown(pb).build());
 
         RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
                 .hotelId(1)
@@ -265,6 +279,8 @@ class PublicBookingCoreAdapterTest {
 
         AvailableRoomTypeResponse room = AvailableRoomTypeResponse.builder()
                 .hotelRoomTypeId(301)
+                .roomTypeName("Standard")
+                .standardAdults((short) 1)
                 .availableRooms(5)
                 .priceBreakdown(pb)
                 .build();
@@ -284,6 +300,27 @@ class PublicBookingCoreAdapterTest {
 
         assertThat(result.getCandidates()).hasSize(1);
         assertThat(result.getQuoteByRoomTypeId().get(301).getCurrency()).isEqualTo("VND");
+    }
+
+    @Test
+    void requestsCoreQuoteWhenGuestMixDiffersFromDiscoveryQuote() {
+        var discoveryPrice = PriceBreakdownDto.builder()
+                .hotelRoomTypeId(101).totalNights(2).finalTotalAmount(new BigDecimal("1000000")).build();
+        var exactPrice = PriceBreakdownDto.builder()
+                .hotelRoomTypeId(101).totalNights(2).finalTotalAmount(new BigDecimal("900000")).build();
+        stubHotelSearch(AvailableRoomTypeResponse.builder().hotelRoomTypeId(101).roomTypeName("Standard")
+                .standardAdults((short) 2).standardChildren((short) 1).availableRooms(1)
+                .priceBreakdown(discoveryPrice).build());
+        when(publicBookingSearchService.calculateRoomQuote(any(RoomPriceQuoteRequest.class)))
+                .thenReturn(RoomPriceQuoteResponse.builder().priceBreakdown(exactPrice).build());
+
+        var criteria = RoomSearchCriteriaDto.builder().hotelId(1)
+                .checkInDate(LocalDate.of(2026, 11, 20)).checkOutDate(LocalDate.of(2026, 11, 22))
+                .adults(1).children(1).roomsCount(1).build();
+        var result = adapter.discoverAndQuoteCandidates(criteria, null, 50);
+
+        verify(publicBookingSearchService).calculateRoomQuote(argThat(q -> q.getAdults() == 1 && q.getChildren() == 1));
+        assertThat(result.getQuoteByRoomTypeId().get(101).getFinalTotalAmount()).isEqualTo("900000");
     }
 
     @Test
@@ -369,6 +406,7 @@ class PublicBookingCoreAdapterTest {
 
         AvailableRoomTypeResponse room = AvailableRoomTypeResponse.builder()
                 .hotelRoomTypeId(101)
+                .roomTypeName("Standard")
                 .standardAdults((short) 1)
                 .maxAdults((short) 2)
                 .maxTotalGuests((short) 2)
@@ -376,8 +414,7 @@ class PublicBookingCoreAdapterTest {
                 .priceBreakdown(basePb)
                 .build();
 
-        when(publicBookingSearchService.searchRooms(any(BookingSearchRequest.class)))
-                .thenReturn(List.of(room));
+        stubHotelSearch(room);
 
         when(publicBookingSearchService.calculateRoomQuote(any(RoomPriceQuoteRequest.class)))
                 .thenThrow(new RuntimeException("Pricing engine error for surcharge"));
@@ -402,7 +439,8 @@ class PublicBookingCoreAdapterTest {
     @Test
     @DisplayName("Should return allFailed = true when publicBookingSearchService encounters exception")
     void shouldHandleCoreUpstreamException() {
-        when(publicBookingSearchService.searchRooms(any(BookingSearchRequest.class)))
+        when(publicHotelEligibilityReader.isActivePublicHotel((short) 1)).thenReturn(true);
+        when(publicBookingSearchService.searchUnified(any(BookingSearchRequest.class)))
                 .thenThrow(new RuntimeException("Database timeout"));
 
         RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()

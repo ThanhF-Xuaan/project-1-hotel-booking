@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.adapter.PublicBookingCoreAdapter;
 import vn.edu.utc.hotel_booking.modules.booking.service.PublicBookingSearchService;
+import vn.edu.utc.hotel_booking.modules.organization.service.PublicHotelEligibilityReader;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -76,8 +77,8 @@ class T12ZeroWriteArchitectureTest {
     }
 
     @Test
-    @DisplayName("Zero-Write Architecture: PublicBookingCoreAdapter has only PublicBookingSearchService as core dependency")
-    void shouldOnlyInjectPublicBookingSearchServiceInAdapter() {
+    @DisplayName("Zero-Write Architecture: PublicBookingCoreAdapter injects only public search and hotel eligibility readers")
+    void shouldOnlyInjectPublicReadersInAdapter() {
         Field[] fields = PublicBookingCoreAdapter.class.getDeclaredFields();
         List<Class<?>> dependencyTypes = new ArrayList<>();
 
@@ -89,8 +90,7 @@ class T12ZeroWriteArchitectureTest {
         }
 
         assertThat(dependencyTypes)
-                .as("PublicBookingCoreAdapter must only depend on PublicBookingSearchService")
-                .containsExactly(PublicBookingSearchService.class);
+                .containsExactlyInAnyOrder(PublicBookingSearchService.class, PublicHotelEligibilityReader.class);
     }
 
     private void checkType(Class<?> sourceClass, String context, Class<?> targetType, List<String> violations) {
