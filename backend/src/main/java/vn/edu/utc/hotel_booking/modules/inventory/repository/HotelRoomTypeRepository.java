@@ -20,7 +20,7 @@ public interface HotelRoomTypeRepository extends JpaRepository<HotelRoomType, In
             "JOIN FETCH hrt.hotel h " +
             "JOIN FETCH hrt.roomType rt " +
             "LEFT JOIN FETCH hrt.features f " +
-            "WHERE hrt.id = :id AND hrt.isDeleted = false")
+            "WHERE hrt.id = :id AND hrt.isDeleted = false AND h.isDeleted = false AND rt.isDeleted = false")
     Optional<HotelRoomType> findByIdWithDetails(@Param("id") Integer id);
 
     Optional<HotelRoomType> findByIdAndIsDeletedFalse(Integer id);
@@ -37,6 +37,8 @@ public interface HotelRoomTypeRepository extends JpaRepository<HotelRoomType, In
             "JOIN FETCH hrt.hotel h " +
             "JOIN FETCH hrt.roomType rt " +
             "WHERE hrt.isDeleted = false " +
+            "AND h.isDeleted = false " +
+            "AND rt.isDeleted = false " +
             "AND (:hotelId IS NULL OR hrt.hotel.id = :hotelId) " +
             "AND (:roomTypeId IS NULL OR hrt.roomType.id = :roomTypeId) " +
             "AND (:adults IS NULL OR hrt.maxAdults >= :adults) " +
@@ -58,4 +60,8 @@ public interface HotelRoomTypeRepository extends JpaRepository<HotelRoomType, In
     @Modifying
     @Query("UPDATE HotelRoomType hrt SET hrt.isDeleted = true WHERE hrt.id IN :ids")
     int softDeleteByIds(@Param("ids") List<Integer> ids);
+
+    @Modifying
+    @Query("UPDATE HotelRoomType hrt SET hrt.isDeleted = true WHERE hrt.roomType.id IN :roomTypeIds")
+    int softDeleteByRoomTypeIds(@Param("roomTypeIds") List<Short> roomTypeIds);
 }

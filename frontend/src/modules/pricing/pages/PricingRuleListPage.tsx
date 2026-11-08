@@ -106,6 +106,13 @@ export const PricingRuleListPage: React.FC = () => {
   }
 
   const openCreateModal = () => {
+    hotelRoomTypeService
+      .filter({ pageSize: 100, status: 'ACTIVE' })
+      .then((res) => {
+        if (res.result) setHotelRoomTypes(res.result.content || [])
+      })
+      .catch((err) => console.error('Lỗi tải danh mục loại phòng:', err))
+
     setEditingRule(null)
     setFormRoomTypeId(hotelRoomTypes.length > 0 ? hotelRoomTypes[0].id : '')
     setFormRuleTypeCode('PEAK_SEASON')
