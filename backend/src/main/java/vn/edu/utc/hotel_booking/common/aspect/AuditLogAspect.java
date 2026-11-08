@@ -228,13 +228,16 @@ public class AuditLogAspect {
     private OldSnapshot buildPricingRuleSnapshot(vn.edu.utc.hotel_booking.modules.pricing.entity.PricingRule rule) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", rule.getId());
-        map.put("name", rule.getName());
+        String ruleTypeName = rule.getRuleType() != null ? rule.getRuleType().getDisplayName() : null;
+        if (ruleTypeName != null) {
+            map.put("ruleTypeName", ruleTypeName);
+        }
         map.put("adjustmentType", rule.getAdjustmentType());
         map.put("adjustmentValue", rule.getAdjustmentValue());
         map.put("startDate", rule.getStartDate());
         map.put("endDate", rule.getEndDate());
-        map.put("isActive", rule.getIsActive());
-        String targetAccount = rule.getName() + " (#" + rule.getId() + ")";
+        map.put("status", rule.getStatus());
+        String targetAccount = (ruleTypeName != null ? ruleTypeName : "Quy tắc giá") + " (#" + rule.getId() + ")";
         map.put("targetAccount", targetAccount);
         map.put("targetResource", targetAccount);
 
