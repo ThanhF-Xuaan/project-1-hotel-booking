@@ -10,6 +10,10 @@ const RoomTypeListPage = lazy(() => import('./modules/inventory/pages/RoomTypeLi
 const RoomInstanceListPage = lazy(() => import('./modules/inventory/pages/RoomInstanceListPage'))
 const PricingRuleListPage = lazy(() => import('./modules/pricing/pages/PricingRuleListPage'))
 const CampaignListPage = lazy(() => import('./modules/pricing/pages/CampaignListPage'))
+const TaxCategoryListPage = lazy(() => import('./modules/pricing/pages/TaxCategoryListPage'))
+const VatRuleListPage = lazy(() => import('./modules/pricing/pages/VatRuleListPage'))
+const HotelAgePolicyListPage = lazy(() => import('./modules/pricing/pages/HotelAgePolicyListPage'))
+const HolidayCalendarListPage = lazy(() => import('./modules/pricing/pages/HolidayCalendarListPage'))
 const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPage'))
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
 const PolicyManagementPage = lazy(() => import('./modules/booking/pages/PolicyManagementPage'))
@@ -164,6 +168,12 @@ export function App() {
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="/pricing/rules" element={<PricingRuleListPage />} />
                 <Route path="/pricing/campaigns" element={<CampaignListPage />} />
+                <Route path="/pricing/age-policies" element={<HotelAgePolicyListPage />} />
+                <Route path="/pricing/holiday-calendars" element={<HolidayCalendarListPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'FINANCE']} />}>
+                <Route path="/pricing/tax-categories" element={<TaxCategoryListPage />} />
+                <Route path="/pricing/vat-rules" element={<VatRuleListPage />} />
               </Route>
 
               {/* Fallback cho các module chưa triển khai */}

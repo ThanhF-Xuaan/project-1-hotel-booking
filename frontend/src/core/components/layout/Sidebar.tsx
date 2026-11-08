@@ -24,6 +24,8 @@ import {
   Brush,
   Moon,
   Gauge,
+  Percent,
+  Calendar,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -304,6 +306,30 @@ const navGroups: NavGroup[] = [
         to: '/pricing/campaigns',
         icon: <Megaphone className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Chính sách Độ tuổi',
+        to: '/pricing/age-policies',
+        icon: <Users className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Lịch Ngày Lễ Tết',
+        to: '/pricing/holiday-calendars',
+        icon: <Calendar className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Danh mục Thuế',
+        to: '/pricing/tax-categories',
+        icon: <Receipt className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'FINANCE'],
+      },
+      {
+        label: 'Quy tắc Thuế VAT',
+        to: '/pricing/vat-rules',
+        icon: <Percent className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'FINANCE'],
       },
     ],
   },
