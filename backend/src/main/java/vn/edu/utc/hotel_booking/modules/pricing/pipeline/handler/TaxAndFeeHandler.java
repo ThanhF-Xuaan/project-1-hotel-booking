@@ -2,9 +2,8 @@ package vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import vn.edu.utc.hotel_booking.modules.pricing.entity.VatRule;
 import vn.edu.utc.hotel_booking.modules.pricing.pipeline.*;
-import vn.edu.utc.hotel_booking.modules.pricing.repository.VatRuleRepository;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -14,7 +13,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class TaxAndFeeHandler extends AbstractPricingHandler {
 
-    private final VatRuleRepository vatRuleRepository;
+    private final VatRuleService vatRuleService;
 
     @Override
     public void handle(PricingContext context) {
@@ -24,6 +23,7 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
         BigDecimal totalSurcharge = BigDecimal.ZERO;
         BigDecimal totalExtraAdults = BigDecimal.ZERO;
         BigDecimal totalExtraChildren = BigDecimal.ZERO;
+        BigDecimal totalExtraInfants = BigDecimal.ZERO;
         BigDecimal totalExtraBeds = BigDecimal.ZERO;
         BigDecimal totalRateAdjustment = BigDecimal.ZERO;
         BigDecimal totalSeasonal = BigDecimal.ZERO;
@@ -41,6 +41,7 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
                 totalSurcharge = totalSurcharge.add(daily.getSurchargeAmount() != null ? daily.getSurchargeAmount() : BigDecimal.ZERO);
                 totalExtraAdults = totalExtraAdults.add(daily.getExtraAdultsSurcharge() != null ? daily.getExtraAdultsSurcharge() : BigDecimal.ZERO);
                 totalExtraChildren = totalExtraChildren.add(daily.getExtraChildrenSurcharge() != null ? daily.getExtraChildrenSurcharge() : BigDecimal.ZERO);
+                totalExtraInfants = totalExtraInfants.add(daily.getExtraInfantsSurcharge() != null ? daily.getExtraInfantsSurcharge() : BigDecimal.ZERO);
                 totalExtraBeds = totalExtraBeds.add(daily.getExtraBedsSurcharge() != null ? daily.getExtraBedsSurcharge() : BigDecimal.ZERO);
                 BigDecimal dailyAdj = daily.getRateAdjustmentAmount() != null ? daily.getRateAdjustmentAmount() : BigDecimal.ZERO;
                 totalRateAdjustment = totalRateAdjustment.add(dailyAdj);
@@ -54,12 +55,13 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                 BigDecimal rateWithFee = daily.getNetRoomRate().add(serviceFeeAmt);
 
-                // Thuế VAT theo ngày
+                // Thuế VAT theo ngày (lấy từ VatRuleService)
                 BigDecimal vatPercent = BigDecimal.valueOf(10.00);
-                if (daily.getTaxCategoryId() != null && vatRuleRepository != null && daily.getDate() != null) {
-                    vatPercent = vatRuleRepository.findActiveVatRule(daily.getTaxCategoryId(), daily.getDate())
-                            .map(VatRule::getVatPercent)
-                            .orElse(BigDecimal.valueOf(10.00));
+                if (daily.getTaxCategoryId() != null && vatRuleService != null && daily.getDate() != null) {
+                    BigDecimal fetchedVat = vatRuleService.getActiveVatPercent(daily.getTaxCategoryId(), daily.getDate());
+                    if (fetchedVat != null && fetchedVat.compareTo(BigDecimal.ZERO) > 0) {
+                        vatPercent = fetchedVat;
+                    }
                 }
 
                 BigDecimal vatAmt = rateWithFee.multiply(vatPercent)
@@ -98,10 +100,11 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
                 BigDecimal subtotalWithFee = svc.getSubtotal().add(svcFeeAmt);
 
                 BigDecimal vatPercent = BigDecimal.valueOf(10.00);
-                if (svc.getTaxCategoryId() != null && vatRuleRepository != null) {
-                    vatPercent = vatRuleRepository.findActiveVatRule(svc.getTaxCategoryId(), refDate)
-                            .map(VatRule::getVatPercent)
-                            .orElse(BigDecimal.valueOf(10.00));
+                if (svc.getTaxCategoryId() != null && vatRuleService != null) {
+                    BigDecimal fetchedVat = vatRuleService.getActiveVatPercent(svc.getTaxCategoryId(), refDate);
+                    if (fetchedVat != null && fetchedVat.compareTo(BigDecimal.ZERO) > 0) {
+                        vatPercent = fetchedVat;
+                    }
                 }
 
                 BigDecimal vatAmt = subtotalWithFee.multiply(vatPercent)
@@ -129,6 +132,7 @@ public class TaxAndFeeHandler extends AbstractPricingHandler {
                 .totalSurchargeAmount(totalSurcharge)
                 .totalExtraAdultsSurcharge(totalExtraAdults)
                 .totalExtraChildrenSurcharge(totalExtraChildren)
+                .totalExtraInfantsSurcharge(totalExtraInfants)
                 .totalExtraBedsSurcharge(totalExtraBeds)
                 .totalRateAdjustmentAmount(totalRateAdjustment)
                 .totalSeasonalAdjustment(totalSeasonal)

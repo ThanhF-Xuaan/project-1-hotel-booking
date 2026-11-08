@@ -42,6 +42,9 @@ public class PriceCalculationRequest {
     @Builder.Default
     Short infants = 0;
 
+    @Schema(description = "Danh sách độ tuổi của từng trẻ đi kèm (dùng để phân loại chính xác theo chính sách cơ sở)", example = "[3, 8]")
+    java.util.List<Integer> childrenAges;
+
     @Min(value = 0, message = "Số giường phụ tối thiểu là 0")
     @Schema(description = "Số giường phụ yêu cầu", example = "0")
     @Builder.Default

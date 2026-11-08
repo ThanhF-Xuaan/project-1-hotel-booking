@@ -135,6 +135,12 @@ public class BookingController {
         return ApiResponse.success("Xóa phụ phí thành công", null);
     }
 
+    @Auditable(
+            actionType = "CHECK_IN",
+            entityName = "BookingRoom",
+            entityId = "#bookingRoomId.toString()",
+            description = "'Check-in nhận phòng cho phòng đặt #' + #bookingRoomId"
+    )
     @PostMapping("/rooms/{bookingRoomId}/check-in")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Thực hiện Check-in nhận phòng")
@@ -167,6 +173,12 @@ public class BookingController {
         return ApiResponse.success(bookingService.getCheckoutSettlement(bookingRoomId));
     }
 
+    @Auditable(
+            actionType = "CHECK_OUT",
+            entityName = "BookingRoom",
+            entityId = "#bookingRoomId.toString()",
+            description = "'Check-out trả phòng và đóng sổ cho phòng đặt #' + #bookingRoomId"
+    )
     @PostMapping("/rooms/{bookingRoomId}/check-out")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Thực hiện Check-out trả phòng (Kiểm tra hết nợ và đóng sổ)")
@@ -183,6 +195,12 @@ public class BookingController {
         return ApiResponse.success("Tính báo giá walk-in thành công", bookingService.calculateWalkInQuote(request));
     }
 
+    @Auditable(
+            actionType = "WALK_IN_CREATE",
+            entityName = "Booking",
+            description = "'Tiếp nhận khách vãng lai (Walk-in) tại quầy'",
+            captureResponse = true
+    )
     @PostMapping("/walk-in")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")

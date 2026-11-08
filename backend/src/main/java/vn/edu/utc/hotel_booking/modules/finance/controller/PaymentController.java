@@ -32,6 +32,12 @@ public class PaymentController {
 
     PaymentService paymentService;
 
+    @Auditable(
+            actionType = "PAYMENT_CREATE",
+            entityName = "Payment",
+            description = "'Tạo mới giao dịch thanh toán cho đơn đặt #' + #request.bookingId + ': ' + #request.amount + ' đ'",
+            captureResponse = true
+    )
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
@@ -61,6 +67,12 @@ public class PaymentController {
         return ApiResponse.success(paymentService.getByBookingId(bookingId));
     }
 
+    @Auditable(
+            actionType = "PAYMENT_COMPLETE",
+            entityName = "Payment",
+            entityId = "#id.toString()",
+            description = "'Xác nhận hoàn tất thanh toán ID ' + #id"
+    )
     @PostMapping("/{id}/complete")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Xác nhận hoàn tất thanh toán thành công")
@@ -68,6 +80,12 @@ public class PaymentController {
         return ApiResponse.success("Xác nhận thanh toán thành công", paymentService.completePayment(id));
     }
 
+    @Auditable(
+            actionType = "PAYMENT_CANCEL",
+            entityName = "Payment",
+            entityId = "#id.toString()",
+            description = "'Hủy giao dịch thanh toán ID ' + #id"
+    )
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Hủy thanh toán đang chờ (PENDING → CANCELLED) — dùng cho flow lỗi: popup → hủy → làm lại")

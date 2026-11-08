@@ -14,8 +14,10 @@ import java.time.LocalDate;
 public class GroupContractSearchDto {
 
     Short hotelId;
+    String keyword;
     String contractNumber;
     String groupName;
+    String companyName;
     GroupContractStatus status;
     LocalDate checkInDateFrom;
     LocalDate checkInDateTo;
@@ -31,4 +33,10 @@ public class GroupContractSearchDto {
 
     @Builder.Default
     String sortDirection = "DESC";
+
+    public void setSize(Integer size) {
+        if (size != null) {
+            setPageSize(size);
+        }
+    }
 }

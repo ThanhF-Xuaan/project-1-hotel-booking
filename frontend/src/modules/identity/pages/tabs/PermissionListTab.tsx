@@ -300,7 +300,7 @@ export const PermissionListTab: React.FC = () => {
         >
           <div className="flex-1 w-full">
             <Input
-              placeholder="Tìm theo quyền, tài nguyên hoặc mô tả..."
+              placeholder="Tìm theo quyền hoặc tài nguyên..."
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
               leftIcon={<Search className="w-4 h-4 text-neutral-400" />}
@@ -412,7 +412,6 @@ export const PermissionListTab: React.FC = () => {
                 <th className="p-3.5">Tài nguyên (Resource)</th>
                 <th className="p-3.5">Hành động</th>
                 <th className="p-3.5">Mã quyền RBAC</th>
-                <th className="p-3.5">Mô tả nghiệp vụ</th>
                 <th className="p-3.5">Vai trò đang sở hữu</th>
                 <th className="p-3.5 text-center">Trạng thái</th>
                 <th className="p-3.5">Ngày cập nhật</th>
@@ -422,7 +421,7 @@ export const PermissionListTab: React.FC = () => {
             <tbody className="divide-y divide-neutral-200 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-neutral-400">
+                  <td colSpan={9} className="text-center py-12 text-neutral-400">
                     <div className="inline-flex items-center gap-2">
                       <RefreshCw className="w-4 h-4 animate-spin text-red-600" />
                       <span>Đang tải danh mục quyền hạn...</span>
@@ -431,7 +430,7 @@ export const PermissionListTab: React.FC = () => {
                 </tr>
               ) : permissions.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-neutral-400">
+                  <td colSpan={9} className="text-center py-12 text-neutral-400">
                     Không tìm thấy quyền hạn nào phù hợp với bộ lọc.
                   </td>
                 </tr>
@@ -474,9 +473,6 @@ export const PermissionListTab: React.FC = () => {
                       </td>
                       <td className="p-3.5 font-mono text-[11px] text-neutral-700 font-semibold">
                         ROLE_{p.resource}_{p.action}
-                      </td>
-                      <td className="p-3.5 text-neutral-600 max-w-xs">
-                        {p.description || `${p.action} ${p.resource}`}
                       </td>
                       <td className="p-3.5 max-w-sm">
                         {p.roleNames && p.roleNames.length > 0 ? (

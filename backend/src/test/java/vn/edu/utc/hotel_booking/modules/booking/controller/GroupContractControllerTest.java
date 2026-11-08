@@ -202,6 +202,26 @@ class GroupContractControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/group-contracts/{id}/cancel: Hủy hợp đồng với payload JSON field 'reason' trả về HTTP 200")
+    void cancelContract_withReasonAlias_shouldReturn200Ok() throws Exception {
+        GroupContractResponse response = GroupContractResponse.builder()
+                .id(1L)
+                .status(GroupContractStatus.CANCELLED)
+                .cancellationReason("Lịch công tác bị hoãn")
+                .build();
+
+        when(groupContractService.cancelContract(eq(1L), any(GroupContractCancelRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/group-contracts/1/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\": \"Lịch công tác bị hoãn\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.result.status").value("CANCELLED"));
+    }
+
+    @Test
     @DisplayName("POST /api/v1/group-contracts/export: Xuất Excel hợp đồng đoàn thành công trả về HTTP 200 và file")
     void exportContracts_shouldReturn200AndExcelFile() throws Exception {
         byte[] mockBytes = new byte[]{1, 2, 3, 4};

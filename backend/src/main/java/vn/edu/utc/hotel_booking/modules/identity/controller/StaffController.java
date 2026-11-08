@@ -62,6 +62,13 @@ public class StaffController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "CREATE",
+            entityName = "Staff",
+            entityId = "#result?.result?.id != null ? #result.result.id.toString() : 'N/A'",
+            description = "'Tạo mới tài khoản nhân viên'",
+            maskFields = {"password"}
+    )
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
@@ -74,6 +81,13 @@ public class StaffController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "UPDATE",
+            entityName = "Staff",
+            entityId = "#id.toString()",
+            description = "'Cập nhật thông tin nhân viên'",
+            maskFields = {"password"}
+    )
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
     @Operation(summary = "Cập nhật thông tin nhân viên")
@@ -87,10 +101,10 @@ public class StaffController {
     }
 
     @Auditable(
-            actionType = "STAFF_STATUS_UPDATE",
+            actionType = "STATUS_CHANGED",
             entityName = "Staff",
             entityId = "#id.toString()",
-            description = "'Cập nhật trạng thái nhân viên ID ' + #id + ' sang ' + #request.status"
+            description = "#request.status.name() == 'SUSPENDED' ? 'Khóa tài khoản (SUSPENDED)' : (#request.status.name() == 'ACTIVE' ? 'Kích hoạt tài khoản (ACTIVE)' : 'Đổi trạng thái (' + #request.status + ')')"
     )
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
@@ -105,10 +119,10 @@ public class StaffController {
     }
 
     @Auditable(
-            actionType = "STAFF_PASSWORD_RESET",
+            actionType = "PASSWORD_RESET",
             entityName = "Staff",
             entityId = "#id.toString()",
-            description = "'Đặt lại mật khẩu cho nhân viên ID ' + #id",
+            description = "'Đặt lại mật khẩu tài khoản'",
             maskFields = {"newPassword", "confirmPassword"}
     )
     @PostMapping("/{id}/reset-password")
@@ -124,10 +138,10 @@ public class StaffController {
     }
 
     @Auditable(
-            actionType = "STAFF_DELETE_BATCH",
+            actionType = "DELETE",
             entityName = "Staff",
             entityId = "#ids.toString()",
-            description = "'Xóa các nhân viên IDs: ' + #ids.toString()"
+            description = "'Xóa tài khoản nhân sự'"
     )
     @DeleteMapping("/delete")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER')")

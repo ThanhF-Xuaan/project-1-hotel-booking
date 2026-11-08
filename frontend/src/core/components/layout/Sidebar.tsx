@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { hasAnyRole } from '../../../modules/auth/utils/token.utils'
-import { LODGING_ROLES } from '../../../modules/operation/types/lodging.types'
-import { PAYROLL_IMPORT_ROLES } from '../../../modules/finance/services/payroll.service'
+import { LODGING_ROLES } from '../../../modules/operation/types/lodging.types'
+import { PAYROLL_IMPORT_ROLES } from '../../../modules/finance/services/payroll.service'
+import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
 import {
   Globe,
   Building,
@@ -24,6 +25,9 @@ import {
   BellRing,
   Brush,
   Moon,
+  Gauge,
+  Percent,
+  Calendar,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -113,12 +117,6 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST'],
       },
       {
-        label: 'Import Rooming List',
-        to: '/booking/rooming-list',
-        icon: <FileSpreadsheet className="w-4 h-4" />,
-        roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST'],
-      },
-      {
         label: 'Chính sách Hủy & No-Show',
         to: '/booking/policies',
         icon: <ShieldCheck className="w-4 h-4" />,
@@ -163,10 +161,16 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'],
       },
       {
-        label: 'Khai báo lưu trú',
-        to: '/operation/lodging-queue',
-        icon: <UserSquare2 className="w-4 h-4" />,
-        roles: LODGING_ROLES,
+        label: 'Khai báo lưu trú',
+        to: '/operation/lodging-queue',
+        icon: <UserSquare2 className="w-4 h-4" />,
+        roles: LODGING_ROLES,
+      },
+      {
+        label: 'Điện/Nước',
+        to: '/operation/utility',
+        icon: <Gauge className="w-4 h-4" />,
+        roles: UTILITY_READ_ROLES,
       },
       {
         label: 'Đóng ngày (Night Audit)',
@@ -316,6 +320,30 @@ const navGroups: NavGroup[] = [
         to: '/pricing/campaigns',
         icon: <Megaphone className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Chính sách Độ tuổi',
+        to: '/pricing/age-policies',
+        icon: <Users className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Lịch Ngày Lễ Tết',
+        to: '/pricing/holiday-calendars',
+        icon: <Calendar className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Danh mục Thuế',
+        to: '/pricing/tax-categories',
+        icon: <Receipt className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'FINANCE'],
+      },
+      {
+        label: 'Quy tắc Thuế VAT',
+        to: '/pricing/vat-rules',
+        icon: <Percent className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'FINANCE'],
       },
     ],
   },

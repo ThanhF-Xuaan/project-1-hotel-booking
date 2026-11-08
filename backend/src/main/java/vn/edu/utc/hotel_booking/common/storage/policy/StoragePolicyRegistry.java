@@ -50,6 +50,17 @@ public class StoragePolicyRegistry {
                 .requireVirusScan(true)
                 .build());
 
+        // 3.5. HOTEL_PROPERTY_PHOTO: Ảnh khuôn viên/cơ sở khách sạn (Public)
+        register(StoragePolicy.builder()
+                .category(StorageCategory.HOTEL_PROPERTY_PHOTO)
+                .folderPrefix("properties")
+                .defaultAccessLevel(StorageAccessLevel.PUBLIC_READ)
+                .allowedMimeTypes(Set.of("image/png", "image/jpeg", "image/webp"))
+                .maxSizeBytes(10 * 1024 * 1024L) // 10 MB
+                .requireContentParser(true)
+                .requireVirusScan(true)
+                .build());
+
         // 4. MARKETING_BANNER: Banner do Admin quản lý
         register(StoragePolicy.builder()
                 .category(StorageCategory.MARKETING_BANNER)

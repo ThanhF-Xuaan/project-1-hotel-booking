@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.config.OcrEngineProperties;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrDocumentExtractRequestDto;
@@ -65,6 +66,12 @@ public class IdentityDocumentOcrController {
      * @param request Yêu cầu chứa văn bản OCR thô, metadata file
      * @return Bản nháp trường dữ liệu kèm trạng thái và độ tin cậy
      */
+    @Auditable(
+            actionType = "OCR_SCAN",
+            entityName = "Guest",
+            description = "'Quét OCR bóc tách giấy tờ tùy thân: ' + #request.fileName",
+            maskFields = {"rawOcrText", "idNumber", "citizenId", "passportNumber"}
+    )
     @PostMapping("/extract")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extract(
             @Valid @RequestBody OcrDocumentExtractRequestDto request) {
@@ -87,6 +94,12 @@ public class IdentityDocumentOcrController {
      * @param rawOcrText Văn bản OCR đã trích xuất bởi client scanner (tùy chọn)
      * @return Bản nháp trường dữ liệu hoặc lỗi 400 nếu file không hợp lệ
      */
+    @Auditable(
+            actionType = "OCR_SCAN_FILE",
+            entityName = "Guest",
+            description = "'Quét OCR bóc tách file ảnh giấy tờ tùy thân: ' + #file.originalFilename",
+            maskFields = {"rawOcrText", "idNumber", "citizenId", "passportNumber"}
+    )
     @PostMapping("/extract-file")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extractFile(
             @RequestParam("file") MultipartFile file,

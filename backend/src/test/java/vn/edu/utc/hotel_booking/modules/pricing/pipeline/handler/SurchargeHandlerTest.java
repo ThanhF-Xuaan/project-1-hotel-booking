@@ -30,11 +30,14 @@ class SurchargeHandlerTest {
     @Mock
     private SurchargeRuleRepository surchargeRuleRepository;
 
+    @Mock
+    private vn.edu.utc.hotel_booking.modules.pricing.service.HotelAgePolicyService hotelAgePolicyService;
+
     private SurchargeHandler surchargeHandler;
 
     @BeforeEach
     void setUp() {
-        surchargeHandler = new SurchargeHandler(surchargeRuleRepository);
+        surchargeHandler = new SurchargeHandler(surchargeRuleRepository, hotelAgePolicyService);
     }
 
     @Test
@@ -312,5 +315,67 @@ class SurchargeHandlerTest {
         assertThat(night1.getExtraBedsSurcharge()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(night1.getSurchargeAmount()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(night1.getRateAfterSurcharge()).isEqualByComparingTo(new BigDecimal("1000000.00"));
+    }
+
+    @Test
+    @DisplayName("Should resolve children ages accurately based on database policies: 4yo -> INFANT (free), 9yo -> CHILD (surcharge)")
+    void shouldResolveChildrenAgesAccuratelyAndApplySurchargeFromDatabase() {
+        HotelRoomType roomType = new HotelRoomType();
+        roomType.setId(1);
+        roomType.setBasePrice(new BigDecimal("1000000.00"));
+        roomType.setStandardAdults((short) 2);
+        roomType.setStandardChildren((short) 0);
+
+        vn.edu.utc.hotel_booking.modules.pricing.entity.HotelAgePolicy childPolicy =
+                vn.edu.utc.hotel_booking.modules.pricing.entity.HotelAgePolicy.builder()
+                        .guestType("CHILD")
+                        .minAge((short) 6)
+                        .maxAge((short) 11)
+                        .build();
+
+        SurchargeRule extraChildRule = SurchargeRule.builder()
+                .id(10)
+                .hotelRoomType(roomType)
+                .agePolicy(childPolicy)
+                .ruleType("EXTRA_PERSON")
+                .adjustmentType("FIXED")
+                .adjustmentValue(new BigDecimal("150000.00"))
+                .startDate(LocalDate.of(2026, 1, 1))
+                .endDate(LocalDate.of(2026, 12, 31))
+                .status("ACTIVE")
+                .build();
+
+        when(surchargeRuleRepository.findActiveSurchargesForRoomType(eq(1), any(), any()))
+                .thenReturn(List.of(extraChildRule));
+
+        when(hotelAgePolicyService.resolveGuestTypeByAge(any(), eq(4))).thenReturn("INFANT");
+        when(hotelAgePolicyService.resolveGuestTypeByAge(any(), eq(9))).thenReturn("CHILD");
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 7, 1))
+                .checkOutDate(LocalDate.of(2026, 7, 2))
+                .adults((short) 2)
+                .childrenAges(List.of(4, 9)) // 1 infant (4yo), 1 child (9yo)
+                .build();
+
+        DailyRateContext night1 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 7, 1))
+                .baseRate(new BigDecimal("1000000.00"))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(roomType)
+                .dailyRates(List.of(night1))
+                .build();
+
+        surchargeHandler.handle(context);
+
+        // Assert: Infant (4yo) is free, Child (9yo) has 150.000 VND surcharge
+        assertThat(night1.getExtraInfantsSurcharge()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(night1.getExtraChildrenSurcharge()).isEqualByComparingTo(new BigDecimal("150000.00"));
+        assertThat(night1.getSurchargeAmount()).isEqualByComparingTo(new BigDecimal("150000.00"));
+        assertThat(night1.getRateAfterSurcharge()).isEqualByComparingTo(new BigDecimal("1150000.00"));
     }
 }

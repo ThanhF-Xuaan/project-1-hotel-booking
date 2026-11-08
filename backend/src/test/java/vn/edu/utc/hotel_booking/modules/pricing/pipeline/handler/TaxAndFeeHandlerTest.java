@@ -29,13 +29,13 @@ import static org.mockito.Mockito.when;
 class TaxAndFeeHandlerTest {
 
     @Mock
-    private VatRuleRepository vatRuleRepository;
+    private vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService vatRuleService;
 
     private TaxAndFeeHandler taxAndFeeHandler;
 
     @BeforeEach
     void setUp() {
-        taxAndFeeHandler = new TaxAndFeeHandler(vatRuleRepository);
+        taxAndFeeHandler = new TaxAndFeeHandler(vatRuleService);
     }
 
     @Test
@@ -59,12 +59,12 @@ class TaxAndFeeHandlerTest {
                 .vatPercent(new BigDecimal("10.00"))
                 .build();
 
-        when(vatRuleRepository.findActiveVatRule(eq(1), eq(LocalDate.of(2026, 12, 31))))
-                .thenReturn(Optional.of(vat8));
-        when(vatRuleRepository.findActiveVatRule(eq(1), eq(LocalDate.of(2027, 1, 1))))
-                .thenReturn(Optional.of(vat10));
-        when(vatRuleRepository.findActiveVatRule(eq(2), any(LocalDate.class)))
-                .thenReturn(Optional.of(vat10));
+        when(vatRuleService.getActiveVatPercent(eq(1), eq(LocalDate.of(2026, 12, 31))))
+                .thenReturn(new BigDecimal("8.00"));
+        when(vatRuleService.getActiveVatPercent(eq(1), eq(LocalDate.of(2027, 1, 1))))
+                .thenReturn(new BigDecimal("10.00"));
+        when(vatRuleService.getActiveVatPercent(eq(2), any(LocalDate.class)))
+                .thenReturn(new BigDecimal("10.00"));
 
         PriceCalculationRequest request = PriceCalculationRequest.builder()
                 .hotelRoomTypeId(1)

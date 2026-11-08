@@ -10,6 +10,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.BillingRoutingRuleRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.MasterFolioAdjustmentRequest;
@@ -89,6 +90,12 @@ public class MasterFolioController {
         return ApiResponse.success("Vô hiệu hóa quy tắc định tuyến thành công", null);
     }
 
+    @Auditable(
+            actionType = "FOLIO_ADJUSTMENT",
+            entityName = "MasterFolio",
+            entityId = "#id.toString()",
+            description = "'Điều chuyển chi phí Master Folio ID ' + #id + '. Lý do: ' + #request.reason"
+    )
     @PostMapping("/{id}/adjust-routing")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Điều chuyển thủ công chi phí giữa Sub-Folio và Master Folio (Ngoại lệ 2a SRS UC-FIN-04)")
@@ -100,6 +107,12 @@ public class MasterFolioController {
         return ApiResponse.success("Điều chuyển chi phí thành công", masterFolioService.adjustItemRouting(id, request, staffUsername));
     }
 
+    @Auditable(
+            actionType = "FOLIO_STATUS_UPDATE",
+            entityName = "MasterFolio",
+            entityId = "#id.toString()",
+            description = "'Cập nhật trạng thái Master Folio ID ' + #id + ' sang ' + #request.status"
+    )
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Cập nhật trạng thái Master Folio (Khóa quyết toán, đóng sổ...)")

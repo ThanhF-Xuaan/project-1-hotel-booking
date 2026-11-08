@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.modules.identity.personalization.dto.PersonalizationConsentUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.identity.personalization.dto.PersonalizationConsentView;
@@ -68,6 +69,12 @@ public class PersonalizationConsentController {
         return success(view);
     }
 
+    @Auditable(
+            actionType = "CONSENT_UPDATE",
+            entityName = "PersonalizationConsent",
+            entityId = "#request.hotelId.toString()",
+            description = "'Cập nhật quyền riêng tư cá nhân hóa khách sạn #' + #request.hotelId + ' (granted=' + #request.granted + ')'"
+    )
     @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "Cấp hoặc rút consent cá nhân hoá",
