@@ -6,6 +6,7 @@ export interface StayGuestResponse {
   hotelId: number;
   hotelName?: string;
   bookingId?: number;
+  bookingRoomId?: number;
   roomId: number;
   roomNumber: string;
   fullName: string;
@@ -54,7 +55,6 @@ export interface StayGuestUpdateRequest {
   documentNumber?: string;
   permanentAddress?: string;
   currentAddress?: string;
-  checkInTime?: string;
   expectedCheckOutTime?: string;
   actualCheckOutTime?: string;
   reasonForStay?: string;

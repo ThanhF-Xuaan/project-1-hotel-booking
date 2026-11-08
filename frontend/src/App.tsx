@@ -1,7 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './core/components/auth/ProtectedRoute'
-
 const AdminLayout = lazy(() => import('./core/components/layout/AdminLayout'))
 const LoginPage = lazy(() => import('./modules/auth/pages/LoginPage'))
 const RegionListPage = lazy(() => import('./modules/organization/pages/RegionListPage'))
@@ -14,6 +13,8 @@ const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPa
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
 const PolicyManagementPage = lazy(() => import('./modules/booking/pages/PolicyManagementPage'))
 const GroupManagementPage = lazy(() => import('./modules/booking/pages/GroupManagementPage').then((m) => ({ default: m.GroupManagementPage })))
+const LodgingQueuePage = lazy(() => import('./modules/operation/pages/LodgingQueuePage'))
+const PayrollImportPage = lazy(() => import('./modules/finance/pages/PayrollImportPage'))
 const FolioPaymentPage = lazy(() => import('./modules/finance/pages/FolioPaymentPage'))
 const PaymentResultPage = lazy(() => import('./modules/finance/pages/PaymentResultPage'))
 const MenuListPage = lazy(() => import('./modules/operation/pages/MenuListPage')
@@ -114,6 +115,13 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE']} />}>
                 <Route path="/operation/night-audit" element={<NightAuditPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
+                <Route path="/operation/lodging-queue" element={<LodgingQueuePage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER']} />}>
+                <Route path="/finance/payroll-import" element={<PayrollImportPage />} />
               </Route>
 
               {/* Phân hệ Tài chính */}
