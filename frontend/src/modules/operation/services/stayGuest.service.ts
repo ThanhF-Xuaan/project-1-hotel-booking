@@ -11,8 +11,8 @@ export const stayGuestService = {
   getByBookingRoomId: (bookingRoomId: number, signal?: AbortSignal) =>
     apiClient.get<StayGuestResponse[]>(`${BASE_URL}/by-booking-room/${bookingRoomId}`, { signal }),
 
-  getById: (id: number) =>
-    apiClient.get<StayGuestResponse>(`${BASE_URL}/${id}`),
+  getById: (id: number, signal?: AbortSignal) =>
+    apiClient.get<StayGuestResponse>(`${BASE_URL}/${id}`, { signal }),
 
   create: (data: StayGuestCreateRequest) =>
     apiClient.post<StayGuestResponse>(`${BASE_URL}/create`, data),

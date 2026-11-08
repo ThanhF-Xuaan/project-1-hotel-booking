@@ -3,6 +3,8 @@ package vn.edu.utc.hotel_booking.modules.operation.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -479,6 +481,31 @@ public class StayGuestServiceTest {
         assertTrue(queue.getIsDeleted());
         verify(stayGuestRepository, times(1)).saveAll(any());
         verify(lodgingQueueRepository, times(1)).save(queue);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "EXPORTED, false, LODGING_EXPORTED_RECORD_LOCKED",
+            "PROCESSING, false, LODGING_QUEUE_STATE_CONFLICT",
+            "CANCELLED, true, LODGING_EXPORTED_RECORD_LOCKED"
+    })
+    void delete_preservesExportRecords(LodgingQueueStatus status, boolean previouslyExported, ErrorCode errorCode) {
+        mockChainAdminAuth();
+        StayGuest guest = StayGuest.builder().id(12L).hotel(sampleHotel).build();
+        LodgingQueue queue = LodgingQueue.builder().id(50L).stayGuest(guest).status(status)
+                .exportedAt(previouslyExported ? OffsetDateTime.parse("2026-11-07T10:00:00+07:00") : null)
+                .build();
+        when(stayGuestRepository.findAllByIdInAndIsDeletedFalse(List.of(12L))).thenReturn(List.of(guest));
+        when(lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(12L)).thenReturn(Optional.of(queue));
+
+        AppException error = assertThrows(AppException.class, () -> stayGuestService.delete(List.of(12L)));
+
+        assertEquals(errorCode, error.getErrorCode());
+        assertFalse(guest.getIsDeleted());
+        assertEquals(status, queue.getStatus());
+        assertFalse(queue.getIsDeleted());
+        verify(stayGuestRepository, never()).saveAll(any());
+        verify(lodgingQueueRepository, never()).save(any());
     }
 
     @Test
