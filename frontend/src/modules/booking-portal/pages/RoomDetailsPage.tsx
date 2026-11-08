@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import { apiClient } from '../../../core/api/client';
+import type { AvailableRoomOffer, CustomerSearchCriteria } from '../types/portal.types';
 
 interface HotelDetail {
   id: number;
@@ -186,6 +187,80 @@ export const RoomDetailsPage: React.FC = () => {
   const nights = calculateNights();
   const quoteTotal = quote?.priceBreakdown?.finalTotalAmount;
 
+  const handleProceedToBooking = () => {
+    // 1. Thắt chặt Guard Check ngay đầu hàm
+    if (!room || !quote?.priceBreakdown?.finalTotalAmount || roomsCount > 1) {
+      return;
+    }
+
+    const parsedHotelId = parseInt(hotelId || '1', 10);
+    const parsedRoomTypeId = parseInt(hotelRoomTypeId || '1', 10);
+
+    const finalTotal = quote?.priceBreakdown?.finalTotalAmount
+      ? Number(quote.priceBreakdown.finalTotalAmount)
+      : 0;
+    const totalBasePrice = quote?.priceBreakdown?.totalBasePrice
+      ? Number(quote.priceBreakdown.totalBasePrice)
+      : 0;
+
+    // 2. Khử ngược thuế/phí (1.134) để CheckoutPage cộng 5% phí + 8% VAT ra đúng chuẩn finalTotal Core
+    const calculatedBasePrice =
+      nights > 0 && finalTotal > 0
+        ? Math.round(finalTotal / (1.134 * nights))
+        : totalBasePrice > 0
+          ? Math.round(totalBasePrice / (nights || 1))
+          : 1000000;
+
+    // 3. Bóc tách động tiện nghi ăn sáng (Dynamic Breakfast Check)
+    const amenityNames = (room.amenities || []).map((a) => a.name);
+    const hasFreeBreakfast = amenityNames.some((name) =>
+      /buffet|sáng|breakfast/i.test(name)
+    );
+
+    // 4. Quy đổi diện tích phòng theo mã hạng phòng (Dynamic Room Size)
+    const code = (room.roomTypeCode || '').toUpperCase();
+    const roomSizeM2 =
+      code.includes('EXE') || code.includes('SUT') || code.includes('STE') || code.includes('FAM')
+        ? 58
+        : code.includes('DLX')
+          ? 36
+          : 28;
+
+    // 5. Đóng gói đối tượng offer hoàn chỉnh
+    const offer: AvailableRoomOffer = {
+      hotelRoomTypeId: parsedRoomTypeId,
+      roomTypeCode: room.roomTypeCode,
+      roomTypeName: room.roomTypeName,
+      basePrice: calculatedBasePrice,
+      estimatedTotal: finalTotal,
+      maxAdults: room.maxAdults || adults,
+      maxChildren: room.maxChildren || children,
+      roomSizeM2,
+      bedDescription: '1 Giường đôi Queen/King Size',
+      amenities: amenityNames.length > 0 ? amenityNames : ['Wi-Fi tốc độ cao', 'Điều hòa 2 chiều'],
+      freeBreakfast: hasFreeBreakfast,
+      freeCancellation: true,
+      availableRoomsCount: room.availableRooms,
+    };
+
+    // 6. Đóng gói tiêu chí lưu trú (MVP roomsCount = 1)
+    const bookingCriteria: CustomerSearchCriteria = {
+      hotelId: parsedHotelId,
+      checkInDate,
+      checkOutDate,
+      adultCount: adults,
+      childCount: children,
+      roomsCount: 1, // Ràng buộc phạm vi FIT MVP
+    };
+
+    navigate('/portal/checkout', {
+      state: {
+        offer,
+        criteria: bookingCriteria,
+      },
+    });
+  };
+
   return (
     <main className="min-h-screen bg-neutral-50 pb-16">
       {/* Top Header */}
@@ -313,8 +388,7 @@ export const RoomDetailsPage: React.FC = () => {
                 <div className="text-xs text-amber-900 space-y-1">
                   <div className="font-bold">Lưu ý về quy trình kiểm tra báo giá</div>
                   <p className="text-amber-800 leading-relaxed">
-                    Trang này cung cấp thông tin chi tiết và tính toán báo giá thực tế từ hệ thống Core.
-                    Không có hành động giữ phòng, đặt phòng hoặc thanh toán nào được thực hiện tại bước này.
+                    Trang này cung cấp thông tin chi tiết và tính toán báo giá thực tế từ hệ thống Core (chưa giữ phòng). Để kích hoạt phiên đặt phòng 15 phút và tiến hành thanh toán, vui lòng nhấn <strong>"Tiến hành đặt phòng"</strong>.
                   </p>
                 </div>
               </section>
@@ -381,10 +455,28 @@ export const RoomDetailsPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="pt-2">
+                <div className="pt-2 space-y-2">
+                  <Button
+                    onClick={handleProceedToBooking}
+                    variant="primary"
+                    size="md"
+                    disabled={!room || room.availableRooms <= 0 || !quoteTotal || roomsCount > 1}
+                    className="w-full font-bold shadow-xs"
+                    aria-label="Tiến hành đặt phòng này"
+                  >
+                    Tiến hành đặt phòng
+                  </Button>
+
+                  {roomsCount > 1 && (
+                    <p className="text-[11px] text-amber-700 text-center">
+                      * Đặt từ 2 phòng trở lên vui lòng sử dụng luồng tìm kiếm tiêu chuẩn.
+                    </p>
+                  )}
+
                   <Button
                     onClick={() => navigate('/portal/search')}
                     variant="outline"
+                    size="md"
                     className="w-full font-bold text-xs"
                     aria-label="Chọn phòng khác tại trang tìm kiếm"
                   >
