@@ -16,7 +16,7 @@ const vietnamToday = () => new Intl.DateTimeFormat('sv-SE', {
 }).format(new Date())
 
 const readingSchema = z.object({
-  readingDate: z.iso.date().refine(date => date <= vietnamToday(), 'Ngày ghi không được ở tương lai'),
+  readingDate: z.string().date().refine((date: string) => date <= vietnamToday(), 'Ngày ghi không được ở tương lai'),
   readingValue: z.string().trim().regex(/^\d{1,9}(?:[.,]\d{1,3})?$/, 'Nhập số không âm, tối đa 9 chữ số nguyên và 3 chữ số thập phân'),
   isMeterReset: z.boolean(),
 })
