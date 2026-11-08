@@ -626,4 +626,119 @@ public class StayGuestServiceTest {
         assertEquals(1, result.getContent().size());
         verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyen Van A"), isNull(), isNull(), any());
     }
+    @Test
+    void search_nullKeyword_passedAsNullToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword(null)
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_emptyKeyword_passedAsNullToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_specialCharactersKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  %_!@#$  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("%_!@#$"), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("%_!@#$"), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_vietnameseDiacriticsKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  Nguyễn Thị Ánh Tuyết  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        StayGuest guest = StayGuest.builder().id(2L).fullName("NGUYỄN THỊ ÁNH TUYẾT").hotel(sampleHotel).build();
+        org.springframework.data.domain.Page<StayGuest> page = new org.springframework.data.domain.PageImpl<>(List.of(guest));
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyễn Thị Ánh Tuyết"), isNull(), isNull(), any()))
+                .thenReturn(page);
+        when(stayGuestMapper.toResponse(guest)).thenReturn(StayGuestResponse.builder().id(2L).fullName("NGUYỄN THỊ ÁNH TUYẾT").build());
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyễn Thị Ánh Tuyết"), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_documentNumberKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  079190012345  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        StayGuest guest = StayGuest.builder().id(3L).fullName("TRAN VAN B").documentNumber("079190012345").hotel(sampleHotel).build();
+        org.springframework.data.domain.Page<StayGuest> page = new org.springframework.data.domain.PageImpl<>(List.of(guest));
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("079190012345"), isNull(), isNull(), any()))
+                .thenReturn(page);
+        when(stayGuestMapper.toResponse(guest)).thenReturn(StayGuestResponse.builder().id(3L).fullName("TRAN VAN B").documentNumber("079190012345").build());
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("079190012345"), isNull(), isNull(), any());
+    }
+
+    @Test
+    void repositoryQuery_hasAllKeywordReferencesSafelyCastToString() throws Exception {
+        var method = vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository.class.getMethod(
+                "search", Short.class, Long.class, String.class, String.class, String.class,
+                java.time.OffsetDateTime.class, java.time.OffsetDateTime.class,
+                org.springframework.data.domain.Pageable.class);
+        org.springframework.data.jpa.repository.Query query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class);
+        assertNotNull(query, "Search method must have @Query annotation");
+        String jpql = query.value();
+
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(?<!CAST\\():keyword").matcher(jpql);
+        assertFalse(matcher.find(), "Query must not contain raw uncast :keyword references to avoid lower(bytea) JDBC errors: " + jpql);
+        assertTrue(jpql.contains("CAST(:keyword AS string)"), "Query must cast :keyword to string");
+    }
 }

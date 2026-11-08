@@ -3,7 +3,9 @@ package vn.edu.utc.hotel_booking.modules.ai.ocr.controller;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -105,8 +107,17 @@ public class IdentityDocumentOcrController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "rawOcrText", required = false) String rawOcrText) {
 
+        if (file != null && file.getSize() > OcrUploadValidator.MAX_FILE_SIZE_BYTES) {
+            String message = "File vượt quá giới hạn 5 MB";
+            log.warn("U13 OCR /extract-file: file size {} exceeds limit {} bytes", file.getSize(), OcrUploadValidator.MAX_FILE_SIZE_BYTES);
+            return payloadTooLarge(message);
+        }
+
         OcrUploadValidator.ValidationResult validation = uploadValidator.validate(file);
         if (!validation.isValid()) {
+            if (validation.getReason() != null && validation.getReason().contains("5 MB")) {
+                return payloadTooLarge(validation.getReason());
+            }
             return invalidImage();
         }
 
@@ -162,6 +173,22 @@ public class IdentityDocumentOcrController {
     }
 
     // ---- Exception Handlers cục bộ ----
+
+    private ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> payloadTooLarge(String message) {
+        log.warn("U13 OCR /extract-file: payload too large: {}", message);
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ApiResponse.<OcrStayGuestDraftDto>builder()
+                .code(HttpStatus.PAYLOAD_TOO_LARGE.value())
+                .message(message)
+                .result(buildInvalidFileResult(message))
+                .build());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException ex) {
+        String message = "Dung lượng upload vượt quá giới hạn tối đa cho phép (tối đa 5 MB)";
+        return payloadTooLarge(message);
+    }
 
     @ExceptionHandler(OcrVisionPort.ExtractionUnavailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleEngineUnavailable() {

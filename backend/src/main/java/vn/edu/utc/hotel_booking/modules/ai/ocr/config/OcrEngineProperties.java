@@ -14,7 +14,7 @@ import org.springframework.validation.annotation.Validated;
 public class OcrEngineProperties {
 
     private boolean enabled = false;
-    private boolean strictMultipartCheck = true;
+    private boolean strictMultipartCheck = false;
     @NotBlank
     private String executablePath = "tesseract";
     @NotBlank

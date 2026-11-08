@@ -52,7 +52,7 @@ public interface StayGuestRepository extends JpaRepository<StayGuest, Long> {
            "AND (:bookingId IS NULL OR s.booking.id = :bookingId) " +
            "AND (:roomNumber IS NULL OR s.roomNumber = :roomNumber) " +
            "AND (:documentNumber IS NULL OR s.documentNumber = :documentNumber) " +
-           "AND (CAST(:keyword AS string) IS NULL OR :keyword = '' " +
+           "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' " +
            "     OR LOWER(s.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "     OR s.documentNumber LIKE CONCAT('%', CAST(:keyword AS string), '%')) " +
            "AND (CAST(:fromDate AS java.time.OffsetDateTime) IS NULL OR s.checkInTime >= :fromDate) " +
