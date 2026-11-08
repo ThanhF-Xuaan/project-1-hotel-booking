@@ -14,6 +14,7 @@ import {
 import Button from '../../../core/components/ui/Button';
 import { apiClient } from '../../../core/api/client';
 import type { AvailableRoomOffer, CustomerSearchCriteria } from '../types/portal.types';
+import { ADVISOR_AUTO_REOPEN_KEY } from '../components/RoomAdvisor/RoomAdvisorWidget';
 
 interface HotelDetail {
   id: number;
@@ -253,6 +254,13 @@ export const RoomDetailsPage: React.FC = () => {
       roomsCount: 1, // Ràng buộc phạm vi FIT MVP
     };
 
+    // Dọn cờ tự động mở advisor khi khách tiến hành sang thanh toán
+    try {
+      sessionStorage.removeItem(ADVISOR_AUTO_REOPEN_KEY);
+    } catch {
+      // ignore
+    }
+
     navigate('/portal/checkout', {
       state: {
         offer,
@@ -267,7 +275,7 @@ export const RoomDetailsPage: React.FC = () => {
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-20 shadow-2xs">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
-            onClick={() => navigate('/portal/search')}
+            onClick={() => navigate('/portal/search', { state: { autoOpenAdvisor: true } })}
             aria-label="Quay lại trang tìm kiếm"
             className="flex items-center gap-2 text-sm font-semibold text-neutral-700 hover:text-red-600 transition-colors"
           >
@@ -297,7 +305,7 @@ export const RoomDetailsPage: React.FC = () => {
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-lg mx-auto my-12">
             <p className="text-sm font-semibold text-red-800 mb-4">{loadError}</p>
             <Button
-              onClick={() => navigate('/portal/search')}
+              onClick={() => navigate('/portal/search', { state: { autoOpenAdvisor: true } })}
               variant="outline"
               size="sm"
             >
@@ -474,7 +482,7 @@ export const RoomDetailsPage: React.FC = () => {
                   )}
 
                   <Button
-                    onClick={() => navigate('/portal/search')}
+                    onClick={() => navigate('/portal/search', { state: { autoOpenAdvisor: true } })}
                     variant="outline"
                     size="md"
                     className="w-full font-bold text-xs"

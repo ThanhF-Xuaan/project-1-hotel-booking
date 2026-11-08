@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Search,
   Calendar,
@@ -24,7 +24,7 @@ import type {
   AvailableRoomOffer,
   AvailableRoomTypeApiResponse,
 } from '../types/portal.types';
-import { RoomAdvisorWidget } from '../components/RoomAdvisor/RoomAdvisorWidget';
+import { RoomAdvisorWidget, ADVISOR_AUTO_REOPEN_KEY } from '../components/RoomAdvisor/RoomAdvisorWidget';
 import { GroupInquiryModal } from '../components/GroupInquiryModal';
 import { HotelGalleryViewerModal } from '../components/HotelGalleryViewerModal';
 import hotelService from '../../organization/services/hotel.service';
@@ -112,8 +112,49 @@ const mapApiResponseToOffer = (
 
 export const SearchPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [isAdvisorOpen, setIsAdvisorOpen] = useState(false);
+  const [isAdvisorOpen, setIsAdvisorOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const hasRouterState = Boolean(location.state?.autoOpenAdvisor);
+    try {
+      const hasStorageFlag = sessionStorage.getItem(ADVISOR_AUTO_REOPEN_KEY) === 'true';
+      return hasRouterState || hasStorageFlag;
+    } catch {
+      return hasRouterState;
+    }
+  });
+
+  // Dọn sạch router state & storage flag sau khi tiếp nhận cờ tự động mở Chatbot
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(ADVISOR_AUTO_REOPEN_KEY) === 'true') {
+        sessionStorage.removeItem(ADVISOR_AUTO_REOPEN_KEY);
+      }
+    } catch {
+      // ignore
+    }
+
+    if (location.state?.autoOpenAdvisor) {
+      navigate(location.pathname + location.search, { replace: true, state: {} });
+    }
+  }, [location.state, location.pathname, location.search, navigate]);
+
+  // Lắng nghe sự kiện popstate (Browser Back/Forward) khi component vẫn còn mounted hoặc phục hồi từ cache
+  useEffect(() => {
+    const handlePopState = () => {
+      try {
+        if (sessionStorage.getItem(ADVISOR_AUTO_REOPEN_KEY) === 'true') {
+          setIsAdvisorOpen(true);
+          sessionStorage.removeItem(ADVISOR_AUTO_REOPEN_KEY);
+        }
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [hotelImages, setHotelImages] = useState<HotelImageDto[]>([]);
@@ -264,6 +305,12 @@ export const SearchPage: React.FC = () => {
   };
 
   const handleAdvisorViewDetails = (rec: AdvisorRecommendation, advisorCriteria?: AdvisorSearchCriteria) => {
+    try {
+      sessionStorage.setItem(ADVISOR_AUTO_REOPEN_KEY, 'true');
+    } catch (err) {
+      console.warn('Không thể lưu cờ tự động mở advisor vào sessionStorage:', err);
+    }
+
     const adults =
       advisorCriteria?.adults && advisorCriteria.adults >= 1
         ? advisorCriteria.adults

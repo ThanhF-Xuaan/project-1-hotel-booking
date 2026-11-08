@@ -49,8 +49,54 @@ function createStarterPrompt(): string {
 let messageIdCounter = 0;
 function createMessageId(prefix: string): string {
   messageIdCounter += 1;
-  return `${prefix}-${messageIdCounter}`;
+  return `${prefix}-${Date.now()}-${messageIdCounter}`;
 }
+
+const ADVISOR_STORAGE_KEY = 't12_advisor_chat_session';
+export const ADVISOR_AUTO_REOPEN_KEY = 't12_advisor_auto_reopen';
+const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 phút
+
+interface StoredAdvisorSession {
+  sessionId?: string;
+  sessionVersion?: number;
+  messages: Array<{
+    id: string;
+    sender: 'user' | 'assistant' | 'system';
+    text: string;
+    timestamp: string;
+    result?: AdvisorResultDto;
+    isError?: boolean;
+    rateLimitCountdown?: number;
+  }>;
+  lastUpdated: number;
+}
+
+const loadSavedSession = (): {
+  savedMessages: ChatMessage[];
+  savedSessionId?: string;
+  savedVersion?: number;
+} => {
+  try {
+    const raw = sessionStorage.getItem(ADVISOR_STORAGE_KEY);
+    if (!raw) return { savedMessages: [INITIAL_MESSAGE] };
+    const parsed: StoredAdvisorSession = JSON.parse(raw);
+    if (Date.now() - parsed.lastUpdated > SESSION_MAX_AGE_MS) {
+      sessionStorage.removeItem(ADVISOR_STORAGE_KEY);
+      return { savedMessages: [INITIAL_MESSAGE] };
+    }
+    const hydratedMessages: ChatMessage[] = (parsed.messages || []).map((m) => ({
+      ...m,
+      timestamp: new Date(m.timestamp),
+    }));
+    return {
+      savedMessages: hydratedMessages.length > 0 ? hydratedMessages : [INITIAL_MESSAGE],
+      savedSessionId: parsed.sessionId,
+      savedVersion: parsed.sessionVersion,
+    };
+  } catch {
+    return { savedMessages: [INITIAL_MESSAGE] };
+  }
+};
 
 const INITIAL_MESSAGE: ChatMessage = {
   id: 'welcome-msg',
@@ -71,11 +117,12 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionId, setSessionId] = useState<string | undefined>();
-  const [sessionVersion, setSessionVersion] = useState<number | undefined>();
+  const [initialData] = useState(loadSavedSession);
+  const [sessionId, setSessionId] = useState<string | undefined>(initialData.savedSessionId);
+  const [sessionVersion, setSessionVersion] = useState<number | undefined>(initialData.savedVersion);
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialData.savedMessages);
   const [starterPrompt] = useState(createStarterPrompt);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -138,6 +185,26 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     return () => clearInterval(timer);
   }, [cooldownSeconds]);
 
+  // Tự động lưu hội thoại vào sessionStorage (chỉ lưu khi có tin nhắn thực tế của người dùng)
+  useEffect(() => {
+    const hasUserMessage = messages.some((m) => m.sender === 'user');
+    if (!hasUserMessage && !sessionId) return;
+    try {
+      const payload: StoredAdvisorSession = {
+        sessionId,
+        sessionVersion,
+        messages: messages.map((m) => ({
+          ...m,
+          timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : String(m.timestamp),
+        })),
+        lastUpdated: Date.now(),
+      };
+      sessionStorage.setItem(ADVISOR_STORAGE_KEY, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('Không thể lưu session chat vào sessionStorage:', err);
+    }
+  }, [messages, sessionId, sessionVersion]);
+
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || activeRequest.current || isLoading || cooldownSeconds > 0) return;
@@ -199,6 +266,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
       setMessages((prev) => [...prev, errorMessage]);
 
       if (clientErr.isSessionExpired) {
+        sessionStorage.removeItem(ADVISOR_STORAGE_KEY);
+        sessionStorage.removeItem(ADVISOR_AUTO_REOPEN_KEY);
         setSessionId(undefined);
         setSessionVersion(undefined);
       }
@@ -237,6 +306,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   };
 
   const handleResetSession = () => {
+    sessionStorage.removeItem(ADVISOR_STORAGE_KEY);
+    sessionStorage.removeItem(ADVISOR_AUTO_REOPEN_KEY);
     requestGeneration.current += 1;
     activeRequest.current?.abort();
     activeRequest.current = null;
