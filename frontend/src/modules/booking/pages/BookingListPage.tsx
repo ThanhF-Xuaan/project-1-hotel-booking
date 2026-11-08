@@ -649,13 +649,29 @@ export const BookingListPage: React.FC = () => {
   const getStatusBadge = (status: BookingStatus) => {
     switch (status) {
       case 'CONFIRMED':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Đã xác nhận</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 whitespace-nowrap">
+            Đã xác nhận
+          </span>
+        );
       case 'CANCELLED':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Đã hủy</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 whitespace-nowrap">
+            Đã hủy
+          </span>
+        );
       case 'NO_SHOW':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">Vắng mặt</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+            Vắng mặt
+          </span>
+        );
       default:
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-neutral-100 text-neutral-800">{status}</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-neutral-100 text-neutral-800 whitespace-nowrap">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -849,14 +865,14 @@ export const BookingListPage: React.FC = () => {
               <table className="w-full text-left border-collapse text-sm">
                 <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
                   <tr>
-                    <th className="p-4">Mã đơn</th>
-                    <th className="p-4">Khách sạn</th>
-                    <th className="p-4">Khách hàng</th>
-                    <th className="p-4">Loại phòng</th>
-                    <th className="p-4">Thời gian lưu trú</th>
-                    <th className="p-4 text-right">Tổng tiền (VNĐ)</th>
-                    <th className="p-4 text-center">Trạng thái</th>
-                    <th className="p-4 text-center">Thao tác</th>
+                    <th className="p-4 whitespace-nowrap">Mã đơn</th>
+                    <th className="p-4 whitespace-nowrap">Khách sạn</th>
+                    <th className="p-4 whitespace-nowrap">Khách hàng</th>
+                    <th className="p-4 whitespace-nowrap">Loại phòng</th>
+                    <th className="p-4 whitespace-nowrap">Thời gian lưu trú</th>
+                    <th className="p-4 text-right whitespace-nowrap">Tổng tiền (VNĐ)</th>
+                    <th className="p-4 text-center whitespace-nowrap">Trạng thái</th>
+                    <th className="p-4 text-center whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -881,14 +897,14 @@ export const BookingListPage: React.FC = () => {
 
                       return (
                         <tr key={booking.id} className="hover:bg-neutral-50 transition-colors">
-                          <td className="p-4 font-semibold text-neutral-900">
+                          <td className="p-4 font-semibold text-neutral-900 whitespace-nowrap">
                             {booking.bookingNumber}
                             <div className="text-xs text-neutral-400 font-normal mt-0.5">
                               {booking.bookingType}
                             </div>
                           </td>
                           <td className="p-4 text-neutral-800">{booking.hotelName}</td>
-                          <td className="p-4">
+                          <td className="p-4 whitespace-nowrap">
                             <div className="font-medium text-neutral-900">{booking.guestPhone}</div>
                             {booking.companyName && (
                               <div className="text-xs text-neutral-500">{booking.companyName}</div>
@@ -897,7 +913,7 @@ export const BookingListPage: React.FC = () => {
                           <td className="p-4 text-neutral-700">
                             {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
                           </td>
-                          <td className="p-4 text-neutral-600 text-xs">
+                          <td className="p-4 text-neutral-600 text-xs whitespace-nowrap">
                             {booking.bookingDetails?.[0] ? (
                               <>
                                 <div>Từ: {booking.bookingDetails[0].checkInDate}</div>
@@ -907,18 +923,20 @@ export const BookingListPage: React.FC = () => {
                               'N/A'
                             )}
                           </td>
-                          <td className="p-4 text-right font-bold text-neutral-900">
+                          <td className="p-4 text-right font-bold text-neutral-900 whitespace-nowrap">
                             {new Intl.NumberFormat('vi-VN').format(booking.totalAmount)} đ
                           </td>
-                          <td className="p-4 text-center space-y-1">
-                            <div>{getStatusBadge(booking.status)}</div>
+                          <td className="p-4 text-center space-y-1 whitespace-nowrap">
+                            <div className="whitespace-nowrap">{getStatusBadge(booking.status)}</div>
                             {hasUnassignedRoom && booking.status === 'CONFIRMED' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                <AlertTriangle className="w-3 h-3" /> Chưa xếp phòng
-                              </span>
+                              <div className="whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
+                                  <AlertTriangle className="w-3 h-3" /> Chưa xếp phòng
+                                </span>
+                              </div>
                             )}
                           </td>
-                          <td className="p-4">
+                          <td className="p-4 whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => {
