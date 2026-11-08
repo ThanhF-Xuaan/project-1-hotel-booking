@@ -134,7 +134,7 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
   const handleLookupBooking = useCallback(async (inputStr: string) => {
     const cleanStr = inputStr.trim();
     if (!cleanStr) {
-      setLookupError('Vui lòng nhập mã đơn đặt phòng (VD: BK-...) hoặc số phòng để tra cứu');
+      setLookupError('Vui lòng nhập mã đơn đặt phòng đoàn (VD: BK-...) hoặc số phòng để tra cứu');
       return;
     }
 
@@ -150,17 +150,26 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
       try {
         const res = await bookingService.getByNumber(cleanStr);
         if (res.result) {
-          setBooking(res.result);
-          setIsLoadingBooking(false);
-          return;
+          if (res.result.bookingType === 'GIT') {
+            setBooking(res.result);
+            setIsLoadingBooking(false);
+            return;
+          } else {
+            setLookupError(
+              `Đơn đặt phòng "${cleanStr}" là đơn khách lẻ (${res.result.bookingType}). Tính năng Import Rooming List chỉ áp dụng cho đơn đặt phòng đoàn (GIT).`
+            );
+            setIsLoadingBooking(false);
+            return;
+          }
         }
       } catch {
-        // Tiếp tục tìm theo số phòng hoặc tìm kiếm tương đối
+        // Tiếp tục tìm theo số phòng hoặc tìm kiếm tương đối nếu không tìm thấy mã chính xác
       }
 
-      // 2. Tìm kiếm theo Số phòng (Room Number) qua API filter
+      // 2. Tìm kiếm theo Số phòng (Room Number) qua API filter, giới hạn chỉ tìm đơn khách đoàn (bookingType: 'GIT')
       const filterByRoom = await bookingService.filter({
         roomNumber: cleanStr,
+        bookingType: 'GIT',
         size: 10,
       });
 
@@ -175,9 +184,10 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
         return;
       }
 
-      // 3. Nếu chưa thấy, tìm theo mã đơn tương đối
+      // 3. Nếu chưa thấy, tìm theo mã đơn tương đối (chỉ tìm đơn khách đoàn GIT)
       const filterByNum = await bookingService.filter({
         bookingNumber: cleanStr,
+        bookingType: 'GIT',
         size: 10,
       });
       const listByNum = filterByNum.result?.content || [];
@@ -187,7 +197,7 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
         setSearchResults(listByNum);
       } else {
         setLookupError(
-          `Không tìm thấy đơn đặt phòng nào với mã hoặc số phòng: "${cleanStr}". Vui lòng kiểm tra lại.`
+          `Không tìm thấy đơn đặt phòng đoàn (GIT) nào với mã hoặc số phòng: "${cleanStr}". Vui lòng kiểm tra lại.`
         );
       }
     } catch (err: unknown) {
@@ -589,6 +599,17 @@ export const RoomingListImportModal: React.FC<RoomingListImportModalProps> = ({
                     >
                       <Search className={`w-4 h-4 ${isLoadingBooking ? 'animate-spin' : ''}`} />
                       <span>{isLoadingBooking ? 'Đang tìm...' : 'Tìm kiếm'}</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={resetState}
+                      disabled={isLoadingBooking}
+                      title="Làm mới bộ lọc và trạng thái tra cứu"
+                      className="h-10 px-4 text-xs font-semibold rounded-xl shrink-0 flex items-center justify-center gap-1.5 border-neutral-300 text-neutral-700 hover:bg-neutral-50 shadow-2xs cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-neutral-500" />
+                      <span>Làm mới</span>
                     </Button>
                   </div>
 

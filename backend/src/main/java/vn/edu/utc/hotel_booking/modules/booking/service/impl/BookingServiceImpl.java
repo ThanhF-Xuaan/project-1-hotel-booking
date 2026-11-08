@@ -426,7 +426,7 @@ public class BookingServiceImpl implements BookingService {
                 predicates.add(cb.equal(root.get("hotel").get("id"), searchDto.getHotelId()));
             }
             if (searchDto.getGuestId() != null) {
-                predicates.add(cb.equal(root.get("guest").get("id"), searchDto.getGuestId()));
+                predicates.add(cb.equal(root.get("bookingGuest").get("id"), searchDto.getGuestId()));
             }
             if (searchDto.getBookingNumber() != null && !searchDto.getBookingNumber().isBlank()) {
                 predicates.add(cb.like(cb.lower(root.get("bookingNumber")),
@@ -435,13 +435,23 @@ public class BookingServiceImpl implements BookingService {
             if (searchDto.getBookingType() != null) {
                 predicates.add(cb.equal(root.get("bookingType"), searchDto.getBookingType()));
             }
+            if (searchDto.getGroupContractId() != null) {
+                predicates.add(cb.equal(root.get("groupContract").get("id"), searchDto.getGroupContractId()));
+            }
             if (searchDto.getStatus() != null) {
                 predicates.add(cb.equal(root.get("status"), searchDto.getStatus()));
             }
 
             jakarta.persistence.criteria.Join<Booking, BookingDetail> detailJoin = null;
-            if (searchDto.getCheckInDate() != null || searchDto.getCheckOutDate() != null || searchDto.getIsAssigned() != null) {
-                detailJoin = root.join("bookingDetails");
+            jakarta.persistence.criteria.Join<BookingDetail, BookingRoom> roomJoin = null;
+
+            boolean needDetailJoin = searchDto.getCheckInDate() != null
+                    || searchDto.getCheckOutDate() != null
+                    || searchDto.getIsAssigned() != null
+                    || (searchDto.getRoomNumber() != null && !searchDto.getRoomNumber().isBlank());
+
+            if (needDetailJoin) {
+                detailJoin = root.join("bookingDetails", jakarta.persistence.criteria.JoinType.LEFT);
                 query.distinct(true);
             }
             if (searchDto.getCheckInDate() != null && detailJoin != null) {
@@ -450,13 +460,27 @@ public class BookingServiceImpl implements BookingService {
             if (searchDto.getCheckOutDate() != null && detailJoin != null) {
                 predicates.add(cb.equal(detailJoin.get("checkOutDate"), searchDto.getCheckOutDate()));
             }
-            if (searchDto.getIsAssigned() != null && detailJoin != null) {
-                jakarta.persistence.criteria.Join<BookingDetail, BookingRoom> roomJoin = detailJoin.join("bookingRooms");
+
+            boolean needRoomJoin = searchDto.getIsAssigned() != null
+                    || (searchDto.getRoomNumber() != null && !searchDto.getRoomNumber().isBlank());
+
+            if (needRoomJoin && detailJoin != null) {
+                roomJoin = detailJoin.join("bookingRooms", jakarta.persistence.criteria.JoinType.LEFT);
+            }
+
+            if (searchDto.getIsAssigned() != null && roomJoin != null) {
                 if (Boolean.TRUE.equals(searchDto.getIsAssigned())) {
                     predicates.add(cb.isNotNull(roomJoin.get("roomInstance")));
                 } else {
                     predicates.add(cb.isNull(roomJoin.get("roomInstance")));
                 }
+            }
+
+            if (searchDto.getRoomNumber() != null && !searchDto.getRoomNumber().isBlank() && roomJoin != null) {
+                jakarta.persistence.criteria.Join<BookingRoom, RoomInstance> roomInstanceJoin =
+                        roomJoin.join("roomInstance", jakarta.persistence.criteria.JoinType.LEFT);
+                predicates.add(cb.like(cb.lower(roomInstanceJoin.get("roomNumber")),
+                        "%" + searchDto.getRoomNumber().trim().toLowerCase() + "%"));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

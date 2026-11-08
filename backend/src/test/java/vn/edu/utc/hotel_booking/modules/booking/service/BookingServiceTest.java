@@ -11,6 +11,7 @@ import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingChargeCreateRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingCreateRequest;
+import vn.edu.utc.hotel_booking.modules.booking.dto.request.BookingSearchDto;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.CartPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.LeadGuestRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.CartPriceQuoteResponse;
@@ -2519,6 +2520,111 @@ class BookingServiceTest {
                 payment.getTotalAmount().compareTo(new BigDecimal("10000000.00")) == 0
         ));
     }
+
+    @Test
+    @DisplayName("filter: Tra cứu đơn phòng với roomNumber, bookingType=GIT và groupContractId thành công")
+    void filter_WithRoomNumberAndGitType_Success() {
+        BookingSearchDto searchDto = BookingSearchDto.builder()
+                .roomNumber("101")
+                .bookingType(BookingType.GIT)
+                .groupContractId(99L)
+                .build();
+        searchDto.setPage(1);
+        searchDto.setSize(10);
+
+        Booking booking = Booking.builder()
+                .id(501L)
+                .bookingNumber("BK-GIT-501")
+                .bookingType(BookingType.GIT)
+                .status(BookingStatus.CONFIRMED)
+                .build();
+
+        org.springframework.data.domain.Page<Booking> page = new org.springframework.data.domain.PageImpl<>(List.of(booking));
+
+        when(bookingRepository.findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Booking>>any(), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+        when(bookingMapper.toResponse(any(Booking.class)))
+                .thenReturn(BookingResponse.builder().id(501L).bookingNumber("BK-GIT-501").bookingType(BookingType.GIT).build());
+
+        vn.edu.utc.hotel_booking.common.dto.PageResponse<BookingResponse> result = bookingService.filter(searchDto);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getBookingNumber()).isEqualTo("BK-GIT-501");
+        assertThat(result.getContent().get(0).getBookingType()).isEqualTo(BookingType.GIT);
+
+        verify(bookingRepository).findAll(org.mockito.ArgumentMatchers.<org.springframework.data.jpa.domain.Specification<Booking>>any(), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    @DisplayName("filter: Kiểm tra cấu trúc Specification khi tìm kiếm theo roomNumber, bookingType=GIT và groupContractId")
+    void filter_Specification_BuildsPredicatesCorrectly() {
+        BookingSearchDto searchDto = BookingSearchDto.builder()
+                .roomNumber("201")
+                .bookingType(BookingType.GIT)
+                .groupContractId(88L)
+                .hotelId((short) 1)
+                .guestId(10L)
+                .bookingNumber("BK-2026")
+                .status(BookingStatus.CONFIRMED)
+                .build();
+        searchDto.setSize(10);
+
+        org.mockito.ArgumentCaptor<org.springframework.data.jpa.domain.Specification<Booking>> specCaptor =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.data.jpa.domain.Specification.class);
+
+        when(bookingRepository.findAll(specCaptor.capture(), any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of()));
+
+        bookingService.filter(searchDto);
+
+        org.springframework.data.jpa.domain.Specification<Booking> spec = specCaptor.getValue();
+        assertThat(spec).isNotNull();
+
+        jakarta.persistence.criteria.Root<Booking> root = mock(jakarta.persistence.criteria.Root.class);
+        jakarta.persistence.criteria.CriteriaQuery<?> query = mock(jakarta.persistence.criteria.CriteriaQuery.class);
+        jakarta.persistence.criteria.CriteriaBuilder cb = mock(jakarta.persistence.criteria.CriteriaBuilder.class);
+
+        jakarta.persistence.criteria.Path hotelPath = mock(jakarta.persistence.criteria.Path.class);
+        jakarta.persistence.criteria.Path guestPath = mock(jakarta.persistence.criteria.Path.class);
+        jakarta.persistence.criteria.Path contractPath = mock(jakarta.persistence.criteria.Path.class);
+        jakarta.persistence.criteria.Path idPath = mock(jakarta.persistence.criteria.Path.class);
+        jakarta.persistence.criteria.Path bookingNumberPath = mock(jakarta.persistence.criteria.Path.class);
+        jakarta.persistence.criteria.Path bookingTypePath = mock(jakarta.persistence.criteria.Path.class);
+        jakarta.persistence.criteria.Path statusPath = mock(jakarta.persistence.criteria.Path.class);
+
+        lenient().when(root.get("hotel")).thenReturn(hotelPath);
+        lenient().when(hotelPath.get("id")).thenReturn(idPath);
+        lenient().when(root.get("bookingGuest")).thenReturn(guestPath);
+        lenient().when(guestPath.get("id")).thenReturn(idPath);
+        lenient().when(root.get("groupContract")).thenReturn(contractPath);
+        lenient().when(contractPath.get("id")).thenReturn(idPath);
+        lenient().when(root.get("bookingNumber")).thenReturn(bookingNumberPath);
+        lenient().when(root.get("bookingType")).thenReturn(bookingTypePath);
+        lenient().when(root.get("status")).thenReturn(statusPath);
+
+        jakarta.persistence.criteria.Join detailJoin = mock(jakarta.persistence.criteria.Join.class);
+        jakarta.persistence.criteria.Join roomJoin = mock(jakarta.persistence.criteria.Join.class);
+        jakarta.persistence.criteria.Join roomInstanceJoin = mock(jakarta.persistence.criteria.Join.class);
+        jakarta.persistence.criteria.Path roomNumberPath = mock(jakarta.persistence.criteria.Path.class);
+
+        lenient().when(root.join(eq("bookingDetails"), any(jakarta.persistence.criteria.JoinType.class))).thenReturn(detailJoin);
+        lenient().when(detailJoin.join(eq("bookingRooms"), any(jakarta.persistence.criteria.JoinType.class))).thenReturn(roomJoin);
+        lenient().when(roomJoin.join(eq("roomInstance"), any(jakarta.persistence.criteria.JoinType.class))).thenReturn(roomInstanceJoin);
+        lenient().when(roomInstanceJoin.get("roomNumber")).thenReturn(roomNumberPath);
+
+        jakarta.persistence.criteria.Expression lowerExp = mock(jakarta.persistence.criteria.Expression.class);
+        lenient().when(cb.lower(any())).thenReturn(lowerExp);
+        jakarta.persistence.criteria.Predicate dummyPred = mock(jakarta.persistence.criteria.Predicate.class);
+        lenient().doReturn(dummyPred).when(cb).equal(any(), any());
+        lenient().doReturn(dummyPred).when(cb).like(any(), anyString());
+        lenient().doReturn(dummyPred).when(cb).and(any(jakarta.persistence.criteria.Predicate[].class));
+
+        jakarta.persistence.criteria.Predicate result = spec.toPredicate(root, query, cb);
+        assertThat(result).isNotNull();
+
+        verify(cb).equal(bookingTypePath, BookingType.GIT);
+        verify(cb).equal(idPath, 88L);
+        verify(cb).like(eq(lowerExp), eq("%201%"));
+    }
 }
-
-
