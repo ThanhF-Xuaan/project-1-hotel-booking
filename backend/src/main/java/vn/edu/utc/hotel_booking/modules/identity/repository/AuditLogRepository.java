@@ -24,14 +24,14 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
             "AND (:staffKeyword IS NULL " +
             "     OR LOWER(s.username) LIKE :staffKeyword " +
             "     OR LOWER(s.fullName) LIKE :staffKeyword) " +
+            "AND a.actionType != 'LOGIN' AND a.actionType NOT LIKE '%LOGIN%' " +
             "AND (:actionType IS NULL " +
             "     OR a.actionType = :actionType " +
             "     OR (:actionType = 'STATUS_CHANGED' AND (a.actionType = 'STATUS_CHANGED' OR a.actionType = 'STATUS_UPDATE' OR a.actionType = 'STAFF_STATUS_UPDATE' OR a.actionType LIKE '%STATUS%')) " +
             "     OR (:actionType = 'CREATE' AND (a.actionType = 'CREATE' OR a.actionType LIKE '%CREATE%')) " +
             "     OR (:actionType = 'UPDATE' AND (a.actionType = 'UPDATE' OR (a.actionType LIKE '%UPDATE%' AND a.actionType NOT LIKE '%STATUS%'))) " +
             "     OR (:actionType = 'DELETE' AND (a.actionType = 'DELETE' OR a.actionType LIKE '%DELETE%')) " +
-            "     OR (:actionType = 'PASSWORD_RESET' AND (a.actionType = 'PASSWORD_RESET' OR a.actionType LIKE '%PASSWORD_RESET%')) " +
-            "     OR (:actionType = 'LOGIN' AND (a.actionType = 'LOGIN' OR a.actionType LIKE '%LOGIN%'))) " +
+            "     OR (:actionType = 'PASSWORD_RESET' AND (a.actionType = 'PASSWORD_RESET' OR a.actionType LIKE '%PASSWORD_RESET%'))) " +
             "AND (:entityName IS NULL OR LOWER(a.entityName) LIKE :entityName) " +
             "AND (:entityId IS NULL OR a.entityId = :entityId) " +
             "AND (CAST(:fromDate AS java.time.OffsetDateTime) IS NULL OR a.createdAt >= :fromDate) " +
@@ -41,14 +41,14 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
             "AND (:staffKeyword IS NULL " +
             "     OR LOWER(s.username) LIKE :staffKeyword " +
             "     OR LOWER(s.fullName) LIKE :staffKeyword) " +
+            "AND a.actionType != 'LOGIN' AND a.actionType NOT LIKE '%LOGIN%' " +
             "AND (:actionType IS NULL " +
             "     OR a.actionType = :actionType " +
             "     OR (:actionType = 'STATUS_CHANGED' AND (a.actionType = 'STATUS_CHANGED' OR a.actionType = 'STATUS_UPDATE' OR a.actionType = 'STAFF_STATUS_UPDATE' OR a.actionType LIKE '%STATUS%')) " +
             "     OR (:actionType = 'CREATE' AND (a.actionType = 'CREATE' OR a.actionType LIKE '%CREATE%')) " +
             "     OR (:actionType = 'UPDATE' AND (a.actionType = 'UPDATE' OR (a.actionType LIKE '%UPDATE%' AND a.actionType NOT LIKE '%STATUS%'))) " +
             "     OR (:actionType = 'DELETE' AND (a.actionType = 'DELETE' OR a.actionType LIKE '%DELETE%')) " +
-            "     OR (:actionType = 'PASSWORD_RESET' AND (a.actionType = 'PASSWORD_RESET' OR a.actionType LIKE '%PASSWORD_RESET%')) " +
-            "     OR (:actionType = 'LOGIN' AND (a.actionType = 'LOGIN' OR a.actionType LIKE '%LOGIN%'))) " +
+            "     OR (:actionType = 'PASSWORD_RESET' AND (a.actionType = 'PASSWORD_RESET' OR a.actionType LIKE '%PASSWORD_RESET%'))) " +
             "AND (:entityName IS NULL OR LOWER(a.entityName) LIKE :entityName) " +
             "AND (:entityId IS NULL OR a.entityId = :entityId) " +
             "AND (CAST(:fromDate AS java.time.OffsetDateTime) IS NULL OR a.createdAt >= :fromDate) " +

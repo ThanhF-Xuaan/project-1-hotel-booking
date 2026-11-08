@@ -11,7 +11,7 @@ import roomTypeService from '../../inventory/services/roomType.service'
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service'
 import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone'
 import type { HotelDto, HotelCreateRequest, HotelUpdateRequest, RegionDto } from '../types/organization.types'
-import type { RoomTypeDto } from '../../inventory/types/inventory.types'
+import type { RoomTypeDto, HotelRoomTypeDto } from '../../inventory/types/inventory.types'
 
 const DEFAULT_ROOM_PRICES: Record<string, number> = {
   STD: 1200000,
@@ -54,6 +54,7 @@ export const HotelListPage: React.FC = () => {
   // Room Types Configuration inside Hotel Modal
   const [selectedRoomTypeIds, setSelectedRoomTypeIds] = useState<number[]>([])
   const [roomTypePrices, setRoomTypePrices] = useState<Record<number, number>>({})
+  const [existingHotelRoomTypes, setExistingHotelRoomTypes] = useState<HotelRoomTypeDto[]>([])
   const [existingHotelRoomTypeIds, setExistingHotelRoomTypeIds] = useState<Set<number>>(new Set())
   const [isLoadingHotelRoomTypes, setIsLoadingHotelRoomTypes] = useState(false)
 
@@ -147,6 +148,7 @@ export const HotelListPage: React.FC = () => {
       initialPrices[rt.id] = DEFAULT_ROOM_PRICES[rt.code] || 1500000
     })
     setRoomTypePrices(initialPrices)
+    setExistingHotelRoomTypes([])
     setExistingHotelRoomTypeIds(new Set())
     setIsFormModalOpen(true)
   }
@@ -169,6 +171,7 @@ export const HotelListPage: React.FC = () => {
       .filter({ hotelId: hotel.id, pageSize: 50 })
       .then((res) => {
         const existing = res.result?.content || []
+        setExistingHotelRoomTypes(existing)
         const existingIds = new Set(existing.map((h) => Number(h.roomTypeId)))
         setExistingHotelRoomTypeIds(existingIds)
         setSelectedRoomTypeIds(Array.from(existingIds))
@@ -262,7 +265,17 @@ export const HotelListPage: React.FC = () => {
         hotelId = Number(createdRes.result.id)
       }
 
-      // Automatically create hotel_room_types for newly selected room types
+      // 1. Soft-delete hotel_room_types for room types that were unchecked
+      if (editingHotel) {
+        const toDeleteIds = existingHotelRoomTypes
+          .filter((hrt) => !selectedRoomTypeIds.includes(Number(hrt.roomTypeId)))
+          .map((hrt) => hrt.id)
+        if (toDeleteIds.length > 0) {
+          await hotelRoomTypeService.deleteBatch(toDeleteIds)
+        }
+      }
+
+      // 2. Automatically create hotel_room_types for newly selected room types
       for (const rtId of selectedRoomTypeIds) {
         if (!existingHotelRoomTypeIds.has(rtId)) {
           await hotelRoomTypeService.create({

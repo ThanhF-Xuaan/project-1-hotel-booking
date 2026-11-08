@@ -488,7 +488,6 @@ export const AuditLogListPage: React.FC = () => {
                 { value: 'DELETE', label: 'Xóa (DELETE)' },
                 { value: 'STATUS_CHANGED', label: 'Đổi trạng thái (CHANGED)' },
                 { value: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
-                { value: 'LOGIN', label: 'Đăng nhập' },
               ]}
               size="lg"
             />

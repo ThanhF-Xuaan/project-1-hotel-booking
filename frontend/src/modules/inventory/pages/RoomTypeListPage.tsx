@@ -160,8 +160,12 @@ export const RoomTypeListPage: React.FC = () => {
       setSelectedIds((prev) => prev.filter((id) => !deletingIds.includes(id)))
       setDeleteConfirmOpen(false)
       loadData()
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Lỗi khi xóa loại phòng:', err)
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Không thể xóa loại phòng. Vui lòng kiểm tra lại quyền hạn hoặc ràng buộc dữ liệu.'
+      alert(`Xóa thất bại: ${errorMsg}`)
     } finally {
       setIsDeleting(false)
     }
