@@ -22,6 +22,8 @@ public class DailyRateContext {
     @Builder.Default
     BigDecimal extraChildrenSurcharge = BigDecimal.ZERO;
     @Builder.Default
+    BigDecimal extraInfantsSurcharge = BigDecimal.ZERO;
+    @Builder.Default
     BigDecimal extraBedsSurcharge = BigDecimal.ZERO;
     BigDecimal rateAfterSurcharge;
 

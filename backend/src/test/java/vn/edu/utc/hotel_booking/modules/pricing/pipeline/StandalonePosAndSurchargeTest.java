@@ -34,7 +34,7 @@ class StandalonePosAndSurchargeTest {
     private MenuRepository menuRepository;
 
     @Mock
-    private VatRuleRepository vatRuleRepository;
+    private vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService vatRuleService;
 
     @Test
     @DisplayName("Should calculate standalone POS service order without room charges")
@@ -63,11 +63,11 @@ class StandalonePosAndSurchargeTest {
                 .vatPercent(new BigDecimal("10.00"))
                 .build();
 
-        when(vatRuleRepository.findActiveVatRule(eq(2), any(LocalDate.class)))
-                .thenReturn(Optional.of(vat10));
+        when(vatRuleService.getActiveVatPercent(eq(2), any(LocalDate.class)))
+                .thenReturn(new BigDecimal("10.00"));
 
         AddonServiceHandler addonHandler = new AddonServiceHandler(menuRepository);
-        TaxAndFeeHandler taxHandler = new TaxAndFeeHandler(vatRuleRepository);
+        TaxAndFeeHandler taxHandler = new TaxAndFeeHandler(vatRuleService);
 
         // Chain pipeline handlers: Addon -> Tax
         addonHandler.setNext(taxHandler);

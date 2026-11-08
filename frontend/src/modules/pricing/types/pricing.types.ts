@@ -114,3 +114,141 @@ export interface CampaignSearchDto extends BaseSearchDto {
   activeOnDate?: string
   status?: string
 }
+
+// ==========================================
+// Tax Category Types
+// ==========================================
+export interface TaxCategoryDto {
+  id: number
+  categoryCode: string
+  categoryName: string
+  description?: string
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface TaxCategoryCreateRequest {
+  categoryCode: string
+  categoryName: string
+  description?: string
+}
+
+export interface TaxCategoryUpdateRequest {
+  categoryName: string
+  description?: string
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface TaxCategorySearchDto extends BaseSearchDto {
+  keyword?: string
+  status?: string
+}
+
+// ==========================================
+// VAT Rule Types
+// ==========================================
+export interface VatRuleDto {
+  id: number
+  taxCategoryId: number
+  taxCategoryCode?: string
+  taxCategoryName?: string
+  vatCode: string
+  vatName: string
+  vatPercent: number
+  startDate: string
+  endDate?: string
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+}
+
+export interface VatRuleCreateRequest {
+  taxCategoryId: number
+  vatCode: string
+  vatName: string
+  vatPercent: number
+  startDate: string
+  endDate?: string
+}
+
+export interface VatRuleUpdateRequest {
+  vatName: string
+  vatPercent: number
+  startDate: string
+  endDate?: string
+  status?: string
+}
+
+export interface VatRuleSearchDto extends BaseSearchDto {
+  taxCategoryId?: number
+  keyword?: string
+  activeOnDate?: string
+  status?: string
+}
+
+// ==========================================
+// Hotel Age Policy Types (Fallback Hierarchy)
+// ==========================================
+export interface HotelAgePolicyDto {
+  id: number
+  hotelId?: number
+  hotelName?: string
+  guestType: 'INFANT' | 'CHILD' | 'ADULT'
+  minAge: number
+  maxAge: number
+  status: string
+  isChainDefault: boolean
+  createdAt?: string
+}
+
+export interface HotelAgePolicyCreateRequest {
+  hotelId?: number
+  guestType: 'INFANT' | 'CHILD' | 'ADULT'
+  minAge: number
+  maxAge: number
+}
+
+export interface HotelAgePolicyUpdateRequest {
+  minAge: number
+  maxAge: number
+  status?: string
+}
+
+export interface HotelAgePolicySearchDto extends BaseSearchDto {
+  hotelId?: number
+  guestType?: string
+  status?: string
+  chainOnly?: boolean
+}
+
+// ==========================================
+// Holiday Calendar Types
+// ==========================================
+export interface HolidayCalendarDto {
+  id: number
+  name: string
+  date: string
+  description?: string
+  status: string
+  createdAt?: string
+}
+
+export interface HolidayCalendarCreateRequest {
+  name: string
+  date: string
+  description?: string
+}
+
+export interface HolidayCalendarUpdateRequest {
+  name: string
+  date: string
+  description?: string
+  status?: string
+}
+
+export interface HolidayCalendarSearchDto extends BaseSearchDto {
+  keyword?: string
+  year?: number
+  month?: number
+  status?: string
+}

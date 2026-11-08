@@ -16,7 +16,7 @@ class StoragePolicyRegistryTest {
     private final StoragePolicyRegistry registry = new StoragePolicyRegistry();
 
     @Test
-    @DisplayName("Tất cả 10 danh mục StorageCategory đều phải được cấu hình chính sách đầy đủ")
+    @DisplayName("Tất cả các danh mục StorageCategory đều phải được cấu hình chính sách đầy đủ")
     void allCategoriesMustBeConfigured() {
         for (StorageCategory category : StorageCategory.values()) {
             StoragePolicy policy = registry.getPolicy(category);
@@ -45,12 +45,15 @@ class StoragePolicyRegistryTest {
     }
 
     @Test
-    @DisplayName("BRAND_ASSET và HOTEL_ROOM_PHOTO có mặc định là PUBLIC_READ")
+    @DisplayName("BRAND_ASSET, HOTEL_ROOM_PHOTO và HOTEL_PROPERTY_PHOTO có mặc định là PUBLIC_READ")
     void publicCategoriesMustDefaultToPublic() {
         StoragePolicy brandPolicy = registry.getPolicy(StorageCategory.BRAND_ASSET);
         assertThat(brandPolicy.getDefaultAccessLevel()).isEqualTo(StorageAccessLevel.PUBLIC_READ);
 
         StoragePolicy roomPolicy = registry.getPolicy(StorageCategory.HOTEL_ROOM_PHOTO);
         assertThat(roomPolicy.getDefaultAccessLevel()).isEqualTo(StorageAccessLevel.PUBLIC_READ);
+
+        StoragePolicy propertyPolicy = registry.getPolicy(StorageCategory.HOTEL_PROPERTY_PHOTO);
+        assertThat(propertyPolicy.getDefaultAccessLevel()).isEqualTo(StorageAccessLevel.PUBLIC_READ);
     }
 }

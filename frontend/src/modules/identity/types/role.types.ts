@@ -2,7 +2,35 @@ export interface PermissionDto {
   id: number;
   action: string;
   resource: string;
+  description?: string;
+  roleCodes?: string[];
+  roleNames?: string[];
   status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PermissionCreateRequest {
+  resource: string;
+  action: string;
+  status?: string;
+}
+
+export interface PermissionUpdateRequest {
+  resource: string;
+  action: string;
+  status?: string;
+}
+
+export interface PermissionSearchDto {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  resource?: string;
+  action?: string;
+  status?: string;
+  sortBy?: string;
+  sortDirection?: 'ASC' | 'DESC';
 }
 
 export interface RoleDto {

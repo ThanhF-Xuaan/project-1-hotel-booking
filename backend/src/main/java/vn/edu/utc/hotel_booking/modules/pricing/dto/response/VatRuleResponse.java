@@ -20,6 +20,12 @@ public class VatRuleResponse {
     @Schema(description = "ID nhóm thuế", example = "1")
     Integer taxCategoryId;
 
+    @Schema(description = "Mã nhóm thuế", example = "ROOM_TAX")
+    String taxCategoryCode;
+
+    @Schema(description = "Tên nhóm thuế", example = "Thuế dịch vụ lưu trú")
+    String taxCategoryName;
+
     @Schema(description = "Mã quy tắc thuế VAT", example = "VAT_ROOM_10")
     String vatCode;
 

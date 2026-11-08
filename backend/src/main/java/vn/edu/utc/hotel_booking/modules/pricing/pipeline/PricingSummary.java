@@ -15,6 +15,7 @@ public class PricingSummary {
     BigDecimal totalSurchargeAmount;
     BigDecimal totalExtraAdultsSurcharge;
     BigDecimal totalExtraChildrenSurcharge;
+    BigDecimal totalExtraInfantsSurcharge;
     BigDecimal totalExtraBedsSurcharge;
     BigDecimal totalRateAdjustmentAmount;
     BigDecimal totalSeasonalAdjustment;

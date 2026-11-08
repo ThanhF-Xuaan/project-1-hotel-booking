@@ -179,6 +179,7 @@ export const NoShowPolicyModal: React.FC<NoShowPolicyModalProps> = ({
               options={[
                 { value: 'PERCENT_FIRST_NIGHT_RATE', label: '% Giá phòng đêm đầu (Mặc định)' },
                 { value: 'PERCENT_TOTAL_BOOKING', label: '% Tổng giá trị đơn đặt' },
+                { value: 'FULL_DEPOSIT', label: 'Toàn bộ tiền cọc (FULL_DEPOSIT)' },
                 { value: 'FIXED_AMOUNT', label: 'Số tiền cố định (VND)' },
               ]}
             />

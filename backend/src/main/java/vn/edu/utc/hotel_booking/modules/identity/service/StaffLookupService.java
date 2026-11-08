@@ -19,6 +19,15 @@ public interface StaffLookupService {
     boolean hasActiveStaffInDepartments(List<Short> departmentIds);
 
     /**
+     * Kiểm tra xem có nhân sự đang hoạt động (chưa bị xóa mềm) thuộc phạm vi quản lý của các khu vực hay không.
+     * Sử dụng để ngăn chặn xóa khu vực khi còn nhân sự cấp vùng trực thuộc (FR-ORG-01).
+     *
+     * @param regionIds Danh sách ID khu vực cần kiểm tra
+     * @return true nếu còn ít nhất 1 nhân viên, ngược lại false
+     */
+    boolean hasActiveStaffInRegions(List<Short> regionIds);
+
+    /**
      * Kiểm tra xem có nhân viên đang hoạt động (chưa bị xóa mềm) được gán các vai trò hay không.
      * Sử dụng để ngăn chặn xóa vai trò khi còn nhân sự đang đảm nhiệm (FR-IAM-05).
      *
