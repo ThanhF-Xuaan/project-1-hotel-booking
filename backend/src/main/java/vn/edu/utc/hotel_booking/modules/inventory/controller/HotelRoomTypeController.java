@@ -56,6 +56,26 @@ public class HotelRoomTypeController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @PutMapping("/{id}/beds")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @Operation(summary = "Cập nhật riêng danh sách giường của hạng phòng")
+    public ResponseEntity<ApiResponse<HotelRoomTypeResponse>> updateBeds(
+            @PathVariable Integer id,
+            @Valid @RequestBody List<vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeBedItemRequest> beds) {
+        HotelRoomTypeResponse response = hotelRoomTypeService.updateBeds(id, beds);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PutMapping("/{id}/features")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @Operation(summary = "Cập nhật riêng danh sách tiện ích của hạng phòng")
+    public ResponseEntity<ApiResponse<HotelRoomTypeResponse>> updateFeatures(
+            @PathVariable Integer id,
+            @RequestBody java.util.Set<Short> featureIds) {
+        HotelRoomTypeResponse response = hotelRoomTypeService.updateFeatures(id, featureIds);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @PostMapping("/filter")
     @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Tìm kiếm & lọc cấu hình loại phòng khách sạn")

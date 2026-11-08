@@ -20,6 +20,8 @@ public interface HotelRoomTypeRepository extends JpaRepository<HotelRoomType, In
             "JOIN FETCH hrt.hotel h " +
             "JOIN FETCH hrt.roomType rt " +
             "LEFT JOIN FETCH hrt.features f " +
+            "LEFT JOIN FETCH hrt.beds b " +
+            "LEFT JOIN FETCH b.roomBed rb " +
             "WHERE hrt.id = :id AND hrt.isDeleted = false AND h.isDeleted = false AND rt.isDeleted = false")
     Optional<HotelRoomType> findByIdWithDetails(@Param("id") Integer id);
 

@@ -88,4 +88,8 @@ public class HotelRoomType extends BaseEntity {
     )
     @Builder.Default
     Set<RoomFeature> features = new HashSet<>();
+
+    @OneToMany(mappedBy = "hotelRoomType", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    Set<HotelRoomTypeBed> beds = new HashSet<>();
 }
