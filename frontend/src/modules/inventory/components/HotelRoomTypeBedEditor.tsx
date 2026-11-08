@@ -13,12 +13,14 @@ import type {
 interface HotelRoomTypeBedEditorProps {
   hotelRoomTypeId: number
   initialBeds: HotelRoomTypeBedDto[]
+  maxBeds?: number
   onUpdated: () => void
 }
 
 export const HotelRoomTypeBedEditor: React.FC<HotelRoomTypeBedEditorProps> = ({
   hotelRoomTypeId,
   initialBeds,
+  maxBeds,
   onUpdated,
 }) => {
   const [allRoomBeds, setAllRoomBeds] = useState<RoomBedDto[]>([])
@@ -47,6 +49,9 @@ export const HotelRoomTypeBedEditor: React.FC<HotelRoomTypeBedEditorProps> = ({
       .catch((err: unknown) => console.error('Lỗi tải danh mục giường:', err))
   }, [])
 
+  const totalConfiguredBeds = currentBeds.reduce((sum, b) => sum + (Number(b.baseQuantity) || 0), 0)
+  const isExceedingMaxBeds = maxBeds !== undefined && maxBeds > 0 && totalConfiguredBeds > maxBeds
+
   const handleAddBed = () => {
     setError(null)
     if (selectedBedId === '') {
@@ -56,6 +61,13 @@ export const HotelRoomTypeBedEditor: React.FC<HotelRoomTypeBedEditorProps> = ({
 
     const bedObj = allRoomBeds.find((b) => b.id === Number(selectedBedId))
     if (!bedObj) return
+
+    if (maxBeds !== undefined && maxBeds > 0 && totalConfiguredBeds + quantity > maxBeds) {
+      setError(
+        `Không thể thêm! Tổng số giường (${totalConfiguredBeds + quantity}) sẽ vượt quá số giường tối đa cho phép (${maxBeds}) của hạng phòng.`
+      )
+      return
+    }
 
     // If bed already exists, increase quantity
     const existingIndex = currentBeds.findIndex((b) => b.roomBedId === bedObj.id)
@@ -83,19 +95,38 @@ export const HotelRoomTypeBedEditor: React.FC<HotelRoomTypeBedEditorProps> = ({
   }
 
   const handleRemoveBed = (roomBedId: number) => {
+    setError(null)
     setCurrentBeds((prev) => prev.filter((b) => b.roomBedId !== roomBedId))
   }
 
   const handleQuantityChange = (roomBedId: number, newQty: number) => {
     if (newQty < 1) return
+    setError(null)
+
+    const targetBed = currentBeds.find((b) => b.roomBedId === roomBedId)
+    const currentQty = targetBed ? targetBed.baseQuantity : 0
+    const diff = newQty - currentQty
+
+    if (diff > 0 && maxBeds !== undefined && maxBeds > 0 && totalConfiguredBeds + diff > maxBeds) {
+      setError(`Không thể tăng! Tổng số giường cấu hình không được vượt quá số giường tối đa (${maxBeds}).`)
+      return
+    }
+
     setCurrentBeds((prev) =>
       prev.map((b) => (b.roomBedId === roomBedId ? { ...b, baseQuantity: newQty } : b))
     )
   }
 
   const handleSave = async () => {
-    setIsSaving(true)
     setError(null)
+    if (isExceedingMaxBeds) {
+      setError(
+        `Tổng số lượng giường cấu hình (${totalConfiguredBeds}) vượt quá số giường tối đa cho phép (${maxBeds}) của hạng phòng!`
+      )
+      return
+    }
+
+    setIsSaving(true)
     setSaveSuccess(false)
     try {
       const payload: HotelRoomTypeBedItemRequest[] = currentBeds.map((b) => ({
@@ -136,20 +167,44 @@ export const HotelRoomTypeBedEditor: React.FC<HotelRoomTypeBedEditorProps> = ({
           </div>
         </div>
 
-        <Button onClick={handleSave} disabled={isSaving} size="sm">
-          {saveSuccess ? (
-            <>
-              <Check className="w-4 h-4 mr-1 text-emerald-300" />
-              Đã Lưu Thành Công
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-1.5" />
-              {isSaving ? 'Đang lưu...' : 'Lưu Cấu Hình Giường'}
-            </>
+        <div className="flex items-center gap-3">
+          {maxBeds !== undefined && (
+            <span
+              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                isExceedingMaxBeds
+                  ? 'bg-red-100 text-red-700 border border-red-200 animate-pulse'
+                  : 'bg-neutral-100 text-neutral-700'
+              }`}
+            >
+              {isExceedingMaxBeds && '⚠️ '}
+              Đã cấu hình: {totalConfiguredBeds} / {maxBeds} giường
+            </span>
           )}
-        </Button>
+
+          <Button onClick={handleSave} disabled={isSaving || isExceedingMaxBeds} size="sm">
+            {saveSuccess ? (
+              <>
+                <Check className="w-4 h-4 mr-1 text-emerald-300" />
+                Đã Lưu Thành Công
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-1.5" />
+                {isSaving ? 'Đang lưu...' : 'Lưu Cấu Hình Giường'}
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+
+      {isExceedingMaxBeds && (
+        <div className="p-3 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+          <span>⚠️</span>
+          <span>
+            Tổng số lượng giường cấu hình ({totalConfiguredBeds}) vượt quá số giường tối đa cho phép ({maxBeds}) của hạng phòng. Vui lòng giảm số lượng giường hoặc xóa bớt loại giường trước khi lưu.
+          </span>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl">

@@ -19,7 +19,7 @@ public class RoomFeatureUpdateRequest {
     String name;
 
     @Size(max = 50, message = "Danh mục tối đa 50 ký tự")
-    @Schema(description = "Danh mục tiện ích (VIEW, BATHROOM, BEDROOM, MEDIA, ENTERTAINMENT, AMENITY, COMFORT, INTERNET, OTHER)", example = "VIEW")
+    @Schema(description = "Danh mục tiện ích (BATHROOM, BEDROOM, MEDIA, ENTERTAINMENT, AMENITY, COMFORT, INTERNET, OTHER)", example = "BATHROOM")
     String category;
 
     @Schema(description = "Trạng thái", example = "ACTIVE")

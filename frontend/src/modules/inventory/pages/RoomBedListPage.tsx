@@ -110,6 +110,16 @@ export const RoomBedListPage: React.FC = () => {
       return
     }
 
+    if (formName.trim().length > 100) {
+      setFormError('Tên loại giường tối đa 100 ký tự')
+      return
+    }
+
+    if (formSize.trim().length > 50) {
+      setFormError('Kích thước giường tối đa 50 ký tự')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       if (editingBed) {

@@ -153,6 +153,26 @@ export const HotelRoomTypeListPage: React.FC = () => {
       return
     }
 
+    if (formBasePrice <= 0) {
+      setFormError('Giá gốc mỗi đêm phải lớn hơn 0 VNĐ')
+      return
+    }
+
+    if (formTotalQuantity < 0) {
+      setFormError('Tổng số phòng cơ sở không được âm')
+      return
+    }
+
+    if (formMaxTotalGuests < 1) {
+      setFormError('Trần tổng khách tối đa tối thiểu là 1 người')
+      return
+    }
+
+    if (formMaxBeds < 1) {
+      setFormError('Số lượng giường tối đa tối thiểu là 1 giường')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       const payload: HotelRoomTypeCreateRequest = {

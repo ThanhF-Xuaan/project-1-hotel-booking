@@ -111,12 +111,28 @@ export const RoomFeatureListPage: React.FC = () => {
     e.preventDefault()
     setFormError(null)
 
-    if (!editingFeature && !formCode.trim()) {
-      setFormError('Mã tiện ích không được để trống')
-      return
+    if (!editingFeature) {
+      if (!formCode.trim()) {
+        setFormError('Mã tiện ích không được để trống')
+        return
+      }
+      if (!/^[A-Z0-9_]+$/.test(formCode.trim().toUpperCase())) {
+        setFormError('Mã tiện ích chỉ được chứa chữ hoa không dấu, số và dấu gạch dưới (VD: BALCONY, MINIBAR)')
+        return
+      }
+      if (formCode.trim().length > 50) {
+        setFormError('Mã tiện ích tối đa 50 ký tự')
+        return
+      }
     }
+
     if (!formName.trim()) {
       setFormError('Tên tiện ích không được để trống')
+      return
+    }
+
+    if (formName.trim().length > 150) {
+      setFormError('Tên tiện ích tối đa 150 ký tự')
       return
     }
 

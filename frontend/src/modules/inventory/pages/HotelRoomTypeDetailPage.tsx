@@ -380,6 +380,7 @@ export const HotelRoomTypeDetailPage: React.FC = () => {
       <HotelRoomTypeBedEditor
         hotelRoomTypeId={Number(id)}
         initialBeds={hotelRoomType.beds || []}
+        maxBeds={hotelRoomType.maxBeds}
         onUpdated={loadData}
       />
 

@@ -12,6 +12,8 @@ import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeBedIt
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeCreateRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.HotelRoomTypeResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomTypeBed;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomTypeBedId;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomBed;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomFeature;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
@@ -103,7 +105,12 @@ class HotelRoomTypeServiceTest {
         RoomFeature feature = RoomFeature.builder().id((short) 1).code("BALCONY").build();
         RoomBed bed = RoomBed.builder().id((short) 1).name("King Bed").build();
 
-        HotelRoomType entity = HotelRoomType.builder().id(10).beds(new HashSet<>()).features(new HashSet<>()).build();
+        HotelRoomType entity = HotelRoomType.builder()
+                .id(10)
+                .maxBeds((short) 2)
+                .beds(new HashSet<>())
+                .features(new HashSet<>())
+                .build();
         HotelRoomTypeResponse response = HotelRoomTypeResponse.builder().id(10).build();
 
         when(hotelService.getEntityById((short) 1)).thenReturn(hotel);
@@ -141,6 +148,86 @@ class HotelRoomTypeServiceTest {
         HotelRoomTypeResponse result = hotelRoomTypeService.updateBeds(10, bedRequests);
         assertThat(result).isNotNull();
         assertThat(entity.getBeds()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("updateBeds: Cập nhật tại chỗ (In-Place Update) số lượng của giường đã có sẵn")
+    void testUpdateBeds_InPlaceUpdate_PreservesExistingEntity() {
+        RoomBed bed1 = RoomBed.builder().id((short) 1).name("Double Bed").build();
+        HotelRoomType entity = HotelRoomType.builder()
+                .id(10)
+                .maxBeds((short) 2)
+                .beds(new HashSet<>())
+                .build();
+
+        HotelRoomTypeBed existingBed = HotelRoomTypeBed.builder()
+                .id(HotelRoomTypeBedId.builder().hotelRoomTypeId(10).roomBedId((short) 1).build())
+                .hotelRoomType(entity)
+                .roomBed(bed1)
+                .baseQuantity((short) 1)
+                .build();
+        entity.getBeds().add(existingBed);
+
+        HotelRoomTypeResponse response = HotelRoomTypeResponse.builder().id(10).build();
+
+        when(hotelRoomTypeRepository.findByIdWithDetails(10)).thenReturn(Optional.of(entity));
+        when(hotelRoomTypeRepository.save(entity)).thenReturn(entity);
+        when(hotelRoomTypeMapper.toResponse(entity)).thenReturn(response);
+
+        // Update quantity from 1 to 2 for existing bed1
+        List<HotelRoomTypeBedItemRequest> requests = List.of(
+                HotelRoomTypeBedItemRequest.builder().roomBedId((short) 1).baseQuantity((short) 2).build()
+        );
+
+        HotelRoomTypeResponse result = hotelRoomTypeService.updateBeds(10, requests);
+        assertThat(result).isNotNull();
+        assertThat(entity.getBeds()).hasSize(1);
+        HotelRoomTypeBed updatedBed = entity.getBeds().iterator().next();
+        assertThat(updatedBed.getBaseQuantity()).isEqualTo((short) 2);
+        // Verify roomBedService.getEntityById was not called because it already existed in-place
+        verify(roomBedService, never()).getEntityById(any());
+    }
+
+    @Test
+    @DisplayName("updateBeds: Ném lỗi khi tổng số giường vượt quá maxBeds")
+    void testUpdateBeds_ExceedsMaxBeds_ThrowsException() {
+        HotelRoomType entity = HotelRoomType.builder()
+                .id(10)
+                .maxBeds((short) 1)
+                .beds(new HashSet<>())
+                .build();
+
+        when(hotelRoomTypeRepository.findByIdWithDetails(10)).thenReturn(Optional.of(entity));
+
+        List<HotelRoomTypeBedItemRequest> requests = List.of(
+                HotelRoomTypeBedItemRequest.builder().roomBedId((short) 1).baseQuantity((short) 1).build(),
+                HotelRoomTypeBedItemRequest.builder().roomBedId((short) 2).baseQuantity((short) 1).build()
+        );
+
+        assertThatThrownBy(() -> hotelRoomTypeService.updateBeds(10, requests))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("vượt quá số giường tối đa");
+    }
+
+    @Test
+    @DisplayName("updateBeds: Ném lỗi khi trùng lặp roomBedId trong danh sách yêu cầu")
+    void testUpdateBeds_DuplicateRoomBedId_ThrowsException() {
+        HotelRoomType entity = HotelRoomType.builder()
+                .id(10)
+                .maxBeds((short) 5)
+                .beds(new HashSet<>())
+                .build();
+
+        when(hotelRoomTypeRepository.findByIdWithDetails(10)).thenReturn(Optional.of(entity));
+
+        List<HotelRoomTypeBedItemRequest> requests = List.of(
+                HotelRoomTypeBedItemRequest.builder().roomBedId((short) 1).baseQuantity((short) 1).build(),
+                HotelRoomTypeBedItemRequest.builder().roomBedId((short) 1).baseQuantity((short) 2).build()
+        );
+
+        assertThatThrownBy(() -> hotelRoomTypeService.updateBeds(10, requests))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("bị chọn trùng lặp");
     }
 
     @Test

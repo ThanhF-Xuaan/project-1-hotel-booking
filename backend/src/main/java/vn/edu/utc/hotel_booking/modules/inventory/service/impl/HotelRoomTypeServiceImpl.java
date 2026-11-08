@@ -36,7 +36,10 @@ import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -188,21 +191,64 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
     }
 
     private void applyBeds(HotelRoomType hotelRoomType, List<HotelRoomTypeBedItemRequest> bedRequests) {
-        hotelRoomType.getBeds().clear();
-        if (bedRequests != null) {
-            for (HotelRoomTypeBedItemRequest item : bedRequests) {
+        if (bedRequests == null || bedRequests.isEmpty()) {
+            hotelRoomType.getBeds().clear();
+            return;
+        }
+
+        // 1. Kiểm tra trùng lặp roomBedId trong request
+        Set<Short> seenIds = new HashSet<>();
+        for (HotelRoomTypeBedItemRequest item : bedRequests) {
+            if (item.getRoomBedId() == null) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID loại giường không được để trống!");
+            }
+            if (!seenIds.add(item.getRoomBedId())) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Loại giường (ID: " + item.getRoomBedId() + ") bị chọn trùng lặp trong danh sách!");
+            }
+        }
+
+        // 2. Kiểm tra nghiệp vụ: Tổng số lượng giường cấu hình không được vượt quá maxBeds
+        int totalBeds = bedRequests.stream()
+                .mapToInt(item -> item.getBaseQuantity() != null ? item.getBaseQuantity() : 1)
+                .sum();
+        if (hotelRoomType.getMaxBeds() != null && totalBeds > hotelRoomType.getMaxBeds()) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    String.format("Tổng số lượng giường cấu hình (%d) vượt quá số giường tối đa cho phép của hạng phòng (%d)!",
+                            totalBeds, hotelRoomType.getMaxBeds()));
+        }
+
+        // 3. Cập nhật tại chỗ (In-Place Update) để tránh đụng độ khóa chính với Hibernate orphanRemoval
+        Map<Short, HotelRoomTypeBedItemRequest> reqMap = bedRequests.stream()
+                .collect(Collectors.toMap(HotelRoomTypeBedItemRequest::getRoomBedId, Function.identity()));
+
+        // Xóa những giường không còn được chọn
+        hotelRoomType.getBeds().removeIf(bed -> !reqMap.containsKey(bed.getRoomBed().getId()));
+
+        // Ánh xạ các giường hiện có theo roomBedId
+        Map<Short, HotelRoomTypeBed> existingBeds = hotelRoomType.getBeds().stream()
+                .collect(Collectors.toMap(b -> b.getRoomBed().getId(), Function.identity()));
+
+        for (HotelRoomTypeBedItemRequest item : bedRequests) {
+            short quantity = item.getBaseQuantity() != null && item.getBaseQuantity() > 0 ? item.getBaseQuantity() : (short) 1;
+            HotelRoomTypeBed existing = existingBeds.get(item.getRoomBedId());
+
+            if (existing != null) {
+                // Đã tồn tại -> Chỉ cập nhật số lượng baseQuantity (Hibernate sinh lệnh UPDATE, không đụng độ PK)
+                existing.setBaseQuantity(quantity);
+            } else {
+                // Thêm mới loại giường
                 RoomBed roomBed = roomBedService.getEntityById(item.getRoomBedId());
                 HotelRoomTypeBedId bedId = HotelRoomTypeBedId.builder()
                         .hotelRoomTypeId(hotelRoomType.getId())
                         .roomBedId(roomBed.getId())
                         .build();
-                HotelRoomTypeBed bed = HotelRoomTypeBed.builder()
+                HotelRoomTypeBed newBed = HotelRoomTypeBed.builder()
                         .id(bedId)
                         .hotelRoomType(hotelRoomType)
                         .roomBed(roomBed)
-                        .baseQuantity(item.getBaseQuantity() != null ? item.getBaseQuantity() : (short) 1)
+                        .baseQuantity(quantity)
                         .build();
-                hotelRoomType.getBeds().add(bed);
+                hotelRoomType.getBeds().add(newBed);
             }
         }
     }
