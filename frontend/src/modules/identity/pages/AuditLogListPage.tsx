@@ -762,7 +762,6 @@ export const AuditLogListPage: React.FC = () => {
                 { value: 'OCR_SCAN', label: 'Quét OCR giấy tờ' },
                 { value: 'LODGING_EXPORT', label: 'Xuất file tạm trú BCA' },
                 { value: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
-                { value: 'LOGIN', label: 'Đăng nhập' },
               ]}
               size="lg"
             />
