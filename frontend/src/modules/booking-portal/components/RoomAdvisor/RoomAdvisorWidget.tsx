@@ -30,12 +30,21 @@ interface RoomAdvisorWidgetProps {
   onOpenExternal?: () => void;
 }
 
-const QUICK_PROMPTS = [
-  'Tìm phòng 2 người lớn ở Hà Nội cuối tuần này',
-  'Phòng gia đình 2 người lớn 1 trẻ em có ăn sáng',
-  'Phòng cao cấp có ban công và bồn tắm',
-  'Tìm phòng công tác có bàn làm việc giá dưới 1.5 triệu',
-];
+const REQUIRED_SEARCH_FIELDS = ['Địa điểm', 'Ngày nhận & trả', 'Số khách', 'Ngân sách'];
+
+function dateFromToday(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function createStarterPrompt(): string {
+  return `Tìm phòng ở Hạ Long từ ${dateFromToday(2)} đến ${dateFromToday(4)} cho 2 người lớn, `
+    + 'ngân sách tối đa 7.000.000 VND cả kỳ theo báo giá hệ thống';
+}
 
 let messageIdCounter = 0;
 function createMessageId(prefix: string): string {
@@ -67,6 +76,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
 
   const [messages, setMessages] = useState<ChatMessage[]>([INITIAL_MESSAGE]);
+  const [starterPrompt] = useState(createStarterPrompt);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +100,13 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     setInternalIsOpen(true);
     onOpenExternal?.();
   };
+
+  const handleUseStarterPrompt = () => {
+    setInputMessage(starterPrompt);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
+
+  const showStarterPrompt = !isLoading && !messages.some((message) => message.sender === 'user');
 
   const handleClose = () => {
     setInternalIsOpen(false);
@@ -458,21 +475,6 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Prompts */}
-          {messages.length <= 2 && !isLoading && (
-            <div className="p-2.5 bg-neutral-100 border-t border-neutral-200 flex gap-2 overflow-x-auto no-scrollbar">
-              {QUICK_PROMPTS.map((prompt, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleSendMessage(prompt)}
-                  className="shrink-0 text-xs bg-white text-neutral-700 hover:text-[#EE0000] hover:border-red-300 border border-neutral-200 px-3 py-1.5 rounded-full transition-colors font-medium shadow-2xs"
-                >
-                  {prompt}
-                </button>
-              ))}
-            </div>
-          )}
-
           {/* Cooldown Banner */}
           {cooldownSeconds > 0 && (
             <div className="bg-amber-50 border-t border-amber-200 px-4 py-2 flex items-center justify-between text-xs text-amber-800">
@@ -486,9 +488,44 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             </div>
           )}
 
+          {showStarterPrompt && (
+            <section
+              id="room-advisor-input-hint"
+              aria-label="Gợi ý yêu cầu tìm phòng"
+              className="border-t border-red-100 bg-red-50/70 px-3 py-2.5"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-800">
+                <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-red-600" />
+                <span>Yêu cầu mẫu đầy đủ</span>
+              </div>
+              <div aria-label="Thông tin nên cung cấp" className="mt-1.5 flex flex-wrap gap-1.5">
+                {REQUIRED_SEARCH_FIELDS.map((field) => (
+                  <span
+                    key={field}
+                    className="rounded-full border border-red-100 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-600"
+                  >
+                    {field}
+                  </span>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleUseStarterPrompt}
+                aria-label="Điền yêu cầu mẫu đầy đủ"
+                className="mt-2 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-left text-xs leading-relaxed text-neutral-700 transition-colors hover:border-red-400 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-400"
+              >
+                “{starterPrompt}”
+              </button>
+            </section>
+          )}
+
           {/* Input Footer */}
           <div className="p-3 bg-white border-t border-neutral-200 flex items-center gap-2">
+            <label htmlFor="room-advisor-message" className="sr-only">
+              Nhu cầu tìm phòng
+            </label>
             <input
+              id="room-advisor-message"
               ref={inputRef}
               type="text"
               value={inputMessage}
@@ -502,8 +539,9 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
               placeholder={
                 cooldownSeconds > 0
                   ? `Vui lòng đợi ${cooldownSeconds}s trước khi gửi tiếp...`
-                  : 'Nhập nhu cầu: Ngày đi, số người, địa điểm...'
+                  : 'Nhập nhu cầu: địa điểm, ngày nhận/trả, số khách, ngân sách...'
               }
+              aria-describedby={showStarterPrompt ? 'room-advisor-input-hint' : undefined}
               disabled={isLoading || cooldownSeconds > 0}
               className="flex-1 bg-neutral-100 border border-neutral-200 rounded-xl px-3.5 py-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[#EE0000] focus:bg-white transition-all disabled:opacity-50"
             />

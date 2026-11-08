@@ -78,13 +78,7 @@ public class RoomAdvisorOrchestrationService {
     public AdvisorResultDto chat(AdvisorChatRequestDto request, String ownerKey) {
         UUID requestId = UUID.randomUUID();
 
-        // 1. Guard against out-of-scope write intents
-        if (request != null && criteriaValidationService.isOutOfScopeIntent(request.getMessage())) {
-            UUID sessionId = (request.getSessionId() != null) ? request.getSessionId() : UUID.randomUUID();
-            return buildOutOfScopeResult(requestId, sessionId, 1L);
-        }
-
-        // 2. Load or initialize session
+        // Resolve the owner-bound session before replying, including when refusing a write intent.
         UUID reqSessionId = request != null ? request.getSessionId() : null;
         RoomAdvisorSession session = sessionStore.getOrCreateSession(reqSessionId, ownerKey);
 
@@ -95,6 +89,10 @@ public class RoomAdvisorOrchestrationService {
             }
         }
         long snapshotVersion = session.getSessionVersion();
+
+        if (request != null && criteriaValidationService.isOutOfScopeIntent(request.getMessage())) {
+            return buildOutOfScopeResult(requestId, session.getSessionId(), snapshotVersion);
+        }
 
         // 3. Extract criteria patch from natural language message
         CriteriaPatchDto extractedPatch = null;
@@ -457,7 +455,7 @@ public class RoomAdvisorOrchestrationService {
                         .build())
                 .knowledgeStatus("DISABLED")
                 .sources(Collections.emptyList())
-                .warnings(List.of(WarningCode.SERVICE_FEE_UNVERIFIED, WarningCode.CURRENCY_SYNTHETIC_ASSUMPTION))
+                .warnings(Collections.emptyList())
                 .criteriaProvenance(new ArrayList<>())
                 .ambiguities(new ArrayList<>())
                 .build();
@@ -503,7 +501,7 @@ public class RoomAdvisorOrchestrationService {
                         .build())
                 .knowledgeStatus("DISABLED")
                 .sources(Collections.emptyList())
-                .warnings(List.of(WarningCode.SERVICE_FEE_UNVERIFIED, WarningCode.CURRENCY_SYNTHETIC_ASSUMPTION))
+                .warnings(Collections.emptyList())
                 .criteriaProvenance(provenance != null ? new ArrayList<>(provenance) : new ArrayList<>())
                 .ambiguities(ambiguities != null ? new ArrayList<>(ambiguities) : new ArrayList<>())
                 .build();
