@@ -131,6 +131,18 @@ function Queue({ hotel, hotels, exportOpen, setExportOpen, selectHotel }: {
 
   const refresh = () => setVersion(value => value + 1)
 
+  function updateDraftAndFilter(next: Partial<Filters>) {
+    const updated = { ...draft, ...next }
+    setDraft(updated)
+    if (updated.from && updated.to && updated.from > updated.to) {
+      setDateError('Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.')
+      return
+    }
+    setDateError('')
+    setPage(0)
+    setFilters(updated)
+  }
+
   function applyFilters(event: FormEvent) {
     event.preventDefault()
     if (draft.from && draft.to && draft.from > draft.to) {
@@ -237,7 +249,7 @@ function Queue({ hotel, hotels, exportOpen, setExportOpen, selectHotel }: {
     <form onSubmit={applyFilters} className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <label className="text-sm font-medium">Trạng thái
         <select className={selectStyle} value={draft.status} disabled={uncertainExport}
-          onChange={e => setDraft({ ...draft, status: e.target.value as Filters['status'] })}>
+          onChange={e => updateDraftAndFilter({ status: e.target.value as Filters['status'] })}>
           <option value="">Tất cả</option>
           {Object.entries(LODGING_STATUS_LABELS).filter(([value]) => value !== 'FAILED')
             .map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -245,13 +257,12 @@ function Queue({ hotel, hotels, exportOpen, setExportOpen, selectHotel }: {
       </label>
       <Input label="Ngày vào hàng đợi từ" type="date" value={draft.from} disabled={uncertainExport}
         aria-describedby="lodging-date-filter-help"
-        onChange={e => setDraft({ ...draft, from: e.target.value })} />
+        onChange={e => updateDraftAndFilter({ from: e.target.value })} />
       <Input label="Ngày vào hàng đợi đến" type="date" value={draft.to} disabled={uncertainExport}
         aria-describedby="lodging-date-filter-help"
-        onChange={e => setDraft({ ...draft, to: e.target.value })} />
+        onChange={e => updateDraftAndFilter({ to: e.target.value })} />
       <div className="flex flex-wrap gap-2">
-        <Button type="submit" variant="outline" disabled={actionsDisabled || uncertainExport}>Áp dụng bộ lọc</Button>
-        {canClearFilters && <Button type="button" variant="ghost" disabled={actionsDisabled || uncertainExport}
+        {canClearFilters && <Button type="button" variant="outline" disabled={actionsDisabled || uncertainExport}
           onClick={clearFilters}>Xóa bộ lọc</Button>}
       </div>
       <p id="lodging-date-filter-help" className="text-sm text-neutral-600 sm:col-span-2 lg:col-span-4">
