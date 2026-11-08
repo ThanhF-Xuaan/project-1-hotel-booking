@@ -22,6 +22,7 @@ const RoomServiceOrderPage = lazy(() => import('./modules/operation/pages/RoomSe
   .then((module) => ({ default: module.RoomServiceOrderPage })))
 const HousekeepingPage = lazy(() => import('./modules/operation/pages/HousekeepingPage')
   .then((module) => ({ default: module.HousekeepingPage })))
+const UtilityManagementPage = lazy(() => import('./modules/operation/pages/UtilityManagementPage'))
 const NightAuditPage = lazy(() => import('./modules/operation/pages/NightAuditPage')
   .then((module) => ({ default: module.NightAuditPage })))
 const ManagementDashboard = lazy(() => import('./modules/dashboard/pages/ManagementDashboard')
@@ -114,6 +115,10 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE']} />}>
                 <Route path="/operation/night-audit" element={<NightAuditPage />} />
+              </Route>
+
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER']} />}>
+                <Route path="/operation/utility" element={<UtilityManagementPage />} />
               </Route>
 
               {/* Phân hệ Tài chính */}

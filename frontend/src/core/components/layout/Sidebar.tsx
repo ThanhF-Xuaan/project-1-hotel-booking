@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { hasAnyRole } from '../../../modules/auth/utils/token.utils'
+import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
 import {
   Globe,
   Building,
@@ -22,6 +23,7 @@ import {
   BellRing,
   Brush,
   Moon,
+  Gauge,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -159,6 +161,12 @@ const navGroups: NavGroup[] = [
         to: '/operation/housekeeping',
         icon: <Brush className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'],
+      },
+      {
+        label: 'Điện/Nước',
+        to: '/operation/utility',
+        icon: <Gauge className="w-4 h-4" />,
+        roles: UTILITY_READ_ROLES,
       },
       {
         label: 'Đóng ngày (Night Audit)',
