@@ -25,4 +25,17 @@ class OcrMultipartPrivacyGuardTest {
         multipart.setMaxRequestSize(DataSize.ofBytes(-1));
         assertThatThrownBy(() -> new OcrMultipartPrivacyGuard(engine, multipart).afterPropertiesSet()).isInstanceOf(IllegalStateException.class);
     }
+    @Test void enabledEngineAcceptsSystemMultipartWhenStrictCheckDisabled() {
+        var engine = new OcrEngineProperties();
+        engine.setEnabled(true);
+        engine.setStrictMultipartCheck(false);
+
+        var systemMultipart = new MultipartProperties();
+        systemMultipart.setMaxFileSize(DataSize.ofMegabytes(10));
+        systemMultipart.setMaxRequestSize(DataSize.ofMegabytes(20));
+        systemMultipart.setFileSizeThreshold(DataSize.ofMegabytes(0));
+
+        assertThatCode(() -> new OcrMultipartPrivacyGuard(engine, systemMultipart).afterPropertiesSet())
+                .doesNotThrowAnyException();
+    }
 }

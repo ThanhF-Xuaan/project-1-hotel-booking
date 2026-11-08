@@ -217,7 +217,7 @@ public class StayGuestServiceImpl implements StayGuestService {
         Short effectiveHotelId = resolveEffectiveHotelId(request.getHotelId());
         Pageable pageable = PageRequest.of(request.getPage(), request.getPageSize(), Sort.by("checkInTime").descending());
 
-        String keyword = StringUtils.hasText(request.getKeyword()) ? request.getKeyword().trim() : "";
+        String keyword = StringUtils.hasText(request.getKeyword()) ? request.getKeyword().trim() : null;
         Page<StayGuest> page = stayGuestRepository.search(
                 effectiveHotelId,
                 request.getBookingId(),

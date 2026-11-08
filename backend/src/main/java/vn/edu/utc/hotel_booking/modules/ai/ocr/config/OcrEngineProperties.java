@@ -14,6 +14,7 @@ import org.springframework.validation.annotation.Validated;
 public class OcrEngineProperties {
 
     private boolean enabled = false;
+    private boolean strictMultipartCheck = true;
     @NotBlank
     private String executablePath = "tesseract";
     @NotBlank
@@ -30,6 +31,8 @@ public class OcrEngineProperties {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    public boolean isStrictMultipartCheck() { return strictMultipartCheck; }
+    public void setStrictMultipartCheck(boolean strictMultipartCheck) { this.strictMultipartCheck = strictMultipartCheck; }
     public String getExecutablePath() { return executablePath; }
     public void setExecutablePath(String executablePath) { this.executablePath = executablePath; }
     public String getLanguages() { return languages; }

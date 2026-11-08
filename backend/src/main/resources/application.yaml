@@ -121,6 +121,9 @@ hotel:
     contracts:
       base-path: ${CONTRACT_STORAGE_PATH:uploads/contracts}
   ai:
+    ocr:
+      enabled: ${HOTEL_AI_OCR_ENABLED:false}
+      strict-multipart-check: ${HOTEL_AI_OCR_STRICT_MULTIPART:false}
     rag:
       generation:
         gemini-enabled: ${HOTEL_AI_RAG_GENERATION_GEMINI_ENABLED:false}

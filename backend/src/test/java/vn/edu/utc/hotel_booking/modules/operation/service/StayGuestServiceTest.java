@@ -25,6 +25,7 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
+import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.StayGuestResponse;
@@ -583,5 +584,46 @@ public class StayGuestServiceTest {
 
         AppException ex = assertThrows(AppException.class, () -> stayGuestService.createOrCheckIn(request));
         assertEquals(ErrorCode.ROOM_NOT_YET_ASSIGNED, ex.getErrorCode());
+    }
+
+    @Test
+    void search_blankKeyword_passedAsNullToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("   ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_validKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  Nguyen Van A  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        StayGuest guest = StayGuest.builder().id(1L).fullName("NGUYỄN VĂN A").hotel(sampleHotel).build();
+        org.springframework.data.domain.Page<StayGuest> page = new org.springframework.data.domain.PageImpl<>(List.of(guest));
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyen Van A"), isNull(), isNull(), any()))
+                .thenReturn(page);
+        when(stayGuestMapper.toResponse(guest)).thenReturn(StayGuestResponse.builder().id(1L).fullName("NGUYỄN VĂN A").build());
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyen Van A"), isNull(), isNull(), any());
     }
 }
