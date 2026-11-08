@@ -48,14 +48,17 @@ export const HotelAgePolicyListPage: React.FC = () => {
 
   // Load hotels for dropdown
   useEffect(() => {
-    hotelService
-      .filter({ page: 0, pageSize: 100 })
-      .then((res) => {
-        if (res.result?.content) {
-          setHotels(res.result.content)
-        }
-      })
-      .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
+    const timer = setTimeout(() => {
+      hotelService
+        .filter({ page: 0, pageSize: 100 })
+        .then((res) => {
+          if (res.result?.content) {
+            setHotels(res.result.content)
+          }
+        })
+        .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
+    }, 0)
+    return () => clearTimeout(timer)
   }, [])
 
   const loadData = useCallback(async () => {
@@ -88,7 +91,10 @@ export const HotelAgePolicyListPage: React.FC = () => {
   }, [page, pageSize, filterHotelScope, guestType, status])
 
   useEffect(() => {
-    loadData()
+    const timer = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadData])
 
   const handleFilter = (e: React.FormEvent) => {
@@ -181,8 +187,16 @@ export const HotelAgePolicyListPage: React.FC = () => {
       }
       setIsFormModalOpen(false)
       loadData()
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || err.message || 'Thao tác thất bại')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      setFormError(axiosError.response?.data?.message || axiosError.message || 'Thao tác thất bại')
     } finally {
       setIsSubmitting(false)
     }
@@ -220,8 +234,16 @@ export const HotelAgePolicyListPage: React.FC = () => {
       setDeleteConfirmOpen(false)
       setSelectedIds([])
       loadData()
-    } catch (err: any) {
-      alert(err.response?.data?.message || err.message || 'Lỗi khi xóa chính sách độ tuổi')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      alert(axiosError.response?.data?.message || axiosError.message || 'Lỗi khi xóa chính sách độ tuổi')
     } finally {
       setIsDeleting(false)
     }

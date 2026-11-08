@@ -64,7 +64,10 @@ export const TaxCategoryListPage: React.FC = () => {
   }, [page, pageSize, keyword, status])
 
   useEffect(() => {
-    loadData()
+    const timer = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadData])
 
   const handleFilter = (e: React.FormEvent) => {
@@ -131,8 +134,16 @@ export const TaxCategoryListPage: React.FC = () => {
       }
       setIsFormModalOpen(false)
       loadData()
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || err.message || 'Thao tác thất bại')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      setFormError(axiosError.response?.data?.message || axiosError.message || 'Thao tác thất bại')
     } finally {
       setIsSubmitting(false)
     }
@@ -161,8 +172,16 @@ export const TaxCategoryListPage: React.FC = () => {
       setDeleteConfirmOpen(false)
       setDeletingIds([])
       loadData()
-    } catch (err: any) {
-      alert(err.response?.data?.message || err.message || 'Xóa nhóm thuế thất bại')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      alert(axiosError.response?.data?.message || axiosError.message || 'Xóa nhóm thuế thất bại')
     } finally {
       setIsDeleting(false)
     }

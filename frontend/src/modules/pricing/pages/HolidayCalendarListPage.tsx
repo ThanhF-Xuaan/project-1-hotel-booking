@@ -70,7 +70,10 @@ export const HolidayCalendarListPage: React.FC = () => {
   }, [page, pageSize, keyword, year, month, status])
 
   useEffect(() => {
-    loadData()
+    const timer = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadData])
 
   const handleFilter = (e: React.FormEvent) => {
@@ -140,8 +143,16 @@ export const HolidayCalendarListPage: React.FC = () => {
       }
       setIsFormModalOpen(false)
       loadData()
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || err.message || 'Thao tác thất bại')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      setFormError(axiosError.response?.data?.message || axiosError.message || 'Thao tác thất bại')
     } finally {
       setIsSubmitting(false)
     }
@@ -179,8 +190,16 @@ export const HolidayCalendarListPage: React.FC = () => {
       setDeleteConfirmOpen(false)
       setSelectedIds([])
       loadData()
-    } catch (err: any) {
-      alert(err.response?.data?.message || err.message || 'Lỗi khi xóa ngày lễ tết')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      alert(axiosError.response?.data?.message || axiosError.message || 'Lỗi khi xóa ngày lễ tết')
     } finally {
       setIsDeleting(false)
     }

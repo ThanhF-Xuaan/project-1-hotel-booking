@@ -48,7 +48,10 @@ export const VatRuleListPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    taxCategoryService.getAllActive().then(setTaxCategories).catch(console.error)
+    const timer = setTimeout(() => {
+      taxCategoryService.getAllActive().then(setTaxCategories).catch(console.error)
+    }, 0)
+    return () => clearTimeout(timer)
   }, [])
 
   const loadData = useCallback(async () => {
@@ -76,7 +79,10 @@ export const VatRuleListPage: React.FC = () => {
   }, [page, pageSize, selectedTaxCategoryId, keyword, status])
 
   useEffect(() => {
-    loadData()
+    const timer = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadData])
 
   const handleFilter = (e: React.FormEvent) => {
@@ -171,8 +177,16 @@ export const VatRuleListPage: React.FC = () => {
       }
       setIsFormModalOpen(false)
       loadData()
-    } catch (err: any) {
-      setFormError(err.response?.data?.message || err.message || 'Thao tác thất bại')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      setFormError(axiosError.response?.data?.message || axiosError.message || 'Thao tác thất bại')
     } finally {
       setIsSubmitting(false)
     }
@@ -201,8 +215,16 @@ export const VatRuleListPage: React.FC = () => {
       setDeleteConfirmOpen(false)
       setDeletingIds([])
       loadData()
-    } catch (err: any) {
-      alert(err.response?.data?.message || err.message || 'Xóa quy tắc VAT thất bại')
+    } catch (err: unknown) {
+      const axiosError = err as {
+        response?: {
+          data?: {
+            message?: string
+          }
+        }
+        message?: string
+      }
+      alert(axiosError.response?.data?.message || axiosError.message || 'Xóa quy tắc VAT thất bại')
     } finally {
       setIsDeleting(false)
     }
