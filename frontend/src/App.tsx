@@ -15,6 +15,7 @@ const HotelAgePolicyListPage = lazy(() => import('./modules/pricing/pages/HotelA
 const HolidayCalendarListPage = lazy(() => import('./modules/pricing/pages/HolidayCalendarListPage'))
 const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPage'))
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
+const RoomingListImportPage = lazy(() => import('./modules/booking/pages/RoomingListImportPage'))
 const PolicyManagementPage = lazy(() => import('./modules/booking/pages/PolicyManagementPage'))
 const GroupManagementPage = lazy(() => import('./modules/booking/pages/GroupManagementPage').then((m) => ({ default: m.GroupManagementPage })))
 const LodgingQueuePage = lazy(() => import('./modules/operation/pages/LodgingQueuePage'))
@@ -104,7 +105,7 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
                 <Route path="/booking/walk-in" element={<WalkInBookingPage />} />
-                <Route path="/booking/rooming-list" element={<Navigate to="/admin/groups" replace />} />
+                <Route path="/booking/rooming-list" element={<RoomingListImportPage />} />
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="booking/policies" element={<PolicyManagementPage />} />
@@ -122,15 +123,24 @@ export function App() {
                 <Route path="/operation/night-audit" element={<NightAuditPage />} />
               </Route>
 
-              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER']} />}>
-                <Route path="/operation/utility" element={<UtilityManagementPage />} />
-              </Route>
-              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
-                <Route path="/operation/lodging-queue" element={<LodgingQueuePage />} />
-              </Route>
-              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER']} />}>
-                <Route path="/finance/payroll-import" element={<PayrollImportPage />} />
-              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER']} />}>
+
+                <Route path="/operation/utility" element={<UtilityManagementPage />} />
+
+              </Route>
+
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
+
+                <Route path="/operation/lodging-queue" element={<LodgingQueuePage />} />
+
+              </Route>
+
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER']} />}>
+
+                <Route path="/finance/payroll-import" element={<PayrollImportPage />} />
+
+              </Route>
+
 
               {/* Phân hệ Tài chính */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE']} />}>
