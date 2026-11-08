@@ -385,6 +385,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                       disabled={!!editing}
                       onClick={() => handleDeleteGuest(g.id)}
                       className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      title="Xóa thông tin khách"
                       aria-label="Xóa thông tin khách"
                     >
                       <Trash2 className="w-4 h-4" />
