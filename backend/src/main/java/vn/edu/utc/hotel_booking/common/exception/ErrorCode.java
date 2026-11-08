@@ -73,7 +73,17 @@ public enum ErrorCode {
     PRICING_RULE_NOT_FOUND(6001, "Không tìm thấy quy tắc giá", HttpStatus.NOT_FOUND),
     CAMPAIGN_NOT_FOUND(6011, "Không tìm thấy chiến dịch khuyến mại", HttpStatus.NOT_FOUND),
     TAX_CATEGORY_NOT_FOUND(6021, "Không tìm thấy nhóm thuế", HttpStatus.NOT_FOUND),
+    TAX_CATEGORY_CODE_ALREADY_EXISTS(6022, "Mã nhóm thuế đã tồn tại", HttpStatus.CONFLICT),
+    TAX_CATEGORY_IN_USE(6023, "Nhóm thuế đang được sử dụng, không thể xóa", HttpStatus.BAD_REQUEST),
     VAT_RULE_NOT_FOUND(6031, "Không tìm thấy quy tắc thuế VAT", HttpStatus.NOT_FOUND),
+    VAT_RULE_CODE_ALREADY_EXISTS(6032, "Mã quy tắc thuế VAT đã tồn tại", HttpStatus.CONFLICT),
+    VAT_RULE_DATE_OVERLAP(6033, "Dải ngày hiệu lực của quy tắc thuế VAT bị trùng lặp với quy tắc khác", HttpStatus.BAD_REQUEST),
+    HOTEL_AGE_POLICY_NOT_FOUND(6041, "Không tìm thấy chính sách độ tuổi", HttpStatus.NOT_FOUND),
+    HOTEL_AGE_POLICY_ALREADY_EXISTS(6042, "Chính sách độ tuổi cho loại khách này đã tồn tại tại cơ sở", HttpStatus.CONFLICT),
+    HOTEL_AGE_POLICY_RANGE_INVALID(6043, "Dải tuổi không hợp lệ hoặc bị chồng lấn", HttpStatus.BAD_REQUEST),
+    HOLIDAY_CALENDAR_NOT_FOUND(6051, "Không tìm thấy ngày lễ trong lịch", HttpStatus.NOT_FOUND),
+    HOLIDAY_CALENDAR_ALREADY_EXISTS(6052, "Ngày lễ này đã được khai báo trên hệ thống", HttpStatus.CONFLICT),
+    HOLIDAY_CALENDAR_IN_USE(6053, "Ngày lễ đang được sử dụng trong quy tắc giá, không thể xóa", HttpStatus.BAD_REQUEST),
 
     // Booking Module Errors (7000s)
     BOOKING_NOT_FOUND(7001, "Không tìm thấy thông tin đơn đặt phòng", HttpStatus.NOT_FOUND),

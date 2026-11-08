@@ -56,18 +56,21 @@ class PricingPipelineEndToEndTest {
     private MenuRepository menuRepository;
 
     @Mock
-    private VatRuleRepository vatRuleRepository;
+    private vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService vatRuleService;
+
+    @Mock
+    private vn.edu.utc.hotel_booking.modules.pricing.service.HotelAgePolicyService hotelAgePolicyService;
 
     private PriceEngineImpl priceEngine;
 
     @BeforeEach
     void setUp() {
         BaseRateHandler baseRateHandler = new BaseRateHandler();
-        SurchargeHandler surchargeHandler = new SurchargeHandler(surchargeRuleRepository);
+        SurchargeHandler surchargeHandler = new SurchargeHandler(surchargeRuleRepository, hotelAgePolicyService);
         SeasonalityHandler seasonalityHandler = new SeasonalityHandler(pricingRuleRepository);
         PromotionHandler promotionHandler = new PromotionHandler(discountRuleRepository, voucherRepository);
         AddonServiceHandler addonServiceHandler = new AddonServiceHandler(menuRepository);
-        TaxAndFeeHandler taxAndFeeHandler = new TaxAndFeeHandler(vatRuleRepository);
+        TaxAndFeeHandler taxAndFeeHandler = new TaxAndFeeHandler(vatRuleService);
 
         PricingPipelineFactory pipelineFactory = new PricingPipelineFactory(
                 baseRateHandler,
@@ -194,9 +197,9 @@ class PricingPipelineEndToEndTest {
         VatRule vat10 = VatRule.builder().taxCategory(catRoom).vatCode("VAT10").vatPercent(new BigDecimal("10.00")).build();
         VatRule vatService10 = VatRule.builder().taxCategory(catService).vatCode("VAT10_SVC").vatPercent(new BigDecimal("10.00")).build();
 
-        when(vatRuleRepository.findActiveVatRule(eq(1), eq(LocalDate.of(2026, 12, 31)))).thenReturn(Optional.of(vat8));
-        when(vatRuleRepository.findActiveVatRule(eq(1), eq(LocalDate.of(2027, 1, 1)))).thenReturn(Optional.of(vat10));
-        when(vatRuleRepository.findActiveVatRule(eq(2), any(LocalDate.class))).thenReturn(Optional.of(vatService10));
+        when(vatRuleService.getActiveVatPercent(eq(1), eq(LocalDate.of(2026, 12, 31)))).thenReturn(new BigDecimal("8.00"));
+        when(vatRuleService.getActiveVatPercent(eq(1), eq(LocalDate.of(2027, 1, 1)))).thenReturn(new BigDecimal("10.00"));
+        when(vatRuleService.getActiveVatPercent(eq(2), any(LocalDate.class))).thenReturn(new BigDecimal("10.00"));
 
         // Calculation Request (NO taxCategoryId needed from frontend)
         PriceCalculationRequest request = PriceCalculationRequest.builder()

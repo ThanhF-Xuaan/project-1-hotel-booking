@@ -7,9 +7,7 @@ import vn.edu.utc.hotel_booking.common.entity.BaseEntity;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 
 @Entity
-@Table(name = "hotel_age_policies", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_hotel_guest_type", columnNames = {"hotel_id", "guest_type"})
-})
+@Table(name = "hotel_age_policies")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,7 +21,7 @@ public class HotelAgePolicy extends BaseEntity {
     Short id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "hotel_id", nullable = false)
+    @JoinColumn(name = "hotel_id")
     Hotel hotel;
 
     @Column(name = "guest_type", nullable = false, length = 20)
