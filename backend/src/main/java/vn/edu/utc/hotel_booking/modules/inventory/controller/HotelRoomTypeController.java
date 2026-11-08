@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
@@ -23,6 +24,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/inventory/hotel-room-types")
 @RequiredArgsConstructor
+@Validated
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Inventory - Hotel Room Type", description = "APIs cấu hình loại phòng cho từng khách sạn")
 public class HotelRoomTypeController {
@@ -53,6 +55,26 @@ public class HotelRoomTypeController {
     @Operation(summary = "Xem chi tiết cấu hình loại phòng theo ID")
     public ResponseEntity<ApiResponse<HotelRoomTypeResponse>> getHotelRoomTypeById(@PathVariable Integer id) {
         HotelRoomTypeResponse response = hotelRoomTypeService.getHotelRoomTypeById(id);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PutMapping("/{id}/beds")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @Operation(summary = "Cập nhật riêng danh sách giường của hạng phòng")
+    public ResponseEntity<ApiResponse<HotelRoomTypeResponse>> updateBeds(
+            @PathVariable Integer id,
+            @Valid @RequestBody List<vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeBedItemRequest> beds) {
+        HotelRoomTypeResponse response = hotelRoomTypeService.updateBeds(id, beds);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PutMapping("/{id}/features")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER')")
+    @Operation(summary = "Cập nhật riêng danh sách tiện ích của hạng phòng")
+    public ResponseEntity<ApiResponse<HotelRoomTypeResponse>> updateFeatures(
+            @PathVariable Integer id,
+            @RequestBody java.util.Set<Short> featureIds) {
+        HotelRoomTypeResponse response = hotelRoomTypeService.updateFeatures(id, featureIds);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
