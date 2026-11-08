@@ -15,7 +15,8 @@ export interface MaintenanceBlockFormModalProps {
   onClose: () => void;
   onSuccess: (message: string) => void;
   onError: (err: unknown) => void;
-  rooms: RoomHousekeepingStatusResponse[];
+  hotelId?: number;
+  rooms?: RoomHousekeepingStatusResponse[];
   initialRoomInstanceId?: number;
 }
 
@@ -24,11 +25,14 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
   onClose,
   onSuccess,
   onError,
-  rooms,
+  hotelId,
+  rooms = [],
   initialRoomInstanceId,
 }) => {
   const today = new Date().toISOString().split('T')[0];
 
+  const [availableRooms, setAvailableRooms] = useState<RoomHousekeepingStatusResponse[]>(rooms);
+  const [isLoadingRooms, setIsLoadingRooms] = useState<boolean>(false);
   const [roomInstanceId, setRoomInstanceId] = useState<number | ''>('');
   const [blockType, setBlockType] = useState<MaintenanceBlockType>('OOO');
   const [startDate, setStartDate] = useState<string>(today);
@@ -41,10 +45,28 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
   useEffect(() => {
     if (!isOpen) return;
     let ignore = false;
-    const resetForm = async () => {
-      await Promise.resolve();
+
+    const loadModalRooms = async () => {
+      let roomList = rooms;
+      if (hotelId) {
+        setIsLoadingRooms(true);
+        try {
+          // Luôn lấy toàn bộ danh sách phòng của khách sạn được chọn (không lọc theo status tab ngoài màn hình)
+          const fetchedRooms = await operationService.getHousekeepingRooms(hotelId);
+          if (!ignore && fetchedRooms && fetchedRooms.length > 0) {
+            roomList = fetchedRooms;
+          }
+        } catch (err) {
+          console.error('Lỗi tải danh sách phòng trong modal khóa phòng:', err);
+        } finally {
+          if (!ignore) setIsLoadingRooms(false);
+        }
+      }
+
       if (!ignore) {
-        setRoomInstanceId(initialRoomInstanceId || (rooms.length > 0 ? rooms[0].roomInstanceId : ''));
+        setAvailableRooms(roomList);
+        const defaultRoomId = initialRoomInstanceId || (roomList.length > 0 ? roomList[0].roomInstanceId : '');
+        setRoomInstanceId(defaultRoomId);
         setBlockType('OOO');
         setStartDate(today);
         setEndDate(today);
@@ -53,13 +75,14 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
         setFormError(null);
       }
     };
-    resetForm();
+
+    loadModalRooms();
     return () => {
       ignore = true;
     };
-  }, [isOpen, initialRoomInstanceId, rooms, today]);
+  }, [isOpen, hotelId, initialRoomInstanceId, rooms, today]);
 
-  const selectedRoom = rooms.find((r) => r.roomInstanceId === Number(roomInstanceId));
+  const selectedRoom = availableRooms.find((r) => r.roomInstanceId === Number(roomInstanceId));
   const isOccupied = selectedRoom?.currentStatus === 'OCCUPIED';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,10 +152,10 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
           <Select<number | ''>
             value={roomInstanceId}
             onChange={(val) => setRoomInstanceId(val ? Number(val) : '')}
-            disabled={isLoading}
+            disabled={isLoading || isLoadingRooms}
             options={[
-              { value: '', label: 'Chọn phòng', disabled: true },
-              ...rooms.map((r) => ({
+              { value: '', label: isLoadingRooms ? 'Đang tải danh sách phòng...' : 'Chọn phòng', disabled: true },
+              ...availableRooms.map((r) => ({
                 value: r.roomInstanceId,
                 label: `Phòng ${r.roomNumber} - ${r.roomTypeName || 'Tiêu chuẩn'} (${r.currentStatus})`,
               })),

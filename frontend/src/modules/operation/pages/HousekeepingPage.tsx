@@ -21,10 +21,14 @@ import Modal from '../../../core/components/ui/Modal';
 import { getApiErrorMessage } from '../../../core/api/error';
 import { operationService } from '../services/operation.service';
 import type { RoomHousekeepingStatusResponse } from '../types/operation.types';
+import hotelService from '../../organization/services/hotel.service';
+import type { HotelDto } from '../../organization/types/organization.types';
 import MaintenanceBlockFormModal from '../components/maintenance-block/MaintenanceBlockFormModal';
 import MaintenanceBlockList from '../components/maintenance-block/MaintenanceBlockList';
 
 export const HousekeepingPage: React.FC = () => {
+  const [hotels, setHotels] = useState<HotelDto[]>([]);
+  const [isLoadingHotels, setIsLoadingHotels] = useState<boolean>(false);
   const [hotelId, setHotelId] = useState<number>(1);
   const [mainTab, setMainTab] = useState<'GRID' | 'BLOCKS'>('GRID');
   const [selectedStatusTab, setSelectedStatusTab] = useState<string>('ALL');
@@ -56,18 +60,44 @@ export const HousekeepingPage: React.FC = () => {
     });
   }, []);
 
+  // Tải danh sách khách sạn đang hoạt động từ hệ thống quản lý khách sạn
+  const fetchHotels = useCallback(async () => {
+    setIsLoadingHotels(true);
+    try {
+      const res = await hotelService.filter({ page: 0, pageSize: 100, status: 'ACTIVE' });
+      if (res && res.result) {
+        const list = res.result.content || [];
+        setHotels(list);
+        if (list.length > 0) {
+          setHotelId((current) => (list.some((h) => h.id === current) ? current : list[0].id));
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi tải danh sách khách sạn:', err);
+    } finally {
+      setIsLoadingHotels(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchHotels();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [fetchHotels]);
+
   const fetchRooms = useCallback(async () => {
     setIsLoading(true);
     try {
-      const statusParam = selectedStatusTab === 'ALL' ? undefined : selectedStatusTab;
-      const data = await operationService.getHousekeepingRooms(hotelId, statusParam);
+      // Luôn tải toàn bộ danh sách phòng của khách sạn để tính toán chính xác số lượng cho tất cả trạng thái
+      const data = await operationService.getHousekeepingRooms(hotelId);
       setRooms(data || []);
     } catch (err) {
       handleApiError(err, 'Lỗi tải danh sách buồng phòng');
     } finally {
       setIsLoading(false);
     }
-  }, [hotelId, selectedStatusTab, handleApiError]);
+  }, [hotelId, handleApiError]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -110,6 +140,11 @@ export const HousekeepingPage: React.FC = () => {
   const countCleaning = rooms.filter((r) => r.currentStatus === 'CLEANING').length;
   const countMaintenance = rooms.filter((r) => r.currentStatus === 'MAINTENANCE').length;
 
+  // Lọc danh sách phòng hiển thị trên sơ đồ theo tab người dùng chọn (chuyển tab tức thì, không làm mất số đếm KPI)
+  const displayedRooms = selectedStatusTab === 'ALL'
+    ? rooms
+    : rooms.filter((r) => r.currentStatus === selectedStatusTab);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -129,11 +164,12 @@ export const HousekeepingPage: React.FC = () => {
             <Select<number>
               value={hotelId}
               onChange={(val) => setHotelId(Number(val))}
-              options={[
-                { value: 1, label: 'Khách sạn Grand Hà Nội' },
-                { value: 2, label: 'Khách sạn Premier Đà Nẵng' },
-                { value: 3, label: 'Khách sạn Boutique Sài Gòn' },
-              ]}
+              onOpen={fetchHotels}
+              isLoading={isLoadingHotels}
+              options={hotels.map((h) => ({
+                value: h.id,
+                label: h.name,
+              }))}
               size="md"
             />
           </div>
@@ -150,11 +186,14 @@ export const HousekeepingPage: React.FC = () => {
           </Button>
           <Button
             variant="secondary"
-            onClick={fetchRooms}
+            onClick={() => {
+              void fetchHotels();
+              void fetchRooms();
+            }}
             className="h-10 flex items-center gap-1.5 text-xs"
-            disabled={isLoading}
+            disabled={isLoading || isLoadingHotels}
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading || isLoadingHotels ? 'animate-spin' : ''}`} />
             Làm mới
           </Button>
         </div>
@@ -200,7 +239,7 @@ export const HousekeepingPage: React.FC = () => {
           {/* Summary KPI Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <div
-              onClick={() => setSelectedStatusTab('READY')}
+              onClick={() => setSelectedStatusTab((prev) => (prev === 'READY' ? 'ALL' : 'READY'))}
               className={`cursor-pointer p-4 rounded-2xl border transition-all ${
                 selectedStatusTab === 'READY'
                   ? 'bg-emerald-50 border-emerald-500 shadow-xs'
@@ -215,7 +254,7 @@ export const HousekeepingPage: React.FC = () => {
             </div>
 
             <div
-              onClick={() => setSelectedStatusTab('OCCUPIED')}
+              onClick={() => setSelectedStatusTab((prev) => (prev === 'OCCUPIED' ? 'ALL' : 'OCCUPIED'))}
               className={`cursor-pointer p-4 rounded-2xl border transition-all ${
                 selectedStatusTab === 'OCCUPIED'
                   ? 'bg-blue-50 border-blue-500 shadow-xs'
@@ -230,7 +269,7 @@ export const HousekeepingPage: React.FC = () => {
             </div>
 
             <div
-              onClick={() => setSelectedStatusTab('DIRTY')}
+              onClick={() => setSelectedStatusTab((prev) => (prev === 'DIRTY' ? 'ALL' : 'DIRTY'))}
               className={`cursor-pointer p-4 rounded-2xl border transition-all ${
                 selectedStatusTab === 'DIRTY'
                   ? 'bg-rose-50 border-rose-500 shadow-xs'
@@ -245,7 +284,7 @@ export const HousekeepingPage: React.FC = () => {
             </div>
 
             <div
-              onClick={() => setSelectedStatusTab('CLEANING')}
+              onClick={() => setSelectedStatusTab((prev) => (prev === 'CLEANING' ? 'ALL' : 'CLEANING'))}
               className={`cursor-pointer p-4 rounded-2xl border transition-all ${
                 selectedStatusTab === 'CLEANING'
                   ? 'bg-amber-50 border-amber-500 shadow-xs'
@@ -260,7 +299,7 @@ export const HousekeepingPage: React.FC = () => {
             </div>
 
             <div
-              onClick={() => setSelectedStatusTab('MAINTENANCE')}
+              onClick={() => setSelectedStatusTab((prev) => (prev === 'MAINTENANCE' ? 'ALL' : 'MAINTENANCE'))}
               className={`cursor-pointer p-4 rounded-2xl border transition-all ${
                 selectedStatusTab === 'MAINTENANCE'
                   ? 'bg-neutral-100 border-neutral-400 shadow-xs'
@@ -278,23 +317,32 @@ export const HousekeepingPage: React.FC = () => {
           {/* Filter Tabs */}
           <div className="flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
             {[
-              { key: 'ALL', label: 'Tất cả phòng' },
-              { key: 'READY', label: 'Sẵn sàng (READY)' },
-              { key: 'OCCUPIED', label: 'Có khách (OCCUPIED)' },
-              { key: 'DIRTY', label: 'Cần dọn (DIRTY)' },
-              { key: 'CLEANING', label: 'Đang dọn (CLEANING)' },
-              { key: 'MAINTENANCE', label: 'Bảo trì (MAINTENANCE)' },
+              { key: 'ALL', label: 'Tất cả phòng', count: rooms.length },
+              { key: 'READY', label: 'Sẵn sàng (READY)', count: countReady },
+              { key: 'OCCUPIED', label: 'Có khách (OCCUPIED)', count: countOccupied },
+              { key: 'DIRTY', label: 'Cần dọn (DIRTY)', count: countDirty },
+              { key: 'CLEANING', label: 'Đang dọn (CLEANING)', count: countCleaning },
+              { key: 'MAINTENANCE', label: 'Bảo trì (MAINTENANCE)', count: countMaintenance },
             ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setSelectedStatusTab(tab.key)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 ${
                   selectedStatusTab === tab.key
                     ? 'bg-red-600 text-white shadow-xs'
                     : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold ${
+                    selectedStatusTab === tab.key
+                      ? 'bg-white/25 text-white'
+                      : 'bg-neutral-200 text-neutral-700'
+                  }`}
+                >
+                  {tab.count}
+                </span>
               </button>
             ))}
           </div>
@@ -302,11 +350,11 @@ export const HousekeepingPage: React.FC = () => {
           {/* Room Grid */}
           {isLoading ? (
             <div className="py-24 text-center text-neutral-400">Đang tải sơ đồ phòng...</div>
-          ) : rooms.length === 0 ? (
+          ) : displayedRooms.length === 0 ? (
             <div className="py-24 text-center text-neutral-400">Không có phòng nào với trạng thái này.</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {rooms.map((room) => {
+              {displayedRooms.map((room) => {
                 const isReady = room.currentStatus === 'READY';
                 const isOccupied = room.currentStatus === 'OCCUPIED';
                 const isDirty = room.currentStatus === 'DIRTY';
@@ -466,6 +514,7 @@ export const HousekeepingPage: React.FC = () => {
         onClose={() => setIsBlockModalOpen(false)}
         onSuccess={handleBlockSuccess}
         onError={(err) => handleApiError(err, 'Lỗi tạo lệnh khóa phòng')}
+        hotelId={hotelId}
         rooms={rooms}
         initialRoomInstanceId={selectedRoomForBlock}
       />
