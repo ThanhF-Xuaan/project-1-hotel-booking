@@ -25,6 +25,78 @@ export interface RoomTypeSearchDto extends BaseSearchDto {
   status?: string
 }
 
+// ==================== ROOM BED ====================
+export interface RoomBedDto {
+  id: number
+  name: string
+  size?: string
+  status: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface RoomBedCreateRequest {
+  name: string
+  size?: string
+  status?: string
+}
+
+export interface RoomBedUpdateRequest {
+  name: string
+  size?: string
+  status?: string
+}
+
+export interface RoomBedSearchDto extends BaseSearchDto {
+  keyword?: string
+  status?: string
+}
+
+// ==================== ROOM FEATURE ====================
+export interface RoomFeatureDto {
+  id: number
+  code: string
+  name: string
+  category?: string
+  status: string
+  description?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface RoomFeatureCreateRequest {
+  code: string
+  name: string
+  category?: string
+  status?: string
+}
+
+export interface RoomFeatureUpdateRequest {
+  name: string
+  category?: string
+  status?: string
+}
+
+export interface RoomFeatureSearchDto extends BaseSearchDto {
+  keyword?: string
+  category?: string
+  status?: string
+}
+
+// ==================== HOTEL ROOM TYPE BED ====================
+export interface HotelRoomTypeBedDto {
+  roomBedId: number
+  roomBedName: string
+  roomBedSize?: string
+  baseQuantity: number
+}
+
+export interface HotelRoomTypeBedItemRequest {
+  roomBedId: number
+  baseQuantity: number
+}
+
+// ==================== HOTEL ROOM TYPE ====================
 export interface HotelRoomTypeDto {
   id: number
   hotelId: number
@@ -44,6 +116,8 @@ export interface HotelRoomTypeDto {
   basePrice: number
   totalQuantity: number
   status: string
+  beds?: HotelRoomTypeBedDto[]
+  features?: RoomFeatureDto[]
   createdAt: string
   updatedAt: string
 }
@@ -64,6 +138,7 @@ export interface HotelRoomTypeCreateRequest {
   totalQuantity: number
   status?: string
   featureIds?: number[]
+  beds?: HotelRoomTypeBedItemRequest[]
 }
 
 export interface HotelRoomTypeUpdateRequest {
@@ -80,6 +155,7 @@ export interface HotelRoomTypeUpdateRequest {
   totalQuantity?: number
   status?: string
   featureIds?: number[]
+  beds?: HotelRoomTypeBedItemRequest[]
 }
 
 export interface HotelRoomTypeSearchDto extends BaseSearchDto {
@@ -92,6 +168,7 @@ export interface HotelRoomTypeSearchDto extends BaseSearchDto {
   status?: string
 }
 
+// ==================== ROOM INSTANCE ====================
 export interface RoomInstanceDto {
   id: number
   hotelId: number

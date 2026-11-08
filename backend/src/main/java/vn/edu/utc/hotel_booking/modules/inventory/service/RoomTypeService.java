@@ -5,6 +5,7 @@ import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomTypeCreateRequ
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomTypeSearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomTypeUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomTypeResponse;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
 
 import java.util.List;
 
@@ -15,6 +16,8 @@ public interface RoomTypeService {
     RoomTypeResponse updateRoomType(Short id, RoomTypeUpdateRequest request);
 
     RoomTypeResponse getRoomTypeById(Short id);
+
+    RoomType getEntityById(Short id);
 
     PageResponse<RoomTypeResponse> filterRoomTypes(RoomTypeSearchDto searchDto);
 

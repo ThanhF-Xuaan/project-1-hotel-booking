@@ -5,6 +5,7 @@ import type {
   HotelRoomTypeCreateRequest,
   HotelRoomTypeUpdateRequest,
   HotelRoomTypeSearchDto,
+  HotelRoomTypeBedItemRequest,
 } from '../types/inventory.types'
 
 const BASE_URL = '/api/v1/inventory/hotel-room-types'
@@ -19,6 +20,12 @@ export const hotelRoomTypeService = {
 
   update: (id: number, data: HotelRoomTypeUpdateRequest) =>
     apiClient.put<HotelRoomTypeDto>(`${BASE_URL}/${id}`, data),
+
+  updateBeds: (id: number, beds: HotelRoomTypeBedItemRequest[]) =>
+    apiClient.put<HotelRoomTypeDto>(`${BASE_URL}/${id}/beds`, beds),
+
+  updateFeatures: (id: number, featureIds: number[]) =>
+    apiClient.put<HotelRoomTypeDto>(`${BASE_URL}/${id}/features`, featureIds),
 
   deleteBatch: (ids: number[]) => apiClient.delete<void>(`${BASE_URL}/delete`, { data: ids }),
 }

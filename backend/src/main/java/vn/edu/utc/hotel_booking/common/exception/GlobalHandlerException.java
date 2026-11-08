@@ -3,15 +3,18 @@ package vn.edu.utc.hotel_booking.common.exception;
 import org.springframework.security.access.AccessDeniedException;
 
 import jakarta.persistence.PessimisticLockException;
+import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.transaction.TransactionSystemException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
@@ -111,6 +114,12 @@ public class GlobalHandlerException {
         if (rootMsg.contains("no_show_policies_code_key") || rootMsg.contains("uq_no_show_policies_code_active")) {
             return new DataIntegrityResult(ErrorCode.NO_SHOW_POLICY_CODE_EXISTS.getCode(), "Mã chính sách No-Show này đã tồn tại trên hệ thống.");
         }
+        if (rootMsg.contains("hotel_room_type_beds_pkey") || rootMsg.contains("uq_hotel_room_type_beds")) {
+            return new DataIntegrityResult(HttpStatus.CONFLICT.value(), "Loại giường này đã được thêm vào cấu hình hạng phòng. Vui lòng không chọn trùng giường.");
+        }
+        if (rootMsg.contains("hotel_room_type_features_pkey") || rootMsg.contains("uq_hotel_room_type_features")) {
+            return new DataIntegrityResult(HttpStatus.CONFLICT.value(), "Tiện ích này đã được gán cho hạng phòng.");
+        }
 
         // 2. Fallback trích xuất cặp key-value từ câu thông báo chi tiết của PostgreSQL
         java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("Key \\((.*?)\\)=\\((.*?)\\) already exists").matcher(rootMsg);
@@ -124,13 +133,72 @@ public class GlobalHandlerException {
         return new DataIntegrityResult(HttpStatus.CONFLICT.value(), "Dữ liệu bị trùng lặp hoặc vi phạm ràng buộc toàn vẹn. Vui lòng kiểm tra lại thông tin nhập.");
     }
 
+    @ExceptionHandler(value = TransactionSystemException.class)
+    ResponseEntity<ApiResponse<Void>> handlingTransactionSystemException(TransactionSystemException exception) {
+        log.error("TransactionSystemException chi tiết: ", exception);
+        Throwable rootCause = exception.getRootCause() != null ? exception.getRootCause() : exception;
+
+        if (rootCause instanceof ConstraintViolationException cve) {
+            String validationMsg = cve.getConstraintViolations().stream()
+                    .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                    .collect(Collectors.joining("; "));
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.<Void>builder()
+                            .code(ErrorCode.INVALID_REQUEST_DATA.getCode())
+                            .message("Dữ liệu không hợp lệ: " + validationMsg)
+                            .build()
+            );
+        }
+
+        String rootMsg = rootCause.getMessage() != null ? rootCause.getMessage() : "";
+        DataIntegrityResult result = resolveFriendlyDataIntegrityInfo(rootMsg);
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                ApiResponse.<Void>builder()
+                        .code(result.code())
+                        .message(result.message())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(value = ConstraintViolationException.class)
+    ResponseEntity<ApiResponse<Void>> handlingConstraintViolation(ConstraintViolationException exception) {
+        log.error("ConstraintViolationException: ", exception);
+        String validationMsg = exception.getConstraintViolations().stream()
+                .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+                .collect(Collectors.joining("; "));
+        return ResponseEntity.badRequest().body(
+                ApiResponse.<Void>builder()
+                        .code(ErrorCode.INVALID_REQUEST_DATA.getCode())
+                        .message("Dữ liệu không hợp lệ: " + validationMsg)
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(value = {IllegalArgumentException.class, IllegalStateException.class})
+    ResponseEntity<ApiResponse<Void>> handlingIllegalArguments(RuntimeException exception) {
+        log.error("IllegalArgumentException / IllegalStateException: ", exception);
+        String msg = (exception.getMessage() != null && !exception.getMessage().isBlank())
+                ? exception.getMessage()
+                : "Tham số yêu cầu không hợp lệ";
+        return ResponseEntity.badRequest().body(
+                ApiResponse.<Void>builder()
+                        .code(ErrorCode.INVALID_REQUEST_DATA.getCode())
+                        .message(msg)
+                        .build()
+        );
+    }
+
     @ExceptionHandler(value = RuntimeException.class)
     ResponseEntity<ApiResponse> handlingRuntimeException(RuntimeException exception) {
-        log.error("Exception: ", exception);
+        log.error("Exception chưa được phân loại: ", exception);
         ApiResponse apiResponse = new ApiResponse();
 
         apiResponse.setCode(ErrorCode.UNCATEGORIZED_EXCEPTION.getCode());
-        apiResponse.setMessage(ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage());
+        String msg = (exception.getMessage() != null && !exception.getMessage().isBlank())
+                ? exception.getMessage()
+                : ErrorCode.UNCATEGORIZED_EXCEPTION.getMessage();
+        apiResponse.setMessage(msg);
 
         return ResponseEntity.badRequest().body(apiResponse);
     }

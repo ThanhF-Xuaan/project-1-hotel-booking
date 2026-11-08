@@ -69,6 +69,11 @@ public enum ErrorCode {
     ROOM_ALREADY_BLOCKED(5042, "Phòng đã bị khóa hoặc đang có khách lưu trú trong khoảng thời gian này", HttpStatus.CONFLICT),
     MAINTENANCE_BLOCK_TIME_INVALID(5043, "Khoảng thời gian khóa phòng không hợp lệ", HttpStatus.BAD_REQUEST),
 
+    ROOM_BED_NOT_FOUND(5051, "Không tìm thấy loại giường", HttpStatus.NOT_FOUND),
+    ROOM_BED_NAME_ALREADY_EXISTS(5052, "Tên loại giường đã tồn tại", HttpStatus.CONFLICT),
+    ROOM_FEATURE_NOT_FOUND(5061, "Không tìm thấy tiện ích phòng", HttpStatus.NOT_FOUND),
+    ROOM_FEATURE_CODE_ALREADY_EXISTS(5062, "Mã tiện ích phòng đã tồn tại", HttpStatus.CONFLICT),
+
     // Pricing Module Errors
     PRICING_RULE_NOT_FOUND(6001, "Không tìm thấy quy tắc giá", HttpStatus.NOT_FOUND),
     CAMPAIGN_NOT_FOUND(6011, "Không tìm thấy chiến dịch khuyến mại", HttpStatus.NOT_FOUND),
