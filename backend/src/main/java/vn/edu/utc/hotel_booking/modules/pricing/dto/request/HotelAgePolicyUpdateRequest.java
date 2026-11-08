@@ -28,3 +28,4 @@ public class HotelAgePolicyUpdateRequest {
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
 }
+

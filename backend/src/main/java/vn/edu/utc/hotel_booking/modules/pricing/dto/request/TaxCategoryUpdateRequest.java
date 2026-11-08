@@ -26,3 +26,4 @@ public class TaxCategoryUpdateRequest {
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
 }
+

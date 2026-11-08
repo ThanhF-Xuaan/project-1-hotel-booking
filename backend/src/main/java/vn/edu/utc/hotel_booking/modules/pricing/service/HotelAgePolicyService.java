@@ -24,3 +24,4 @@ public interface HotelAgePolicyService {
 
     String resolveGuestTypeByAge(Short hotelId, int age);
 }
+

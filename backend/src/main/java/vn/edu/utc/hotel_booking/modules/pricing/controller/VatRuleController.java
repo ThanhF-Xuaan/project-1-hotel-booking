@@ -92,3 +92,4 @@ public class VatRuleController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
+

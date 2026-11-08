@@ -24,3 +24,4 @@ public class HotelAgePolicySearchDto extends BaseSearchDto {
     @Schema(description = "Chỉ lọc chính sách toàn chuỗi (hotel_id IS NULL)", example = "false")
     Boolean chainOnly;
 }
+

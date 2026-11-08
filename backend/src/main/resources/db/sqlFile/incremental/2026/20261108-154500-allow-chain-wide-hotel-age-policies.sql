@@ -19,3 +19,4 @@ WHERE NOT EXISTS (
     SELECT 1 FROM hotel_age_policies 
     WHERE hotel_id IS NULL AND guest_type = v.guest_type AND is_deleted = FALSE
 );
+

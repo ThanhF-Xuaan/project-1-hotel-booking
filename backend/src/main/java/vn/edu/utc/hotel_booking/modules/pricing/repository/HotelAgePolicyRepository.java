@@ -74,3 +74,4 @@ public interface HotelAgePolicyRepository extends JpaRepository<HotelAgePolicy, 
             @Param("excludeId") Short excludeId
     );
 }
+

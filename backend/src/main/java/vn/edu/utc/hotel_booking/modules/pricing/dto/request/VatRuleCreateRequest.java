@@ -44,3 +44,4 @@ public class VatRuleCreateRequest {
     @Schema(description = "Ngày kết thúc áp dụng (để trống nếu không có thời hạn)", example = "2026-06-30")
     LocalDate endDate;
 }
+

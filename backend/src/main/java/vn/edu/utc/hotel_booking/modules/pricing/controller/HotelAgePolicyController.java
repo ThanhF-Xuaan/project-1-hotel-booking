@@ -101,3 +101,4 @@ public class HotelAgePolicyController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 }
+

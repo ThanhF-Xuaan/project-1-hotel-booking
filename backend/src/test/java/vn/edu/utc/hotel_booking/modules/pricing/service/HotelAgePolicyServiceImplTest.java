@@ -199,3 +199,4 @@ class HotelAgePolicyServiceImplTest {
         assertThat(result.getContent()).hasSize(1);
     }
 }
+

@@ -40,3 +40,4 @@ public class HotelAgePolicyResponse {
     @Schema(description = "Cờ đánh dấu quy chuẩn toàn chuỗi", example = "false")
     Boolean isChainDefault;
 }
+

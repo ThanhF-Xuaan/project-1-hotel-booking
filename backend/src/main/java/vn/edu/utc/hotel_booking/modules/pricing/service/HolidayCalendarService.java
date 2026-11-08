@@ -22,3 +22,4 @@ public interface HolidayCalendarService {
 
     List<HolidayCalendarResponse> getActiveHolidaysInYear(Integer year);
 }
+

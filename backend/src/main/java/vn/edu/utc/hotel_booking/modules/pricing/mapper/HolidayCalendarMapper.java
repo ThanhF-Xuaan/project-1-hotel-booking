@@ -31,3 +31,4 @@ public interface HolidayCalendarMapper {
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromRequest(@MappingTarget HolidayCalendar holidayCalendar, HolidayCalendarUpdateRequest request);
 }
+

@@ -24,3 +24,4 @@ public class HolidayCalendarSearchDto extends BaseSearchDto {
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
 }
+

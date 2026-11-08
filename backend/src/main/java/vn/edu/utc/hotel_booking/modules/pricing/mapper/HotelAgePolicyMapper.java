@@ -37,3 +37,4 @@ public interface HotelAgePolicyMapper {
     @Mapping(target = "updatedAt", ignore = true)
     void updateEntityFromRequest(@MappingTarget HotelAgePolicy hotelAgePolicy, HotelAgePolicyUpdateRequest request);
 }
+

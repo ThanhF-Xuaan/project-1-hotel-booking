@@ -28,3 +28,4 @@ public class TaxCategoryCreateRequest {
     @Schema(description = "Mô tả chi tiết nhóm thuế")
     String description;
 }
+

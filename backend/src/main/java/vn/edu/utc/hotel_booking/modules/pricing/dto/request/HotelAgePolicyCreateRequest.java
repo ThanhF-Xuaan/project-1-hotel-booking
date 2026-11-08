@@ -32,3 +32,4 @@ public class HotelAgePolicyCreateRequest {
     @Schema(description = "Độ tuổi tối đa", example = "11")
     Short maxAge;
 }
+

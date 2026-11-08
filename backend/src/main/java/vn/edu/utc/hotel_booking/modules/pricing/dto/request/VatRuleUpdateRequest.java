@@ -38,3 +38,4 @@ public class VatRuleUpdateRequest {
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
 }
+
