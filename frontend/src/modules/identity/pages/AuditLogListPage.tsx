@@ -17,6 +17,7 @@ import {
   Tag,
   Building2,
   Layers,
+  ClipboardList,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -63,16 +64,29 @@ const FIELD_LABELS: Record<string, string> = {
 
   // Booking & Rooms
   bookingCode: 'Mã đơn đặt phòng',
-  roomNumber: 'Số phòng',
+  bookingId: 'Mã đơn đặt',
+  bookingRoomId: 'Mã phòng đặt',
   fromRoomNumber: 'Từ phòng',
   toRoomNumber: 'Sang phòng',
   checkInDate: 'Ngày nhận phòng',
   checkOutDate: 'Ngày trả phòng',
   totalAmount: 'Tổng tiền',
   refundAmount: 'Số tiền hoàn lại',
+  amount: 'Số tiền giao dịch',
   paymentMethod: 'Phương thức thanh toán',
   paymentStatus: 'Trạng thái thanh toán',
   transactionId: 'Mã giao dịch',
+
+  // Operations & Legal Compliance (PDPD / ANTT / Kế toán)
+  identityNumber: 'Số CCCD/Hộ chiếu',
+  documentNumber: 'Số giấy tờ tùy thân',
+  nationality: 'Quốc tịch',
+  roomNumber: 'Số phòng lưu trú',
+  hotelId: 'Mã khách sạn',
+  auditDate: 'Ngày kiểm toán',
+  businessDate: 'Ngày kinh doanh',
+  invoiceNumber: 'Số hóa đơn GTGT',
+  folioNumber: 'Mã Sổ cái Folio',
 };
 
 interface DiffField {
@@ -168,6 +182,9 @@ export const AuditLogListPage: React.FC = () => {
       case 'CREATE':
       case 'STAFF_CREATE':
       case 'PRICING_RULE_CREATE':
+      case 'GUEST_CREATE':
+      case 'STAY_GUEST_CREATE':
+      case 'WALK_IN_CREATE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
             CREATE
@@ -176,6 +193,9 @@ export const AuditLogListPage: React.FC = () => {
       case 'UPDATE':
       case 'STAFF_UPDATE':
       case 'PRICING_RULE_UPDATE':
+      case 'GUEST_UPDATE':
+      case 'STAY_GUEST_UPDATE':
+      case 'CONSENT_UPDATE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
             UPDATE
@@ -184,6 +204,8 @@ export const AuditLogListPage: React.FC = () => {
       case 'DELETE':
       case 'STAFF_DELETE_BATCH':
       case 'PRICING_RULE_DELETE':
+      case 'GUEST_DELETE':
+      case 'STAY_GUEST_DELETE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
             DELETE
@@ -192,9 +214,52 @@ export const AuditLogListPage: React.FC = () => {
       case 'STATUS_CHANGED':
       case 'STATUS_UPDATE':
       case 'STAFF_STATUS_UPDATE':
+      case 'FOLIO_STATUS_UPDATE':
         return (
           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
             CHANGED
+          </span>
+        );
+      case 'CHECK_IN':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-800 border border-teal-200">
+            CHECK_IN
+          </span>
+        );
+      case 'CHECK_OUT':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+            CHECK_OUT
+          </span>
+        );
+      case 'INVOICE_CREATE':
+      case 'INVOICE_ISSUE':
+      case 'PAYMENT_CREATE':
+      case 'PAYMENT_COMPLETE':
+      case 'PAYMENT_REFUND':
+      case 'FOLIO_ADJUSTMENT':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+            {action}
+          </span>
+        );
+      case 'OCR_SCAN':
+      case 'OCR_SCAN_FILE':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-100 text-cyan-800 border border-cyan-200">
+            OCR
+          </span>
+        );
+      case 'NIGHT_AUDIT_EXECUTE':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+            NIGHT_AUDIT
+          </span>
+        );
+      case 'LODGING_EXPORT':
+        return (
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+            EXPORT_BCA
           </span>
         );
       case 'PASSWORD_RESET':
@@ -227,6 +292,8 @@ export const AuditLogListPage: React.FC = () => {
     if (log.resourceCategory) return log.resourceCategory.toUpperCase();
     const entity = (log.entityName || '').toUpperCase();
     if (entity.includes('STAFF') || entity.includes('USER') || entity.includes('AUTH')) return 'STAFF';
+    if (entity.includes('GUEST') || entity.includes('OCR') || entity.includes('CONSENT')) return 'GUEST';
+    if (entity.includes('STAY') || entity.includes('LODGING') || entity.includes('NIGHT')) return 'OPERATION';
     if (entity.includes('BOOKING')) return 'BOOKING';
     if (entity.includes('PAYMENT') || entity.includes('FOLIO') || entity.includes('INVOICE')) return 'FINANCE';
     if (entity.includes('PRICING') || entity.includes('RULE') || entity.includes('VOUCHER')) return 'PRICING';
@@ -244,6 +311,20 @@ export const AuditLogListPage: React.FC = () => {
         return (
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-xs font-medium">
             <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'GUEST':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 text-sky-900 border border-sky-200 text-xs font-medium">
+            <User className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+            <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
+          </div>
+        );
+      case 'OPERATION':
+        return (
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-teal-50 text-teal-900 border border-teal-200 text-xs font-medium">
+            <ClipboardList className="w-3.5 h-3.5 text-teal-600 shrink-0" />
             <span className="truncate max-w-[200px]" title={targetDisplay}>{targetDisplay}</span>
           </div>
         );
@@ -297,6 +378,17 @@ export const AuditLogListPage: React.FC = () => {
     // 2. Fallback động theo cặp (entityName, actionType)
     const act = log.actionType?.toUpperCase() || '';
     const entity = (log.entityName || '').toUpperCase();
+
+    if (act.includes('CHECK_IN')) return 'Check-in nhận phòng lưu trú';
+    if (act.includes('CHECK_OUT')) return 'Check-out trả phòng và đóng sổ';
+    if (act.includes('INVOICE_ISSUE')) return 'Phát hành hóa đơn GTGT điện tử';
+    if (act.includes('INVOICE_CREATE')) return 'Tạo mới hóa đơn VAT';
+    if (act.includes('NIGHT_AUDIT')) return 'Chốt sổ kiểm toán đêm';
+    if (act.includes('OCR')) return 'Quét OCR trích xuất giấy tờ tùy thân';
+    if (act.includes('LODGING_EXPORT')) return 'Xuất file báo cáo lưu trú gửi BCA';
+    if (act.includes('FOLIO')) return 'Điều chỉnh công nợ Sổ cái Folio';
+    if (act.includes('PAYMENT_REFUND')) return 'Hoàn tiền giao dịch';
+    if (act.includes('PAYMENT')) return 'Giao dịch thanh toán';
 
     if (act === 'LOGIN' || act === 'STAFF_LOGIN') {
       return 'Đăng nhập hệ thống';
@@ -639,7 +731,13 @@ export const AuditLogListPage: React.FC = () => {
                 { value: 'Staff', label: 'Nhân sự & Tài khoản' },
                 { value: 'Booking', label: 'Đơn đặt phòng' },
                 { value: 'BookingRoom', label: 'Phòng đặt' },
+                { value: 'StayGuest', label: 'Khách lưu trú phòng' },
+                { value: 'Guest', label: 'Hồ sơ khách hàng' },
                 { value: 'Payment', label: 'Thanh toán & Giao dịch' },
+                { value: 'Invoice', label: 'Hóa đơn GTGT' },
+                { value: 'MasterFolio', label: 'Sổ cái Master Folio' },
+                { value: 'NightAudit', label: 'Kiểm toán đêm' },
+                { value: 'LodgingQueue', label: 'Khai báo tạm trú BCA' },
                 { value: 'PricingRule', label: 'Quy tắc giá & Ưu đãi' },
                 { value: 'Hotel', label: 'Khách sạn cơ sở' },
               ]}
@@ -657,6 +755,12 @@ export const AuditLogListPage: React.FC = () => {
                 { value: 'UPDATE', label: 'Cập nhật (UPDATE)' },
                 { value: 'DELETE', label: 'Xóa (DELETE)' },
                 { value: 'STATUS_CHANGED', label: 'Đổi trạng thái (CHANGED)' },
+                { value: 'CHECK_IN', label: 'Nhận phòng (Check-in)' },
+                { value: 'CHECK_OUT', label: 'Trả phòng (Check-out)' },
+                { value: 'INVOICE_ISSUE', label: 'Phát hành HĐ (Invoice)' },
+                { value: 'NIGHT_AUDIT_EXECUTE', label: 'Chốt kiểm toán đêm' },
+                { value: 'OCR_SCAN', label: 'Quét OCR giấy tờ' },
+                { value: 'LODGING_EXPORT', label: 'Xuất file tạm trú BCA' },
                 { value: 'PASSWORD_RESET', label: 'Đặt lại mật khẩu' },
                 { value: 'LOGIN', label: 'Đăng nhập' },
               ]}
@@ -718,11 +822,11 @@ export const AuditLogListPage: React.FC = () => {
       {/* HÀNG 2: TOOLBAR */}
       <div className="flex justify-between items-center text-xs text-neutral-500 font-medium px-1">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-neutral-400" />
-          <span>Hệ thống tự động lưu trữ tối đa 50 sự kiện kiểm toán gần nhất (tự động xóa log cũ hơn). Dữ liệu được bảo vệ chống sửa đổi.</span>
+          <ShieldAlert className="w-4 h-4 text-emerald-600" />
+          <span>Hệ thống lưu trữ vết kiểm toán tuân thủ Nghị định 13/2023/NĐ-CP (PDPD) và Luật An ninh mạng 2018 (thời hạn lưu trữ tối thiểu 12 tháng). Dữ liệu được bảo vệ chống sửa đổi.</span>
         </div>
         <div>
-          Tổng số: <strong className="text-neutral-900 font-mono">{totalElements}</strong> sự kiện (Tối đa 50)
+          Tổng số: <strong className="text-neutral-900 font-mono">{totalElements}</strong> sự kiện kiểm toán
         </div>
       </div>
 

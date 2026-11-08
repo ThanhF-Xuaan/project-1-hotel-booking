@@ -49,6 +49,9 @@ public class AuditLogAspect {
     private final ExpressionParser expressionParser = new SpelExpressionParser();
     private final ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationContext applicationContext;
+
     public AuditLogAspect(AuditLogService auditLogService, StaffRepository staffRepository) {
         this(auditLogService, staffRepository, new ObjectMapper());
     }
@@ -85,8 +88,18 @@ public class AuditLogAspect {
         return result;
     }
 
+    private <T> T getBean(Class<T> beanClass) {
+        if (applicationContext == null) return null;
+        try {
+            return applicationContext.getBean(beanClass);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     private OldSnapshot captureOldSnapshot(ProceedingJoinPoint joinPoint, Auditable auditable) {
-        if (!"Staff".equalsIgnoreCase(auditable.entityName())) {
+        String entityName = auditable.entityName();
+        if (!StringUtils.hasText(entityName)) {
             return null;
         }
 
@@ -96,42 +109,140 @@ public class AuditLogAspect {
         String[] paramNames = parameterNameDiscoverer.getParameterNames(method);
 
         Map<String, Object> params = new HashMap<>();
-        if (paramNames != null && args != null) {
-            for (int i = 0; i < paramNames.length; i++) {
-                if (i < args.length) {
-                    params.put(paramNames[i], args[i]);
+        if (args != null) {
+            for (int i = 0; i < args.length; i++) {
+                String name = (paramNames != null && i < paramNames.length && StringUtils.hasText(paramNames[i]))
+                        ? paramNames[i]
+                        : "p" + i;
+                params.put(name, args[i]);
+                params.put("p" + i, args[i]);
+            }
+        }
+
+        Object idVal = params.get("id");
+        if (idVal == null) {
+            idVal = params.get("p0");
+        }
+
+        // 1. Thực thể Staff
+        if ("Staff".equalsIgnoreCase(entityName)) {
+            if (idVal instanceof Integer id) {
+                return staffRepository.findByIdWithDetails(id)
+                        .map(this::buildStaffSnapshot)
+                        .orElse(null);
+            } else if (idVal instanceof Long longId) {
+                return staffRepository.findByIdWithDetails(longId.intValue())
+                        .map(this::buildStaffSnapshot)
+                        .orElse(null);
+            }
+
+            // Trường hợp xóa nhiều (DELETE Batch)
+            Object idsVal = params.get("ids");
+            if (idsVal instanceof List<?> idList && !idList.isEmpty()) {
+                List<Integer> intIds = idList.stream()
+                        .filter(o -> o instanceof Number)
+                        .map(o -> ((Number) o).intValue())
+                        .toList();
+                if (!intIds.isEmpty()) {
+                    List<Staff> staffs = staffRepository.findAllById(intIds);
+                    if (!staffs.isEmpty()) {
+                        return buildStaffListSnapshot(staffs);
+                    }
                 }
             }
         }
 
-        // 1. Trường hợp id đơn lẻ (UPDATE, STATUS_CHANGED, PASSWORD_RESET)
-        Object idVal = params.get("id");
-        if (idVal instanceof Integer id) {
-            return staffRepository.findByIdWithDetails(id)
-                    .map(this::buildStaffSnapshot)
-                    .orElse(null);
-        } else if (idVal instanceof Long longId) {
-            return staffRepository.findByIdWithDetails(longId.intValue())
-                    .map(this::buildStaffSnapshot)
-                    .orElse(null);
+        // 2. Thực thể Guest / BookingGuest
+        if ("Guest".equalsIgnoreCase(entityName) || "BookingGuest".equalsIgnoreCase(entityName)) {
+            vn.edu.utc.hotel_booking.modules.identity.repository.BookingGuestRepository guestRepo =
+                    getBean(vn.edu.utc.hotel_booking.modules.identity.repository.BookingGuestRepository.class);
+            if (guestRepo != null && idVal instanceof Number numId) {
+                return guestRepo.findByIdAndIsDeletedFalse(numId.longValue())
+                        .map(this::buildGuestSnapshot)
+                        .orElse(null);
+            }
         }
 
-        // 2. Trường hợp xóa nhiều (DELETE Batch)
-        Object idsVal = params.get("ids");
-        if (idsVal instanceof List<?> idList && !idList.isEmpty()) {
-            List<Integer> intIds = idList.stream()
-                    .filter(o -> o instanceof Number)
-                    .map(o -> ((Number) o).intValue())
-                    .toList();
-            if (!intIds.isEmpty()) {
-                List<Staff> staffs = staffRepository.findAllById(intIds);
-                if (!staffs.isEmpty()) {
-                    return buildStaffListSnapshot(staffs);
-                }
+        // 3. Thực thể StayGuest
+        if ("StayGuest".equalsIgnoreCase(entityName)) {
+            vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository stayRepo =
+                    getBean(vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository.class);
+            if (stayRepo != null && idVal instanceof Number numId) {
+                return stayRepo.findById(numId.longValue())
+                        .map(this::buildStayGuestSnapshot)
+                        .orElse(null);
+            }
+        }
+
+        // 4. Thực thể PricingRule
+        if ("PricingRule".equalsIgnoreCase(entityName) || "Pricing_Rule".equalsIgnoreCase(entityName)) {
+            vn.edu.utc.hotel_booking.modules.pricing.repository.PricingRuleRepository ruleRepo =
+                    getBean(vn.edu.utc.hotel_booking.modules.pricing.repository.PricingRuleRepository.class);
+            if (ruleRepo != null && idVal instanceof Number numId) {
+                return ruleRepo.findById(numId.intValue())
+                        .map(this::buildPricingRuleSnapshot)
+                        .orElse(null);
             }
         }
 
         return null;
+    }
+
+    private OldSnapshot buildGuestSnapshot(vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest guest) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", guest.getId());
+        map.put("fullName", guest.getFullName());
+        map.put("phone", guest.getPhone());
+        map.put("email", guest.getEmail());
+        map.put("identityNumber", guest.getIdentityNumber());
+        map.put("status", guest.getStatus());
+        String targetAccount = guest.getFullName() + (StringUtils.hasText(guest.getPhone()) ? " (@" + guest.getPhone() + ")" : "");
+        map.put("targetAccount", targetAccount);
+        map.put("targetResource", targetAccount);
+
+        try {
+            return new OldSnapshot(objectMapper.writeValueAsString(map), targetAccount);
+        } catch (Exception e) {
+            return new OldSnapshot(null, targetAccount);
+        }
+    }
+
+    private OldSnapshot buildStayGuestSnapshot(vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest stayGuest) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", stayGuest.getId());
+        map.put("fullName", stayGuest.getFullName());
+        map.put("roomNumber", stayGuest.getRoomNumber());
+        map.put("identityNumber", stayGuest.getIdentityNumber());
+        map.put("nationality", stayGuest.getNationality());
+        String targetAccount = "Khách " + stayGuest.getFullName() + (StringUtils.hasText(stayGuest.getRoomNumber()) ? " (Phòng " + stayGuest.getRoomNumber() + ")" : "");
+        map.put("targetAccount", targetAccount);
+        map.put("targetResource", targetAccount);
+
+        try {
+            return new OldSnapshot(objectMapper.writeValueAsString(map), targetAccount);
+        } catch (Exception e) {
+            return new OldSnapshot(null, targetAccount);
+        }
+    }
+
+    private OldSnapshot buildPricingRuleSnapshot(vn.edu.utc.hotel_booking.modules.pricing.entity.PricingRule rule) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", rule.getId());
+        map.put("name", rule.getName());
+        map.put("adjustmentType", rule.getAdjustmentType());
+        map.put("adjustmentValue", rule.getAdjustmentValue());
+        map.put("startDate", rule.getStartDate());
+        map.put("endDate", rule.getEndDate());
+        map.put("isActive", rule.getIsActive());
+        String targetAccount = rule.getName() + " (#" + rule.getId() + ")";
+        map.put("targetAccount", targetAccount);
+        map.put("targetResource", targetAccount);
+
+        try {
+            return new OldSnapshot(objectMapper.writeValueAsString(map), targetAccount);
+        } catch (Exception e) {
+            return new OldSnapshot(null, targetAccount);
+        }
     }
 
     private OldSnapshot buildStaffSnapshot(Staff staff) {
@@ -152,6 +263,7 @@ public class AuditLogAspect {
         map.put("scopeEntityId", staff.getScopeEntityId());
         String targetAccount = staff.getFullName() + " (@" + staff.getUsername() + ")";
         map.put("targetAccount", targetAccount);
+        map.put("targetResource", targetAccount);
 
         try {
             return new OldSnapshot(objectMapper.writeValueAsString(map), targetAccount);
@@ -176,6 +288,7 @@ public class AuditLogAspect {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("deletedStaffs", list);
         map.put("targetAccount", targetAccount);
+        map.put("targetResource", targetAccount);
 
         try {
             return new OldSnapshot(objectMapper.writeValueAsString(map), targetAccount);
@@ -194,11 +307,14 @@ public class AuditLogAspect {
         StandardEvaluationContext context = new StandardEvaluationContext();
         Map<String, Object> requestParams = new HashMap<>();
 
-        if (paramNames != null && args != null) {
-            for (int i = 0; i < paramNames.length; i++) {
-                String name = paramNames[i];
-                Object value = i < args.length ? args[i] : null;
+        if (args != null) {
+            for (int i = 0; i < args.length; i++) {
+                String name = (paramNames != null && i < paramNames.length && StringUtils.hasText(paramNames[i]))
+                        ? paramNames[i]
+                        : "p" + i;
+                Object value = args[i];
                 context.setVariable(name, value);
+                context.setVariable("p" + i, value);
 
                 // Loại trừ các đối tượng hạ tầng của Servlet/Spring Web không serialize được
                 if (value != null
@@ -238,18 +354,21 @@ public class AuditLogAspect {
         // 4. Bóc tách Staff ID từ Keycloak UUID hoặc từ username nếu là LOGIN
         Integer staffId = resolveStaffId();
         if ("LOGIN".equals(auditable.actionType())) {
-            for (Object arg : requestParams.values()) {
-                if (arg instanceof vn.edu.utc.hotel_booking.modules.identity.dto.request.LoginRequest loginReq) {
-                    Staff loginStaff = staffRepository.findByUsernameAndIsDeletedFalse(loginReq.getUsername()).orElse(null);
-                    if (loginStaff != null) {
-                        if (staffId == null) {
-                            staffId = loginStaff.getId();
+            Object[] currentArgs = joinPoint.getArgs();
+            if (currentArgs != null) {
+                for (Object arg : currentArgs) {
+                    if (arg instanceof vn.edu.utc.hotel_booking.modules.identity.dto.request.LoginRequest loginReq) {
+                        Staff loginStaff = staffRepository.findByUsernameAndIsDeletedFalse(loginReq.getUsername()).orElse(null);
+                        if (loginStaff != null) {
+                            if (staffId == null) {
+                                staffId = loginStaff.getId();
+                            }
+                            if (targetAccount == null) {
+                                targetAccount = loginStaff.getFullName() + " (@" + loginStaff.getUsername() + ")";
+                            }
                         }
-                        if (targetAccount == null) {
-                            targetAccount = loginStaff.getFullName() + " (@" + loginStaff.getUsername() + ")";
-                        }
+                        break;
                     }
-                    break;
                 }
             }
         }
@@ -259,6 +378,38 @@ public class AuditLogAspect {
             if (result instanceof ApiResponse<?> apiResp && apiResp.getResult() instanceof StaffResponse staffResp) {
                 targetResource = staffResp.getFullName() + " (@" + staffResp.getUsername() + ")";
                 targetAccount = targetResource;
+            }
+        } else if ("Guest".equalsIgnoreCase(auditable.entityName()) && "GUEST_CREATE".equals(auditable.actionType())) {
+            if (result instanceof ApiResponse<?> apiResp && apiResp.getResult() instanceof vn.edu.utc.hotel_booking.modules.identity.dto.response.GuestResponse guestResp) {
+                targetResource = guestResp.getFullName() + (StringUtils.hasText(guestResp.getPhone()) ? " (@" + guestResp.getPhone() + ")" : "");
+                targetAccount = targetResource;
+                if (entityId == null || "N/A".equals(entityId)) {
+                    entityId = guestResp.getId() != null ? guestResp.getId().toString() : "N/A";
+                }
+            }
+        } else if ("StayGuest".equalsIgnoreCase(auditable.entityName()) && "STAY_GUEST_CREATE".equals(auditable.actionType())) {
+            if (result instanceof ApiResponse<?> apiResp && apiResp.getResult() instanceof vn.edu.utc.hotel_booking.modules.operation.dto.response.StayGuestResponse stayResp) {
+                targetResource = "Khách " + stayResp.getFullName() + (StringUtils.hasText(stayResp.getRoomNumber()) ? " (Phòng " + stayResp.getRoomNumber() + ")" : "");
+                targetAccount = targetResource;
+                if (entityId == null || "N/A".equals(entityId)) {
+                    entityId = stayResp.getId() != null ? stayResp.getId().toString() : "N/A";
+                }
+            }
+        } else if ("Booking".equalsIgnoreCase(auditable.entityName()) && "WALK_IN_CREATE".equals(auditable.actionType())) {
+            if (result instanceof ApiResponse<?> apiResp && apiResp.getResult() instanceof vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingResponse bResp) {
+                targetResource = "Đơn " + (bResp.getBookingNumber() != null ? bResp.getBookingNumber() : "#" + bResp.getId());
+                targetAccount = targetResource;
+                if (entityId == null || "N/A".equals(entityId)) {
+                    entityId = bResp.getId() != null ? bResp.getId().toString() : "N/A";
+                }
+            }
+        } else if ("Invoice".equalsIgnoreCase(auditable.entityName()) && "INVOICE_CREATE".equals(auditable.actionType())) {
+            if (result instanceof ApiResponse<?> apiResp && apiResp.getResult() instanceof vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse invResp) {
+                targetResource = "Hóa đơn " + invResp.getInvoiceNumber();
+                targetAccount = targetResource;
+                if (entityId == null || "N/A".equals(entityId)) {
+                    entityId = invResp.getId() != null ? invResp.getId().toString() : "N/A";
+                }
             }
         }
 

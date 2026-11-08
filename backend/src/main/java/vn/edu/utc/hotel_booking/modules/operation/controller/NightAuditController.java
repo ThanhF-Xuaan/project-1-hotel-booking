@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.NightAuditRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.NightAuditResponse;
@@ -25,6 +26,13 @@ public class NightAuditController {
 
     NightAuditService nightAuditService;
 
+    @Auditable(
+            actionType = "NIGHT_AUDIT_EXECUTE",
+            entityName = "NightAudit",
+            entityId = "#request.hotelId.toString()",
+            description = "'Thực hiện chốt sổ kiểm toán đêm khách sạn #' + #request.hotelId + ' ngày ' + #request.auditDate",
+            captureResponse = true
+    )
     @PostMapping("/execute")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE')")
     @Operation(summary = "Thực hiện quy trình đóng ngày Night Audit (Hủy No-show, chốt doanh thu ngày)")

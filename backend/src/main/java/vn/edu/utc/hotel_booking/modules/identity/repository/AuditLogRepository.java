@@ -13,11 +13,19 @@ import java.time.OffsetDateTime;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
+    @Deprecated(since = "2.0", forRemoval = false)
     @org.springframework.data.jpa.repository.Modifying
     @Query(value = "DELETE FROM audit_logs WHERE id IN (" +
             "SELECT id FROM audit_logs ORDER BY created_at DESC, id DESC OFFSET 50" +
             ")", nativeQuery = true)
     int purgeOldAuditLogsExceedingLimit();
+
+    /**
+     * Dọn dẹp log quá hạn theo thời hạn lưu trữ pháp lý (tối thiểu 12 tháng theo Luật An ninh mạng).
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM AuditLog a WHERE a.createdAt < :cutoffDate")
+    int purgeLogsOlderThan(@Param("cutoffDate") OffsetDateTime cutoffDate);
 
     @Query(value = "SELECT a FROM AuditLog a LEFT JOIN FETCH a.staff s WHERE " +
             "(:staffId IS NULL OR s.id = :staffId) " +

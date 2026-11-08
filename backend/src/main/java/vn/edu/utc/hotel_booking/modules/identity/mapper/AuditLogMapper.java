@@ -96,6 +96,56 @@ public interface AuditLogMapper {
             case "PAYMENT" -> {
                 return entityId != null ? "Giao dịch #" + entityId : "Thanh toán";
             }
+            case "GUEST", "BOOKINGGUEST", "BOOKING_GUEST" -> {
+                String fullName = extractFieldFromJson(entity.getNewValues(), "fullName");
+                if (fullName == null) fullName = extractFieldFromJson(entity.getOldValues(), "fullName");
+                String phone = extractFieldFromJson(entity.getNewValues(), "phone");
+                if (phone == null) phone = extractFieldFromJson(entity.getOldValues(), "phone");
+
+                if (fullName != null && phone != null) {
+                    return fullName + " (@" + phone + ")";
+                } else if (fullName != null) {
+                    return fullName + (entityId != null ? " (#" + entityId + ")" : "");
+                }
+                return entityId != null ? "Khách hàng #" + entityId : "Khách hàng";
+            }
+            case "STAYGUEST", "STAY_GUEST" -> {
+                String fullName = extractFieldFromJson(entity.getNewValues(), "fullName");
+                if (fullName == null) fullName = extractFieldFromJson(entity.getOldValues(), "fullName");
+                String roomNumber = extractFieldFromJson(entity.getNewValues(), "roomNumber");
+                if (roomNumber == null) roomNumber = extractFieldFromJson(entity.getOldValues(), "roomNumber");
+
+                if (fullName != null && roomNumber != null) {
+                    return "Khách " + fullName + " (P." + roomNumber + ")";
+                } else if (fullName != null) {
+                    return "Khách " + fullName;
+                }
+                return entityId != null ? "Khách lưu trú #" + entityId : "Khách lưu trú";
+            }
+            case "INVOICE" -> {
+                String invoiceNumber = extractFieldFromJson(entity.getNewValues(), "invoiceNumber");
+                if (invoiceNumber == null) invoiceNumber = extractFieldFromJson(entity.getOldValues(), "invoiceNumber");
+                if (invoiceNumber != null) {
+                    return "Hóa đơn " + invoiceNumber;
+                }
+                return entityId != null ? "Hóa đơn #" + entityId : "Hóa đơn VAT";
+            }
+            case "MASTERFOLIO", "MASTER_FOLIO" -> {
+                String folioNumber = extractFieldFromJson(entity.getNewValues(), "folioNumber");
+                if (folioNumber == null) folioNumber = extractFieldFromJson(entity.getOldValues(), "folioNumber");
+                if (folioNumber != null) {
+                    return "Master Folio " + folioNumber;
+                }
+                return entityId != null ? "Sổ cái Master Folio #" + entityId : "Master Folio";
+            }
+            case "NIGHTAUDIT", "NIGHT_AUDIT" -> {
+                String auditDate = extractFieldFromJson(entity.getNewValues(), "auditDate");
+                return "Kiểm toán đêm KS #" + (entityId != null ? entityId : "") + (auditDate != null ? " (" + auditDate + ")" : "");
+            }
+            case "LODGINGQUEUE", "LODGING_QUEUE" -> {
+                String date = extractFieldFromJson(entity.getNewValues(), "date");
+                return "Khai báo BCA" + (date != null ? " (" + date + ")" : (entityId != null ? " #" + entityId : ""));
+            }
             case "HOTEL" -> {
                 String hotelName = extractFieldFromJson(entity.getNewValues(), "name");
                 if (hotelName == null) hotelName = extractFieldFromJson(entity.getOldValues(), "name");
@@ -117,6 +167,12 @@ public interface AuditLogMapper {
         String name = entity.getEntityName().toUpperCase();
         if (name.contains("STAFF") || name.contains("USER") || name.contains("AUTH")) {
             return "STAFF";
+        }
+        if (name.contains("GUEST") || name.contains("OCR") || name.contains("CONSENT")) {
+            return "GUEST";
+        }
+        if (name.contains("STAY") || name.contains("LODGING") || name.contains("NIGHT_AUDIT") || name.contains("NIGHTAUDIT")) {
+            return "OPERATION";
         }
         if (name.contains("BOOKING")) {
             return "BOOKING";
