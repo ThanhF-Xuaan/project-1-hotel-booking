@@ -99,7 +99,8 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
             "JOIN FETCH hrt.roomType rt " +
             "WHERE r.isDeleted = false " +
             "AND r.hotel.id = :hotelId " +
-            "AND (:status IS NULL OR UPPER(r.currentStatus) = UPPER(:status))")
+            "AND (:status IS NULL OR r.currentStatus = :status) " +
+            "ORDER BY r.roomNumber ASC")
     List<RoomInstance> findByHotelIdAndCurrentStatus(@Param("hotelId") Short hotelId, @Param("status") String status);
 
     @Query("SELECT COUNT(r) FROM RoomInstance r WHERE r.isDeleted = false AND r.hotel.id = :hotelId AND UPPER(r.currentStatus) = 'OCCUPIED'")

@@ -21,5 +21,9 @@ public interface HotelRoomTypeService {
 
     PageResponse<HotelRoomTypeResponse> filterHotelRoomTypes(HotelRoomTypeSearchDto searchDto);
 
+    HotelRoomTypeResponse updateBeds(Integer id, List<vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeBedItemRequest> beds);
+
+    HotelRoomTypeResponse updateFeatures(Integer id, java.util.Set<Short> featureIds);
+
     void deleteHotelRoomTypes(List<Integer> ids);
 }

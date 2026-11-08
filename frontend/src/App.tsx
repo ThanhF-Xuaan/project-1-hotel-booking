@@ -7,6 +7,11 @@ const RegionListPage = lazy(() => import('./modules/organization/pages/RegionLis
 const HotelListPage = lazy(() => import('./modules/organization/pages/HotelListPage'))
 const RoomTypeListPage = lazy(() => import('./modules/inventory/pages/RoomTypeListPage'))
 const RoomInstanceListPage = lazy(() => import('./modules/inventory/pages/RoomInstanceListPage'))
+const RoomBedListPage = lazy(() => import('./modules/inventory/pages/RoomBedListPage'))
+const RoomFeatureListPage = lazy(() => import('./modules/inventory/pages/RoomFeatureListPage'))
+const HotelRoomTypeListPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeListPage'))
+const HotelRoomTypeDetailPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeDetailPage'))
+const HotelRoomTypeAllocationMatrixPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeAllocationMatrixPage'))
 const PricingRuleListPage = lazy(() => import('./modules/pricing/pages/PricingRuleListPage'))
 const CampaignListPage = lazy(() => import('./modules/pricing/pages/CampaignListPage'))
 const TaxCategoryListPage = lazy(() => import('./modules/pricing/pages/TaxCategoryListPage'))
@@ -176,6 +181,13 @@ export function App() {
               {/* Phân hệ Quản lý Tồn phòng */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="/inventory/room-types" element={<RoomTypeListPage />} />
+                <Route path="/inventory/hotel-room-types" element={<HotelRoomTypeListPage />} />
+                <Route path="/inventory/hotel-room-types/:id" element={<HotelRoomTypeDetailPage />} />
+                <Route path="/inventory/room-type-matrix" element={<HotelRoomTypeAllocationMatrixPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
+                <Route path="/inventory/beds" element={<RoomBedListPage />} />
+                <Route path="/inventory/features" element={<RoomFeatureListPage />} />
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'ENGINEERING']} />}>
                 <Route path="/inventory/rooms" element={<RoomInstanceListPage />} />

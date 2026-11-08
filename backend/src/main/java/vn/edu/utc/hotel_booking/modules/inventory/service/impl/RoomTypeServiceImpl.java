@@ -66,6 +66,12 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     }
 
     @Override
+    public RoomType getEntityById(Short id) {
+        return roomTypeRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_TYPE_NOT_FOUND, "Không tìm thấy loại phòng id: " + id));
+    }
+
+    @Override
     public PageResponse<RoomTypeResponse> filterRoomTypes(RoomTypeSearchDto searchDto) {
         Pageable pageable = PageRequest.of(
                 searchDto.getPage(),
