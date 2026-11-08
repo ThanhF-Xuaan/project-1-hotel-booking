@@ -31,9 +31,9 @@ public interface RoomFeatureRepository extends JpaRepository<RoomFeature, Short>
     Set<RoomFeature> findByIdInAndIsDeletedFalse(Set<Short> ids);
 
     @Query("SELECT rf FROM RoomFeature rf WHERE rf.isDeleted = false " +
-            "AND (:keyword IS NULL OR LOWER(rf.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(rf.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:category IS NULL OR rf.category = :category) " +
-            "AND (:status IS NULL OR rf.status = :status)")
+            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(rf.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(rf.name) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:category IS NULL OR :category = '' OR rf.category = :category) " +
+            "AND (:status IS NULL OR :status = '' OR rf.status = :status)")
     Page<RoomFeature> filterRoomFeatures(
             @Param("keyword") String keyword,
             @Param("category") String category,

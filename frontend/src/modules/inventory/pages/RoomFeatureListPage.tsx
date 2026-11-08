@@ -48,7 +48,8 @@ export const RoomFeatureListPage: React.FC = () => {
         status: status || undefined,
       })
       if (response && response.result) {
-        setFeatures(response.result.content || [])
+        const filtered = (response.result.content || []).filter((f) => f.category !== 'VIEW')
+        setFeatures(filtered)
         setTotalElements(response.result.totalElements || 0)
         setTotalPages(response.result.totalPages || 0)
       }
@@ -175,7 +176,6 @@ export const RoomFeatureListPage: React.FC = () => {
 
   const categoryOptions = [
     { value: '', label: 'Tất cả danh mục' },
-    { value: 'VIEW', label: 'Tầm nhìn (View)' },
     { value: 'BATHROOM', label: 'Phòng tắm (Bathroom)' },
     { value: 'BEDROOM', label: 'Phòng ngủ (Bedroom)' },
     { value: 'MEDIA', label: 'Truyền thông & Công nghệ (Media)' },
@@ -187,7 +187,6 @@ export const RoomFeatureListPage: React.FC = () => {
   ]
 
   const formCategoryOptions = [
-    { value: 'VIEW', label: 'Tầm nhìn (View)' },
     { value: 'BATHROOM', label: 'Phòng tắm (Bathroom)' },
     { value: 'BEDROOM', label: 'Phòng ngủ (Bedroom)' },
     { value: 'MEDIA', label: 'Truyền thông & Công nghệ (Media)' },

@@ -28,6 +28,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -139,7 +142,7 @@ class RoomFeatureServiceTest {
         Page<RoomFeature> page = new PageImpl<>(List.of(entity));
         RoomFeatureResponse response = RoomFeatureResponse.builder().id((short) 1).code("BALCONY").build();
 
-        when(roomFeatureRepository.filterRoomFeatures(isNull(), isNull(), isNull(), any(Pageable.class))).thenReturn(page);
+        when(roomFeatureRepository.filterRoomFeatures(eq(""), isNull(), isNull(), any(Pageable.class))).thenReturn(page);
         when(roomFeatureMapper.toResponseList(anyList())).thenReturn(List.of(response));
 
         PageResponse<RoomFeatureResponse> result = roomFeatureService.filter(searchDto);

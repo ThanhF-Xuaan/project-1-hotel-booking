@@ -24,8 +24,8 @@ public interface RoomBedRepository extends JpaRepository<RoomBed, Short> {
     boolean existsByNameAndIdNotAndIsDeletedFalse(String name, Short id);
 
     @Query("SELECT rb FROM RoomBed rb WHERE rb.isDeleted = false " +
-            "AND (:keyword IS NULL OR LOWER(rb.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(rb.size) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:status IS NULL OR rb.status = :status)")
+            "AND (:keyword IS NULL OR :keyword = '' OR LOWER(rb.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(rb.size) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
+            "AND (:status IS NULL OR :status = '' OR rb.status = :status)")
     Page<RoomBed> filterRoomBeds(
             @Param("keyword") String keyword,
             @Param("status") String status,

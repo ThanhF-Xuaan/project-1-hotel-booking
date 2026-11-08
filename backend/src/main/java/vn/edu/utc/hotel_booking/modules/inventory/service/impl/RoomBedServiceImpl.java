@@ -80,28 +80,30 @@ public class RoomBedServiceImpl implements RoomBedService {
 
     @Override
     public PageResponse<RoomBedResponse> filter(RoomBedSearchDto searchDto) {
-        Pageable pageable = PageRequest.of(
-                searchDto.getPage(),
-                searchDto.getPageSize(),
-                Sort.by(Sort.Direction.fromString(searchDto.getSortDirection()), searchDto.getSortBy())
-        );
+        int page = (searchDto.getPage() != null && searchDto.getPage() >= 0) ? searchDto.getPage() : 0;
+        int pageSize = (searchDto.getPageSize() != null && searchDto.getPageSize() > 0) ? searchDto.getPageSize() : 10;
+        Sort.Direction direction = "ASC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String sortBy = StringUtils.hasText(searchDto.getSortBy()) ? searchDto.getSortBy() : "createdAt";
+        Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
 
-        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : null;
-        Page<RoomBed> page = roomBedRepository.filterRoomBeds(
+        String keyword = StringUtils.hasText(searchDto.getKeyword()) ? searchDto.getKeyword().trim() : "";
+        String status = StringUtils.hasText(searchDto.getStatus()) ? searchDto.getStatus().trim() : null;
+
+        Page<RoomBed> pageResult = roomBedRepository.filterRoomBeds(
                 keyword,
-                searchDto.getStatus(),
+                status,
                 pageable
         );
 
         return PageResponse.<RoomBedResponse>builder()
-                .content(roomBedMapper.toResponseList(page.getContent()))
-                .pageNumber(page.getNumber())
-                .pageSize(page.getSize())
-                .totalElements(page.getTotalElements())
-                .totalPages(page.getTotalPages())
-                .first(page.isFirst())
-                .last(page.isLast())
-                .empty(page.isEmpty())
+                .content(roomBedMapper.toResponseList(pageResult.getContent()))
+                .pageNumber(pageResult.getNumber())
+                .pageSize(pageResult.getSize())
+                .totalElements(pageResult.getTotalElements())
+                .totalPages(pageResult.getTotalPages())
+                .first(pageResult.isFirst())
+                .last(pageResult.isLast())
+                .empty(pageResult.isEmpty())
                 .build();
     }
 

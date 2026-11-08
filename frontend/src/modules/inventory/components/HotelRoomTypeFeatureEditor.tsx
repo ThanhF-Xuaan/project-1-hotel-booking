@@ -31,12 +31,15 @@ export const HotelRoomTypeFeatureEditor: React.FC<HotelRoomTypeFeatureEditorProp
     return () => clearTimeout(timer)
   }, [initialFeatures])
 
-  // Load all available active features
+  // Load all available active features (excluding VIEW)
   useEffect(() => {
     roomFeatureService
-      .filter({ pageSize: 100, status: 'ACTIVE' })
+      .filter({ page: 0, pageSize: 100, status: 'ACTIVE' })
       .then((res) => {
-        if (res.result) setAllFeatures(res.result.content || [])
+        if (res.result) {
+          const nonView = (res.result.content || []).filter((f) => f.category !== 'VIEW')
+          setAllFeatures(nonView)
+        }
       })
       .catch((err: unknown) => console.error('Lỗi tải danh mục tiện ích:', err))
   }, [])
@@ -76,8 +79,6 @@ export const HotelRoomTypeFeatureEditor: React.FC<HotelRoomTypeFeatureEditorProp
 
   const getCategoryTitle = (cat: string) => {
     switch (cat) {
-      case 'VIEW':
-        return 'Tầm Nhìn & Cảnh Quan (View)'
       case 'BATHROOM':
         return 'Phòng Tắm & Vệ Sinh (Bathroom)'
       case 'BEDROOM':

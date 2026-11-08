@@ -530,9 +530,9 @@ export const HotelRoomTypeListPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-                Tổng Số Phòng Cơ Sở
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5 min-h-[32px] flex items-end">
+                Tổng Phòng Cơ Sở
               </label>
               <Input
                 type="number"
@@ -542,8 +542,8 @@ export const HotelRoomTypeListPage: React.FC = () => {
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5 min-h-[32px] flex items-end">
                 Tổng Khách Tối Đa
               </label>
               <Input
@@ -554,8 +554,8 @@ export const HotelRoomTypeListPage: React.FC = () => {
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+            <div className="flex flex-col">
+              <label className="text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5 min-h-[32px] flex items-end">
                 Số Giường Tối Đa
               </label>
               <Input

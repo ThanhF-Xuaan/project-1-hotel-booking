@@ -27,6 +27,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -152,7 +155,7 @@ class RoomBedServiceTest {
         Page<RoomBed> page = new PageImpl<>(List.of(entity));
         RoomBedResponse response = RoomBedResponse.builder().id((short) 1).name("King Bed").build();
 
-        when(roomBedRepository.filterRoomBeds(isNull(), isNull(), any(Pageable.class))).thenReturn(page);
+        when(roomBedRepository.filterRoomBeds(eq(""), isNull(), any(Pageable.class))).thenReturn(page);
         when(roomBedMapper.toResponseList(anyList())).thenReturn(List.of(response));
 
         PageResponse<RoomBedResponse> result = roomBedService.filter(searchDto);
