@@ -16,6 +16,9 @@ import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import { extractIdentityImage, ocrFields, type IdentityOcrDraft } from '../../operation/services/identityOcr.service';
 import stayGuestService from '../../operation/services/stayGuest.service';
+import { hasAnyRole } from '../../auth/utils/token.utils';
+import { LODGING_ROLES } from '../../operation/types/lodging.types';
+import StayGuestEditForm from './StayGuestEditForm';
 import type {
   StayGuestResponse,
   StayGuestCreateRequest,
@@ -27,6 +30,7 @@ export interface StayGuestsModalProps {
   isOpen: boolean;
   onClose: () => void;
   bookingRoomId: number | null;
+  initialEditGuestId?: number;
   hotelId: number;
   bookingId?: number;
   roomId?: number;
@@ -46,6 +50,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   bookingId,
   roomId,
   roomNumber,
+  initialEditGuestId,
 }) => {
   const [guests, setGuests] = useState<StayGuestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +58,11 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editGuestId, setEditGuestId] = useState(initialEditGuestId);
+  const [editBusy, setEditBusy] = useState(false);
+  const [guestsLoaded, setGuestsLoaded] = useState(false);
+  const canEdit = hasAnyRole(LODGING_ROLES);
+  const editing = canEdit ? guests.find(guest => guest.id === editGuestId) : undefined;
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -142,7 +152,10 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
     setErrorMessage(null);
     try {
       const res = await stayGuestService.getByBookingRoomId(bookingRoomId, request.signal);
-      if (current()) setGuests(res.result ?? []);
+      if (current()) {
+        setGuests(res.result ?? []);
+        setGuestsLoaded(true);
+      }
     } catch {
       if (current()) setErrorMessage('Không thể tải danh sách khách lưu trú.');
     } finally {
@@ -239,7 +252,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={() => { resetForm(); onClose(); }}
+      onClose={() => { if (!editBusy) { resetForm(); onClose(); } }}
       title={`Khai báo Khách lưu trú - Phòng ${roomNumber || 'Chưa xếp'}`}
       maxWidth="2xl"
     >
@@ -248,9 +261,8 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
         <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">
           <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
           <div className="text-xs text-blue-900 leading-relaxed">
-            <span className="font-bold">Đồng bộ lưu trú Bộ Công An (BCA):</span> Khai báo đầy đủ số CCCD/Hộ chiếu,
-            ngày sinh và địa chỉ thường trú của từng khách lưu trú. Khi Check-in hoàn tất, hệ thống sẽ tự động đồng bộ
-            dữ liệu vào hàng chờ khai báo lưu trú điện tử.
+            <span className="font-bold">Hàng đợi lưu trú:</span> Bổ sung thông tin khách để khách sạn đối soát.
+            Hệ thống cập nhật hàng đợi nội bộ từ hồ sơ lưu trú.
           </div>
         </div>
 
@@ -275,6 +287,20 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
           </div>
         )}
 
+        {editing && <StayGuestEditForm
+          key={editing.id}
+          guest={editing}
+          onBusyChange={setEditBusy}
+          onCancel={() => setEditGuestId(undefined)}
+          onSaved={() => {
+            setEditGuestId(undefined);
+            setSuccessMessage('Đã lưu hồ sơ khách lưu trú.');
+            void loadGuests();
+          }}
+        />}
+        {canEdit && editGuestId !== undefined && guestsLoaded && !editing && !isLoading &&
+          <p role="alert" className="text-sm text-red-700">Hồ sơ cần sửa không còn trong phòng này.</p>}
+
         {/* Danh sách khách lưu trú hiện tại */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -284,7 +310,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 Khách lưu trú tại phòng ({guests.length})
               </h4>
             </div>
-            {!showAddForm && (
+            {!showAddForm && !editing && (
               <Button
                 variant="primary"
                 size="sm"
@@ -329,7 +355,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                       {g.documentNumber && (
                         <span className="text-xs px-2 py-0.5 rounded-md font-mono bg-blue-100 text-blue-800 flex items-center gap-1">
                           <CreditCard className="w-3 h-3" />
-                          {g.documentType}: {g.documentNumber}
+                          {g.documentType}: ••••{g.documentNumber.length > 4 ? g.documentNumber.slice(-4) : ''}
                         </span>
                       )}
                     </div>
@@ -348,13 +374,23 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteGuest(g.id)}
-                    className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg shrink-0 transition-colors"
-                    title="Xóa thông tin khách"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {canEdit && !showAddForm && !editing && <Button variant="outline" size="sm" onClick={() => {
+                      setSuccessMessage(null);
+                      setErrorMessage(null);
+                      setEditGuestId(g.id);
+                    }}>Sửa hồ sơ</Button>}
+                    <button
+                      type="button"
+                      disabled={!!editing}
+                      onClick={() => handleDeleteGuest(g.id)}
+                      className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      title="Xóa thông tin khách"
+                      aria-label="Xóa thông tin khách"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

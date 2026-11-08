@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { hasAnyRole } from '../../../modules/auth/utils/token.utils'
-import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
+import { LODGING_ROLES } from '../../../modules/operation/types/lodging.types'
+import { PAYROLL_IMPORT_ROLES } from '../../../modules/finance/services/payroll.service'
+import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
 import {
   Globe,
   Building,
@@ -159,10 +161,16 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'],
       },
       {
-        label: 'Điện/Nước',
-        to: '/operation/utility',
-        icon: <Gauge className="w-4 h-4" />,
-        roles: UTILITY_READ_ROLES,
+        label: 'Khai báo lưu trú',
+        to: '/operation/lodging-queue',
+        icon: <UserSquare2 className="w-4 h-4" />,
+        roles: LODGING_ROLES,
+      },
+      {
+        label: 'Điện/Nước',
+        to: '/operation/utility',
+        icon: <Gauge className="w-4 h-4" />,
+        roles: UTILITY_READ_ROLES,
       },
       {
         label: 'Đóng ngày (Night Audit)',
@@ -176,6 +184,12 @@ const navGroups: NavGroup[] = [
     groupName: 'TÀI CHÍNH & HÓA ĐƠN',
     icon: <Receipt className="w-4 h-4" />,
     items: [
+      {
+        label: 'Nhập bảng lương',
+        to: '/finance/payroll-import',
+        icon: <FileSpreadsheet className="w-4 h-4" />,
+        roles: PAYROLL_IMPORT_ROLES,
+      },
       {
         label: 'Quản lý Folio & Thu ngân',
         to: '/finance/folios',

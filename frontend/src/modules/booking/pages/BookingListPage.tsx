@@ -29,6 +29,7 @@ import bookingService from '../services/booking.service';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
 import hotelService from '../../organization/services/hotel.service';
 import StayGuestsModal from '../components/StayGuestsModal';
+import StayGuestBookingLink from '../components/StayGuestBookingLink';
 import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
@@ -1264,6 +1265,8 @@ export const BookingListPage: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      <StayGuestBookingLink />
 
       {/* MODAL KHAI BÁO KHÁCH LƯU TRÚ (STAY GUESTS) */}
       {stayGuestsTarget && (
