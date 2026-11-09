@@ -1,8 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, AlertCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import { mediaService } from '../services/media.service';
+import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service';
+import type { HotelRoomTypeDto } from '../../inventory/types/inventory.types';
+import { formatCurrency } from '../../../core/utils/currency';
 import type { CategoryMetaDto, StorageCategory } from '../types/media.types';
 
 interface MediaUploadModalProps {
@@ -30,8 +33,12 @@ export const MediaUploadModal: React.FC<MediaUploadModalProps> = ({
   initialReferenceId,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<StorageCategory>(initialCategory);
-  const [selectedHotelId, setSelectedHotelId] = useState<number | ''>(initialHotelId ?? '');
-  const [referenceId, setReferenceId] = useState<string>(initialReferenceId ? String(initialReferenceId) : '');
+  const [selectedHotelId, setSelectedHotelId] = useState<number | ''>(
+    initialCategory === 'BRAND_ASSET' ? '' : (initialHotelId ?? '')
+  );
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<number | ''>(initialReferenceId ?? '');
+  const [roomTypes, setRoomTypes] = useState<HotelRoomTypeDto[]>([]);
+  const [isLoadingRoomTypes, setIsLoadingRoomTypes] = useState<boolean>(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -39,7 +46,63 @@ export const MediaUploadModal: React.FC<MediaUploadModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isBrandAsset = selectedCategory === 'BRAND_ASSET';
+  const isRoomPhoto = selectedCategory === 'HOTEL_ROOM_PHOTO';
+  const isPropertyPhoto = selectedCategory === 'HOTEL_PROPERTY_PHOTO';
+  const isHotelRequired = isPropertyPhoto || isRoomPhoto;
+
+  // Lắng nghe tải danh sách hạng phòng cơ sở khi chọn HOTEL_ROOM_PHOTO
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      if (selectedCategory !== 'HOTEL_ROOM_PHOTO' || !selectedHotelId) {
+        setRoomTypes([]);
+        return;
+      }
+
+      setIsLoadingRoomTypes(true);
+      hotelRoomTypeService
+        .filter({ hotelId: Number(selectedHotelId), pageSize: 100, status: 'ACTIVE' })
+        .then((res) => {
+          if (isMounted && res && res.result) {
+            setRoomTypes(res.result.content || []);
+          } else if (isMounted) {
+            setRoomTypes([]);
+          }
+        })
+        .catch((err) => {
+          console.error('Lỗi khi tải danh sách hạng phòng:', err);
+          if (isMounted) setRoomTypes([]);
+        })
+        .finally(() => {
+          if (isMounted) setIsLoadingRoomTypes(false);
+        });
+    }, 0);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, [selectedCategory, selectedHotelId]);
+
   if (!isOpen) return null;
+
+  const handleCategoryChange = (newCat: StorageCategory) => {
+    setSelectedCategory(newCat);
+    setErrorMsg(null);
+    if (newCat === 'BRAND_ASSET') {
+      setSelectedHotelId('');
+      setSelectedRoomTypeId('');
+    } else if (newCat !== 'HOTEL_ROOM_PHOTO') {
+      setSelectedRoomTypeId('');
+    }
+  };
+
+  const handleHotelChange = (newHotelId: number | '') => {
+    setSelectedHotelId(newHotelId);
+    setSelectedRoomTypeId('');
+    setErrorMsg(null);
+  };
 
   const handleFilesSelected = (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -78,12 +141,22 @@ export const MediaUploadModal: React.FC<MediaUploadModalProps> = ({
       return;
     }
 
+    if (isHotelRequired && !selectedHotelId) {
+      setErrorMsg('Vui lòng chọn khách sạn cơ sở!');
+      return;
+    }
+
+    if (isRoomPhoto && !selectedRoomTypeId) {
+      setErrorMsg('Vui lòng chọn hạng phòng cụ thể cho ảnh này!');
+      return;
+    }
+
     setIsUploading(true);
     setErrorMsg(null);
 
     try {
-      const hId = selectedHotelId ? Number(selectedHotelId) : undefined;
-      const refId = referenceId.trim() ? Number(referenceId.trim()) : undefined;
+      const hId = isBrandAsset || !selectedHotelId ? undefined : Number(selectedHotelId);
+      const refId = isRoomPhoto && selectedRoomTypeId ? Number(selectedRoomTypeId) : undefined;
 
       await mediaService.upload(selectedCategory, selectedFiles, hId, refId);
       setSelectedFiles([]);
@@ -96,8 +169,6 @@ export const MediaUploadModal: React.FC<MediaUploadModalProps> = ({
       setIsUploading(false);
     }
   };
-
-  const isHotelRequired = selectedCategory === 'HOTEL_PROPERTY_PHOTO' || selectedCategory === 'HOTEL_ROOM_PHOTO';
 
   return (
     <Modal
@@ -122,8 +193,8 @@ export const MediaUploadModal: React.FC<MediaUploadModalProps> = ({
             </label>
             <select
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value as StorageCategory)}
-              className="w-full h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-600"
+              onChange={(e) => handleCategoryChange(e.target.value as StorageCategory)}
+              className="w-full h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
             >
               {categories.map((cat) => (
                 <option key={cat.category} value={cat.category}>
@@ -137,34 +208,71 @@ export const MediaUploadModal: React.FC<MediaUploadModalProps> = ({
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Khách Sạn Cơ Sở {isHotelRequired && <span className="text-red-500">*</span>}
             </label>
-            <select
-              value={selectedHotelId}
-              onChange={(e) => setSelectedHotelId(e.target.value ? Number(e.target.value) : '')}
-              required={isHotelRequired}
-              className="w-full h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">-- Chọn khách sạn cơ sở --</option>
-              {hotels.map((h) => (
-                <option key={h.id} value={h.id}>
-                  {h.name}
-                </option>
-              ))}
-            </select>
+            {isBrandAsset ? (
+              <div className="h-10 rounded-xl border border-neutral-200 bg-neutral-100 px-3 flex items-center text-xs text-neutral-500 italic">
+                Tài nguyên toàn chuỗi (Không gắn cơ sở)
+              </div>
+            ) : (
+              <select
+                value={selectedHotelId}
+                onChange={(e) => handleHotelChange(e.target.value ? Number(e.target.value) : '')}
+                required={isHotelRequired}
+                className="w-full h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
+              >
+                {isHotelRequired ? (
+                  <option value="">-- Chọn khách sạn cơ sở * --</option>
+                ) : (
+                  <option value="">-- Toàn chuỗi / Dành cho trang chủ --</option>
+                )}
+                {hotels.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
-        {selectedCategory === 'HOTEL_ROOM_PHOTO' && (
-          <div>
+        {isRoomPhoto && (
+          <div className="p-3 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1">
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
-              ID Hạng Phòng Cơ Sở (Reference ID)
+              Hạng Phòng Của Cơ Sở <span className="text-red-500">*</span>
             </label>
-            <input
-              type="number"
-              value={referenceId}
-              onChange={(e) => setReferenceId(e.target.value)}
-              placeholder="Nhập ID cấu hình hạng phòng (hotelRoomTypeId)..."
-              className="w-full h-10 rounded-xl border border-neutral-300 px-3 text-xs text-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-600"
-            />
+            {!selectedHotelId ? (
+              <select
+                disabled
+                className="w-full h-10 rounded-xl border border-neutral-200 bg-neutral-100 px-3 text-xs text-neutral-400 cursor-not-allowed"
+              >
+                <option>-- Vui lòng chọn khách sạn cơ sở trước --</option>
+              </select>
+            ) : isLoadingRoomTypes ? (
+              <div className="h-10 rounded-xl border border-neutral-200 bg-white px-3 flex items-center text-xs text-neutral-500 gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                Đang tải danh sách hạng phòng...
+              </div>
+            ) : (
+              <select
+                value={selectedRoomTypeId}
+                onChange={(e) => setSelectedRoomTypeId(e.target.value ? Number(e.target.value) : '')}
+                required
+                className="w-full h-10 rounded-xl border border-neutral-300 bg-white px-3 text-xs text-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-600 cursor-pointer"
+              >
+                <option value="">-- Chọn hạng phòng cụ thể * --</option>
+                {roomTypes.map((rt) => (
+                  <option key={rt.id} value={rt.id}>
+                    {rt.roomTypeName} ({rt.roomTypeCode}) — {formatCurrency(rt.basePrice)}/đêm
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-[11px] text-neutral-500">
+              {!selectedHotelId
+                ? 'Khóa lựa chọn: Bạn cần chọn khách sạn cơ sở ở trên để hiển thị các hạng phòng tương ứng.'
+                : roomTypes.length === 0 && !isLoadingRoomTypes
+                ? 'Cơ sở này hiện chưa có cấu hình hạng phòng nào.'
+                : `Đã tìm thấy ${roomTypes.length} hạng phòng thuộc cơ sở đã chọn.`}
+            </p>
           </div>
         )}
 

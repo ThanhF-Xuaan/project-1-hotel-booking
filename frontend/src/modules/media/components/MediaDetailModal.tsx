@@ -157,12 +157,16 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
             <div className="p-3 bg-white rounded-xl border border-neutral-200 space-y-1">
               <span className="text-neutral-400 font-medium">Danh mục & Khách sạn</span>
               <div className="font-semibold text-neutral-900">{media.categoryLabel}</div>
-              {media.hotelName && (
-                <div className="text-neutral-500">{media.hotelName} (ID: {media.hotelId})</div>
+              {media.hotelName ? (
+                <div className="text-neutral-600">{media.hotelName} (ID: {media.hotelId})</div>
+              ) : (
+                <div className="text-neutral-500 italic">Phạm vi: Toàn chuỗi (Không gắn cơ sở)</div>
               )}
-              {media.referenceId && (
+              {media.referenceName ? (
+                <div className="text-red-600 font-semibold">Hạng phòng: {media.referenceName}</div>
+              ) : media.referenceId ? (
                 <div className="text-neutral-500">Mã tham chiếu: {media.referenceId}</div>
-              )}
+              ) : null}
             </div>
 
             <div className="p-3 bg-white rounded-xl border border-neutral-200 space-y-1">

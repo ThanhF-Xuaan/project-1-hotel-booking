@@ -52,6 +52,9 @@ public class MediaItemResponse {
     @Schema(description = "ID đối tượng tham chiếu (hạng phòng, người dùng...)")
     Long referenceId;
 
+    @Schema(description = "Tên hiển thị đối tượng tham chiếu (ví dụ tên hạng phòng)", example = "Deluxe King (DLX)")
+    String referenceName;
+
     @Schema(description = "Có phải là ảnh đại diện chính của đối tượng không", example = "true")
     Boolean isPrimary;
 

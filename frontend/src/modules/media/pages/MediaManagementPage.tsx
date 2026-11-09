@@ -421,8 +421,12 @@ export default function MediaManagementPage() {
                   <div className="text-[11px] font-semibold text-neutral-900 truncate" title={media.originalFilename}>
                     {media.originalFilename}
                   </div>
-                  <div className="text-[10px] text-neutral-400 truncate mt-0.5">
-                    {media.hotelName || media.categoryLabel}
+                  <div className="text-[10px] text-neutral-500 truncate mt-0.5">
+                    {media.hotelName ? (
+                      <span>{media.hotelName}{media.referenceName ? ` • ${media.referenceName}` : ''}</span>
+                    ) : (
+                      <span className="text-neutral-500 font-medium">Toàn chuỗi</span>
+                    )}
                   </div>
                 </div>
 
@@ -481,7 +485,18 @@ export default function MediaManagementPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-neutral-700">
-                      {media.hotelName || '—'}
+                      {media.hotelName ? (
+                        <div>
+                          <div className="font-medium text-neutral-900">{media.hotelName}</div>
+                          {media.referenceName && (
+                            <div className="text-[11px] text-red-600 font-semibold">{media.referenceName}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 text-[11px] font-medium">
+                          Toàn chuỗi
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-neutral-600 font-mono">
                       {formatBytes(media.sizeBytes)}

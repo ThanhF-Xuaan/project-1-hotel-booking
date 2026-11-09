@@ -30,6 +30,8 @@ import vn.edu.utc.hotel_booking.common.storage.service.InternalMediaDomainServic
 import vn.edu.utc.hotel_booking.common.storage.service.MediaManagementService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
+import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -44,6 +46,7 @@ public class MediaManagementServiceImpl implements MediaManagementService {
     InternalMediaDomainService internalMediaDomainService;
     StoragePolicyRegistry storagePolicyRegistry;
     HotelRepository hotelRepository;
+    HotelRoomTypeRepository hotelRoomTypeRepository;
 
     static final Map<StorageCategory, String> CATEGORY_LABELS = Map.of(
             StorageCategory.HOTEL_PROPERTY_PHOTO, "Khuôn viên / Khách sạn cơ sở",
@@ -111,8 +114,29 @@ public class MediaManagementServiceImpl implements MediaManagementService {
                 hotelRepository.findAllById(hotelIds).stream()
                         .collect(Collectors.toMap(Hotel::getId, Hotel::getName));
 
+        // Preload Room Type names for HOTEL_ROOM_PHOTO to avoid N+1 query
+        Set<Integer> roomTypeIds = pageResult.getContent().stream()
+                .filter(mo -> mo.getCategory() == StorageCategory.HOTEL_ROOM_PHOTO && mo.getReferenceId() != null)
+                .map(mo -> mo.getReferenceId().intValue())
+                .collect(Collectors.toSet());
+
+        Map<Integer, String> roomTypeNameMap = roomTypeIds.isEmpty() ? Collections.emptyMap() :
+                hotelRoomTypeRepository.findAllById(roomTypeIds).stream()
+                        .collect(Collectors.toMap(
+                                HotelRoomType::getId,
+                                rt -> rt.getRoomType() != null
+                                        ? rt.getRoomType().getName() + (rt.getRoomType().getCode() != null ? " (" + rt.getRoomType().getCode() + ")" : "")
+                                        : "Hạng phòng #" + rt.getId()
+                        ));
+
         List<MediaItemResponse> items = pageResult.getContent().stream()
-                .map(mo -> mapToResponse(mo, hotelNameMap.get(mo.getHotelId())))
+                .map(mo -> {
+                    String hotelName = hotelNameMap.get(mo.getHotelId());
+                    String refName = (mo.getReferenceId() != null)
+                            ? roomTypeNameMap.get(mo.getReferenceId().intValue())
+                            : null;
+                    return mapToResponse(mo, hotelName, refName);
+                })
                 .toList();
 
         return PageResponse.<MediaItemResponse>builder()
@@ -134,15 +158,26 @@ public class MediaManagementServiceImpl implements MediaManagementService {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Danh sách tệp tin tải lên không được rỗng");
         }
 
+        Short resolvedHotelId = validateAndResolveScope(category, hotelId, referenceId);
+
+        String resolvedRefName = null;
+        if (category == StorageCategory.HOTEL_ROOM_PHOTO && referenceId != null) {
+            resolvedRefName = hotelRoomTypeRepository.findById(referenceId.intValue())
+                    .map(rt -> rt.getRoomType() != null
+                            ? rt.getRoomType().getName() + (rt.getRoomType().getCode() != null ? " (" + rt.getRoomType().getCode() + ")" : "")
+                            : "Hạng phòng #" + rt.getId())
+                    .orElse(null);
+        }
+
         List<MediaItemResponse> uploadedItems = new ArrayList<>();
 
         for (MultipartFile file : files) {
-            MediaUploadResponse uploaded = internalMediaDomainService.upload(file, category, hotelId, referenceId, uploaderId);
+            MediaUploadResponse uploaded = internalMediaDomainService.upload(file, category, resolvedHotelId, referenceId, uploaderId);
             MediaObject media = mediaObjectRepository.findByIdAndIsDeletedFalse(uploaded.getMediaId())
                     .orElseThrow(() -> new AppException(ErrorCode.MEDIA_NOT_FOUND));
 
             // Nếu đây là ảnh duy nhất hiện có của đối tượng, tự động đánh dấu làm ảnh chính
-            Long refIdToCheck = referenceId != null ? referenceId : (hotelId != null ? hotelId.longValue() : null);
+            Long refIdToCheck = referenceId != null ? referenceId : (resolvedHotelId != null ? resolvedHotelId.longValue() : null);
             if (refIdToCheck != null) {
                 boolean hasPrimary = mediaObjectRepository
                         .findByCategoryAndReferenceIdAndIsPrimaryTrueAndIsDeletedFalse(category, refIdToCheck)
@@ -154,14 +189,53 @@ public class MediaManagementServiceImpl implements MediaManagementService {
             }
 
             String hotelName = null;
-            if (hotelId != null) {
-                hotelName = hotelRepository.findById(hotelId).map(Hotel::getName).orElse(null);
+            if (resolvedHotelId != null) {
+                hotelName = hotelRepository.findById(resolvedHotelId).map(Hotel::getName).orElse(null);
             }
 
-            uploadedItems.add(mapToResponse(media, hotelName));
+            uploadedItems.add(mapToResponse(media, hotelName, resolvedRefName));
         }
 
         return uploadedItems;
+    }
+
+    private Short validateAndResolveScope(StorageCategory category, Short hotelId, Long referenceId) {
+        if (category == StorageCategory.BRAND_ASSET) {
+            // Brand Asset thuộc cấp toàn chuỗi, không gắn với cơ sở riêng lẻ
+            return null;
+        }
+
+        if (category == StorageCategory.HOTEL_PROPERTY_PHOTO) {
+            if (hotelId == null) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ảnh khuôn viên khách sạn bắt buộc phải chọn Khách sạn cơ sở!");
+            }
+            if (!hotelRepository.existsById(hotelId)) {
+                throw new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn cơ sở với ID: " + hotelId);
+            }
+            return hotelId;
+        }
+
+        if (category == StorageCategory.HOTEL_ROOM_PHOTO) {
+            if (hotelId == null) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ảnh hạng phòng bắt buộc phải chọn Khách sạn cơ sở!");
+            }
+            if (referenceId == null) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ảnh hạng phòng bắt buộc phải chọn Hạng phòng cụ thể!");
+            }
+            HotelRoomType roomType = hotelRoomTypeRepository.findById(referenceId.intValue())
+                    .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND, "Không tìm thấy hạng phòng với ID: " + referenceId));
+            if (roomType.getHotel() == null || !Objects.equals(roomType.getHotel().getId(), hotelId)) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Hạng phòng được chọn không thuộc khách sạn cơ sở này!");
+            }
+            return hotelId;
+        }
+
+        // Với MARKETING_BANNER, HOTEL_AMENITY, USER_AVATAR... hotelId là tùy chọn
+        if (hotelId != null && !hotelRepository.existsById(hotelId)) {
+            throw new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn cơ sở với ID: " + hotelId);
+        }
+
+        return hotelId;
     }
 
     @Override
@@ -243,7 +317,7 @@ public class MediaManagementServiceImpl implements MediaManagementService {
                 .toList();
     }
 
-    private MediaItemResponse mapToResponse(MediaObject mo, String hotelName) {
+    private MediaItemResponse mapToResponse(MediaObject mo, String hotelName, String referenceName) {
         String url = internalMediaDomainService.getDownloadUrl(mo.getStorageKey(), null);
         return MediaItemResponse.builder()
                 .id(mo.getId())
@@ -258,6 +332,7 @@ public class MediaManagementServiceImpl implements MediaManagementService {
                 .hotelId(mo.getHotelId())
                 .hotelName(hotelName)
                 .referenceId(mo.getReferenceId())
+                .referenceName(referenceName)
                 .isPrimary(Boolean.TRUE.equals(mo.getIsPrimary()))
                 .accessLevel(mo.getAccessLevel())
                 .lifecycleStatus(mo.getLifecycleStatus())

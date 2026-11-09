@@ -33,6 +33,7 @@ export interface MediaItemDto {
   hotelId?: number | null;
   hotelName?: string | null;
   referenceId?: number | null;
+  referenceName?: string | null;
   isPrimary: boolean;
   accessLevel: 'PUBLIC_READ' | 'AUTHENTICATED_READ' | 'PRIVATE_RESTRICTED';
   lifecycleStatus: string;
