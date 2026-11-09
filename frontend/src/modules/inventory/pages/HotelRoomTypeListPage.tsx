@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, RefreshCw, Search, Eye, Building2, BedDouble, Users } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
@@ -39,6 +39,14 @@ export const HotelRoomTypeListPage: React.FC = () => {
   const [status, setStatus] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
 
+  // Configured summary for dynamic real-data filter options
+  const [configuredHotels, setConfiguredHotels] = useState<
+    { id: number; name: string; count: number }[]
+  >([])
+  const [configuredRoomTypes, setConfiguredRoomTypes] = useState<
+    { id: number; name: string; code: string; count: number }[]
+  >([])
+
   // Selection
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
@@ -59,7 +67,57 @@ export const HotelRoomTypeListPage: React.FC = () => {
   const [deletingIds, setDeletingIds] = useState<number[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Load Reference Data (Hotels, RoomTypes, TaxCategories)
+  // Tải danh sách khách sạn & hạng phòng thực tế đang có cấu hình (để bộ lọc đồng bộ 100% với dữ liệu)
+  const refreshFilterSummary = useCallback(async () => {
+    try {
+      const res = await hotelRoomTypeService.filter({
+        page: 0,
+        pageSize: 1000,
+      })
+      if (res && res.result && res.result.content) {
+        const hotelMap = new Map<number, { id: number; name: string; count: number }>()
+        const rtMap = new Map<number, { id: number; name: string; code: string; count: number }>()
+
+        res.result.content.forEach((item) => {
+          // Khách sạn đang có cấu hình
+          const existingHotel = hotelMap.get(item.hotelId)
+          if (existingHotel) {
+            existingHotel.count += 1
+          } else {
+            hotelMap.set(item.hotelId, {
+              id: item.hotelId,
+              name: item.hotelName,
+              count: 1,
+            })
+          }
+
+          // Hạng phòng đang có cấu hình
+          const existingRt = rtMap.get(item.roomTypeId)
+          if (existingRt) {
+            existingRt.count += 1
+          } else {
+            rtMap.set(item.roomTypeId, {
+              id: item.roomTypeId,
+              name: item.roomTypeName,
+              code: item.roomTypeCode,
+              count: 1,
+            })
+          }
+        })
+
+        setConfiguredHotels(Array.from(hotelMap.values()))
+        setConfiguredRoomTypes(Array.from(rtMap.values()))
+
+        // Nếu khách sạn đang chọn không còn cấu hình nào (vừa bị xóa hết), tự động reset về Tất cả
+        setSelectedHotelId((prev) => (prev !== '' && !hotelMap.has(Number(prev)) ? '' : prev))
+        setSelectedRoomTypeId((prev) => (prev !== '' && !rtMap.has(Number(prev)) ? '' : prev))
+      }
+    } catch (err: unknown) {
+      console.error('Lỗi khi tải danh sách bộ lọc cấu hình phòng:', err)
+    }
+  }, [])
+
+  // Load Reference Data (Hotels, RoomTypes, TaxCategories) & Filter Summary
   useEffect(() => {
     hotelService
       .filter({ pageSize: 100, status: 'ACTIVE' })
@@ -81,7 +139,12 @@ export const HotelRoomTypeListPage: React.FC = () => {
         if (res.result) setTaxCategories(res.result.content || [])
       })
       .catch((err: unknown) => console.error('Lỗi khi tải danh mục thuế:', err))
-  }, [])
+
+    const timer = setTimeout(() => {
+      void refreshFilterSummary()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [refreshFilterSummary])
 
   const loadData = useCallback(async () => {
     setIsLoading(true)
@@ -89,8 +152,8 @@ export const HotelRoomTypeListPage: React.FC = () => {
       const response = await hotelRoomTypeService.filter({
         page,
         pageSize,
-        hotelId: formHotelId !== '' ? Number(selectedHotelId) || undefined : undefined,
-        roomTypeId: selectedRoomTypeId !== '' ? Number(selectedRoomTypeId) || undefined : undefined,
+        hotelId: selectedHotelId !== '' ? Number(selectedHotelId) : undefined,
+        roomTypeId: selectedRoomTypeId !== '' ? Number(selectedRoomTypeId) : undefined,
         status: status || undefined,
       })
       if (response && response.result) {
@@ -103,7 +166,7 @@ export const HotelRoomTypeListPage: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [page, pageSize, selectedHotelId, selectedRoomTypeId, status, formHotelId])
+  }, [page, pageSize, selectedHotelId, selectedRoomTypeId, status])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -133,6 +196,13 @@ export const HotelRoomTypeListPage: React.FC = () => {
   }
 
   const openCreateModal = () => {
+    hotelService
+      .filter({ pageSize: 100, status: 'ACTIVE' })
+      .then((res) => {
+        if (res.result && res.result.content) setHotels(res.result.content)
+      })
+      .catch(() => {})
+
     setFormHotelId(hotels.length > 0 ? hotels[0].id : '')
     setFormRoomTypeId(roomTypes.length > 0 ? roomTypes[0].id : '')
     setFormTaxCategoryId(taxCategories.length > 0 ? taxCategories[0].id : '')
@@ -187,6 +257,7 @@ export const HotelRoomTypeListPage: React.FC = () => {
       }
       const res = await hotelRoomTypeService.create(payload)
       setIsCreateModalOpen(false)
+      void refreshFilterSummary()
       if (res.result) {
         // Chuyển hướng ngay tới trang chi tiết để cấu hình Giường và Tiện ích
         navigate(`/inventory/hotel-room-types/${res.result.id}`)
@@ -220,6 +291,7 @@ export const HotelRoomTypeListPage: React.FC = () => {
       setDeleteConfirmOpen(false)
       setSelectedIds((prev) => prev.filter((id) => !deletingIds.includes(id)))
       loadData()
+      void refreshFilterSummary()
     } catch (err: unknown) {
       console.error('Lỗi khi xóa cấu hình loại phòng:', err)
     } finally {
@@ -227,16 +299,32 @@ export const HotelRoomTypeListPage: React.FC = () => {
     }
   }
 
-  // Options for Selects
-  const hotelOptions: SelectOption<number | ''>[] = [
-    { value: '', label: 'Tất cả khách sạn' },
-    ...hotels.map((h) => ({ value: h.id as number | '', label: h.name })),
-  ]
+  // Options for Filter Selects (calculated dynamically from actual data)
+  const hotelOptions: SelectOption<number | ''>[] = useMemo(() => {
+    return [
+      {
+        value: '',
+        label: 'Tất cả khách sạn',
+      },
+      ...configuredHotels.map((h) => ({
+        value: h.id,
+        label: h.name,
+      })),
+    ]
+  }, [configuredHotels])
 
-  const roomTypeOptions: SelectOption<number | ''>[] = [
-    { value: '', label: 'Tất cả loại phòng' },
-    ...roomTypes.map((rt) => ({ value: rt.id as number | '', label: `${rt.name} (${rt.code})` })),
-  ]
+  const roomTypeOptions: SelectOption<number | ''>[] = useMemo(() => {
+    return [
+      {
+        value: '',
+        label: 'Tất cả loại phòng',
+      },
+      ...configuredRoomTypes.map((rt) => ({
+        value: rt.id,
+        label: `${rt.name} (${rt.code})`,
+      })),
+    ]
+  }, [configuredRoomTypes])
 
   const statusOptions = [
     { value: '', label: 'Tất cả trạng thái' },
@@ -288,7 +376,10 @@ export const HotelRoomTypeListPage: React.FC = () => {
           <div className="flex-1">
             <Select
               value={selectedHotelId}
-              onChange={(val) => setSelectedHotelId(val !== '' ? Number(val) : '')}
+              onChange={(val) => {
+                setSelectedHotelId(val !== '' ? Number(val) : '')
+                setPage(0)
+              }}
               options={hotelOptions}
               placeholder="Chọn khách sạn cơ sở..."
             />
@@ -296,7 +387,10 @@ export const HotelRoomTypeListPage: React.FC = () => {
           <div className="flex-1">
             <Select
               value={selectedRoomTypeId}
-              onChange={(val) => setSelectedRoomTypeId(val !== '' ? Number(val) : '')}
+              onChange={(val) => {
+                setSelectedRoomTypeId(val !== '' ? Number(val) : '')
+                setPage(0)
+              }}
               options={roomTypeOptions}
               placeholder="Chọn loại phòng..."
             />
@@ -304,7 +398,10 @@ export const HotelRoomTypeListPage: React.FC = () => {
           <div className="w-full md:w-52">
             <Select
               value={status}
-              onChange={(val) => setStatus(String(val))}
+              onChange={(val) => {
+                setStatus(String(val))
+                setPage(0)
+              }}
               options={statusOptions}
             />
           </div>
@@ -320,6 +417,7 @@ export const HotelRoomTypeListPage: React.FC = () => {
               setSelectedRoomTypeId('')
               setStatus('')
               setPage(0)
+              void refreshFilterSummary()
             }}
             className="shrink-0"
             title="Làm mới bộ lọc"
@@ -353,10 +451,10 @@ export const HotelRoomTypeListPage: React.FC = () => {
       {/* 3-Row Layout: Row 3 - Data Table */}
       <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          <table className="w-full text-left border-collapse text-xs xl:text-sm">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50/50 text-neutral-600">
-                <th className="py-3.5 px-4 w-12 text-center">
+                <th className="py-3 px-2 w-10 text-center whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={
@@ -367,13 +465,13 @@ export const HotelRoomTypeListPage: React.FC = () => {
                     className="rounded-md border-neutral-300 text-red-600 focus:ring-red-500 cursor-pointer"
                   />
                 </th>
-                <th className="py-3.5 px-4 font-semibold">Khách Sạn</th>
-                <th className="py-3.5 px-4 font-semibold">Hạng Phòng</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Giá Gốc / Đêm</th>
-                <th className="py-3.5 px-4 font-semibold text-center">Số Phòng</th>
-                <th className="py-3.5 px-4 font-semibold">Sức Chứa & Giường</th>
-                <th className="py-3.5 px-4 font-semibold">Trạng Thái</th>
-                <th className="py-3.5 px-4 font-semibold text-right">Chi Tiết</th>
+                <th className="py-3 px-2 font-semibold">Khách Sạn</th>
+                <th className="py-3 px-2 font-semibold">Hạng Phòng</th>
+                <th className="py-3 px-2 font-semibold text-right whitespace-nowrap">Giá Gốc / Đêm</th>
+                <th className="py-3 px-1.5 font-semibold text-center whitespace-nowrap">Số Phòng</th>
+                <th className="py-3 px-2 font-semibold">Sức Chứa & Giường</th>
+                <th className="py-3 px-1.5 font-semibold text-center whitespace-nowrap">Trạng Thái</th>
+                <th className="py-3 px-2 font-semibold text-center whitespace-nowrap">Chi Tiết</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200/70">
@@ -402,7 +500,7 @@ export const HotelRoomTypeListPage: React.FC = () => {
                         isSelected ? 'bg-red-50/20' : ''
                       }`}
                     >
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -411,32 +509,32 @@ export const HotelRoomTypeListPage: React.FC = () => {
                           className="rounded-md border-neutral-300 text-red-600 focus:ring-red-500 cursor-pointer"
                         />
                       </td>
-                      <td className="py-3 px-4 font-medium text-neutral-900">
+                      <td className="py-2.5 px-2 font-medium text-neutral-900 leading-snug">
                         {hrt.hotelName}
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-neutral-900">{hrt.roomTypeName}</div>
-                        <div className="text-xs text-neutral-500 font-mono">{hrt.roomTypeCode}</div>
+                      <td className="py-2.5 px-2 leading-snug">
+                        <div className="font-semibold text-neutral-900 leading-tight">{hrt.roomTypeName}</div>
+                        <div className="text-[11px] text-neutral-400 font-mono mt-0.5">{hrt.roomTypeCode}</div>
                       </td>
-                      <td className="py-3 px-4 text-right font-semibold text-red-600">
+                      <td className="py-2.5 px-2 text-right font-bold text-red-600 whitespace-nowrap">
                         {formatCurrency(hrt.basePrice)}
                       </td>
-                      <td className="py-3 px-4 text-center font-bold text-neutral-800">
+                      <td className="py-2.5 px-1.5 text-center font-bold text-neutral-800 whitespace-nowrap">
                         {hrt.totalQuantity}
                       </td>
-                      <td className="py-3 px-4 text-xs text-neutral-600">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <Users className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>Tối đa: {hrt.maxTotalGuests} khách (Tiêu chuẩn: {hrt.standardAdults}L)</span>
+                      <td className="py-2.5 px-2 text-neutral-600">
+                        <div className="flex items-center gap-1.5 leading-tight mb-0.5 whitespace-nowrap">
+                          <Users className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span>{hrt.maxTotalGuests} khách ({hrt.standardAdults}L)</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-neutral-500">
-                          <BedDouble className="w-3.5 h-3.5 text-neutral-400" />
-                          <span>Giường tối đa: {hrt.maxBeds} | Phụ: {hrt.extraBeds}</span>
+                        <div className="flex items-center gap-1.5 leading-tight text-neutral-500 text-[11px] whitespace-nowrap">
+                          <BedDouble className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+                          <span>{hrt.maxBeds} giường{hrt.extraBeds > 0 ? ` (+${hrt.extraBeds} phụ)` : ''}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-2.5 px-1.5 text-center whitespace-nowrap">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                          className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${
                             hrt.status === 'ACTIVE'
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
@@ -445,25 +543,26 @@ export const HotelRoomTypeListPage: React.FC = () => {
                           {hrt.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng'}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="inline-flex items-center justify-end gap-1.5">
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap">
+                        <div className="inline-flex items-center justify-center gap-1 whitespace-nowrap">
                           <Button
                             variant="secondary"
                             size="sm"
                             onClick={() => navigate(`/inventory/hotel-room-types/${hrt.id}`)}
                             title="Xem chi tiết & Chỉnh sửa Giường, Tiện ích"
+                            className="h-7 px-2 text-xs whitespace-nowrap shrink-0"
                           >
-                            <Eye className="w-3.5 h-3.5 mr-1" />
-                            Cấu Hình
+                            <Eye className="w-3.5 h-3.5 mr-1 shrink-0" />
+                            <span>Cấu Hình</span>
                           </Button>
                           <button
                             type="button"
                             onClick={() => promptDeleteSingle(hrt.id)}
-                            className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
                             title="Xóa cấu hình"
                             aria-label={`Xóa cấu hình ${hrt.roomTypeName}`}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
