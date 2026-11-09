@@ -112,6 +112,7 @@ export const HousekeepingPage: React.FC = () => {
       setActionSuccessMessage(`Đã cập nhật trạng thái phòng thành công: ${newStatus}`);
       setTimeout(() => setActionSuccessMessage(''), 3500);
       fetchRooms();
+      setRefreshBlocksTrigger((prev) => prev + 1);
     } catch (err) {
       handleApiError(err, 'Lỗi cập nhật trạng thái phòng');
     }

@@ -49,22 +49,30 @@ public interface RoomMaintenanceBlockRepository extends JpaRepository<RoomMainte
                                                          @Param("startDate") LocalDate startDate,
                                                          @Param("endDate") LocalDate endDate);
 
+    List<RoomMaintenanceBlock> findByRoomInstanceIdAndStatus(Integer roomInstanceId, String status);
+
+    @Query("SELECT b FROM RoomMaintenanceBlock b " +
+           "JOIN FETCH b.roomInstance ri " +
+           "JOIN FETCH ri.hotelRoomType hrt " +
+           "WHERE b.status = 'ACTIVE' AND b.endDate < :today")
+    List<RoomMaintenanceBlock> findActiveBlocksEndingBefore(@Param("today") LocalDate today);
+
     @Query(value = "SELECT b FROM RoomMaintenanceBlock b " +
            "JOIN FETCH b.roomInstance ri " +
            "JOIN FETCH ri.hotelRoomType hrt " +
-           "WHERE (:roomInstanceId IS NULL OR ri.id = :roomInstanceId) " +
-           "AND (:hotelId IS NULL OR ri.hotel.id = :hotelId) " +
-           "AND (:blockType IS NULL OR b.blockType = :blockType) " +
-           "AND (:status IS NULL OR b.status = :status) " +
-           "AND (:fromDate IS NULL OR b.endDate >= :fromDate) " +
-           "AND (:toDate IS NULL OR b.startDate <= :toDate)",
+           "WHERE (CAST(:roomInstanceId AS integer) IS NULL OR ri.id = :roomInstanceId) " +
+           "AND (CAST(:hotelId AS short) IS NULL OR ri.hotel.id = :hotelId) " +
+           "AND (CAST(:blockType AS string) IS NULL OR b.blockType = :blockType) " +
+           "AND (CAST(:status AS string) IS NULL OR b.status = :status) " +
+           "AND (CAST(:fromDate AS java.time.LocalDate) IS NULL OR b.endDate >= :fromDate) " +
+           "AND (CAST(:toDate AS java.time.LocalDate) IS NULL OR b.startDate <= :toDate)",
            countQuery = "SELECT count(b) FROM RoomMaintenanceBlock b " +
-           "WHERE (:roomInstanceId IS NULL OR b.roomInstance.id = :roomInstanceId) " +
-           "AND (:hotelId IS NULL OR b.roomInstance.hotel.id = :hotelId) " +
-           "AND (:blockType IS NULL OR b.blockType = :blockType) " +
-           "AND (:status IS NULL OR b.status = :status) " +
-           "AND (:fromDate IS NULL OR b.endDate >= :fromDate) " +
-           "AND (:toDate IS NULL OR b.startDate <= :toDate)")
+           "WHERE (CAST(:roomInstanceId AS integer) IS NULL OR b.roomInstance.id = :roomInstanceId) " +
+           "AND (CAST(:hotelId AS short) IS NULL OR b.roomInstance.hotel.id = :hotelId) " +
+           "AND (CAST(:blockType AS string) IS NULL OR b.blockType = :blockType) " +
+           "AND (CAST(:status AS string) IS NULL OR b.status = :status) " +
+           "AND (CAST(:fromDate AS java.time.LocalDate) IS NULL OR b.endDate >= :fromDate) " +
+           "AND (CAST(:toDate AS java.time.LocalDate) IS NULL OR b.startDate <= :toDate)")
     Page<RoomMaintenanceBlock> filter(@Param("roomInstanceId") Integer roomInstanceId,
                                      @Param("hotelId") Short hotelId,
                                      @Param("blockType") String blockType,
