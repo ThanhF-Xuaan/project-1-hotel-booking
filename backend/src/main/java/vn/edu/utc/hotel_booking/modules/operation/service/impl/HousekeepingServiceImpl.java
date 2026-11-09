@@ -11,6 +11,7 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomOccupancyDto;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomMaintenanceBlockService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.RoomStatusUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.RoomHousekeepingStatusResponse;
@@ -29,11 +30,14 @@ public class HousekeepingServiceImpl implements HousekeepingService {
     RoomInstanceService roomInstanceService;
     RoomSlotService roomSlotService;
     BookingLookupService bookingLookupService;
+    RoomMaintenanceBlockService roomMaintenanceBlockService;
 
     private static final Set<String> VALID_STATUSES = Set.of("READY", "OCCUPIED", "CLEANING", "DIRTY", "MAINTENANCE");
 
     @Override
+    @Transactional
     public List<RoomHousekeepingStatusResponse> getRoomsByHotel(Short hotelId, String status) {
+        roomMaintenanceBlockService.autoExpireOverdueBlocks();
         List<RoomInstance> rooms = roomInstanceService.getRoomsByHotelAndStatus(hotelId, status);
 
         // Lấy danh sách ID phòng OCCUPIED để batch lookup thông tin lưu trú chống N+1
@@ -55,6 +59,11 @@ public class HousekeepingServiceImpl implements HousekeepingService {
         String newStatus = request.getStatus().trim().toUpperCase();
         if (!VALID_STATUSES.contains(newStatus)) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Trạng thái không hợp lệ. Các trạng thái hợp lệ: " + VALID_STATUSES);
+        }
+
+        // Khi chuyển sang READY, tự động hoàn tất và giải phóng các lệnh khóa bảo trì ACTIVE của phòng
+        if ("READY".equalsIgnoreCase(newStatus)) {
+            roomMaintenanceBlockService.completeActiveBlocksForRoom(roomInstanceId);
         }
 
         RoomInstance room = roomInstanceService.updateRoomStatusEntity(roomInstanceId, newStatus);
