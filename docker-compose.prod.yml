@@ -314,7 +314,8 @@ services:
       - "${NGINX_SSL_PORT:-443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/conf.d/prod.conf:/etc/nginx/conf.d/prod.conf:ro
+      - ./nginx/conf.d/common_locations.inc:/etc/nginx/conf.d/common_locations.inc:ro
       - certbot_certs:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro
     networks:

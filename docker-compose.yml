@@ -255,7 +255,8 @@ services:
       NGINX_ENTRYPOINT_QUIET_LOGS: "true"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/conf.d/common_locations.inc:/etc/nginx/conf.d/common_locations.inc:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       frontend:
