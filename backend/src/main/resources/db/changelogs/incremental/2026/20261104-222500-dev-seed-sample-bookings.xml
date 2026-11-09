@@ -6,6 +6,8 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="20261104-222500-dev-seed-sample-bookings" author="member-1" context="dev-seed">
+        <validCheckSum>9:b6f0b586d9fb9c25dcc85c31cedcdf93</validCheckSum>
+        <validCheckSum>9:be5fa0bb82cf9ad8bdfad33d118e1944</validCheckSum>
         <comment>Khoi tao 4 bo du lieu booking mau phuc vu Member 1 (T05 Lodging Queue, U13 OCR, U14 Personalization)</comment>
         <sqlFile path="db/sqlFile/incremental/2026/20261104-222500-dev-seed-sample-bookings.sql"
                  relativeToChangelogFile="false"
