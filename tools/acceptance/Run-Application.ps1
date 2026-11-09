@@ -125,6 +125,9 @@ if (-not (Test-Path -LiteralPath (Join-Path $frontendDirectory 'node_modules/.bi
     throw "Frontend dependencies are missing. Run 'npm ci' in $frontendDirectory before starting the sandbox."
 }
 $env:VITE_API_URL = "http://localhost:$backendPort"
+# The shared API client gives VITE_API_BASE_URL precedence over VITE_API_URL.
+# Override both so a developer's .env cannot redirect acceptance calls elsewhere.
+$env:VITE_API_BASE_URL = $env:VITE_API_URL
 $env:VITE_KEYCLOAK_URL = $keycloakRoot
 $env:VITE_KEYCLOAK_REALM = [string]$runtime.KEYCLOAK_REALM
 $env:VITE_KEYCLOAK_CLIENT_ID = 'hotel-frontend'
