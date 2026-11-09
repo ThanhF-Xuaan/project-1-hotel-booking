@@ -539,7 +539,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             {isLoading && (
               <div className="flex items-center gap-2 text-neutral-500 text-xs py-2 px-3 bg-white rounded-xl border border-neutral-200 w-fit">
                 <Sparkles className="w-4 h-4 text-[#EE0000] animate-spin" />
-                <span>Trợ lý AI đang tìm phòng phù hợp nhất...</span>
+                <span>Tôi đang tìm phòng phù hợp nhất...</span>
               </div>
             )}
 

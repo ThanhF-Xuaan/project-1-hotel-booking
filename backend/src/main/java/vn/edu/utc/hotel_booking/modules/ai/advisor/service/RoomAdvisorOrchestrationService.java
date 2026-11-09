@@ -433,7 +433,7 @@ public class RoomAdvisorOrchestrationService {
                 .sessionId(sessionId)
                 .sessionVersion(sessionVersion)
                 .status(AdvisorStatus.OUT_OF_SCOPE)
-                .reply("Trợ lý hỗ trợ tìm và xem thông tin phòng. Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường.")
+                .reply("Tôi hỗ trợ tìm và xem thông tin phòng. Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường.")
                 .criteria(RoomSearchCriteriaDto.builder()
                         .roomsCount(1)
                         .children(0)

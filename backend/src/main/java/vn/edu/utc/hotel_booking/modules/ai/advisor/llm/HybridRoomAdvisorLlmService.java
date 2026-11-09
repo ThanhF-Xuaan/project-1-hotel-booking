@@ -181,7 +181,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         AdvisorStatus status = result.getStatus();
         switch (status) {
             case OUT_OF_SCOPE:
-                return "Trợ lý hỗ trợ tìm và xem thông tin phòng. Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường.";
+                return "Tôi hỗ trợ tìm và xem thông tin phòng. Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường.";
 
             case NEED_INFO:
                 if (result.getMissingFields() != null && result.getMissingFields().contains("roomsCount")) {

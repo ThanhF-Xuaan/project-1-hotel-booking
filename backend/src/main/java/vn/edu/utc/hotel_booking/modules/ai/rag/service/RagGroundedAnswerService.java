@@ -129,21 +129,21 @@ public class RagGroundedAnswerService {
         }
         if (NON_STATIC_REQUEST.matcher(question).find()) {
             return RagQueryResultDto.builder().status(RagAnswerStatus.OUT_OF_SCOPE)
-                    .answer("Trợ lý kiến thức chỉ tra cứu chính sách công khai. Vui lòng dùng chức năng nghiệp vụ tương ứng hoặc liên hệ nhân viên.").build();
+                    .answer("Tôi chỉ tra cứu chính sách công khai. Vui lòng dùng chức năng nghiệp vụ tương ứng hoặc liên hệ nhân viên.").build();
         }
 
         // 1. Guardrail checks: Direct Prompt Injection, Code Gen, Customer PII (T12-015, T12-018, T12-019, T12-021)
         if (CODE_GEN_PATTERN.matcher(question).find()) {
             return RagQueryResultDto.builder()
                     .status(RagAnswerStatus.OUT_OF_SCOPE)
-                    .answer("Trợ lý chỉ hỗ trợ giải đáp các chính sách, dịch vụ và tiện ích của khách sạn. Chúng tôi không hỗ trợ viết mã nguồn hoặc lập trình.")
+                    .answer("Tôi chỉ hỗ trợ giải đáp các chính sách, dịch vụ và tiện ích của khách sạn. Tôi không hỗ trợ viết mã nguồn hoặc lập trình.")
                     .build();
         }
 
         if (DIRECT_INJECTION_PATTERN.matcher(question).find()) {
             return RagQueryResultDto.builder()
                     .status(RagAnswerStatus.OUT_OF_SCOPE)
-                    .answer("Yêu cầu không hợp lệ. Trợ lý tuân thủ các quy chuẩn bảo mật và không tiết lộ cấu hình hệ thống hay dữ liệu nhạy cảm.")
+                    .answer("Yêu cầu không hợp lệ. Tôi tuân thủ các quy chuẩn bảo mật và không tiết lộ cấu hình hệ thống hay dữ liệu nhạy cảm.")
                     .build();
         }
 
