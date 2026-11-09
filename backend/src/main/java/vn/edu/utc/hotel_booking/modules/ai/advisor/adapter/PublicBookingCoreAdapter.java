@@ -20,6 +20,7 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.request.DestinationType;
 import vn.edu.utc.hotel_booking.modules.booking.dto.request.RoomPriceQuoteRequest;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
 import vn.edu.utc.hotel_booking.modules.booking.service.PublicBookingSearchService;
+import vn.edu.utc.hotel_booking.modules.organization.service.PublicHotelEligibilityReader;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PriceBreakdownDto;
 
 import java.time.LocalDate;
@@ -33,13 +34,13 @@ import java.util.*;
 public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
 
     private final PublicBookingSearchService publicBookingSearchService;
+    private final PublicHotelEligibilityReader publicHotelEligibilityReader;
 
     @Override
     public DestinationResolutionResult resolveDestination(String locationQuery, Integer hotelId, Short regionId) {
         if (hotelId != null && hotelId > 0) {
             return DestinationResolutionResult.builder()
                     .hotelId(hotelId)
-                    .resolvedName("Hotel " + hotelId)
                     .ambiguous(false)
                     .ambiguities(new ArrayList<>())
                     .build();
@@ -48,7 +49,6 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
         if (regionId != null && regionId > 0) {
             return DestinationResolutionResult.builder()
                     .regionId(regionId)
-                    .resolvedName("Region " + regionId)
                     .ambiguous(false)
                     .ambiguities(new ArrayList<>())
                     .build();
@@ -69,7 +69,6 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
             }
             if (suggestions.isEmpty()) {
                 return DestinationResolutionResult.builder()
-                        .resolvedName(locationQuery.trim())
                         .ambiguous(false)
                         .ambiguities(new ArrayList<>())
                         .build();
@@ -170,15 +169,22 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
 
         try {
             if (criteria.getHotelId() != null && criteria.getHotelId() > 0) {
+                int hotelId = criteria.getHotelId();
+                if (hotelId > Short.MAX_VALUE || !publicHotelEligibilityReader.isActivePublicHotel((short) hotelId)) {
+                    return CoreCandidateDiscoveryResult.builder().catalogComplete(true).allFailed(false).build();
+                }
                 BookingSearchRequest req = new BookingSearchRequest();
-                req.setHotelId(criteria.getHotelId());
+                req.setHotelId(hotelId);
                 req.setCheckInDate(criteria.getCheckInDate());
                 req.setCheckOutDate(criteria.getCheckOutDate());
                 req.setRoomsCount(1);
                 req.normalize();
 
-                List<AvailableRoomTypeResponse> rooms = publicBookingSearchService.searchRooms(req);
-                if (rooms != null) {
+                UnifiedBookingSearchResponse result = publicBookingSearchService.searchUnified(req);
+                AvailableHotelResponse hotel = result != null ? result.getSelectedHotel() : null;
+                List<AvailableRoomTypeResponse> rooms = result != null ? result.getRooms() : null;
+                if (hotel != null && Objects.equals(hotel.getHotelId(), hotelId) && rooms != null
+                        && "ROOMS".equals(result.getSearchType())) {
                     for (AvailableRoomTypeResponse r : rooms) {
                         if (rawRooms.size() >= limit) {
                             catalogComplete = false;
@@ -186,8 +192,9 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                             break;
                         }
                         rawRooms.add(r);
-                        hotelIdByHrt.put(r.getHotelRoomTypeId(), criteria.getHotelId());
-                        hotelNameByHrt.put(r.getHotelRoomTypeId(), "Khách sạn " + criteria.getHotelId());
+                        hotelIdByHrt.put(r.getHotelRoomTypeId(), hotelId);
+                        hotelNameByHrt.put(r.getHotelRoomTypeId(), hotel.getHotelName());
+                        currencyByHrt.put(r.getHotelRoomTypeId(), hotel.getCurrency());
                     }
                 } else {
                     catalogComplete = false;
@@ -301,10 +308,24 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
             }
 
             Integer hrtId = r.getHotelRoomTypeId();
-            Integer hotelId = hotelIdByHrt.getOrDefault(hrtId, criteria.getHotelId() != null ? criteria.getHotelId() : 1);
-            String hotelName = hotelNameByHrt.getOrDefault(hrtId, "Khách sạn " + hotelId);
+            Integer hotelId = hotelIdByHrt.get(hrtId);
+            String hotelName = hotelNameByHrt.get(hrtId);
+            String quoteCurrency = currencyByHrt.get(hrtId);
+            if (hotelId == null || hotelId < 1 || hotelName == null || hotelName.isBlank()
+                    || r.getRoomTypeName() == null || r.getRoomTypeName().isBlank()
+                    || quoteCurrency == null || !quoteCurrency.matches("[A-Z]{3}")) {
+                failedRoomTypeIds.add(hrtId);
+                coverageReasons.add(CoverageReason.CONTRACT_UNVERIFIED);
+                continue;
+            }
+            Integer availableRooms = r.getAvailableRooms();
+            if (availableRooms == null || availableRooms < 1) {
+                failedRoomTypeIds.add(hrtId);
+                coverageReasons.add(CoverageReason.AVAILABILITY_FAILED);
+                continue;
+            }
 
-            // Determine if recalculation of room quote with surcharges is needed
+            // Core's discovery quote is for standard adults and no children, infants or extra beds.
             PriceBreakdownDto activePb = r.getPriceBreakdown();
             boolean needsQuoteRecalc = needsDetailedQuote(criteria, r);
 
@@ -336,8 +357,13 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                 }
             }
 
-            if (activePb == null || activePb.getFinalTotalAmount() == null) {
+            if (activePb == null || !Objects.equals(activePb.getHotelRoomTypeId(), hrtId)
+                    || activePb.getTotalNights() == null || activePb.getTotalNights() != totalNights
+                    || activePb.getFinalTotalAmount() == null || activePb.getFinalTotalAmount().signum() < 0) {
                 failedRoomTypeIds.add(hrtId);
+                if (!coverageReasons.contains(CoverageReason.PRICE_FAILED)) {
+                    coverageReasons.add(CoverageReason.PRICE_FAILED);
+                }
                 continue;
             }
 
@@ -380,8 +406,8 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
 
             candidateList.add(candidate);
 
-            // CandidateAvailability: continuous availableCount for all nights, breakdown unknown -> null
-            int availableRooms = r.getAvailableRooms() != null ? r.getAvailableRooms() : 0;
+            // Core returns the minimum available count over all occupied nights, not individual counts.
+            // Use that verified lower bound for the one-room eligibility check on every night.
             List<CandidateAvailability> avList = new ArrayList<>();
             LocalDate cur = criteria.getCheckInDate();
             while (cur.isBefore(criteria.getCheckOutDate())) {
@@ -399,8 +425,6 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
             availabilityMap.put(hrtId, avList);
 
             // PriceQuoteDto mapping: authoritative fields, transparent displayLabel, BACKEND_QUOTED_TOTAL
-            String quoteCurrency = currencyByHrt.get(hrtId);
-
             ServiceFeeStatus feeStatus = activePb.getTotalRoomServiceFee() != null
                     ? ServiceFeeStatus.INCLUDED
                     : ServiceFeeStatus.UNKNOWN;
@@ -426,7 +450,7 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                     .source("BACKEND_PRICING")
                     .quoteId("quote-" + hrtId + "-" + System.currentTimeMillis())
                     .observedAt(OffsetDateTime.now())
-                    .totalNights((int) totalNights)
+                    .totalNights(activePb.getTotalNights())
                     .currency(quoteCurrency)
                     .preTaxAmount(preTax)
                     .vatPercent(vatPercent)
@@ -460,9 +484,7 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
         int reqInfants = criteria.getInfants() != null ? criteria.getInfants() : 0;
         int reqExtraBeds = criteria.getExtraBeds() != null ? criteria.getExtraBeds() : 0;
 
-        int stdAdults = r.getStandardAdults() != null ? r.getStandardAdults().intValue() : 1;
-        int stdChildren = r.getStandardChildren() != null ? r.getStandardChildren().intValue() : 0;
-
-        return reqAdults > stdAdults || reqChildren > stdChildren || reqInfants > 0 || reqExtraBeds > 0;
+        return r.getStandardAdults() == null || reqAdults != r.getStandardAdults()
+                || reqChildren > 0 || reqInfants > 0 || reqExtraBeds > 0;
     }
 }

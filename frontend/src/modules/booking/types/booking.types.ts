@@ -45,6 +45,7 @@ export interface BookingSearchDto {
   bookingNumber?: string;
   roomNumber?: string;
   bookingType?: BookingType;
+  groupContractId?: number;
   status?: BookingStatus;
   checkInDate?: string;
   checkOutDate?: string;

@@ -22,11 +22,14 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import bookingService from '../services/booking.service';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
+import hotelService from '../../organization/services/hotel.service';
 import StayGuestsModal from '../components/StayGuestsModal';
+import StayGuestBookingLink from '../components/StayGuestBookingLink';
 import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
@@ -145,6 +148,13 @@ export const BookingListPage: React.FC = () => {
   // View Mode: Table View vs Timeline Rack Matrix
   const [viewMode, setViewMode] = useState<'TABLE' | 'TIMELINE'>('TABLE');
 
+  // Hotel selection & Timeline Matrix data
+  const [hotelList, setHotelList] = useState<{ id: number; name: string }[]>([]);
+  const [selectedHotelId, setSelectedHotelId] = useState<number | undefined>(undefined);
+  const [isHotelsLoading, setIsHotelsLoading] = useState(false);
+  const [timelineBookings, setTimelineBookings] = useState<BookingResponse[]>([]);
+  const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
+
   // Room Swap Modal
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [swapTarget, setSwapTarget] = useState<RoomSwapTarget | null>(null);
@@ -174,6 +184,65 @@ export const BookingListPage: React.FC = () => {
       setIsLoading(false);
     }
   }, [page, pageSize, searchBookingNumber, searchStatus, assignedTab]);
+
+  const loadTimelineData = useCallback(async (hotelId?: number) => {
+    if (!hotelId) return;
+    setIsLoadingTimeline(true);
+    try {
+      const [roomsRes, bookingsRes] = await Promise.all([
+        roomInstanceService.filter({ hotelId, pageSize: 200 }),
+        bookingService.filter({ hotelId, pageSize: 200, page: 1 }),
+      ]);
+      if (roomsRes.result?.content) {
+        setAvailableRooms(roomsRes.result.content);
+      }
+      if (bookingsRes.result?.content) {
+        setTimelineBookings(bookingsRes.result.content);
+      }
+    } catch (err) {
+      console.error('Lỗi tải dữ liệu sơ đồ đặt phòng:', err);
+    } finally {
+      setIsLoadingTimeline(false);
+    }
+  }, []);
+
+  // Fetch active hotels on mount
+  useEffect(() => {
+    let isMounted = true;
+    const timer = setTimeout(() => {
+      setIsHotelsLoading(true);
+      hotelService
+        .filter({ pageSize: 50, status: 'ACTIVE' })
+        .then((res) => {
+          if (!isMounted) return;
+          const rawList = res.result?.content || [];
+          const mapped = rawList.map((h) => ({ id: h.id, name: h.name || `Khách sạn #${h.id}` }));
+          setHotelList(mapped);
+          if (mapped.length > 0) {
+            setSelectedHotelId((prev) => prev ?? mapped[0].id);
+          }
+        })
+        .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err))
+        .finally(() => {
+          if (isMounted) setIsHotelsLoading(false);
+        });
+    }, 0);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Load timeline data when viewing timeline or selected hotel changes
+  useEffect(() => {
+    if (viewMode === 'TIMELINE' && selectedHotelId) {
+      const timer = setTimeout(() => {
+        void loadTimelineData(selectedHotelId);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, selectedHotelId, loadTimelineData]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -245,9 +314,13 @@ export const BookingListPage: React.FC = () => {
       `Đổi phòng thành công! Phòng ${response.previousRoomNumber} đã chuyển sang Phòng ${response.newRoomNumber} (${response.newRoomTypeName}).`
     );
     loadData();
-    roomInstanceService.filter({ pageSize: 100 }).then((res) => {
-      if (res.result) setAvailableRooms(res.result.content || []);
-    });
+    if (selectedHotelId) {
+      void loadTimelineData(selectedHotelId);
+    } else {
+      roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+        if (res.result) setAvailableRooms(res.result.content || []);
+      });
+    }
     if (selectedBooking) {
       bookingService.getById(selectedBooking.id).then((updated) => {
         if (updated.result) setSelectedBooking(updated.result);
@@ -576,13 +649,29 @@ export const BookingListPage: React.FC = () => {
   const getStatusBadge = (status: BookingStatus) => {
     switch (status) {
       case 'CONFIRMED':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">Đã xác nhận</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 whitespace-nowrap">
+            Đã xác nhận
+          </span>
+        );
       case 'CANCELLED':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Đã hủy</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 whitespace-nowrap">
+            Đã hủy
+          </span>
+        );
       case 'NO_SHOW':
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">Vắng mặt</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+            Vắng mặt
+          </span>
+        );
       default:
-        return <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-neutral-100 text-neutral-800">{status}</span>;
+        return (
+          <span className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-neutral-100 text-neutral-800 whitespace-nowrap">
+            {status}
+          </span>
+        );
     }
   };
 
@@ -643,15 +732,25 @@ export const BookingListPage: React.FC = () => {
       {viewMode === 'TIMELINE' ? (
         <TimelineRackView
           rooms={availableRooms}
-          bookings={bookings}
-          isLoading={isLoading}
+          bookings={timelineBookings.length > 0 ? timelineBookings : bookings}
+          isLoading={isLoadingTimeline || isLoading || isHotelsLoading}
           onRefresh={() => {
-            loadData();
-            roomInstanceService.filter({ pageSize: 100 }).then((res) => {
-              if (res.result) setAvailableRooms(res.result.content || []);
-            });
+            if (selectedHotelId) {
+              void loadTimelineData(selectedHotelId);
+            } else {
+              loadData();
+              roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+                if (res.result) setAvailableRooms(res.result.content || []);
+              });
+            }
           }}
           onOpenSwapModal={handleOpenSwapModal}
+          hotelList={hotelList}
+          selectedHotelId={selectedHotelId}
+          onSelectHotelId={(hotelId) => {
+            setSelectedHotelId(hotelId);
+            void loadTimelineData(hotelId);
+          }}
         />
       ) : (
         <>
@@ -706,17 +805,18 @@ export const BookingListPage: React.FC = () => {
               />
             </div>
 
-            <div className="w-48">
-              <select
-                className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600 focus:border-red-600"
+            <div className="w-56">
+              <Select<BookingStatus | ''>
                 value={searchStatus}
-                onChange={(e) => setSearchStatus(e.target.value as BookingStatus | '')}
-              >
-                <option value="">Tất cả trạng thái</option>
-                <option value="CONFIRMED">Đã xác nhận</option>
-                <option value="CANCELLED">Đã hủy</option>
-                <option value="NO_SHOW">Vắng mặt (No-show)</option>
-              </select>
+                onChange={(val) => setSearchStatus(val)}
+                options={[
+                  { value: '', label: 'Tất cả trạng thái' },
+                  { value: 'CONFIRMED', label: 'Đã xác nhận' },
+                  { value: 'CANCELLED', label: 'Đã hủy' },
+                  { value: 'NO_SHOW', label: 'Vắng mặt (No-show)' },
+                ]}
+                size="md"
+              />
             </div>
 
             <Button variant="primary" onClick={() => { setPage(0); loadData(); }}>
@@ -765,14 +865,14 @@ export const BookingListPage: React.FC = () => {
               <table className="w-full text-left border-collapse text-sm">
                 <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-medium">
                   <tr>
-                    <th className="p-4">Mã đơn</th>
-                    <th className="p-4">Khách sạn</th>
-                    <th className="p-4">Khách hàng</th>
-                    <th className="p-4">Loại phòng</th>
-                    <th className="p-4">Thời gian lưu trú</th>
-                    <th className="p-4 text-right">Tổng tiền (VNĐ)</th>
-                    <th className="p-4 text-center">Trạng thái</th>
-                    <th className="p-4 text-center">Thao tác</th>
+                    <th className="p-4 whitespace-nowrap">Mã đơn</th>
+                    <th className="p-4 whitespace-nowrap">Khách sạn</th>
+                    <th className="p-4 whitespace-nowrap">Khách hàng</th>
+                    <th className="p-4 whitespace-nowrap">Loại phòng</th>
+                    <th className="p-4 whitespace-nowrap">Thời gian lưu trú</th>
+                    <th className="p-4 text-right whitespace-nowrap">Tổng tiền (VNĐ)</th>
+                    <th className="p-4 text-center whitespace-nowrap">Trạng thái</th>
+                    <th className="p-4 text-center whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -797,14 +897,14 @@ export const BookingListPage: React.FC = () => {
 
                       return (
                         <tr key={booking.id} className="hover:bg-neutral-50 transition-colors">
-                          <td className="p-4 font-semibold text-neutral-900">
+                          <td className="p-4 font-semibold text-neutral-900 whitespace-nowrap">
                             {booking.bookingNumber}
                             <div className="text-xs text-neutral-400 font-normal mt-0.5">
                               {booking.bookingType}
                             </div>
                           </td>
                           <td className="p-4 text-neutral-800">{booking.hotelName}</td>
-                          <td className="p-4">
+                          <td className="p-4 whitespace-nowrap">
                             <div className="font-medium text-neutral-900">{booking.guestPhone}</div>
                             {booking.companyName && (
                               <div className="text-xs text-neutral-500">{booking.companyName}</div>
@@ -813,7 +913,7 @@ export const BookingListPage: React.FC = () => {
                           <td className="p-4 text-neutral-700">
                             {booking.bookingDetails?.map((d) => d.roomTypeName).join(', ') || 'N/A'}
                           </td>
-                          <td className="p-4 text-neutral-600 text-xs">
+                          <td className="p-4 text-neutral-600 text-xs whitespace-nowrap">
                             {booking.bookingDetails?.[0] ? (
                               <>
                                 <div>Từ: {booking.bookingDetails[0].checkInDate}</div>
@@ -823,18 +923,20 @@ export const BookingListPage: React.FC = () => {
                               'N/A'
                             )}
                           </td>
-                          <td className="p-4 text-right font-bold text-neutral-900">
+                          <td className="p-4 text-right font-bold text-neutral-900 whitespace-nowrap">
                             {new Intl.NumberFormat('vi-VN').format(booking.totalAmount)} đ
                           </td>
-                          <td className="p-4 text-center space-y-1">
-                            <div>{getStatusBadge(booking.status)}</div>
+                          <td className="p-4 text-center space-y-1 whitespace-nowrap">
+                            <div className="whitespace-nowrap">{getStatusBadge(booking.status)}</div>
                             {hasUnassignedRoom && booking.status === 'CONFIRMED' && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-                                <AlertTriangle className="w-3 h-3" /> Chưa xếp phòng
-                              </span>
+                              <div className="whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300 whitespace-nowrap">
+                                  <AlertTriangle className="w-3 h-3" /> Chưa xếp phòng
+                                </span>
+                              </div>
                             )}
                           </td>
-                          <td className="p-4">
+                          <td className="p-4 whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => {
@@ -1182,6 +1284,8 @@ export const BookingListPage: React.FC = () => {
         </Modal>
       )}
 
+      <StayGuestBookingLink />
+
       {/* MODAL KHAI BÁO KHÁCH LƯU TRÚ (STAY GUESTS) */}
       {stayGuestsTarget && (
         <StayGuestsModal
@@ -1213,18 +1317,18 @@ export const BookingListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Phòng vật lý khả dụng
             </label>
-            <select
-              className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-              value={selectedRoomInstanceId}
-              onChange={(e) => setSelectedRoomInstanceId(Number(e.target.value))}
-            >
-              <option value="">-- Chọn số phòng --</option>
-              {availableRooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  Phòng {r.roomNumber} - {r.currentStatus}
-                </option>
-              ))}
-            </select>
+            <Select<number>
+              value={selectedRoomInstanceId || 0}
+              onChange={(val) => setSelectedRoomInstanceId(val ? Number(val) : 0)}
+              options={[
+                { value: 0, label: 'Chọn số phòng', disabled: true },
+                ...availableRooms.map((r) => ({
+                  value: r.id,
+                  label: `Phòng ${r.roomNumber} - ${r.currentStatus}`,
+                })),
+              ]}
+              size="lg"
+            />
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
@@ -1251,16 +1355,17 @@ export const BookingListPage: React.FC = () => {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-700 mb-1">Loại phụ phí</label>
-            <select
-              className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
+            <Select<BookingChargeType>
               value={chargeType}
-              onChange={(e) => setChargeType(e.target.value as BookingChargeType)}
-            >
-              <option value="EARLY_CHECKIN">Nhận phòng sớm (Early Check-in)</option>
-              <option value="LATE_CHECKOUT">Trả phòng muộn (Late Check-out)</option>
-              <option value="PENALTY">Phạt vi phạm / Hỏng hóc</option>
-              <option value="OTHER">Dịch vụ khác</option>
-            </select>
+              onChange={(val) => setChargeType(val)}
+              options={[
+                { value: 'EARLY_CHECKIN', label: 'Nhận phòng sớm (Early Check-in)' },
+                { value: 'LATE_CHECKOUT', label: 'Trả phòng muộn (Late Check-out)' },
+                { value: 'PENALTY', label: 'Phạt vi phạm / Hỏng hóc' },
+                { value: 'OTHER', label: 'Dịch vụ khác' },
+              ]}
+              size="lg"
+            />
           </div>
 
           <div>

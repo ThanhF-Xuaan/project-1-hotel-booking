@@ -129,6 +129,7 @@ class DeterministicRoomRecommendationEngineTest {
         assertThat(result.getCoverage().getDiscoveredCount()).isEqualTo(26);
         assertThat(result.getCoverage().getEvaluatedCount()).isEqualTo(26);
         assertThat(result.getCoverage().getVerifiedMatchCount()).isEqualTo(26);
+        assertThat(result.getWarnings()).isEmpty();
 
         List<RoomRecommendationDto> recs = result.getRecommendations();
         assertThat(recs).hasSize(5);
@@ -202,6 +203,7 @@ class DeterministicRoomRecommendationEngineTest {
         assertThat(result.getRecommendations()).isEmpty();
         assertThat(result.getCoverage().getVerifiedMatchCount()).isEqualTo(0);
         assertThat(result.getCoverage().getStatus()).isEqualTo(CoverageStatus.COMPLETE);
+        assertThat(result.getWarnings()).isEmpty();
     }
 
     @Test
@@ -400,6 +402,7 @@ class DeterministicRoomRecommendationEngineTest {
 
         assertThat(result.getStatus()).isEqualTo(AdvisorStatus.TEMP_UNAVAILABLE);
         assertThat(result.getCoverage().getStatus()).isEqualTo(CoverageStatus.PARTIAL);
+        assertThat(result.getWarnings()).contains(WarningCode.INCOMPLETE_COVERAGE);
         assertThat(result.getRecommendations()).isEmpty();
     }
 

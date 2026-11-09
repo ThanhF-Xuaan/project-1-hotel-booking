@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   Trash2,
@@ -10,12 +10,16 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import roleService from '../services/role.service';
 import type { RoleDto, PermissionDto } from '../types/role.types';
+import PermissionAssignmentSelector from '../components/PermissionAssignmentSelector';
+import PermissionListTab from './tabs/PermissionListTab';
 
 export const RoleListPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'ROLES' | 'PERMISSIONS'>('ROLES');
   const [roles, setRoles] = useState<RoleDto[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<PermissionDto[]>([]);
   const [totalElements, setTotalElements] = useState(0);
@@ -53,17 +57,6 @@ export const RoleListPage: React.FC = () => {
       })
       .catch((err) => console.error('Lỗi khi tải danh mục quyền hạn:', err));
   }, []);
-
-  // Gom nhóm quyền hạn theo tài nguyên (resource)
-  const groupedPermissions = useMemo(() => {
-    const groups: Record<string, PermissionDto[]> = {};
-    availablePermissions.forEach((p) => {
-      const resName = p.resource || 'CHUNG';
-      if (!groups[resName]) groups[resName] = [];
-      groups[resName].push(p);
-    });
-    return groups;
-  }, [availablePermissions]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -137,22 +130,6 @@ export const RoleListPage: React.FC = () => {
     setSelectedPermissionIds(role.permissions?.map((p) => p.id) || []);
     setFormError(null);
     setIsFormModalOpen(true);
-  };
-
-  const togglePermission = (id: number) => {
-    setSelectedPermissionIds((prev) =>
-      prev.includes(id) ? prev.filter((pId) => pId !== id) : [...prev, id]
-    );
-  };
-
-  const toggleGroupPermissions = (perms: PermissionDto[]) => {
-    const groupIds = perms.map((p) => p.id);
-    const allSelected = groupIds.every((id) => selectedPermissionIds.includes(id));
-    if (allSelected) {
-      setSelectedPermissionIds((prev) => prev.filter((id) => !groupIds.includes(id)));
-    } else {
-      setSelectedPermissionIds((prev) => Array.from(new Set([...prev, ...groupIds])));
-    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -229,7 +206,58 @@ export const RoleListPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Row 1: Search & Filter Bar */}
+      {/* 2-TAB SEGMENTED NAVIGATION */}
+      <div className="flex items-center p-1 bg-neutral-100/90 rounded-2xl w-fit border border-neutral-200/80 shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setActiveTab('ROLES')}
+          className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            activeTab === 'ROLES'
+              ? 'bg-white text-neutral-900 shadow-xs'
+              : 'text-neutral-500 hover:text-neutral-900'
+          }`}
+        >
+          <ShieldCheck className={`w-4 h-4 ${activeTab === 'ROLES' ? 'text-red-600' : 'text-neutral-400'}`} />
+          Danh sách Vai trò (Roles)
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              activeTab === 'ROLES'
+                ? 'bg-red-50 text-red-600 border border-red-200'
+                : 'bg-neutral-200 text-neutral-600'
+            }`}
+          >
+            {totalElements}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('PERMISSIONS')}
+          className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+            activeTab === 'PERMISSIONS'
+              ? 'bg-white text-neutral-900 shadow-xs'
+              : 'text-neutral-500 hover:text-neutral-900'
+          }`}
+        >
+          <Key className={`w-4 h-4 ${activeTab === 'PERMISSIONS' ? 'text-red-600' : 'text-neutral-400'}`} />
+          Danh mục Quyền hạn (Permissions)
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+              activeTab === 'PERMISSIONS'
+                ? 'bg-red-50 text-red-600 border border-red-200'
+                : 'bg-neutral-200 text-neutral-600'
+            }`}
+          >
+            {availablePermissions.length}
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'PERMISSIONS' ? (
+        <PermissionListTab />
+      ) : (
+        <>
+          {/* Row 1: Search & Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs">
         <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
           <div className="sm:col-span-6">
@@ -247,15 +275,16 @@ export const RoleListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Trạng thái
             </label>
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang kích hoạt (ACTIVE)</option>
-              <option value="INACTIVE">Tạm khóa (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang kích hoạt (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm khóa (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
           <div className="sm:col-span-3 flex gap-2">
             <Button type="submit" variant="primary" className="flex-1 bg-red-600 hover:bg-red-700">
@@ -419,15 +448,17 @@ export const RoleListPage: React.FC = () => {
           onPageChange={(newPage) => setPage(newPage)}
         />
       </div>
+      </>
+      )}
 
       {/* Create / Edit Modal with Permission Selector */}
       <Modal
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         title={editingRole ? `Cập nhật Vai trò & Quyền: ${editingRole.name}` : 'Thêm mới Vai trò Hệ thống'}
-        maxWidth="4xl"
+        maxWidth="5xl"
       >
-        <form onSubmit={handleSave} className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+        <form onSubmit={handleSave} className="space-y-4 max-h-[85vh] overflow-y-auto pr-1">
           {formError && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
               {formError}
@@ -464,92 +495,29 @@ export const RoleListPage: React.FC = () => {
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
                 Trạng thái
               </label>
-              <select
+              <Select<'ACTIVE' | 'INACTIVE'>
                 value={formStatus}
-                onChange={(e) => setFormStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
-                className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-              >
-                <option value="ACTIVE">Kích hoạt (ACTIVE)</option>
-                <option value="INACTIVE">Tạm khóa (INACTIVE)</option>
-              </select>
+                onChange={(val) => setFormStatus(val)}
+                options={[
+                  { value: 'ACTIVE', label: 'Kích hoạt (ACTIVE)' },
+                  { value: 'INACTIVE', label: 'Tạm khóa (INACTIVE)' },
+                ]}
+                size="lg"
+              />
             </div>
           </div>
 
-          {/* Granular Permission Checklist */}
-          <div className="space-y-3 pt-2 border-t border-neutral-100">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Key className="w-4 h-4 text-red-600" />
-                Gán danh mục quyền hạn (Đã chọn: {selectedPermissionIds.length} quyền)
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedPermissionIds.length === availablePermissions.length) {
-                    setSelectedPermissionIds([]);
-                  } else {
-                    setSelectedPermissionIds(availablePermissions.map((p) => p.id));
-                  }
-                }}
-                className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer underline"
-              >
-                {selectedPermissionIds.length === availablePermissions.length
-                  ? 'Bỏ chọn tất cả'
-                  : 'Chọn tất cả quyền'}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {Object.entries(groupedPermissions).map(([resource, perms]) => {
-                const groupIds = perms.map((p) => p.id);
-                const allGroupSelected = groupIds.every((id) =>
-                  selectedPermissionIds.includes(id)
-                );
-                return (
-                  <div
-                    key={resource}
-                    className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2"
-                  >
-                    <div className="flex items-center justify-between border-b border-neutral-200 pb-1.5">
-                      <span className="text-xs font-bold text-neutral-800 uppercase">
-                        {resource} ({perms.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleGroupPermissions(perms)}
-                        className="text-[11px] text-blue-600 hover:underline font-medium cursor-pointer"
-                      >
-                        {allGroupSelected ? 'Bỏ chọn nhóm' : 'Chọn nhóm'}
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-1.5 pt-1">
-                      {perms.map((p) => {
-                        const isChecked = selectedPermissionIds.includes(p.id);
-                        return (
-                          <label
-                            key={p.id}
-                            className={`flex items-center gap-2 p-1.5 rounded-lg text-xs cursor-pointer transition-colors ${
-                              isChecked
-                                ? 'bg-red-50 text-red-900 font-medium'
-                                : 'hover:bg-white text-neutral-600'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => togglePermission(p.id)}
-                              className="rounded text-red-600 focus:ring-red-500"
-                            />
-                            <span className="truncate">{p.action}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          {/* Master-Detail Split-Pane Permission Assignment Selector */}
+          <div className="pt-2 border-t border-neutral-100">
+            <label className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5 mb-2">
+              <Key className="w-4 h-4 text-red-600" />
+              Gán danh mục quyền hạn
+            </label>
+            <PermissionAssignmentSelector
+              availablePermissions={availablePermissions}
+              selectedPermissionIds={selectedPermissionIds}
+              onChange={setSelectedPermissionIds}
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-3 border-t border-neutral-100">

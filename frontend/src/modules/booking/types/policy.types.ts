@@ -1,6 +1,6 @@
 export type BookingType = 'FIT' | 'GIT' | 'CORPORATE' | 'ONLINE' | 'WALK_IN' | 'ALL';
 
-export type CancellationFeeType = 'TIERED' | 'PERCENTAGE' | 'FIXED' | 'FULL_DEPOSIT';
+export type CancellationFeeType = 'TIERED' | 'PERCENT' | 'FIXED_AMOUNT' | 'FULL_DEPOSIT' | 'FIRST_NIGHT';
 
 export type NoShowPenaltyType = 'PERCENT_FIRST_NIGHT_RATE' | 'PERCENT_TOTAL_BOOKING' | 'FIXED_AMOUNT' | 'FULL_DEPOSIT';
 

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Modal } from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
+import { isValidVietnamesePhone } from '../../../core/utils/phone';
 
 export interface GroupInquiryModalProps {
   isOpen: boolean;
@@ -44,6 +45,10 @@ export const GroupInquiryModal: React.FC<GroupInquiryModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!contactName.trim() || !phone.trim()) return;
+    if (!isValidVietnamesePhone(phone.trim())) {
+      alert('Số điện thoại không đúng định dạng (Ví dụ: 0912345678 hoặc 02466668888)');
+      return;
+    }
 
     setIsSubmitting(true);
     // Simulate submission delay

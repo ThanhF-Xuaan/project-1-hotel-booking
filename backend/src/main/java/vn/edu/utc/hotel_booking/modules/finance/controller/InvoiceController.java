@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
@@ -25,6 +26,12 @@ public class InvoiceController {
 
     InvoiceService invoiceService;
 
+    @Auditable(
+            actionType = "INVOICE_CREATE",
+            entityName = "Invoice",
+            description = "'Tạo mới hóa đơn VAT cho đơn đặt #' + #request.bookingId",
+            captureResponse = true
+    )
     @PostMapping("/create")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
@@ -54,6 +61,12 @@ public class InvoiceController {
         return ApiResponse.success(invoiceService.getByBookingId(bookingId));
     }
 
+    @Auditable(
+            actionType = "INVOICE_ISSUE",
+            entityName = "Invoice",
+            entityId = "#id.toString()",
+            description = "'Phát hành chính thức hóa đơn VAT ID ' + #id"
+    )
     @PutMapping("/{id}/issue")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
     @Operation(summary = "Phát hành hóa đơn chính thức (Chuyển trạng thái sang ISSUED)")

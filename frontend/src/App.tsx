@@ -1,20 +1,30 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './core/components/auth/ProtectedRoute'
-
 const AdminLayout = lazy(() => import('./core/components/layout/AdminLayout'))
 const LoginPage = lazy(() => import('./modules/auth/pages/LoginPage'))
 const RegionListPage = lazy(() => import('./modules/organization/pages/RegionListPage'))
 const HotelListPage = lazy(() => import('./modules/organization/pages/HotelListPage'))
 const RoomTypeListPage = lazy(() => import('./modules/inventory/pages/RoomTypeListPage'))
 const RoomInstanceListPage = lazy(() => import('./modules/inventory/pages/RoomInstanceListPage'))
+const RoomBedListPage = lazy(() => import('./modules/inventory/pages/RoomBedListPage'))
+const RoomFeatureListPage = lazy(() => import('./modules/inventory/pages/RoomFeatureListPage'))
+const HotelRoomTypeListPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeListPage'))
+const HotelRoomTypeDetailPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeDetailPage'))
+const HotelRoomTypeAllocationMatrixPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeAllocationMatrixPage'))
 const PricingRuleListPage = lazy(() => import('./modules/pricing/pages/PricingRuleListPage'))
 const CampaignListPage = lazy(() => import('./modules/pricing/pages/CampaignListPage'))
+const TaxCategoryListPage = lazy(() => import('./modules/pricing/pages/TaxCategoryListPage'))
+const VatRuleListPage = lazy(() => import('./modules/pricing/pages/VatRuleListPage'))
+const HotelAgePolicyListPage = lazy(() => import('./modules/pricing/pages/HotelAgePolicyListPage'))
+const HolidayCalendarListPage = lazy(() => import('./modules/pricing/pages/HolidayCalendarListPage'))
 const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPage'))
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
 const RoomingListImportPage = lazy(() => import('./modules/booking/pages/RoomingListImportPage'))
 const PolicyManagementPage = lazy(() => import('./modules/booking/pages/PolicyManagementPage'))
 const GroupManagementPage = lazy(() => import('./modules/booking/pages/GroupManagementPage').then((m) => ({ default: m.GroupManagementPage })))
+const LodgingQueuePage = lazy(() => import('./modules/operation/pages/LodgingQueuePage'))
+const PayrollImportPage = lazy(() => import('./modules/finance/pages/PayrollImportPage'))
 const FolioPaymentPage = lazy(() => import('./modules/finance/pages/FolioPaymentPage'))
 const PaymentResultPage = lazy(() => import('./modules/finance/pages/PaymentResultPage'))
 const MenuListPage = lazy(() => import('./modules/operation/pages/MenuListPage')
@@ -23,6 +33,7 @@ const RoomServiceOrderPage = lazy(() => import('./modules/operation/pages/RoomSe
   .then((module) => ({ default: module.RoomServiceOrderPage })))
 const HousekeepingPage = lazy(() => import('./modules/operation/pages/HousekeepingPage')
   .then((module) => ({ default: module.HousekeepingPage })))
+const UtilityManagementPage = lazy(() => import('./modules/operation/pages/UtilityManagementPage'))
 const NightAuditPage = lazy(() => import('./modules/operation/pages/NightAuditPage')
   .then((module) => ({ default: module.NightAuditPage })))
 const ManagementDashboard = lazy(() => import('./modules/dashboard/pages/ManagementDashboard')
@@ -117,6 +128,25 @@ export function App() {
                 <Route path="/operation/night-audit" element={<NightAuditPage />} />
               </Route>
 
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER']} />}>
+
+                <Route path="/operation/utility" element={<UtilityManagementPage />} />
+
+              </Route>
+
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST']} />}>
+
+                <Route path="/operation/lodging-queue" element={<LodgingQueuePage />} />
+
+              </Route>
+
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER']} />}>
+
+                <Route path="/finance/payroll-import" element={<PayrollImportPage />} />
+
+              </Route>
+
+
               {/* Phân hệ Tài chính */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE']} />}>
                 <Route path="/finance/folios" element={<FolioPaymentPage />} />
@@ -151,6 +181,13 @@ export function App() {
               {/* Phân hệ Quản lý Tồn phòng */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="/inventory/room-types" element={<RoomTypeListPage />} />
+                <Route path="/inventory/hotel-room-types" element={<HotelRoomTypeListPage />} />
+                <Route path="/inventory/hotel-room-types/:id" element={<HotelRoomTypeDetailPage />} />
+                <Route path="/inventory/room-type-matrix" element={<HotelRoomTypeAllocationMatrixPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
+                <Route path="/inventory/beds" element={<RoomBedListPage />} />
+                <Route path="/inventory/features" element={<RoomFeatureListPage />} />
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING', 'ENGINEERING']} />}>
                 <Route path="/inventory/rooms" element={<RoomInstanceListPage />} />
@@ -160,6 +197,12 @@ export function App() {
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="/pricing/rules" element={<PricingRuleListPage />} />
                 <Route path="/pricing/campaigns" element={<CampaignListPage />} />
+                <Route path="/pricing/age-policies" element={<HotelAgePolicyListPage />} />
+                <Route path="/pricing/holiday-calendars" element={<HolidayCalendarListPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'FINANCE']} />}>
+                <Route path="/pricing/tax-categories" element={<TaxCategoryListPage />} />
+                <Route path="/pricing/vat-rules" element={<VatRuleListPage />} />
               </Route>
 
               {/* Fallback cho các module chưa triển khai */}

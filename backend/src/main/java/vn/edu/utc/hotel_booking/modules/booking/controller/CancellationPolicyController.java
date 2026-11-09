@@ -44,21 +44,21 @@ public class CancellationPolicyController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('CHAIN_ADMIN')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     @Operation(summary = "Tạo mới chính sách hủy phòng cấp chuỗi (Chỉ Chain Admin)")
     public ApiResponse<CancellationPolicyResponse> create(@Valid @RequestBody CancellationPolicyCreateRequest request) {
         return ApiResponse.success("Tạo chính sách hủy thành công", cancellationPolicyService.create(request));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('CHAIN_ADMIN')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     @Operation(summary = "Cập nhật chính sách hủy phòng cấp chuỗi (Chỉ Chain Admin)")
     public ApiResponse<CancellationPolicyResponse> update(@PathVariable Integer id, @Valid @RequestBody CancellationPolicyUpdateRequest request) {
         return ApiResponse.success("Cập nhật chính sách hủy thành công", cancellationPolicyService.update(id, request));
     }
 
     @DeleteMapping("/delete")
-    @PreAuthorize("hasRole('CHAIN_ADMIN')")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     @Operation(summary = "Xóa mềm một hoặc nhiều chính sách hủy (Chỉ Chain Admin, chặn nếu đã có đơn sử dụng)")
     public ApiResponse<Void> deleteBatch(@RequestBody List<Integer> ids) {
         cancellationPolicyService.delete(ids);

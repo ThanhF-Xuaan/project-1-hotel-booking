@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.identity.dto.request.GuestCreateRequest;
@@ -93,6 +94,13 @@ public class GuestController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "GUEST_CREATE",
+            entityName = "Guest",
+            description = "'Tạo mới hồ sơ khách hàng: ' + #request.fullName",
+            maskFields = {"identityNumber", "phone", "email"},
+            captureResponse = true
+    )
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
@@ -105,6 +113,13 @@ public class GuestController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "GUEST_UPDATE",
+            entityName = "Guest",
+            entityId = "#id.toString()",
+            description = "'Cập nhật hồ sơ khách hàng ID ' + #id",
+            maskFields = {"identityNumber", "phone", "email"}
+    )
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Cập nhật thông tin hồ sơ khách hàng")
@@ -117,6 +132,12 @@ public class GuestController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "GUEST_DELETE",
+            entityName = "Guest",
+            entityId = "#ids.toString()",
+            description = "'Xóa hồ sơ khách hàng: ' + #ids.toString()"
+    )
     @DeleteMapping("/delete")
     @PreAuthorize("hasRole('CHAIN_ADMIN')")
     @Operation(summary = "Xóa mềm một hoặc nhiều hồ sơ khách hàng (Batch Delete)")

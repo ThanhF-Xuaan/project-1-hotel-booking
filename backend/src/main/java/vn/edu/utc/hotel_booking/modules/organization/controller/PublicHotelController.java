@@ -8,8 +8,12 @@ import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.organization.dto.request.HotelSearchDto;
+import vn.edu.utc.hotel_booking.modules.organization.dto.response.HotelImageResponse;
 import vn.edu.utc.hotel_booking.modules.organization.dto.response.HotelResponse;
+import vn.edu.utc.hotel_booking.modules.organization.service.HotelMediaService;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/public/hotels")
@@ -18,6 +22,7 @@ import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 public class PublicHotelController {
 
     private final HotelService hotelService;
+    private final HotelMediaService hotelMediaService;
 
     @PostMapping("/filter")
     @Operation(summary = "Tìm kiếm và phân trang danh sách khách sạn công khai")
@@ -52,6 +57,16 @@ public class PublicHotelController {
                 .code(HttpStatus.OK.value())
                 .message("Lấy thông tin khách sạn thành công")
                 .result(hotelService.getById(id))
+                .build();
+    }
+
+    @GetMapping("/{id}/images")
+    @Operation(summary = "Lấy danh sách ảnh cơ sở khách sạn công khai cho khách xem")
+    public ApiResponse<List<HotelImageResponse>> getPublicHotelImages(@PathVariable Short id) {
+        return ApiResponse.<List<HotelImageResponse>>builder()
+                .code(HttpStatus.OK.value())
+                .message("Lấy danh sách ảnh khách sạn thành công")
+                .result(hotelMediaService.getHotelImages(id))
                 .build();
     }
 }

@@ -13,21 +13,56 @@ import java.time.OffsetDateTime;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
-    @Query(value = "SELECT a FROM AuditLog a LEFT JOIN FETCH a.staff WHERE " +
-            "(:staffId IS NULL OR a.staff.id = :staffId) " +
-            "AND (:actionType IS NULL OR a.actionType = :actionType) " +
-            "AND (:entityName IS NULL OR a.entityName = :entityName) " +
+    @Deprecated(since = "2.0", forRemoval = false)
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "DELETE FROM audit_logs WHERE id IN (" +
+            "SELECT id FROM audit_logs ORDER BY created_at DESC, id DESC OFFSET 50" +
+            ")", nativeQuery = true)
+    int purgeOldAuditLogsExceedingLimit();
+
+    /**
+     * Dọn dẹp log quá hạn theo thời hạn lưu trữ pháp lý (tối thiểu 12 tháng theo Luật An ninh mạng).
+     */
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("DELETE FROM AuditLog a WHERE a.createdAt < :cutoffDate")
+    int purgeLogsOlderThan(@Param("cutoffDate") OffsetDateTime cutoffDate);
+
+    @Query(value = "SELECT a FROM AuditLog a LEFT JOIN FETCH a.staff s WHERE " +
+            "(:staffId IS NULL OR s.id = :staffId) " +
+            "AND (:staffKeyword IS NULL " +
+            "     OR LOWER(s.username) LIKE :staffKeyword " +
+            "     OR LOWER(s.fullName) LIKE :staffKeyword) " +
+            "AND a.actionType != 'LOGIN' AND a.actionType NOT LIKE '%LOGIN%' " +
+            "AND (:actionType IS NULL " +
+            "     OR a.actionType = :actionType " +
+            "     OR (:actionType = 'STATUS_CHANGED' AND (a.actionType = 'STATUS_CHANGED' OR a.actionType = 'STATUS_UPDATE' OR a.actionType = 'STAFF_STATUS_UPDATE' OR a.actionType LIKE '%STATUS%')) " +
+            "     OR (:actionType = 'CREATE' AND (a.actionType = 'CREATE' OR a.actionType LIKE '%CREATE%')) " +
+            "     OR (:actionType = 'UPDATE' AND (a.actionType = 'UPDATE' OR (a.actionType LIKE '%UPDATE%' AND a.actionType NOT LIKE '%STATUS%'))) " +
+            "     OR (:actionType = 'DELETE' AND (a.actionType = 'DELETE' OR a.actionType LIKE '%DELETE%')) " +
+            "     OR (:actionType = 'PASSWORD_RESET' AND (a.actionType = 'PASSWORD_RESET' OR a.actionType LIKE '%PASSWORD_RESET%'))) " +
+            "AND (:entityName IS NULL OR LOWER(a.entityName) LIKE :entityName) " +
             "AND (:entityId IS NULL OR a.entityId = :entityId) " +
             "AND (CAST(:fromDate AS java.time.OffsetDateTime) IS NULL OR a.createdAt >= :fromDate) " +
             "AND (CAST(:toDate AS java.time.OffsetDateTime) IS NULL OR a.createdAt <= :toDate)",
-            countQuery = "SELECT COUNT(a) FROM AuditLog a WHERE " +
-            "(:staffId IS NULL OR a.staff.id = :staffId) " +
-            "AND (:actionType IS NULL OR a.actionType = :actionType) " +
-            "AND (:entityName IS NULL OR a.entityName = :entityName) " +
+            countQuery = "SELECT COUNT(a) FROM AuditLog a LEFT JOIN a.staff s WHERE " +
+            "(:staffId IS NULL OR s.id = :staffId) " +
+            "AND (:staffKeyword IS NULL " +
+            "     OR LOWER(s.username) LIKE :staffKeyword " +
+            "     OR LOWER(s.fullName) LIKE :staffKeyword) " +
+            "AND a.actionType != 'LOGIN' AND a.actionType NOT LIKE '%LOGIN%' " +
+            "AND (:actionType IS NULL " +
+            "     OR a.actionType = :actionType " +
+            "     OR (:actionType = 'STATUS_CHANGED' AND (a.actionType = 'STATUS_CHANGED' OR a.actionType = 'STATUS_UPDATE' OR a.actionType = 'STAFF_STATUS_UPDATE' OR a.actionType LIKE '%STATUS%')) " +
+            "     OR (:actionType = 'CREATE' AND (a.actionType = 'CREATE' OR a.actionType LIKE '%CREATE%')) " +
+            "     OR (:actionType = 'UPDATE' AND (a.actionType = 'UPDATE' OR (a.actionType LIKE '%UPDATE%' AND a.actionType NOT LIKE '%STATUS%'))) " +
+            "     OR (:actionType = 'DELETE' AND (a.actionType = 'DELETE' OR a.actionType LIKE '%DELETE%')) " +
+            "     OR (:actionType = 'PASSWORD_RESET' AND (a.actionType = 'PASSWORD_RESET' OR a.actionType LIKE '%PASSWORD_RESET%'))) " +
+            "AND (:entityName IS NULL OR LOWER(a.entityName) LIKE :entityName) " +
             "AND (:entityId IS NULL OR a.entityId = :entityId) " +
             "AND (CAST(:fromDate AS java.time.OffsetDateTime) IS NULL OR a.createdAt >= :fromDate) " +
             "AND (CAST(:toDate AS java.time.OffsetDateTime) IS NULL OR a.createdAt <= :toDate)")
     Page<AuditLog> searchAuditLogs(@Param("staffId") Integer staffId,
+                                   @Param("staffKeyword") String staffKeyword,
                                    @Param("actionType") String actionType,
                                    @Param("entityName") String entityName,
                                    @Param("entityId") String entityId,

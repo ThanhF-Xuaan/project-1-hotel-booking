@@ -18,6 +18,9 @@ public interface RoleRepository extends JpaRepository<Role, Short> {
     @Query("SELECT r FROM Role r LEFT JOIN FETCH r.permissions WHERE r.id = :id AND r.isDeleted = false")
     Optional<Role> findByIdWithPermissions(@Param("id") Short id);
 
+    @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.permissions WHERE r.isDeleted = false")
+    List<Role> findAllWithPermissions();
+
     Optional<Role> findByIdAndIsDeletedFalse(Short id);
 
     Optional<Role> findByCodeAndIsDeletedFalse(String code);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, RefreshCw, Search, Edit2, Building, Globe, Filter, BedDouble, Check } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Edit2, Building, Globe, Filter, BedDouble, Check, Image as ImageIcon } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
@@ -9,8 +9,10 @@ import hotelService from '../services/hotel.service'
 import regionService from '../services/region.service'
 import roomTypeService from '../../inventory/services/roomType.service'
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service'
+import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone'
+import HotelMediaGalleryModal from '../components/HotelMediaGalleryModal'
 import type { HotelDto, HotelCreateRequest, HotelUpdateRequest, RegionDto } from '../types/organization.types'
-import type { RoomTypeDto } from '../../inventory/types/inventory.types'
+import type { RoomTypeDto, HotelRoomTypeDto } from '../../inventory/types/inventory.types'
 
 const DEFAULT_ROOM_PRICES: Record<string, number> = {
   STD: 1200000,
@@ -53,6 +55,7 @@ export const HotelListPage: React.FC = () => {
   // Room Types Configuration inside Hotel Modal
   const [selectedRoomTypeIds, setSelectedRoomTypeIds] = useState<number[]>([])
   const [roomTypePrices, setRoomTypePrices] = useState<Record<number, number>>({})
+  const [existingHotelRoomTypes, setExistingHotelRoomTypes] = useState<HotelRoomTypeDto[]>([])
   const [existingHotelRoomTypeIds, setExistingHotelRoomTypeIds] = useState<Set<number>>(new Set())
   const [isLoadingHotelRoomTypes, setIsLoadingHotelRoomTypes] = useState(false)
 
@@ -60,6 +63,9 @@ export const HotelListPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deletingIds, setDeletingIds] = useState<number[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Gallery Modal
+  const [galleryHotel, setGalleryHotel] = useState<{ id: number; name: string } | null>(null)
 
   // Load Regions and System Room Types on mount
   useEffect(() => {
@@ -146,6 +152,7 @@ export const HotelListPage: React.FC = () => {
       initialPrices[rt.id] = DEFAULT_ROOM_PRICES[rt.code] || 1500000
     })
     setRoomTypePrices(initialPrices)
+    setExistingHotelRoomTypes([])
     setExistingHotelRoomTypeIds(new Set())
     setIsFormModalOpen(true)
   }
@@ -168,6 +175,7 @@ export const HotelListPage: React.FC = () => {
       .filter({ hotelId: hotel.id, pageSize: 50 })
       .then((res) => {
         const existing = res.result?.content || []
+        setExistingHotelRoomTypes(existing)
         const existingIds = new Set(existing.map((h) => Number(h.roomTypeId)))
         setExistingHotelRoomTypeIds(existingIds)
         setSelectedRoomTypeIds(Array.from(existingIds))
@@ -219,6 +227,10 @@ export const HotelListPage: React.FC = () => {
       setFormError('Vui lòng nhập địa chỉ')
       return
     }
+    if (formPhone.trim() && !isValidVietnamesePhone(formPhone.trim())) {
+      setFormError('Số điện thoại không hợp lệ (Ví dụ: 02466668888 đối với máy bàn hoặc 0912345678 đối với di động)')
+      return
+    }
     if (selectedRoomTypeIds.length === 0) {
       setFormError('Vui lòng chọn ít nhất 1 loại phòng kinh doanh cho cơ sở')
       return
@@ -228,12 +240,13 @@ export const HotelListPage: React.FC = () => {
     setFormError(null)
     try {
       let hotelId: number
+      const sanitizedPhone = formPhone.trim() ? cleanPhoneNumber(formPhone.trim()) : undefined
       if (editingHotel) {
         const updatePayload: HotelUpdateRequest = {
           regionId: Number(formRegionId),
           name: formName.trim(),
           address: formAddress.trim(),
-          phone: formPhone.trim() || undefined,
+          phone: sanitizedPhone,
           checkInTime: formCheckInTime,
           checkOutTime: formCheckOutTime,
           serviceFeePercent: Number(formServiceFee),
@@ -246,7 +259,7 @@ export const HotelListPage: React.FC = () => {
           regionId: Number(formRegionId),
           name: formName.trim(),
           address: formAddress.trim(),
-          phone: formPhone.trim() || undefined,
+          phone: sanitizedPhone,
           checkInTime: formCheckInTime,
           checkOutTime: formCheckOutTime,
           serviceFeePercent: Number(formServiceFee),
@@ -256,7 +269,17 @@ export const HotelListPage: React.FC = () => {
         hotelId = Number(createdRes.result.id)
       }
 
-      // Automatically create hotel_room_types for newly selected room types
+      // 1. Soft-delete hotel_room_types for room types that were unchecked
+      if (editingHotel) {
+        const toDeleteIds = existingHotelRoomTypes
+          .filter((hrt) => !selectedRoomTypeIds.includes(Number(hrt.roomTypeId)))
+          .map((hrt) => hrt.id)
+        if (toDeleteIds.length > 0) {
+          await hotelRoomTypeService.deleteBatch(toDeleteIds)
+        }
+      }
+
+      // 2. Automatically create hotel_room_types for newly selected room types
       for (const rtId of selectedRoomTypeIds) {
         if (!existingHotelRoomTypeIds.has(rtId)) {
           await hotelRoomTypeService.create({
@@ -473,7 +496,22 @@ export const HotelListPage: React.FC = () => {
                           className="w-4 h-4 rounded text-red-600 focus:ring-red-600 cursor-pointer"
                         />
                       </td>
-                      <td className="p-4 font-bold text-neutral-900">{item.name}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-3">
+                          {item.coverImageUrl ? (
+                            <img
+                              src={item.coverImageUrl}
+                              alt={item.name}
+                              className="w-10 h-10 rounded-lg object-cover border border-neutral-200 shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-neutral-100 border border-neutral-200 flex items-center justify-center text-neutral-400 shrink-0">
+                              <Building className="w-5 h-5" />
+                            </div>
+                          )}
+                          <span className="font-bold text-neutral-900">{item.name}</span>
+                        </div>
+                      </td>
                       <td className="p-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-700">
                           {item.regionName}
@@ -506,6 +544,14 @@ export const HotelListPage: React.FC = () => {
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setGalleryHotel({ id: item.id, name: item.name })}
+                            className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
+                            title="Quản lý ảnh cơ sở"
+                          >
+                            <ImageIcon className="w-4 h-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEditModal(item)}
@@ -567,7 +613,7 @@ export const HotelListPage: React.FC = () => {
                 value={Number(formRegionId) || 0}
                 onChange={(val) => setFormRegionId(val ? Number(val) : '')}
                 options={[
-                  { value: 0, label: '-- Chọn khu vực --', disabled: true },
+                  { value: 0, label: 'Chọn khu vực', disabled: true },
                   ...regions.map((r) => ({ value: r.id, label: `${r.name} (${r.code})` })),
                 ]}
                 prefixIcon={<Globe className="w-4 h-4 text-neutral-400" />}
@@ -597,6 +643,11 @@ export const HotelListPage: React.FC = () => {
               placeholder="VD: 02466668888"
               value={formPhone}
               onChange={(e) => setFormPhone(e.target.value)}
+              error={
+                formPhone.trim() && !isValidVietnamesePhone(formPhone.trim())
+                  ? 'Số điện thoại không hợp lệ (VD: 02466668888 hoặc 0912345678)'
+                  : undefined
+              }
             />
 
             <Input
@@ -775,6 +826,17 @@ export const HotelListPage: React.FC = () => {
         variant="danger"
         isLoading={isDeleting}
       />
+
+      {/* HOTEL MEDIA GALLERY MODAL */}
+      {galleryHotel && (
+        <HotelMediaGalleryModal
+          isOpen={!!galleryHotel}
+          onClose={() => setGalleryHotel(null)}
+          hotelId={galleryHotel.id}
+          hotelName={galleryHotel.name}
+          onCoverImageChanged={loadData}
+        />
+      )}
     </div>
   )
 }

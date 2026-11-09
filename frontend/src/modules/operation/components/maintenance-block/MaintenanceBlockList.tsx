@@ -10,6 +10,7 @@ import {
   Info,
 } from 'lucide-react';
 import Button from '../../../../core/components/ui/Button';
+import Select from '../../../../core/components/ui/Select';
 import Pagination from '../../../../core/components/ui/Pagination';
 import { ConfirmModal } from '../../../../core/components/ui/Modal';
 import { operationService } from '../../services/operation.service';
@@ -128,37 +129,43 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
         <div className="flex flex-wrap items-center gap-3">
           {/* Block Type */}
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-neutral-600">Loại:</label>
-            <select
-              value={filterBlockType}
-              onChange={(e) => {
-                setFilterBlockType(e.target.value);
-                setPage(0);
-              }}
-              className="h-9 px-3 border border-neutral-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-            >
-              <option value="ALL">Tất cả loại</option>
-              <option value="OOO">OOO (Out of Order)</option>
-              <option value="OOS">OOS (Out of Service)</option>
-            </select>
+            <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Loại:</label>
+            <div className="w-40">
+              <Select<string>
+                value={filterBlockType}
+                onChange={(val) => {
+                  setFilterBlockType(val);
+                  setPage(0);
+                }}
+                options={[
+                  { value: 'ALL', label: 'Tất cả loại' },
+                  { value: 'OOO', label: 'OOO (Out of Order)' },
+                  { value: 'OOS', label: 'OOS (Out of Service)' },
+                ]}
+                size="sm"
+              />
+            </div>
           </div>
 
           {/* Status */}
           <div className="flex items-center gap-1.5">
-            <label className="text-xs font-semibold text-neutral-600">Trạng thái:</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setPage(0);
-              }}
-              className="h-9 px-3 border border-neutral-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-            >
-              <option value="ALL">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang khóa (ACTIVE)</option>
-              <option value="COMPLETED">Đã hoàn tất (COMPLETED)</option>
-              <option value="CANCELLED">Đã hủy (CANCELLED)</option>
-            </select>
+            <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Trạng thái:</label>
+            <div className="w-44">
+              <Select<string>
+                value={filterStatus}
+                onChange={(val) => {
+                  setFilterStatus(val);
+                  setPage(0);
+                }}
+                options={[
+                  { value: 'ALL', label: 'Tất cả trạng thái' },
+                  { value: 'ACTIVE', label: 'Đang khóa (ACTIVE)' },
+                  { value: 'COMPLETED', label: 'Đã hoàn tất (COMPLETED)' },
+                  { value: 'CANCELLED', label: 'Đã hủy (CANCELLED)' },
+                ]}
+                size="sm"
+              />
+            </div>
           </div>
 
           {/* Date Range */}
@@ -255,13 +262,13 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
             <table className="w-full text-left border-collapse text-xs md:text-sm">
               <thead>
                 <tr className="bg-neutral-50/80 border-b border-neutral-200 text-neutral-700 font-semibold text-xs uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Mã</th>
-                  <th className="py-3.5 px-4">Phòng</th>
-                  <th className="py-3.5 px-4">Loại khóa</th>
-                  <th className="py-3.5 px-4">Thời gian hiệu lực</th>
-                  <th className="py-3.5 px-4">Lý do & Ghi chú</th>
-                  <th className="py-3.5 px-4">Trạng thái</th>
-                  <th className="py-3.5 px-4 text-right">Thao tác</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Mã</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Phòng</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Loại khóa</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Thời gian hiệu lực</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Lý do & Ghi chú</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap">Trạng thái</th>
+                  <th className="py-3.5 px-4 text-right whitespace-nowrap">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100">
@@ -275,29 +282,29 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
                       key={b.id}
                       className="hover:bg-neutral-50/60 transition-colors text-neutral-800"
                     >
-                      <td className="py-3.5 px-4 font-mono text-neutral-500 font-semibold">
+                      <td className="py-3.5 px-4 font-mono text-neutral-500 font-semibold whitespace-nowrap">
                         #{b.id}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="font-bold text-neutral-900 text-sm">P.{b.roomNumber}</div>
                         <div className="text-[11px] text-neutral-500">
                           {b.roomTypeName || 'Tiêu chuẩn'}
                         </div>
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         {b.blockType === 'OOO' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200 whitespace-nowrap">
                             <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
                             OOO (Khóa bán)
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
                             <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
                             OOS (Nội bộ)
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-1 font-medium text-neutral-900">
                           <Calendar className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
                           <span>
@@ -323,27 +330,27 @@ export const MaintenanceBlockList: React.FC<MaintenanceBlockListProps> = ({
                           </div>
                         )}
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td className="py-3.5 px-4 whitespace-nowrap">
                         {isActive && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
                             <CheckCircle className="w-3 h-3 text-emerald-600" />
                             Đang hiệu lực
                           </span>
                         )}
                         {isCompleted && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">
                             <Info className="w-3 h-3 text-blue-600" />
                             Đã hoàn tất
                           </span>
                         )}
                         {isCancelled && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-300">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-neutral-100 text-neutral-600 border border-neutral-300 whitespace-nowrap">
                             <XCircle className="w-3 h-3 text-neutral-500" />
                             Đã hủy
                           </span>
                         )}
                       </td>
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
                         {isActive ? (
                           <div className="flex items-center justify-end gap-1.5">
                             <button

@@ -1,19 +1,20 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.llm.PiiRedactionUtil;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagCitationDto;
+import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagAnswerStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.governance.RagCorpusGovernanceValidator;
+import vn.edu.utc.hotel_booking.modules.ai.rag.llm.RagAnswerGenerationPort;
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeChunk;
-import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestRequestDto;
 
-import java.util.*;
 import java.text.Normalizer;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,9 +38,9 @@ public class RagGroundedAnswerService {
 
     // Vacancy detection uses a room subject followed directly by a vacancy predicate.
     private static final Pattern ROOM_CONTEXT = Pattern.compile(
-            "(?iuU)\\b(phong|deluxe|suite|superior|standard|rooms?)\\b");
+            "(?iuU)\\b(?:phong|deluxe|suite|superior|standard|rooms?)\\b");
     private static final Pattern ROOM_PRICE_QUESTION = Pattern.compile(
-            "(?iuU)\\b(gia\\s*(?:[\\p{L}\\p{N}-]+\\s+){0,5}(?:bao\\s*nhieu|the\\s*nao|hien\\s*tai)|bao\\s*gia|"
+            "(?iuU)\\b(?:gia\\s+(?!treo\\b)(?:[\\p{L}\\p{N}-]+\\s+){0,5}(?:bao\\s*nhieu|the\\s*nao|hien\\s*tai)|bao\\s*gia|"
                     + "bao\\s*nhieu\\s*(?:tien|dong|vnd|(?:mot|1)\\s*dem)|"
                     + "how\\s+much\\s+(?:(?:does|would)\\b[^?!;\\r\\n]{0,80}\\bcost|(?:is|are|for|per)\\b)|"
                     + "what(?:'s|\\s+is|\\s+are)\\s+(?:the\\s+)?(?:current\\s+)?(?:room\\s+)?(?:prices?|rates?)|"
@@ -48,10 +49,11 @@ public class RagGroundedAnswerService {
             "(?iuU)\\bgia\\s+(?:(?:hang|loai)\\s+)?(?:(?:phong\\s+)?(?:deluxe|suite|superior|standard)|phong)"
                     + "(?:\\s+(?:hom\\s*nay|ngay\\s*mai|toi\\s*nay|hien\\s*tai))?\\s*[?!.]*$");
     private static final Pattern ROOM_AVAILABILITY_QUESTION = Pattern.compile(
-            "(?iuU)\\b(con\\s+(?:(?:bao\\s+nhieu|\\d+)\\s+)?(?:phong|deluxe|suite)|"
+            "(?iuU)\\b(?:con\\s+(?:(?:bao\\s+nhieu|\\d+)\\s+)?(?:phong|deluxe|suite)\\b(?!\\s+(?:tam|hop|gym)\\b)|"
                     + "(?:phong|deluxe|suite)\\s+(?:[\\p{L}\\p{N}-]+\\s+){0,5}kha\\s*dung|"
-                    + "tinh\\s*trang\\s*phong|(?:rooms?|deluxe|suite)\\s+(?:[\\p{L}\\p{N}-]+\\s+){0,6}available|"
+                    + "tinh\\s*trang\\s*phong|(?:rooms?(?!\\s+service\\b)|deluxe|suite)\\s+(?:[\\p{L}\\p{N}-]+\\s+){0,6}available|"
                     + "(?:room\\s+)?availability|vacanc(?:y|ies)|available\\s+(?:rooms?|tonight))\\b");
+    // "trong phòng" describes the interior. Vacancy requires "trống" after the room subject.
     private static final Pattern ROOM_VACANCY_QUESTION = Pattern.compile(
             "(?iuU)\\b(?:phong(?:\\s+(?:deluxe|suite|superior|standard))?|deluxe|suite)"
                     + "(?:\\s+(?:huong\\s+(?:bien|vuon|nui|ho|thanh\\s+pho)|giuong\\s+(?:doi|don)|king|queen|twin|double)){0,3}"
@@ -72,22 +74,43 @@ public class RagGroundedAnswerService {
     private final ScopedRagRetrievalService retrievalService;
     private final RagCorpusGovernanceValidator governanceValidator;
     private final RagAnswerGeneratorPort generator;
+    private final RagAnswerGenerationPort answerGenerator;
     private final RagGeneratedAnswerValidator generatedAnswerValidator = new RagGeneratedAnswerValidator();
 
     public RagGroundedAnswerService(
             ScopedRagRetrievalService retrievalService,
             RagCorpusGovernanceValidator governanceValidator
     ) {
-        this(retrievalService, governanceValidator, null);
+        this(retrievalService, governanceValidator, null, RagAnswerGenerationPort.disabled());
+    }
+
+    public RagGroundedAnswerService(
+            ScopedRagRetrievalService retrievalService,
+            RagCorpusGovernanceValidator governanceValidator,
+            @Nullable RagAnswerGeneratorPort generator
+    ) {
+        this(retrievalService, governanceValidator, generator, RagAnswerGenerationPort.disabled());
+    }
+
+    public RagGroundedAnswerService(
+            ScopedRagRetrievalService retrievalService,
+            RagCorpusGovernanceValidator governanceValidator,
+            @Nullable RagAnswerGenerationPort answerGenerator
+    ) {
+        this(retrievalService, governanceValidator, null, answerGenerator);
     }
 
     @Autowired
-    public RagGroundedAnswerService(ScopedRagRetrievalService retrievalService,
-                                   RagCorpusGovernanceValidator governanceValidator,
-                                   @Nullable RagAnswerGeneratorPort generator) {
+    public RagGroundedAnswerService(
+            ScopedRagRetrievalService retrievalService,
+            RagCorpusGovernanceValidator governanceValidator,
+            @Nullable RagAnswerGeneratorPort generator,
+            @Nullable RagAnswerGenerationPort answerGenerator
+    ) {
         this.retrievalService = retrievalService;
         this.governanceValidator = governanceValidator;
         this.generator = generator;
+        this.answerGenerator = answerGenerator != null ? answerGenerator : RagAnswerGenerationPort.disabled();
     }
 
     public RagQueryResultDto answerQuestion(RagQueryRequestDto request) {
@@ -171,6 +194,7 @@ public class RagGroundedAnswerService {
         List<RagCitationDto> citations = selected.stream().map(EvidenceCandidate::citation).toList();
         String rawAnswer = joinEvidence(selected);
         String finalAnswer;
+        boolean aiGenerated = false;
 
         if (isEnglish) {
             // Multilingual response (T12-006)
@@ -195,6 +219,24 @@ public class RagGroundedAnswerService {
                 // No raw provider/model/parser exception is logged or returned.
                 warnings.add("GENERATION_FALLBACK_EXTRACTIVE");
             }
+        } else if (answerGenerator != null) {
+            List<RagAnswerGenerationPort.Evidence> numberedEvidence = new ArrayList<>();
+            for (int i = 0; i < selected.size(); i++) {
+                numberedEvidence.add(new RagAnswerGenerationPort.Evidence(i + 1, selected.get(i).evidence().content()));
+            }
+            Optional<RagAnswerGenerationPort.GeneratedAnswer> generated = answerGenerator.generate(
+                    question, isEnglish ? "en" : "vi", List.copyOf(numberedEvidence));
+            if (generated.isPresent()) {
+                var output = generated.get();
+                finalAnswer = output.answer();
+                List<RagCitationDto> availableCitations = List.copyOf(citations);
+                citations = output.evidenceIds().stream()
+                        .filter(id -> id != null && id > 0 && id <= availableCitations.size())
+                        .map(id -> availableCitations.get(id - 1))
+                        .distinct()
+                        .toList();
+                aiGenerated = true;
+            }
         }
 
         return RagQueryResultDto.builder()
@@ -202,18 +244,23 @@ public class RagGroundedAnswerService {
                 .answer(finalAnswer)
                 .citations(citations)
                 .warnings(new ArrayList<>(new LinkedHashSet<>(warnings)))
-                .disclaimers(List.of(
+                .disclaimers(aiGenerated ? List.of(
+                        "Câu trả lời được Gemini tổng hợp từ tài liệu chính sách tĩnh đã được phê duyệt của khách sạn.",
+                        "Giá phòng và tình trạng phòng trống luôn được quản lý trực tiếp qua hệ thống Core Booking."
+                ) : List.of(
                         "Thông tin được trích xuất từ tài liệu chính sách tĩnh đã được phê duyệt của khách sạn.",
                         "Giá phòng và tình trạng phòng trống luôn được quản lý trực tiếp qua hệ thống Core Booking."
                 ))
                 .build();
     }
 
-    private boolean isDynamicRoomInquiry(String question) {
+    private static boolean isDynamicRoomInquiry(String question) {
         String intent = foldAccents(question);
         return ROOM_CONTEXT.matcher(intent).find()
-                && (ROOM_PRICE_QUESTION.matcher(intent).find() || DIRECT_ROOM_PRICE_QUESTION.matcher(intent).find()
-                    || ROOM_AVAILABILITY_QUESTION.matcher(intent).find() || ROOM_VACANCY_QUESTION.matcher(intent).find());
+                && (ROOM_PRICE_QUESTION.matcher(intent).find()
+                    || DIRECT_ROOM_PRICE_QUESTION.matcher(intent).find()
+                    || ROOM_AVAILABILITY_QUESTION.matcher(intent).find()
+                    || ROOM_VACANCY_QUESTION.matcher(intent).find());
     }
 
     private static String foldAccents(String text) {

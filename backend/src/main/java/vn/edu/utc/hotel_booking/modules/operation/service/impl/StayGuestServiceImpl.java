@@ -217,7 +217,7 @@ public class StayGuestServiceImpl implements StayGuestService {
         Short effectiveHotelId = resolveEffectiveHotelId(request.getHotelId());
         Pageable pageable = PageRequest.of(request.getPage(), request.getPageSize(), Sort.by("checkInTime").descending());
 
-        String keyword = StringUtils.hasText(request.getKeyword()) ? request.getKeyword().trim() : "";
+        String keyword = StringUtils.hasText(request.getKeyword()) ? request.getKeyword().trim() : null;
         Page<StayGuest> page = stayGuestRepository.search(
                 effectiveHotelId,
                 request.getBookingId(),
@@ -289,6 +289,12 @@ public class StayGuestServiceImpl implements StayGuestService {
             ActiveStayDedup.verifyUnchanged(keys.get(i),ActiveStayDedup.key(stayGuestRepository,guest));
             validateStaffScope(guest.getHotel().getId());
             if(Boolean.TRUE.equals(guest.getIsDeleted())) continue;
+            if (queue != null && (queue.getStatus() == LodgingQueueStatus.EXPORTED || queue.getExportedAt() != null)) {
+                throw new AppException(ErrorCode.LODGING_EXPORTED_RECORD_LOCKED);
+            }
+            if (queue != null && queue.getStatus() == LodgingQueueStatus.PROCESSING) {
+                throw LodgingExportStateGuard.stateConflict();
+            }
             guest.setIsDeleted(true);
             if(queue!=null) {queue.setStatus(LodgingQueueStatus.CANCELLED);queue.setIsDeleted(true);lodgingQueueRepository.save(queue);}
         }

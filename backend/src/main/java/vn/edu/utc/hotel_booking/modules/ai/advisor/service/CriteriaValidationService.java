@@ -218,7 +218,7 @@ public class CriteriaValidationService {
             return ValidationResult.builder()
                     .valid(false)
                     .status(AdvisorStatus.NEED_INFO)
-                    .reply("Vui lòng cung cấp thêm thông tin còn thiếu để tìm phòng: " + String.join(", ", missingFields) + ".")
+                    .reply(missingCriteriaReply(missingFields))
                     .criteria(criteria)
                     .missingFields(missingFields)
                     .ambiguities(ambiguities)
@@ -246,7 +246,7 @@ public class CriteriaValidationService {
                 return ValidationResult.builder()
                         .valid(false)
                         .status(AdvisorStatus.NEED_INFO)
-                        .reply("Vui lòng làm rõ thông tin ngân sách.")
+                    .reply(budgetClarificationReply(budget))
                         .criteria(criteria)
                         .missingFields(missingFields)
                         .ambiguities(ambiguities)
@@ -265,6 +265,37 @@ public class CriteriaValidationService {
                 .ambiguities(new ArrayList<>())
                 .provenance(provenance != null ? provenance : new ArrayList<>())
                 .build();
+    }
+
+    private String missingCriteriaReply(List<String> fields) {
+        Set<String> labels = new LinkedHashSet<>();
+        for (String field : fields) {
+            labels.add(switch (field) {
+                case "location", "locationKeyword" -> "khách sạn hoặc khu vực";
+                case "checkInDate" -> "ngày nhận phòng";
+                case "checkOutDate" -> "ngày trả phòng";
+                case "adults" -> "số người lớn";
+                default -> "thông tin tìm phòng";
+            });
+        }
+        return "Bạn cho mình biết thêm " + String.join(", ", labels) + " nhé.";
+    }
+
+    private String budgetClarificationReply(BudgetDto budget) {
+        List<String> questions = new ArrayList<>();
+        if (budget.getAmount() == null || !isValidAmount(budget.getAmount())) {
+            questions.add("Bạn muốn giới hạn ở mức bao nhiêu?");
+        }
+        if (budget.getCurrency() == null || !CURRENCY_PATTERN.matcher(budget.getCurrency()).matches()) {
+            questions.add("Bạn dùng đơn vị tiền nào?");
+        }
+        if (budget.getBasis() == null) {
+            questions.add("Bạn muốn tính ngân sách cho cả kỳ hay trung bình mỗi đêm?");
+        }
+        if (budget.getCoverage() == null) {
+            questions.add("Bạn muốn so với báo giá hệ thống hay yêu cầu bao gồm mọi khoản bắt buộc?");
+        }
+        return String.join(" ", questions);
     }
 
     private boolean isValidAmount(String amountStr) {

@@ -70,4 +70,7 @@ public interface StaffRepository extends JpaRepository<Staff, Integer> {
     boolean existsByDepartmentIdInAndIsDeletedFalse(List<Short> departmentIds);
 
     boolean existsByRoleIdInAndIsDeletedFalse(List<Short> roleIds);
+
+    @Query("SELECT COUNT(s) > 0 FROM Staff s WHERE s.scopeType = 'REGION' AND s.scopeEntityId IN :regionIds AND s.isDeleted = false")
+    boolean existsByRegionScopeInAndIsDeletedFalse(@Param("regionIds") List<Integer> regionIds);
 }

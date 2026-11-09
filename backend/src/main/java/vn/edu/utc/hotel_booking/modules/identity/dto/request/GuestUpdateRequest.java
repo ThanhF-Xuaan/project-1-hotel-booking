@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.identity.dto.request;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -40,6 +41,7 @@ public class GuestUpdateRequest {
 
     @Schema(description = "Số điện thoại", example = "0912345678")
     @NotBlank(message = "Số điện thoại không được để trống")
+    @Pattern(regexp = "^(0|\\+84)(2[0-9]{9}|[35789][0-9]{8})$", message = "Số điện thoại không đúng định dạng (VD: 0912345678 hoặc 02466668888)")
     @Size(max = 20, message = "Số điện thoại tối đa 20 ký tự")
     String phone;
 

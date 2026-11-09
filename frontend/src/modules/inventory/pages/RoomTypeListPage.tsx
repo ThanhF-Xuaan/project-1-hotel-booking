@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, RefreshCw, Search, Edit2, BedDouble } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
+import Select from '../../../core/components/ui/Select'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
 import Pagination from '../../../core/components/ui/Pagination'
 import roomTypeService from '../services/roomType.service'
@@ -159,8 +160,12 @@ export const RoomTypeListPage: React.FC = () => {
       setSelectedIds((prev) => prev.filter((id) => !deletingIds.includes(id)))
       setDeleteConfirmOpen(false)
       loadData()
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Lỗi khi xóa loại phòng:', err)
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Không thể xóa loại phòng. Vui lòng kiểm tra lại quyền hạn hoặc ràng buộc dữ liệu.'
+      alert(`Xóa thất bại: ${errorMsg}`)
     } finally {
       setIsDeleting(false)
     }
@@ -197,15 +202,16 @@ export const RoomTypeListPage: React.FC = () => {
             />
           </div>
           <div className="w-full sm:w-48">
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 sm:h-12 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Tạm dừng (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm dừng (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
           <Button type="submit" variant="secondary" className="h-10 sm:h-12">
             <Search className="w-4 h-4 mr-1.5" />
@@ -409,14 +415,15 @@ export const RoomTypeListPage: React.FC = () => {
             <label className="block text-sm font-medium text-neutral-700 mb-1">
               Trạng Thái
             </label>
-            <select
+            <Select<string>
               value={formStatus}
-              onChange={(e) => setFormStatus(e.target.value)}
-              className="w-full h-11 px-4 rounded-xl border border-neutral-200 bg-white text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
-              <option value="ACTIVE">Hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Tạm dừng (INACTIVE)</option>
-            </select>
+              onChange={(val) => setFormStatus(val)}
+              options={[
+                { value: 'ACTIVE', label: 'Hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm dừng (INACTIVE)' },
+              ]}
+              size="md"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-200">

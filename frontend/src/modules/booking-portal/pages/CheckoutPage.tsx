@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { isValidVietnamesePhone } from '../../../core/utils/phone';
 import { bookingService } from '../../booking/services/booking.service';
 import { financeService } from '../../finance/services/finance.service';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
@@ -132,6 +133,10 @@ export const CheckoutPage: React.FC = () => {
   const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone || !firstName || !lastName) return;
+    if (!isValidVietnamesePhone(phone)) {
+      alert('Số điện thoại không đúng định dạng (Ví dụ: 0912345678 hoặc 02466668888)');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -317,6 +322,7 @@ export const CheckoutPage: React.FC = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="VD: 0987654321"
+                    error={phone && !isValidVietnamesePhone(phone) ? 'Số điện thoại không đúng định dạng (VD: 0987654321)' : undefined}
                     required
                   />
                 </div>

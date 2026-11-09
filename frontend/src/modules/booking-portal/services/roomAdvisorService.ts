@@ -7,7 +7,9 @@ import type {
   AdvisorClientError,
 } from '../types/roomAdvisor.types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+const rawBaseUrl =
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = rawBaseUrl.replace(/\/api\/?$/, '');
 
 /**
  * Dedicated Axios client for Room Advisor.
@@ -62,13 +64,21 @@ function handleAdvisorError(error: unknown): never {
       throw clientError;
     }
 
-    // HTTP 404: Session Expired / Not Found
+    // HTTP 404: Session Expired / Not Found vs Endpoint Not Found
     if (status === 404) {
+      if (data?.error?.reason === 'SESSION_NOT_FOUND' || data?.error?.reason === 'SESSION_SECURITY_ERROR') {
+        const clientError: AdvisorClientError = {
+          code: 404,
+          reason: 'SESSION_NOT_FOUND',
+          message: 'Phiên trò chuyện đã hết hạn. Hệ thống đang tự động bắt đầu phiên mới.',
+          isSessionExpired: true,
+        };
+        throw clientError;
+      }
       const clientError: AdvisorClientError = {
         code: 404,
-        reason: 'SESSION_NOT_FOUND',
-        message: 'Phiên trò chuyện đã hết hạn. Hệ thống đang tự động bắt đầu phiên mới.',
-        isSessionExpired: true,
+        reason: 'ENDPOINT_NOT_FOUND',
+        message: 'Không tìm thấy máy chủ Trợ lý AI (HTTP 404). Vui lòng kiểm tra kết nối API backend.',
       };
       throw clientError;
     }

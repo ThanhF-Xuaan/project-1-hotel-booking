@@ -3,6 +3,8 @@ package vn.edu.utc.hotel_booking.modules.operation.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -23,6 +25,7 @@ import vn.edu.utc.hotel_booking.modules.identity.entity.Staff;
 import vn.edu.utc.hotel_booking.modules.identity.repository.StaffRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
+import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.StayGuestResponse;
@@ -481,6 +484,31 @@ public class StayGuestServiceTest {
         verify(lodgingQueueRepository, times(1)).save(queue);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "EXPORTED, false, LODGING_EXPORTED_RECORD_LOCKED",
+            "PROCESSING, false, LODGING_QUEUE_STATE_CONFLICT",
+            "CANCELLED, true, LODGING_EXPORTED_RECORD_LOCKED"
+    })
+    void delete_preservesExportRecords(LodgingQueueStatus status, boolean previouslyExported, ErrorCode errorCode) {
+        mockChainAdminAuth();
+        StayGuest guest = StayGuest.builder().id(12L).hotel(sampleHotel).build();
+        LodgingQueue queue = LodgingQueue.builder().id(50L).stayGuest(guest).status(status)
+                .exportedAt(previouslyExported ? OffsetDateTime.parse("2026-11-07T10:00:00+07:00") : null)
+                .build();
+        when(stayGuestRepository.findAllByIdInAndIsDeletedFalse(List.of(12L))).thenReturn(List.of(guest));
+        when(lodgingQueueRepository.findByStayGuestIdAndIsDeletedFalse(12L)).thenReturn(Optional.of(queue));
+
+        AppException error = assertThrows(AppException.class, () -> stayGuestService.delete(List.of(12L)));
+
+        assertEquals(errorCode, error.getErrorCode());
+        assertFalse(guest.getIsDeleted());
+        assertEquals(status, queue.getStatus());
+        assertFalse(queue.getIsDeleted());
+        verify(stayGuestRepository, never()).saveAll(any());
+        verify(lodgingQueueRepository, never()).save(any());
+    }
+
     @Test
     void getEntityById_success() {
         StayGuest guest = StayGuest.builder().id(12L).hotel(sampleHotel).build();
@@ -556,5 +584,161 @@ public class StayGuestServiceTest {
 
         AppException ex = assertThrows(AppException.class, () -> stayGuestService.createOrCheckIn(request));
         assertEquals(ErrorCode.ROOM_NOT_YET_ASSIGNED, ex.getErrorCode());
+    }
+
+    @Test
+    void search_blankKeyword_passedAsNullToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("   ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_validKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  Nguyen Van A  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        StayGuest guest = StayGuest.builder().id(1L).fullName("NGUYỄN VĂN A").hotel(sampleHotel).build();
+        org.springframework.data.domain.Page<StayGuest> page = new org.springframework.data.domain.PageImpl<>(List.of(guest));
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyen Van A"), isNull(), isNull(), any()))
+                .thenReturn(page);
+        when(stayGuestMapper.toResponse(guest)).thenReturn(StayGuestResponse.builder().id(1L).fullName("NGUYỄN VĂN A").build());
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyen Van A"), isNull(), isNull(), any());
+    }
+    @Test
+    void search_nullKeyword_passedAsNullToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword(null)
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_emptyKeyword_passedAsNullToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_specialCharactersKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  %_!@#$  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        org.springframework.data.domain.Page<StayGuest> emptyPage = new org.springframework.data.domain.PageImpl<>(List.of());
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("%_!@#$"), isNull(), isNull(), any()))
+                .thenReturn(emptyPage);
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("%_!@#$"), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_vietnameseDiacriticsKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  Nguyễn Thị Ánh Tuyết  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        StayGuest guest = StayGuest.builder().id(2L).fullName("NGUYỄN THỊ ÁNH TUYẾT").hotel(sampleHotel).build();
+        org.springframework.data.domain.Page<StayGuest> page = new org.springframework.data.domain.PageImpl<>(List.of(guest));
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyễn Thị Ánh Tuyết"), isNull(), isNull(), any()))
+                .thenReturn(page);
+        when(stayGuestMapper.toResponse(guest)).thenReturn(StayGuestResponse.builder().id(2L).fullName("NGUYỄN THỊ ÁNH TUYẾT").build());
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("Nguyễn Thị Ánh Tuyết"), isNull(), isNull(), any());
+    }
+
+    @Test
+    void search_documentNumberKeyword_passedTrimmedToRepository() {
+        mockChainAdminAuth();
+        StayGuestSearchDto request = StayGuestSearchDto.builder()
+                .hotelId((short) 1)
+                .keyword("  079190012345  ")
+                .page(0)
+                .pageSize(10)
+                .build();
+
+        StayGuest guest = StayGuest.builder().id(3L).fullName("TRAN VAN B").documentNumber("079190012345").hotel(sampleHotel).build();
+        org.springframework.data.domain.Page<StayGuest> page = new org.springframework.data.domain.PageImpl<>(List.of(guest));
+        when(stayGuestRepository.search(eq((short) 1), isNull(), isNull(), isNull(), eq("079190012345"), isNull(), isNull(), any()))
+                .thenReturn(page);
+        when(stayGuestMapper.toResponse(guest)).thenReturn(StayGuestResponse.builder().id(3L).fullName("TRAN VAN B").documentNumber("079190012345").build());
+
+        var result = stayGuestService.search(request);
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        verify(stayGuestRepository).search(eq((short) 1), isNull(), isNull(), isNull(), eq("079190012345"), isNull(), isNull(), any());
+    }
+
+    @Test
+    void repositoryQuery_hasAllKeywordReferencesSafelyCastToString() throws Exception {
+        var method = vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository.class.getMethod(
+                "search", Short.class, Long.class, String.class, String.class, String.class,
+                java.time.OffsetDateTime.class, java.time.OffsetDateTime.class,
+                org.springframework.data.domain.Pageable.class);
+        org.springframework.data.jpa.repository.Query query = method.getAnnotation(org.springframework.data.jpa.repository.Query.class);
+        assertNotNull(query, "Search method must have @Query annotation");
+        String jpql = query.value();
+
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("(?<!CAST\\():keyword").matcher(jpql);
+        assertFalse(matcher.find(), "Query must not contain raw uncast :keyword references to avoid lower(bytea) JDBC errors: " + jpql);
+        assertTrue(jpql.contains("CAST(:keyword AS string)"), "Query must cast :keyword to string");
     }
 }

@@ -77,6 +77,69 @@ class RagReviewRegressionTest {
         assertThat(result.getSanitizedText()).contains("14:00").doesNotContain("PWN_SENTINEL");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "Đêm mai Deluxe giá bao nhiêu?", "Còn 2 phòng tối nay không?",
+            "Ngày mai còn phòng không?", "Còn bao nhiêu phòng?",
+            "Phòng Deluxe có trống ngày mai không?", "Phòng Suite bao nhiêu tiền?",
+            "Giá hạng Deluxe là bao nhiêu cho 2 đêm?", "Báo giá phòng cho tôi",
+            "Giá phòng hiện tại là bao nhiêu?", "DEM MAI DELUXE GIA BAO NHIEU?",
+            "Còn\u00a02\u00a0phòng tối nay không?", "Cò\u200bn 2 phòng tối nay không?",
+            "How much does a room cost?", "What is the room price?",
+            "Are there rooms available tomorrow?", "What is the room availability tonight?"
+    })
+    void routesLiveRoomQuestionsToCoreBeforeRetrieval(String question) {
+        var result = ask(question);
+
+        assertThat(result.getStatus()).isEqualTo(RagAnswerStatus.OUT_OF_SCOPE);
+        assertThat(result.getAnswer()).contains("Core Booking");
+        assertThat(result.getCitations()).isEmpty();
+        verifyNoInteractions(retrieval);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "Trong phòng Deluxe có gì?", "Phòng Deluxe rộng bao nhiêu mét vuông?",
+            "Còn phòng tắm riêng không?", "Is room service available?",
+            "Giá phòng đã bao gồm bữa sáng chưa?", "Chính sách hủy phòng là gì?",
+            "How much space does the Deluxe room have?", "What does the room rate include?"
+    })
+    void keepsStaticRoomQuestionsOnTheKnowledgePath(String question) {
+        when(retrieval.retrieve(any())).thenReturn(List.of());
+
+        var result = ask(question);
+
+        assertThat(result.getStatus()).isEqualTo(RagAnswerStatus.INSUFFICIENT_EVIDENCE);
+        assertThat(result.getCitations()).isEmpty();
+        verify(retrieval).retrieve(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "Có được mang thú cưng vào không?", "Mang mèo vào được không?", "Are pets allowed?"
+    })
+    void petPolicyDoesNotUseUnrelatedEvidence(String question) {
+        evidence("Nhà hàng phục vụ bữa sáng và phòng họp có máy chiếu.");
+
+        var result = ask(question);
+
+        assertThat(result.getStatus()).isEqualTo(RagAnswerStatus.INSUFFICIENT_EVIDENCE);
+        assertThat(result.getCitations()).isEmpty();
+        assertThat(result.getAnswer()).doesNotContain("Nhà hàng", "máy chiếu");
+    }
+
+    @Test
+    void petPolicyOnlyCitesTheChunkThatMentionsPets() {
+        evidence("Nhà hàng phục vụ bữa sáng.", "Không được mang thú cưng vào khách sạn.");
+
+        var result = ask("Có được mang thú cưng vào không?");
+
+        assertThat(result.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
+        assertThat(result.getCitations()).extracting(citation -> citation.getSourceId())
+                .containsExactly("SYNTHETIC-REVIEW-1");
+        assertThat(result.getAnswer()).contains("Không được mang thú cưng").doesNotContain("Nhà hàng");
+    }
+
     private RagQueryResultDto ask(String question) {
         return answer.answerQuestion(RagQueryRequestDto.builder().hotelId(1).question(question)
                 .asOfDate(LocalDate.of(2026, 10, 31)).topK(5).build());

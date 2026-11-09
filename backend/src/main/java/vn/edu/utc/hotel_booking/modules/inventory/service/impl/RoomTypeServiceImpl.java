@@ -19,6 +19,7 @@ import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomTypeUpdateRequ
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomTypeResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.mapper.RoomTypeMapper;
+import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomTypeRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomTypeService;
 
@@ -31,6 +32,7 @@ import java.util.List;
 public class RoomTypeServiceImpl implements RoomTypeService {
 
     RoomTypeRepository roomTypeRepository;
+    HotelRoomTypeRepository hotelRoomTypeRepository;
     RoomTypeMapper roomTypeMapper;
 
     @Override
@@ -61,6 +63,12 @@ public class RoomTypeServiceImpl implements RoomTypeService {
         RoomType roomType = roomTypeRepository.findByIdAndIsDeletedFalse(id)
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_TYPE_NOT_FOUND, "Không tìm thấy loại phòng id: " + id));
         return roomTypeMapper.toResponse(roomType);
+    }
+
+    @Override
+    public RoomType getEntityById(Short id) {
+        return roomTypeRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.ROOM_TYPE_NOT_FOUND, "Không tìm thấy loại phòng id: " + id));
     }
 
     @Override
@@ -95,6 +103,7 @@ public class RoomTypeServiceImpl implements RoomTypeService {
     public void deleteRoomTypes(List<Short> ids) {
         if (ids != null && !ids.isEmpty()) {
             roomTypeRepository.softDeleteByIds(ids);
+            hotelRoomTypeRepository.softDeleteByRoomTypeIds(ids);
         }
     }
 }

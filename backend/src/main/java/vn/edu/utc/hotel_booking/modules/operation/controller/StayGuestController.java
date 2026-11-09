@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
@@ -51,6 +52,12 @@ public class StayGuestController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "STAY_GUEST_CREATE",
+            entityName = "StayGuest",
+            description = "'Ghi nhận khách lưu trú phòng #' + #request.bookingRoomId + ': ' + #request.fullName",
+            maskFields = {"identityNumber", "phoneNumber"}
+    )
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Ghi nhận khách lưu trú (Check-in)", description = "Tự động phân loại hàng chờ khai báo BCA: PENDING nếu đủ trường, ERROR nếu thiếu trường")
@@ -60,6 +67,13 @@ public class StayGuestController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "STAY_GUEST_UPDATE",
+            entityName = "StayGuest",
+            entityId = "#id.toString()",
+            description = "'Cập nhật thông tin khách lưu trú ID ' + #id",
+            maskFields = {"identityNumber", "phoneNumber"}
+    )
     @PutMapping("/update/{id}")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Cập nhật thông tin khách lưu trú", description = "Mã lỗi: 9061 (STAY_GUEST_NOT_FOUND)")
@@ -69,6 +83,12 @@ public class StayGuestController {
                 .build();
     }
 
+    @Auditable(
+            actionType = "STAY_GUEST_DELETE",
+            entityName = "StayGuest",
+            entityId = "#ids.toString()",
+            description = "'Xóa khách khỏi danh sách lưu trú: ' + #ids.toString()"
+    )
     @DeleteMapping("/delete")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER')")
     @Operation(summary = "Xóa mềm danh sách khách lưu trú và hủy hàng chờ", description = "Chuyển is_deleted = true và queue status = CANCELLED")

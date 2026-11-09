@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.CriteriaPatchDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.RoomSearchCriteriaDto;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.BudgetBasis;
 
 import java.time.LocalDate;
 import java.net.http.HttpClient;
@@ -79,6 +80,37 @@ class HybridRoomAdvisorLlmServiceTest {
         assertThat(patch.getCheckInDate()).isEqualTo(LocalDate.of(2026, 12, 15));
         assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 12, 18));
         assertThat(patch.getAdults()).isEqualTo(1);
+    }
+
+    @Test
+    void parsesVietnameseGroupedBudgetWithoutAssumingNightlyBasis() {
+        String request = "Tìm phòng tại Hà Nội, nhận phòng 2026-11-09, trả phòng 2026-11-11, "
+                + "2 người lớn, ngân sách tối đa 1.500.000 VND";
+
+        var nightly = llmService.extractCriteriaPatch(request + " mỗi phòng mỗi đêm", null).getBudget();
+        assertThat(nightly.getAmount()).isEqualTo("1500000");
+        assertThat(nightly.getBasis()).isNull();
+
+        var average = llmService.extractCriteriaPatch(request + " trung bình mỗi đêm theo tổng API", null).getBudget();
+        assertThat(average.getAmount()).isEqualTo("1500000");
+        assertThat(average.getBasis()).isEqualTo(BudgetBasis.AVERAGE_PER_NIGHT);
+    }
+
+    @Test
+    void treatsSingleDatesAsOneFieldAndRejectsInvalidCalendarDates() {
+        var arrival = llmService.extractCriteriaPatch("Nhận phòng 2026-11-20", null);
+        assertThat(arrival.getCheckInDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+        assertThat(arrival.getCheckOutDate()).isNull();
+
+        var stay = RoomSearchCriteriaDto.builder().checkInDate(arrival.getCheckInDate()).build();
+        var departure = llmService.extractCriteriaPatch("22/11/2026", stay);
+        assertThat(departure.getCheckInDate()).isNull();
+        assertThat(departure.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 11, 22));
+        assertThat(llmService.extractCriteriaPatch("Trả phòng 31/02/2026", stay)).isNull();
+
+        var mixed = llmService.extractCriteriaPatch("Nhận phòng 20/11/2026, trả phòng 2026-11-22", null);
+        assertThat(mixed.getCheckInDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+        assertThat(mixed.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 11, 22));
     }
 
     @Test

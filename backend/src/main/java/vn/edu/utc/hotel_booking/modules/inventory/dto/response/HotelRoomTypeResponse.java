@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -71,6 +72,9 @@ public class HotelRoomTypeResponse {
 
     @Schema(description = "Danh sách tiện ích phòng")
     Set<RoomFeatureResponse> features;
+
+    @Schema(description = "Danh sách cấu hình giường của hạng phòng")
+    List<HotelRoomTypeBedResponse> beds;
 
     @Schema(description = "Thời gian tạo")
     OffsetDateTime createdAt;

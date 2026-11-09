@@ -13,9 +13,11 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import guestService from '../services/guest.service';
+import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone';
 import type { GuestDto, GuestStayHistoryResponse } from '../types/guest.types';
 
 export const GuestListPage: React.FC = () => {
@@ -163,14 +165,19 @@ export const GuestListPage: React.FC = () => {
       setFormError('Vui lòng nhập số điện thoại');
       return;
     }
+    if (!isValidVietnamesePhone(formPhone.trim())) {
+      setFormError('Số điện thoại không hợp lệ (Ví dụ: 0912345678 hoặc 02466668888)');
+      return;
+    }
 
     setIsSubmitting(true);
     setFormError(null);
     try {
+      const sanitizedPhone = cleanPhoneNumber(formPhone.trim());
       if (editingGuest) {
         await guestService.update(editingGuest.id, {
           fullName: formFullName.trim().toUpperCase(),
-          phone: formPhone.trim(),
+          phone: sanitizedPhone,
           email: formEmail.trim() || undefined,
           identityType: formIdentityType,
           identityNumber: formIdentityNumber.trim() || undefined,
@@ -181,7 +188,7 @@ export const GuestListPage: React.FC = () => {
       } else {
         await guestService.create({
           fullName: formFullName.trim().toUpperCase(),
-          phone: formPhone.trim(),
+          phone: sanitizedPhone,
           email: formEmail.trim() || undefined,
           identityType: formIdentityType,
           identityNumber: formIdentityNumber.trim() || undefined,
@@ -258,15 +265,16 @@ export const GuestListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Trạng thái hồ sơ
             </label>
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
-              <option value="INACTIVE">Ngừng hoạt động (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang hoạt động (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Ngừng hoạt động (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
           <div className="sm:col-span-3 flex gap-2">
             <Button type="submit" variant="primary" className="flex-1 bg-red-600 hover:bg-red-700">
@@ -568,6 +576,11 @@ export const GuestListPage: React.FC = () => {
                 placeholder="0912345678"
                 value={formPhone}
                 onChange={(e) => setFormPhone(e.target.value)}
+                error={
+                  formPhone.trim() && !isValidVietnamesePhone(formPhone.trim())
+                    ? 'Số điện thoại không đúng định dạng (VD: 0912345678 hoặc 02466668888)'
+                    : undefined
+                }
                 required
               />
             </div>
@@ -588,17 +601,18 @@ export const GuestListPage: React.FC = () => {
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
                 Loại giấy tờ
               </label>
-              <select
+              <Select<string>
                 value={formIdentityType}
-                onChange={(e) => setFormIdentityType(e.target.value)}
-                className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-              >
-                <option value="CCCD">Căn cước công dân (CCCD)</option>
-                <option value="PASSPORT">Hộ chiếu (Passport)</option>
-                <option value="CMND">Chứng minh nhân dân (CMND)</option>
-                <option value="DRIVER_LICENSE">Giấy phép lái xe</option>
-                <option value="OTHER">Khác</option>
-              </select>
+                onChange={(val) => setFormIdentityType(val)}
+                options={[
+                  { value: 'CCCD', label: 'Căn cước công dân (CCCD)' },
+                  { value: 'PASSPORT', label: 'Hộ chiếu (Passport)' },
+                  { value: 'CMND', label: 'Chứng minh nhân dân (CMND)' },
+                  { value: 'DRIVER_LICENSE', label: 'Giấy phép lái xe' },
+                  { value: 'OTHER', label: 'Khác' },
+                ]}
+                size="lg"
+              />
             </div>
 
             <div>
@@ -639,14 +653,15 @@ export const GuestListPage: React.FC = () => {
                 <label className="block text-xs font-semibold text-neutral-700 mb-1">
                   Trạng thái hồ sơ
                 </label>
-                <select
+                <Select<'ACTIVE' | 'INACTIVE'>
                   value={formStatus}
-                  onChange={(e) => setFormStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
-                  className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-                >
-                  <option value="ACTIVE">Đang hoạt động (ACTIVE)</option>
-                  <option value="INACTIVE">Ngừng hoạt động (INACTIVE)</option>
-                </select>
+                  onChange={(val) => setFormStatus(val)}
+                  options={[
+                    { value: 'ACTIVE', label: 'Đang hoạt động (ACTIVE)' },
+                    { value: 'INACTIVE', label: 'Ngừng hoạt động (INACTIVE)' },
+                  ]}
+                  size="lg"
+                />
               </div>
             )}
           </div>

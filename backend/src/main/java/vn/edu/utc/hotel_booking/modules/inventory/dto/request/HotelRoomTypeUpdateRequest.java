@@ -8,6 +8,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -66,4 +67,7 @@ public class HotelRoomTypeUpdateRequest {
 
     @Schema(description = "Danh sách ID tiện ích phòng")
     Set<Short> featureIds;
+
+    @Schema(description = "Danh sách cấu hình giường")
+    List<HotelRoomTypeBedItemRequest> beds;
 }

@@ -3,7 +3,9 @@ package vn.edu.utc.hotel_booking.modules.ai.ocr.controller;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import vn.edu.utc.hotel_booking.common.annotation.Auditable;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.config.OcrEngineProperties;
 import vn.edu.utc.hotel_booking.modules.ai.ocr.dto.OcrDocumentExtractRequestDto;
@@ -65,6 +68,12 @@ public class IdentityDocumentOcrController {
      * @param request Yêu cầu chứa văn bản OCR thô, metadata file
      * @return Bản nháp trường dữ liệu kèm trạng thái và độ tin cậy
      */
+    @Auditable(
+            actionType = "OCR_SCAN",
+            entityName = "Guest",
+            description = "'Quét OCR bóc tách giấy tờ tùy thân: ' + #request.fileName",
+            maskFields = {"rawOcrText", "idNumber", "citizenId", "passportNumber"}
+    )
     @PostMapping("/extract")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extract(
             @Valid @RequestBody OcrDocumentExtractRequestDto request) {
@@ -87,13 +96,28 @@ public class IdentityDocumentOcrController {
      * @param rawOcrText Văn bản OCR đã trích xuất bởi client scanner (tùy chọn)
      * @return Bản nháp trường dữ liệu hoặc lỗi 400 nếu file không hợp lệ
      */
+    @Auditable(
+            actionType = "OCR_SCAN_FILE",
+            entityName = "Guest",
+            description = "'Quét OCR bóc tách file ảnh giấy tờ tùy thân: ' + #file.originalFilename",
+            maskFields = {"rawOcrText", "idNumber", "citizenId", "passportNumber"}
+    )
     @PostMapping("/extract-file")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extractFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "rawOcrText", required = false) String rawOcrText) {
 
+        if (file != null && file.getSize() > OcrUploadValidator.MAX_FILE_SIZE_BYTES) {
+            String message = "File vượt quá giới hạn 5 MB";
+            log.warn("U13 OCR /extract-file: file size {} exceeds limit {} bytes", file.getSize(), OcrUploadValidator.MAX_FILE_SIZE_BYTES);
+            return payloadTooLarge(message);
+        }
+
         OcrUploadValidator.ValidationResult validation = uploadValidator.validate(file);
         if (!validation.isValid()) {
+            if (validation.getReason() != null && validation.getReason().contains("5 MB")) {
+                return payloadTooLarge(validation.getReason());
+            }
             return invalidImage();
         }
 
@@ -149,6 +173,22 @@ public class IdentityDocumentOcrController {
     }
 
     // ---- Exception Handlers cục bộ ----
+
+    private ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> payloadTooLarge(String message) {
+        log.warn("U13 OCR /extract-file: payload too large: {}", message);
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(ApiResponse.<OcrStayGuestDraftDto>builder()
+                .code(HttpStatus.PAYLOAD_TOO_LARGE.value())
+                .message(message)
+                .result(buildInvalidFileResult(message))
+                .build());
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> handleMaxUploadSizeExceeded(
+            MaxUploadSizeExceededException ex) {
+        String message = "Dung lượng upload vượt quá giới hạn tối đa cho phép (tối đa 5 MB)";
+        return payloadTooLarge(message);
+    }
 
     @ExceptionHandler(OcrVisionPort.ExtractionUnavailableException.class)
     public ResponseEntity<ApiResponse<Void>> handleEngineUnavailable() {

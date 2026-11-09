@@ -18,6 +18,8 @@ public enum ErrorCode {
     // Organization Module Errors
     REGION_NOT_FOUND(2001, "Không tìm thấy khu vực/vùng yêu cầu", HttpStatus.NOT_FOUND),
     REGION_CODE_ALREADY_EXISTS(2002, "Mã khu vực đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
+    REGION_IN_USE(2003, "Khu vực đang có khách sạn trực thuộc, không thể xóa", HttpStatus.CONFLICT),
+    REGION_HAS_ACTIVE_STAFF(2004, "Khu vực đang có nhân viên trực thuộc quản lý, không thể xóa", HttpStatus.CONFLICT),
     DEPARTMENT_NOT_FOUND(2011, "Không tìm thấy phòng ban yêu cầu", HttpStatus.NOT_FOUND),
     DEPARTMENT_CODE_ALREADY_EXISTS(2012, "Mã phòng ban đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
     DEPARTMENT_IN_USE(2013, "Phòng ban đang có nhân viên trực thuộc, không thể xóa", HttpStatus.CONFLICT),
@@ -31,6 +33,8 @@ public enum ErrorCode {
     CANNOT_DELETE_SYSTEM_ROLE(3003, "Không thể xóa hoặc thay đổi mã định danh của vai trò hệ thống mặc định", HttpStatus.BAD_REQUEST),
     ROLE_IN_USE(3004, "Vai trò đang được gán cho nhân viên hoạt động, không thể xóa", HttpStatus.CONFLICT),
     PERMISSION_NOT_FOUND(3011, "Không tìm thấy quyền hạn (Permission)", HttpStatus.NOT_FOUND),
+    PERMISSION_ALREADY_EXISTS(3012, "Quyền hạn với hành động và tài nguyên này đã tồn tại", HttpStatus.CONFLICT),
+    PERMISSION_IN_USE(3013, "Không thể xóa quyền hạn đang được gán cho vai trò trong hệ thống", HttpStatus.BAD_REQUEST),
     STAFF_NOT_FOUND(3021, "Không tìm thấy thông tin nhân viên", HttpStatus.NOT_FOUND),
     USERNAME_ALREADY_EXISTS(3022, "Tên tài khoản đã tồn tại", HttpStatus.CONFLICT),
     EMAIL_ALREADY_EXISTS(3023, "Địa chỉ email đã được sử dụng", HttpStatus.CONFLICT),
@@ -65,11 +69,26 @@ public enum ErrorCode {
     ROOM_ALREADY_BLOCKED(5042, "Phòng đã bị khóa hoặc đang có khách lưu trú trong khoảng thời gian này", HttpStatus.CONFLICT),
     MAINTENANCE_BLOCK_TIME_INVALID(5043, "Khoảng thời gian khóa phòng không hợp lệ", HttpStatus.BAD_REQUEST),
 
+    ROOM_BED_NOT_FOUND(5051, "Không tìm thấy loại giường", HttpStatus.NOT_FOUND),
+    ROOM_BED_NAME_ALREADY_EXISTS(5052, "Tên loại giường đã tồn tại", HttpStatus.CONFLICT),
+    ROOM_FEATURE_NOT_FOUND(5061, "Không tìm thấy tiện ích phòng", HttpStatus.NOT_FOUND),
+    ROOM_FEATURE_CODE_ALREADY_EXISTS(5062, "Mã tiện ích phòng đã tồn tại", HttpStatus.CONFLICT),
+
     // Pricing Module Errors
     PRICING_RULE_NOT_FOUND(6001, "Không tìm thấy quy tắc giá", HttpStatus.NOT_FOUND),
     CAMPAIGN_NOT_FOUND(6011, "Không tìm thấy chiến dịch khuyến mại", HttpStatus.NOT_FOUND),
     TAX_CATEGORY_NOT_FOUND(6021, "Không tìm thấy nhóm thuế", HttpStatus.NOT_FOUND),
+    TAX_CATEGORY_CODE_ALREADY_EXISTS(6022, "Mã nhóm thuế đã tồn tại", HttpStatus.CONFLICT),
+    TAX_CATEGORY_IN_USE(6023, "Nhóm thuế đang được sử dụng, không thể xóa", HttpStatus.BAD_REQUEST),
     VAT_RULE_NOT_FOUND(6031, "Không tìm thấy quy tắc thuế VAT", HttpStatus.NOT_FOUND),
+    VAT_RULE_CODE_ALREADY_EXISTS(6032, "Mã quy tắc thuế VAT đã tồn tại", HttpStatus.CONFLICT),
+    VAT_RULE_DATE_OVERLAP(6033, "Dải ngày hiệu lực của quy tắc thuế VAT bị trùng lặp với quy tắc khác", HttpStatus.BAD_REQUEST),
+    HOTEL_AGE_POLICY_NOT_FOUND(6041, "Không tìm thấy chính sách độ tuổi", HttpStatus.NOT_FOUND),
+    HOTEL_AGE_POLICY_ALREADY_EXISTS(6042, "Chính sách độ tuổi cho loại khách này đã tồn tại tại cơ sở", HttpStatus.CONFLICT),
+    HOTEL_AGE_POLICY_RANGE_INVALID(6043, "Dải tuổi không hợp lệ hoặc bị chồng lấn", HttpStatus.BAD_REQUEST),
+    HOLIDAY_CALENDAR_NOT_FOUND(6051, "Không tìm thấy ngày lễ trong lịch", HttpStatus.NOT_FOUND),
+    HOLIDAY_CALENDAR_ALREADY_EXISTS(6052, "Ngày lễ này đã được khai báo trên hệ thống", HttpStatus.CONFLICT),
+    HOLIDAY_CALENDAR_IN_USE(6053, "Ngày lễ đang được sử dụng trong quy tắc giá, không thể xóa", HttpStatus.BAD_REQUEST),
 
     // Booking Module Errors (7000s)
     BOOKING_NOT_FOUND(7001, "Không tìm thấy thông tin đơn đặt phòng", HttpStatus.NOT_FOUND),

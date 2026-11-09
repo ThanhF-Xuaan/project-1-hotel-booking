@@ -3,6 +3,7 @@ import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { Select } from '../../../core/components/ui/Select';
 import policyService from '../services/policy.service';
 import type {
   CancellationPolicyResponse,
@@ -49,7 +50,7 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
         setDefaultPenaltyPercent(policy.defaultPenaltyPercent);
         setDescription(policy.description || '');
         setIsActive(policy.isActive);
-        setTiers(policy.tiers && policy.tiers.length > 0 ? [...policy.tiers] : []);
+        setTiers(policy.tiers && policy.tiers.length > 0 ? [...policy.tiers].sort((a, b) => Number(a.minDays) - Number(b.minDays)) : []);
       } else {
         setPolicyCode('');
         setName('');
@@ -60,9 +61,9 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
         setDescription('');
         setIsActive(true);
         setTiers([
-          { minDays: 7, maxDays: null, penaltyPercent: 0, description: 'Miễn phí hủy trước 7 ngày' },
-          { minDays: 4, maxDays: 6, penaltyPercent: 50, description: 'Phạt 50% tiền phòng' },
-          { minDays: 0, maxDays: 3, penaltyPercent: 100, description: 'Phạt 100% trong vòng 3 ngày' },
+          { minDays: 0, maxDays: 3, penaltyPercent: 100, description: 'Hủy trong vòng 3 ngày: Phạt 100% tiền phòng' },
+          { minDays: 4, maxDays: 6, penaltyPercent: 50, description: 'Hủy từ 4-6 ngày: Phạt 50% tiền phòng' },
+          { minDays: 7, maxDays: null, penaltyPercent: 0, description: 'Hủy trước >= 7 ngày: Miễn phí hủy (0%)' },
         ]);
       }
       setErrorMsg(null);
@@ -71,7 +72,18 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
   }, [policy, isOpen]);
 
   const handleAddTier = () => {
-    setTiers([...tiers, { minDays: 0, maxDays: null, penaltyPercent: 100, description: '' }]);
+    if (tiers.length === 0) {
+      setTiers([{ minDays: 0, maxDays: null, penaltyPercent: 100, description: '' }]);
+      return;
+    }
+    const updated = [...tiers];
+    const last = updated[updated.length - 1];
+    if (last.maxDays === null || last.maxDays === undefined || last.maxDays === ('' as unknown)) {
+      last.maxDays = Number(last.minDays) + 3;
+    }
+    const nextMin = Number(last.maxDays) + 1;
+    updated.push({ minDays: nextMin, maxDays: null, penaltyPercent: 0, description: '' });
+    setTiers(updated);
   };
 
   const handleRemoveTier = (index: number) => {
@@ -93,6 +105,61 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
     if (!isEdit && !policyCode.trim()) {
       setErrorMsg('Vui lòng nhập mã chính sách');
       return;
+    }
+
+    // Client-side validation cho bậc phạt nếu là TIERED hoặc FULL_DEPOSIT
+    if (cancellationFeeType === 'TIERED' || cancellationFeeType === 'FULL_DEPOSIT') {
+      if (!tiers || tiers.length === 0) {
+        setErrorMsg('Vui lòng thiết lập ít nhất 1 bậc phạt');
+        return;
+      }
+      const sorted = [...tiers].sort((a, b) => Number(a.minDays) - Number(b.minDays));
+      if (Number(sorted[0].minDays) !== 0) {
+        setErrorMsg('Bậc phạt đầu tiên bắt buộc phải bắt đầu từ ngày 0');
+        return;
+      }
+      for (let i = 0; i < sorted.length; i++) {
+        const cur = sorted[i];
+        if (
+          cur.penaltyPercent === undefined ||
+          cur.penaltyPercent === null ||
+          Number(cur.penaltyPercent) < 0 ||
+          Number(cur.penaltyPercent) > 100
+        ) {
+          setErrorMsg('Tỷ lệ phạt phải nằm trong khoảng từ 0% đến 100%');
+          return;
+        }
+        if (i < sorted.length - 1) {
+          if (
+            cur.maxDays === null ||
+            cur.maxDays === undefined ||
+            cur.maxDays === ('' as unknown) ||
+            Number(cur.maxDays) < Number(cur.minDays)
+          ) {
+            setErrorMsg('Các bậc phạt ở giữa bắt buộc phải có mốc Đến (<= ngày) và lớn hơn hoặc bằng mốc Từ');
+            return;
+          }
+          const next = sorted[i + 1];
+          if (Number(next.minDays) !== Number(cur.maxDays) + 1) {
+            setErrorMsg(`Các bậc phạt không liên tục: bậc tiếp theo (${next.minDays}) phải bằng bậc trước (${cur.maxDays}) + 1`);
+            return;
+          }
+          if (Number(next.penaltyPercent) > Number(cur.penaltyPercent)) {
+            setErrorMsg('Mức phạt phải giảm dần hoặc bằng khi thời gian hủy cách xa ngày check-in hơn');
+            return;
+          }
+        } else {
+          if (
+            cur.maxDays !== null &&
+            cur.maxDays !== undefined &&
+            cur.maxDays !== ('' as unknown) &&
+            Number(cur.maxDays) < Number(cur.minDays)
+          ) {
+            setErrorMsg('Mốc Đến (<= ngày) của bậc cuối cùng phải lớn hơn hoặc bằng mốc Từ');
+            return;
+          }
+        }
+      }
     }
 
     try {
@@ -184,33 +251,34 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 ${cancellationFeeType !== 'TIERED' ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4`}>
           <div>
             <label className="block text-sm font-semibold text-neutral-800 mb-1">Loại Đối Tượng</label>
-            <select
+            <Select<BookingType>
               value={bookingType}
-              onChange={(e) => setBookingType(e.target.value as BookingType)}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="FIT">Khách lẻ (FIT)</option>
-              <option value="GIT">Khách đoàn (GIT)</option>
-              <option value="CORPORATE">Doanh nghiệp (CORPORATE)</option>
-              <option value="ALL">Toàn bộ khách (ALL)</option>
-            </select>
+              onChange={(val) => setBookingType(val)}
+              options={[
+                { value: 'FIT', label: 'Khách lẻ (FIT)' },
+                { value: 'GIT', label: 'Khách đoàn (GIT)' },
+                { value: 'CORPORATE', label: 'Doanh nghiệp (CORPORATE)' },
+                { value: 'ALL', label: 'Toàn bộ khách (ALL)' },
+              ]}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-neutral-800 mb-1">Loại Cơ Chế Phạt</label>
-            <select
+            <Select<CancellationFeeType>
               value={cancellationFeeType}
-              onChange={(e) => setCancellationFeeType(e.target.value as CancellationFeeType)}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="TIERED">Bậc thang thời gian (TIERED)</option>
-              <option value="FULL_DEPOSIT">Tỷ lệ trên tiền cọc thực tế (FULL_DEPOSIT)</option>
-              <option value="PERCENTAGE">Tỷ lệ cố định (PERCENTAGE)</option>
-              <option value="FIXED">Số tiền cố định (FIXED)</option>
-            </select>
+              onChange={(val) => setCancellationFeeType(val)}
+              options={[
+                { value: 'TIERED', label: 'Bậc thang thời gian (TIERED)' },
+                { value: 'FULL_DEPOSIT', label: 'Tỷ lệ trên tiền cọc thực tế (FULL_DEPOSIT)' },
+                { value: 'PERCENT', label: 'Tỷ lệ % cố định (PERCENT)' },
+                { value: 'FIXED_AMOUNT', label: 'Số tiền cố định (FIXED_AMOUNT)' },
+                { value: 'FIRST_NIGHT', label: 'Phạt đêm đầu tiên (FIRST_NIGHT)' },
+              ]}
+            />
           </div>
 
           <div>
@@ -224,6 +292,23 @@ export const CancellationPolicyModal: React.FC<CancellationPolicyModalProps> = (
               title={cancellationFeeType === 'TIERED' ? 'TIERED sử dụng các bậc bên dưới làm nguồn sự thật' : ''}
             />
           </div>
+
+          {cancellationFeeType !== 'TIERED' && (
+            <div>
+              <label className="block text-sm font-semibold text-neutral-800 mb-1">
+                Tỷ lệ phạt mặc định (%) <span className="text-red-500">*</span>
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={defaultPenaltyPercent}
+                onChange={(e) => setDefaultPenaltyPercent(Number(e.target.value))}
+                required
+              />
+            </div>
+          )}
         </div>
 
         {(cancellationFeeType === 'TIERED' || cancellationFeeType === 'FULL_DEPOSIT') && (

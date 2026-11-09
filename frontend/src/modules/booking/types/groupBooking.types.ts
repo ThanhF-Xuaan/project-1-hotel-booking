@@ -65,13 +65,16 @@ export interface GroupContractResponse {
 
 export interface GroupContractSearchDto {
   hotelId?: number;
+  keyword?: string;
   contractNumber?: string;
   groupName?: string;
+  companyName?: string;
   status?: GroupContractStatus;
   checkInDateFrom?: string;
   checkInDateTo?: string;
   page?: number;
   pageSize?: number;
+  size?: number;
   sortBy?: string;
   sortDirection?: 'ASC' | 'DESC';
 }
@@ -111,5 +114,6 @@ export interface GroupContractDepositRequest {
 }
 
 export interface GroupContractCancelRequest {
-  reason: string;
+  cancellationReason?: string;
+  reason?: string;
 }

@@ -11,6 +11,7 @@ import {
   CreditCard,
   Ban,
   Receipt,
+  Upload,
 } from 'lucide-react';
 import type {
   GroupContractResponse,
@@ -18,6 +19,8 @@ import type {
 } from '../types/groupBooking.types';
 import { groupBookingService } from '../services/groupBooking.service';
 import { ConfirmModal } from '../../../core/components/ui/ConfirmModal';
+import { MasterFolioModal } from '../../finance/components/MasterFolioModal';
+import { RoomingListImportModal } from './RoomingListImportModal';
 
 interface GroupDetailDrawerProps {
   contract: GroupContractResponse | null;
@@ -51,6 +54,8 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
   // Cut-off Release confirm modal
   const [releaseBlockId, setReleaseBlockId] = useState<number | null>(null);
   const [isReleasing, setIsReleasing] = useState(false);
+  const [isMasterFolioOpen, setIsMasterFolioOpen] = useState(false);
+  const [isRoomingListOpen, setIsRoomingListOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !contract?.id) return;
@@ -166,8 +171,13 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
     }
     try {
       setIsCancelling(true);
-      await groupBookingService.cancel(contract.id, { reason: cancelReason.trim() });
+      const trimmedReason = cancelReason.trim();
+      await groupBookingService.cancel(contract.id, {
+        cancellationReason: trimmedReason,
+        reason: trimmedReason,
+      });
       setShowCancelModal(false);
+      setCancelReason('');
       await onRefresh();
       onClose();
     } catch (err: unknown) {
@@ -229,33 +239,54 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
         </div>
 
         {/* Tab Controls */}
-        <div className="flex border-b border-neutral-200 bg-neutral-50 px-6 pt-3 gap-6 text-xs font-bold uppercase tracking-wider">
-          <button
-            type="button"
-            onClick={() => setActiveTab('INFO')}
-            className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'INFO'
-              ? 'border-red-600 text-red-600'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
-          >
-            <Building2 className="w-4 h-4" />
-            Hợp Đồng & Quản Lý Cọc
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('BLOCKS')}
-            className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'BLOCKS'
-              ? 'border-red-600 text-red-600'
-              : 'border-transparent text-neutral-500 hover:text-neutral-900'
-              }`}
-          >
-            <BedDouble className="w-4 h-4" />
-            Quỹ Phòng Đoàn ({roomBlocks.length})
-          </button>
+        <div className="flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-6 pt-3 text-xs font-bold uppercase tracking-wider">
+          <div className="flex gap-6">
+            <button
+              type="button"
+              onClick={() => setActiveTab('INFO')}
+              className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'INFO'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                }`}
+            >
+              <Building2 className="w-4 h-4" />
+              Hợp Đồng & Quản Lý Cọc
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('BLOCKS')}
+              className={`pb-3 border-b-2 transition-colors cursor-pointer flex items-center gap-2 ${activeTab === 'BLOCKS'
+                ? 'border-red-600 text-red-600'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
+                }`}
+            >
+              <BedDouble className="w-4 h-4" />
+              Quỹ Phòng Đoàn ({roomBlocks.length})
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setIsRoomingListOpen(true)}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5 text-blue-600" />
+              Import Rooming List
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMasterFolioOpen(true)}
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              Sổ Cái Master Folio
+            </button>
+          </div>
         </div>
 
         {/* Drawer Body */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto scrollbar-none p-6 space-y-6">
           {activeTab === 'INFO' ? (
             <div className="space-y-6">
               {/* Alert: Cutoff status */}
@@ -606,6 +637,27 @@ export const GroupDetailDrawer: React.FC<GroupDetailDrawerProps> = ({
         variant="warning"
         isLoading={isReleasing}
       />
+      {/* Sổ Cái Master Folio Modal */}
+      {contract && (
+        <MasterFolioModal
+          isOpen={isMasterFolioOpen}
+          onClose={() => setIsMasterFolioOpen(false)}
+          contractId={contract.id}
+        />
+      )}
+
+      {/* Modal Nhập Rooming List */}
+      {contract && isRoomingListOpen && (
+        <RoomingListImportModal
+          isOpen={isRoomingListOpen}
+          onClose={() => setIsRoomingListOpen(false)}
+          contract={contract}
+          onSuccess={async () => {
+            setIsRoomingListOpen(false);
+            await onRefresh();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -6,7 +6,11 @@ import jakarta.validation.Valid;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
@@ -20,6 +24,10 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.GroupContractRespon
 import vn.edu.utc.hotel_booking.modules.booking.service.GroupContractService;
 import vn.edu.utc.hotel_booking.modules.identity.service.StaffService;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @RestController
@@ -49,6 +57,26 @@ public class GroupContractController {
     @Operation(summary = "Tìm kiếm và phân trang danh sách hợp đồng khách đoàn (POST Search DTO)")
     public ApiResponse<PageResponse<GroupContractResponse>> filterContracts(@RequestBody GroupContractSearchDto searchDto) {
         return ApiResponse.success(groupContractService.filterContracts(searchDto));
+    }
+
+    @PostMapping("/export")
+    @PreAuthorize("hasAnyRole('SALES_GROUP', 'PROPERTY_MANAGER', 'CHAIN_ADMIN', 'FINANCE')")
+    @Operation(summary = "Xuất file Excel danh sách hợp đồng khách đoàn theo bộ lọc")
+    public ResponseEntity<ByteArrayResource> exportContracts(
+            @RequestBody(required = false) GroupContractSearchDto searchDto
+    ) {
+        byte[] excelBytes = groupContractService.exportContractsToExcel(searchDto);
+        ByteArrayResource resource = new ByteArrayResource(excelBytes);
+
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String rawFileName = "Bao_Cao_Hop_Dong_Doan_" + dateStr + ".xlsx";
+        String encodedFileName = URLEncoder.encode(rawFileName, StandardCharsets.UTF_8).replaceAll("\\+", "%20");
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + rawFileName + "\"; filename*=UTF-8''" + encodedFileName)
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .contentLength(excelBytes.length)
+                .body(resource);
     }
 
     @GetMapping("/{id}")

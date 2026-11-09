@@ -434,19 +434,21 @@ export const RoomInstanceListPage: React.FC = () => {
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
                           {getStatusBadge(room.currentStatus)}
-                          <select
-                            value={room.currentStatus}
-                            onChange={(e) =>
-                              handleQuickStatusChange(room.id, e.target.value)
-                            }
-                            aria-label={`Chuyển trạng thái phòng ${room.roomNumber}`}
-                            className="text-xs px-2 py-1 rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 focus:outline-none cursor-pointer"
-                          >
-                            <option value="READY">Sẵn sàng</option>
-                            <option value="OCCUPIED">Có khách</option>
-                            <option value="CLEANING">Dọn dẹp</option>
-                            <option value="MAINTENANCE">Bảo trì</option>
-                          </select>
+                          <div className="w-32">
+                            <Select<string>
+                              value={room.currentStatus}
+                              onChange={(val) =>
+                                handleQuickStatusChange(room.id, val)
+                              }
+                              options={[
+                                { value: 'READY', label: 'Sẵn sàng' },
+                                { value: 'OCCUPIED', label: 'Có khách' },
+                                { value: 'CLEANING', label: 'Dọn dẹp' },
+                                { value: 'MAINTENANCE', label: 'Bảo trì' },
+                              ]}
+                              size="sm"
+                            />
+                          </div>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-right">

@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Filter,
   Building2,
+  Receipt,
+  Upload,
 } from 'lucide-react';
 import { groupBookingService } from '../services/groupBooking.service';
 import { hotelService } from '../../organization/services/hotel.service';
@@ -24,6 +26,8 @@ import type {
 import { GroupCreateContractModal } from '../components/GroupCreateContractModal';
 import { GroupDetailDrawer } from '../components/GroupDetailDrawer';
 import { Select } from '../../../core/components/ui/Select';
+import { MasterFolioModal } from '../../finance/components/MasterFolioModal';
+import { RoomingListImportModal } from '../components/RoomingListImportModal';
 
 export const GroupManagementPage: React.FC = () => {
   const [contracts, setContracts] = useState<GroupContractResponse[]>([]);
@@ -37,74 +41,98 @@ export const GroupManagementPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<GroupContractStatus | 'ALL'>('ALL');
   const [hotelFilter, setHotelFilter] = useState<number>(0);
   const [hotelList, setHotelList] = useState<{ id: number; name: string }[]>([]);
+  const [isHotelsLoading, setIsHotelsLoading] = useState(false);
+  const [hasLoadedHotels, setHasLoadedHotels] = useState(false);
 
   // Modals & Drawers
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedContract, setSelectedContract] = useState<GroupContractResponse | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedMasterFolioContractId, setSelectedMasterFolioContractId] = useState<number | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedImportContract, setSelectedImportContract] = useState<GroupContractResponse | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // Fetch real hotel list
-  useEffect(() => {
-    hotelService
-      .filter({ page: 0, pageSize: 50 })
-      .then((res) => {
-        const list = (res.result?.content || []).map((h) => ({
-          id: h.id,
-          name: h.name || `Khách sạn #${h.id}`,
-        }));
-        setHotelList(list);
-      })
-      .catch((err: unknown) => {
-        console.warn('Lỗi khi tải danh sách khách sạn:', err);
-      });
-  }, []);
-
-  const loadData = useCallback(async (targetPage = 0) => {
-    setIsLoading(true);
+  // Lazy fetch hotel list when user opens the hotel Select dropdown
+  const handleOpenHotelSelect = useCallback(async () => {
+    if (hasLoadedHotels || isHotelsLoading) return;
+    setIsHotelsLoading(true);
     try {
-      const res = await groupBookingService.filter({
-        contractNumber: keyword.trim() || undefined,
-        groupName: keyword.trim() || undefined,
-        status: statusFilter !== 'ALL' ? statusFilter : undefined,
-        hotelId: hotelFilter ? Number(hotelFilter) : undefined,
-        page: targetPage,
-        pageSize: 10,
-        sortBy: 'id',
-        sortDirection: 'DESC',
-      });
-
-      const pageData = res.result;
-      setContracts(pageData?.content || []);
-      setTotalPages(pageData?.totalPages || 1);
-      setTotalElements(pageData?.totalElements || 0);
-      setPage(pageData?.pageNumber || 0);
+      const res = await hotelService.filter({ page: 0, pageSize: 50 });
+      const list = (res.result?.content || []).map((h) => ({
+        id: h.id,
+        name: h.name || `Khách sạn #${h.id}`,
+      }));
+      setHotelList(list);
+      setHasLoadedHotels(true);
     } catch (err: unknown) {
-      console.error('Lỗi khi tải danh sách hợp đồng đoàn từ API:', err);
-      setContracts([]);
+      console.warn('Lỗi khi tải danh sách khách sạn:', err);
     } finally {
-      setIsLoading(false);
+      setIsHotelsLoading(false);
     }
-  }, [keyword, statusFilter, hotelFilter]);
+  }, [hasLoadedHotels, isHotelsLoading]);
+
+  const loadData = useCallback(
+    async (
+      targetPage = 0,
+      customKeyword = keyword,
+      customStatus = statusFilter,
+      customHotel = hotelFilter
+    ) => {
+      setIsLoading(true);
+      try {
+        const res = await groupBookingService.filter({
+          keyword: customKeyword.trim() || undefined,
+          status: customStatus !== 'ALL' ? customStatus : undefined,
+          hotelId: customHotel ? Number(customHotel) : undefined,
+          page: targetPage,
+          pageSize: 10,
+          sortBy: 'id',
+          sortDirection: 'DESC',
+        });
+
+        const pageData = res.result;
+        setContracts(pageData?.content || []);
+        setTotalPages(pageData?.totalPages || 1);
+        setTotalElements(pageData?.totalElements || 0);
+        setPage(pageData?.pageNumber || 0);
+      } catch (err: unknown) {
+        console.error('Lỗi khi tải danh sách hợp đồng đoàn từ API:', err);
+        setContracts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [keyword, statusFilter, hotelFilter]
+  );
 
   useEffect(() => {
     let ignore = false;
     Promise.resolve().then(() => {
       if (!ignore) {
-        loadData(0);
+        loadData(0, '', 'ALL', 0);
       }
     });
     return () => {
       ignore = true;
     };
-  }, [loadData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loadData(0);
+    loadData(0, keyword, statusFilter, hotelFilter);
   };
 
-  const handleCreateSubmit = async (dto: GroupContractCreateRequest) => {
-    await groupBookingService.create(dto);
+  const handleResetFilter = () => {
+    setKeyword('');
+    setStatusFilter('ALL');
+    setHotelFilter(0);
+    loadData(0, '', 'ALL', 0);
+  };
+
+  const handleCreateSubmit = async (dto: GroupContractCreateRequest, staffId?: number) => {
+    await groupBookingService.create(dto, staffId);
     alert('Tạo hợp đồng khách đoàn thành công! Khối phòng đã được giữ 3 ngày.');
     await loadData(0);
   };
@@ -117,6 +145,92 @@ export const GroupManagementPage: React.FC = () => {
       }
     }
     await loadData(page);
+  };
+
+  const handleExportExcel = async () => {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const suggestedFileName = `Bao_Cao_Hop_Dong_Doan_${today}.xlsx`;
+
+    type NativeFileHandle = {
+      createWritable: () => Promise<{
+        write: (data: Blob) => Promise<void>;
+        close: () => Promise<void>;
+      }>;
+    };
+
+    let fileHandle: NativeFileHandle | null = null;
+
+    // 1. Mở cửa sổ Save As nếu trình duyệt hỗ trợ File System Access API (Chrome, Edge)
+    const windowWithPicker = window as unknown as {
+      showSaveFilePicker?: (options?: {
+        suggestedName?: string;
+        types?: Array<{
+          description?: string;
+          accept: Record<string, string[]>;
+        }>;
+      }) => Promise<NativeFileHandle>;
+    };
+
+    if (typeof windowWithPicker.showSaveFilePicker === 'function') {
+      try {
+        fileHandle = await windowWithPicker.showSaveFilePicker({
+          suggestedName: suggestedFileName,
+          types: [
+            {
+              description: 'Sổ làm việc Excel (*.xlsx)',
+              accept: {
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+              },
+            },
+          ],
+        });
+      } catch (pickerErr: unknown) {
+        // Người dùng nhấn Cancel / Hủy trong cửa sổ chọn đường dẫn lưu
+        if (
+          pickerErr &&
+          typeof pickerErr === 'object' &&
+          'name' in pickerErr &&
+          pickerErr.name === 'AbortError'
+        ) {
+          return;
+        }
+        console.warn('Không thể mở cửa sổ chọn nơi lưu file qua File System Access API, chuyển sang phương thức tải tiêu chuẩn:', pickerErr);
+      }
+    }
+
+    setIsExporting(true);
+    try {
+      const blob = await groupBookingService.exportExcel({
+        keyword: keyword.trim() || undefined,
+        status: statusFilter !== 'ALL' ? statusFilter : undefined,
+        hotelId: hotelFilter ? Number(hotelFilter) : undefined,
+        sortBy: 'id',
+        sortDirection: 'DESC',
+      });
+
+      if (fileHandle) {
+        // Ghi trực tiếp vào file tại đúng đường dẫn người dùng đã chọn
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } else {
+        // Fallback tự động tải cho trình duyệt không hỗ trợ File System Access API
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', suggestedFileName);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (err: unknown) {
+      console.error('Lỗi khi xuất file Excel báo cáo hợp đồng đoàn:', err);
+      const message = err instanceof Error ? err.message : 'Không thể xuất file Excel. Vui lòng thử lại sau.';
+      alert(message);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Stats computed from current page/total
@@ -140,10 +254,24 @@ export const GroupManagementPage: React.FC = () => {
           <button
             type="button"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-300 hover:bg-neutral-100 rounded-lg text-xs font-bold text-neutral-700 shadow-2xs transition-colors cursor-pointer"
-            onClick={() => alert('Xuất báo cáo hợp đồng đoàn Excel thành công!')}
+            onClick={() => {
+              setSelectedImportContract(null);
+              setIsImportModalOpen(true);
+            }}
+            title="Nhập danh sách khách đoàn từ file Excel Rooming List"
           >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-green-600" />
-            <span>Xuất Excel</span>
+            <Upload className="w-3.5 h-3.5 text-blue-600" />
+            <span>Import</span>
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-neutral-300 hover:bg-neutral-100 rounded-lg text-xs font-bold text-neutral-700 shadow-2xs transition-colors cursor-pointer"
+            disabled={isExporting}
+            onClick={handleExportExcel}
+            title="Xuất báo cáo danh sách hợp đồng đoàn ra tệp Excel (.xlsx)"
+          >
+            <FileSpreadsheet className={`w-3.5 h-3.5 ${isExporting ? 'animate-spin text-neutral-400' : 'text-green-600'}`} />
+            <span>{isExporting ? 'Đang xuất...' : 'Export'}</span>
           </button>
           <button
             type="button"
@@ -212,7 +340,13 @@ export const GroupManagementPage: React.FC = () => {
             <input
               type="text"
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={(e) => {
+                const nextVal = e.target.value;
+                setKeyword(nextVal);
+                if (nextVal === '') {
+                  loadData(0, '', statusFilter, hotelFilter);
+                }
+              }}
               placeholder="Tìm theo mã hợp đồng, tên đoàn, công ty..."
               className="w-full h-11 pl-10 pr-3 bg-neutral-50 border border-neutral-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-red-500 focus:bg-white focus:outline-none"
             />
@@ -221,7 +355,10 @@ export const GroupManagementPage: React.FC = () => {
           <div className="md:col-span-3">
             <Select<GroupContractStatus | 'ALL'>
               value={statusFilter}
-              onChange={(val) => setStatusFilter(val)}
+              onChange={(val) => {
+                setStatusFilter(val);
+                loadData(0, keyword, val, hotelFilter);
+              }}
               options={[
                 { value: 'ALL', label: 'Tất cả trạng thái' },
                 { value: 'TENTATIVE', label: 'Giữ chỗ', badge: 'Chờ cọc' },
@@ -235,10 +372,15 @@ export const GroupManagementPage: React.FC = () => {
             />
           </div>
 
-          <div className="md:col-span-3">
+          <div className="md:col-span-2">
             <Select<number>
               value={hotelFilter}
-              onChange={(val) => setHotelFilter(val)}
+              onChange={(val) => {
+                setHotelFilter(val);
+                loadData(0, keyword, statusFilter, val);
+              }}
+              onOpen={handleOpenHotelSelect}
+              isLoading={isHotelsLoading}
               options={[
                 { value: 0, label: 'Tất cả cơ sở' },
                 ...hotelList.map((h) => ({
@@ -250,12 +392,21 @@ export const GroupManagementPage: React.FC = () => {
             />
           </div>
 
-          <div className="md:col-span-1">
+          <div className="md:col-span-2 flex items-center gap-2">
             <button
               type="submit"
-              className="w-full h-11 bg-neutral-900 hover:bg-black text-white rounded-xl text-xs font-bold uppercase transition-colors cursor-pointer"
+              className="flex-1 h-11 bg-neutral-900 hover:bg-black text-white rounded-xl text-xs font-bold uppercase transition-colors cursor-pointer flex items-center justify-center gap-1"
             >
               Lọc
+            </button>
+            <button
+              type="button"
+              onClick={handleResetFilter}
+              className="h-11 px-3 bg-white border border-neutral-300 hover:bg-neutral-100 text-neutral-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              title="Xóa bộ lọc và làm mới dữ liệu"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-neutral-500" />
+              <span className="hidden xl:inline">Làm mới</span>
             </button>
           </div>
         </form>
@@ -286,8 +437,21 @@ export const GroupManagementPage: React.FC = () => {
                 </tr>
               ) : contracts.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-neutral-400 font-medium">
-                    Chưa có hợp đồng đoàn nào được tạo trên hệ thống.
+                  <td colSpan={7} className="p-12 text-center text-neutral-500 font-medium">
+                    {keyword || statusFilter !== 'ALL' || hotelFilter !== 0 ? (
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <span>Không tìm thấy hợp đồng đoàn nào phù hợp với bộ lọc hiện tại.</span>
+                        <button
+                          type="button"
+                          onClick={handleResetFilter}
+                          className="px-3 py-1.5 text-xs text-red-600 font-bold hover:underline cursor-pointer"
+                        >
+                          Xóa bộ lọc & xem tất cả
+                        </button>
+                      </div>
+                    ) : (
+                      'Chưa có hợp đồng đoàn nào được tạo trên hệ thống.'
+                    )}
                   </td>
                 </tr>
               ) : (
@@ -399,17 +563,40 @@ export const GroupManagementPage: React.FC = () => {
 
                       {/* Thao tác */}
                       <td className="p-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedContract(c);
-                            setIsDrawerOpen(true);
-                          }}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs transition-colors cursor-pointer"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-neutral-600" />
-                          <span>Chi tiết</span>
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedImportContract(c);
+                              setIsImportModalOpen(true);
+                            }}
+                            title="Nhập danh sách khách đoàn (Excel Rooming List)"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            <Upload className="w-3.5 h-3.5 text-blue-600" />
+                            <span>Import</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMasterFolioContractId(c.id)}
+                            title="Mở Sổ Cái Master Folio & Quyết toán"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            <Receipt className="w-3.5 h-3.5 text-red-600" />
+                            <span>Master Folio</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedContract(c);
+                              setIsDrawerOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold text-xs transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5 text-neutral-600" />
+                            <span>Chi tiết</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -448,12 +635,14 @@ export const GroupManagementPage: React.FC = () => {
       </div>
 
       {/* Modals & Drawers */}
-      <GroupCreateContractModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onSubmit={handleCreateSubmit}
-        hotelList={hotelList}
-      />
+      {isCreateOpen && (
+        <GroupCreateContractModal
+          isOpen={isCreateOpen}
+          onClose={() => setIsCreateOpen(false)}
+          onSubmit={handleCreateSubmit}
+          hotelList={hotelList}
+        />
+      )}
 
       <GroupDetailDrawer
         contract={selectedContract}
@@ -461,6 +650,30 @@ export const GroupManagementPage: React.FC = () => {
         onClose={() => setIsDrawerOpen(false)}
         onRefresh={handleRefreshDetail}
       />
+
+      {/* Sổ Cái Master Folio Modal */}
+      {selectedMasterFolioContractId !== null && (
+        <MasterFolioModal
+          isOpen={true}
+          onClose={() => setSelectedMasterFolioContractId(null)}
+          contractId={selectedMasterFolioContractId}
+        />
+      )}
+
+      {/* Modal Nhập danh sách khách đoàn (Excel Rooming List) */}
+      {isImportModalOpen && (
+        <RoomingListImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => {
+            setIsImportModalOpen(false);
+            setSelectedImportContract(null);
+          }}
+          contract={selectedImportContract}
+          onSuccess={() => {
+            loadData(page);
+          }}
+        />
+      )}
     </div>
   );
 };

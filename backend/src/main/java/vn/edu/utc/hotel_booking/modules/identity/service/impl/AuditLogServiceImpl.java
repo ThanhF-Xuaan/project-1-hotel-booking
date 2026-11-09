@@ -38,12 +38,18 @@ public class AuditLogServiceImpl implements AuditLogService {
         Sort.Direction direction = "ASC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC;
 
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by(direction, sortBy));
+        String staffKeyword = StringUtils.hasText(searchDto.getStaffKeyword())
+                ? "%" + searchDto.getStaffKeyword().trim().toLowerCase() + "%"
+                : null;
         String actionType = StringUtils.hasText(searchDto.getActionType()) ? searchDto.getActionType().trim() : null;
-        String entityName = StringUtils.hasText(searchDto.getEntityName()) ? searchDto.getEntityName().trim() : null;
+        String entityName = StringUtils.hasText(searchDto.getEntityName())
+                ? "%" + searchDto.getEntityName().trim().toLowerCase() + "%"
+                : null;
         String entityId = StringUtils.hasText(searchDto.getEntityId()) ? searchDto.getEntityId().trim() : null;
 
         Page<AuditLog> resultPage = auditLogRepository.searchAuditLogs(
                 searchDto.getStaffId(),
+                staffKeyword,
                 actionType,
                 entityName,
                 entityId,
@@ -75,15 +81,29 @@ public class AuditLogServiceImpl implements AuditLogService {
                     .actionType(actionType)
                     .entityName(entityName)
                     .entityId(entityId)
-                    .oldValues(oldValues)
-                    .newValues(newValues)
+                    .oldValues(toJsonSafe(oldValues))
+                    .newValues(toJsonSafe(newValues))
                     .ipAddress(ipAddress)
                     .userAgent(userAgent)
                     .build();
 
-            auditLogRepository.save(logEntry);
+            auditLogRepository.saveAndFlush(logEntry);
+
+            // Lưu ý: Không tự động xóa log theo giới hạn 50 bản ghi để tuân thủ Điều 26 Luật An ninh mạng 2018
+            // và Nghị định 53/2022/NĐ-CP (yêu cầu lưu trữ vết nhật ký hệ thống tối thiểu 12 tháng).
         } catch (Exception e) {
             log.error("Không thể ghi log kiểm toán: actionType={}, entityName={}, entityId={}", actionType, entityName, entityId, e);
         }
+    }
+
+    private String toJsonSafe(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+            return trimmed;
+        }
+        return "{\"message\":\"" + trimmed.replace("\"", "\\\"") + "\"}";
     }
 }

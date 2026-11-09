@@ -28,6 +28,15 @@ export interface RegionSearchDto extends BaseSearchDto {
   status?: string
 }
 
+export interface HotelImageDto {
+  id: number
+  url: string
+  originalFilename: string
+  sizeBytes: number
+  isPrimary: boolean
+  createdAt?: string
+}
+
 export interface HotelDto {
   id: number
   regionId: number
@@ -40,6 +49,8 @@ export interface HotelDto {
   checkOutTime: string
   serviceFeePercent: number
   status: string
+  coverImageUrl?: string
+  images?: HotelImageDto[]
   createdAt: string
   updatedAt: string
 }

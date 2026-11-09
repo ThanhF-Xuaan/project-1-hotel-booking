@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { Select } from '../../../core/components/ui/Select';
 import { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import policyService from '../services/policy.service';
@@ -187,16 +188,80 @@ export const PolicyManagementPage: React.FC = () => {
   const renderFeeTypeBadge = (feeType: CancellationFeeType) => {
     switch (feeType) {
       case 'TIERED':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">Bậc Thang (TIERED)</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap">Bậc Thang (TIERED)</span>;
       case 'FULL_DEPOSIT':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">Tiền Cọc (DEPOSIT)</span>;
-      case 'PERCENTAGE':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Tỷ Lệ % Cố Định</span>;
-      case 'FIXED':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-800 border border-neutral-300">Cố Định Số Tiền</span>;
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 whitespace-nowrap">Tiền Cọc (DEPOSIT)</span>;
+      case 'PERCENT':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">Tỷ Lệ % Cố Định</span>;
+      case 'FIXED_AMOUNT':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-800 border border-neutral-300 whitespace-nowrap">Cố Định Số Tiền</span>;
+      case 'FIRST_NIGHT':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">Phạt Đêm Đầu</span>;
       default:
-        return <span>{feeType}</span>;
+        return <span className="whitespace-nowrap">{feeType}</span>;
     }
+  };
+
+  const renderPenaltyDetails = (p: CancellationPolicyResponse) => {
+    if (p.cancellationFeeType === 'TIERED') {
+      if (!p.tiers || p.tiers.length === 0) {
+        return <span className="text-xs text-neutral-400">Chưa cấu hình tiers</span>;
+      }
+      return (
+        <div className="text-xs space-y-0.5">
+          {p.tiers.map((t, idx) => (
+            <div key={idx} className="text-neutral-600">
+              {t.maxDays !== null && t.maxDays !== undefined ? `${t.minDays} - ${t.maxDays} ngày` : `≥ ${t.minDays} ngày`}: <strong className="text-red-600">{t.penaltyPercent}%</strong>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'PERCENT') {
+      return (
+        <div className="text-xs">
+          Phạt: <strong className="text-red-600 font-bold text-sm">{p.defaultPenaltyPercent}%</strong>
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'FIXED_AMOUNT') {
+      return (
+        <div className="text-xs">
+          Phạt: <strong className="text-red-600 font-bold text-sm">{Number(p.defaultPenaltyPercent).toLocaleString()} đ</strong>
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'FIRST_NIGHT') {
+      return (
+        <div className="text-xs font-semibold text-neutral-700">
+          Phạt 100% giá đêm đầu
+        </div>
+      );
+    }
+
+    if (p.cancellationFeeType === 'FULL_DEPOSIT') {
+      if (p.tiers && p.tiers.length > 0) {
+        return (
+          <div className="text-xs space-y-0.5">
+            {p.tiers.map((t, idx) => (
+              <div key={idx} className="text-neutral-600">
+                {t.maxDays !== null && t.maxDays !== undefined ? `${t.minDays} - ${t.maxDays} ngày` : `≥ ${t.minDays} ngày`}: <strong className="text-purple-600">{t.penaltyPercent}% cọc</strong>
+              </div>
+            ))}
+          </div>
+        );
+      }
+      return (
+        <div className="text-xs font-semibold text-purple-700">
+          100% tiền cọc thực tế
+        </div>
+      );
+    }
+
+    return <span className="text-xs font-bold text-red-600">{p.defaultPenaltyPercent}%</span>;
   };
 
   return (
@@ -266,28 +331,32 @@ export const PolicyManagementPage: React.FC = () => {
           )}
 
           {activeTab !== 'OVERRIDES' && (
-            <select
-              value={bookingTypeFilter}
-              onChange={(e) => setBookingTypeFilter(e.target.value as BookingType)}
-              className="h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="">Tất cả đối tượng</option>
-              <option value="FIT">Khách lẻ (FIT)</option>
-              <option value="GIT">Khách đoàn (GIT)</option>
-              <option value="CORPORATE">Doanh nghiệp (CORPORATE)</option>
-              <option value="ALL">Toàn bộ khách (ALL)</option>
-            </select>
+            <div className="w-full sm:w-52">
+              <Select<BookingType | ''>
+                value={bookingTypeFilter}
+                onChange={(val) => setBookingTypeFilter(val)}
+                options={[
+                  { value: '', label: 'Tất cả đối tượng' },
+                  { value: 'FIT', label: 'Khách lẻ (FIT)' },
+                  { value: 'GIT', label: 'Khách đoàn (GIT)' },
+                  { value: 'CORPORATE', label: 'Doanh nghiệp (CORPORATE)' },
+                  { value: 'ALL', label: 'Toàn bộ khách (ALL)' },
+                ]}
+              />
+            </div>
           )}
 
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'ACTIVE' | 'INACTIVE')}
-            className="h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-          >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang kích hoạt</option>
-            <option value="INACTIVE">Ngưng áp dụng</option>
-          </select>
+          <div className="w-full sm:w-48">
+            <Select<'ALL' | 'ACTIVE' | 'INACTIVE'>
+              value={statusFilter}
+              onChange={(val) => setStatusFilter(val)}
+              options={[
+                { value: 'ALL', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang kích hoạt' },
+                { value: 'INACTIVE', label: 'Ngưng áp dụng' },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -362,7 +431,7 @@ export const PolicyManagementPage: React.FC = () => {
                   <th className="p-3">Đối Tượng</th>
                   <th className="p-3">Cơ Chế Phạt</th>
                   <th className="p-3">Miễn Phí Hủy</th>
-                  <th className="p-3">Bậc Phạt (Tiers)</th>
+                  <th className="p-3">Mức Phạt / Bậc Phạt</th>
                   <th className="p-3">Trạng Thái</th>
                   <th className="p-3 text-right">Thao Tác</th>
                 </tr>
@@ -397,19 +466,7 @@ export const PolicyManagementPage: React.FC = () => {
                       </td>
                       <td className="p-3">{renderFeeTypeBadge(p.cancellationFeeType)}</td>
                       <td className="p-3 font-semibold text-neutral-700">{p.freeCancellationBeforeDays} ngày</td>
-                      <td className="p-3">
-                        {p.tiers && p.tiers.length > 0 ? (
-                          <div className="text-xs space-y-0.5">
-                            {p.tiers.map((t, idx) => (
-                              <div key={idx} className="text-neutral-600">
-                                ≥{t.minDays} ngày: <strong className="text-red-600">{t.penaltyPercent}%</strong>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-neutral-400">Không dùng tiers</span>
-                        )}
-                      </td>
+                      <td className="p-3">{renderPenaltyDetails(p)}</td>
                       <td className="p-3">
                         {p.isActive ? (
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">

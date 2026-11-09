@@ -3,6 +3,7 @@ import { AlertCircle } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { Select } from '../../../core/components/ui/Select';
 import policyService from '../services/policy.service';
 import type {
   NoShowPolicyResponse,
@@ -158,29 +159,30 @@ export const NoShowPolicyModal: React.FC<NoShowPolicyModalProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-semibold text-neutral-800 mb-1">Loại Đối Tượng</label>
-            <select
+            <Select<BookingType>
               value={bookingType}
-              onChange={(e) => setBookingType(e.target.value as BookingType)}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="ALL">Toàn bộ khách (ALL)</option>
-              <option value="FIT">Khách lẻ (FIT)</option>
-              <option value="GIT">Khách đoàn (GIT)</option>
-              <option value="CORPORATE">Doanh nghiệp (CORPORATE)</option>
-            </select>
+              onChange={(val) => setBookingType(val)}
+              options={[
+                { value: 'ALL', label: 'Toàn bộ khách (ALL)' },
+                { value: 'FIT', label: 'Khách lẻ (FIT)' },
+                { value: 'GIT', label: 'Khách đoàn (GIT)' },
+                { value: 'CORPORATE', label: 'Doanh nghiệp (CORPORATE)' },
+              ]}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-semibold text-neutral-800 mb-1">Hình Thức Phạt No-Show</label>
-            <select
+            <Select<NoShowPenaltyType>
               value={penaltyType}
-              onChange={(e) => setPenaltyType(e.target.value as NoShowPenaltyType)}
-              className="w-full h-10 md:h-12 px-3 border border-neutral-300 rounded-xl bg-white text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              <option value="PERCENT_FIRST_NIGHT_RATE">% Giá phòng đêm đầu (Mặc định)</option>
-              <option value="PERCENT_TOTAL_BOOKING">% Tổng giá trị đơn đặt</option>
-              <option value="FIXED_AMOUNT">Số tiền cố định (VND)</option>
-            </select>
+              onChange={(val) => setPenaltyType(val)}
+              options={[
+                { value: 'PERCENT_FIRST_NIGHT_RATE', label: '% Giá phòng đêm đầu (Mặc định)' },
+                { value: 'PERCENT_TOTAL_BOOKING', label: '% Tổng giá trị đơn đặt' },
+                { value: 'FULL_DEPOSIT', label: 'Toàn bộ tiền cọc (FULL_DEPOSIT)' },
+                { value: 'FIXED_AMOUNT', label: 'Số tiền cố định (VND)' },
+              ]}
+            />
           </div>
 
           <div>

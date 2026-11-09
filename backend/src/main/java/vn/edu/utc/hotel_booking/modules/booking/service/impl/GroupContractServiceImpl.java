@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.booking.service.impl;
 
 import jakarta.persistence.criteria.Predicate;
+import lombok.extern.slf4j.Slf4j;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -22,6 +23,7 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.request.GroupContractSearchD
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.GroupContractResponse;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.GroupRoomBlockResponse;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
+import vn.edu.utc.hotel_booking.modules.booking.export.GroupContractWorkbookWriter;
 import vn.edu.utc.hotel_booking.modules.booking.repository.GroupContractRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.GroupContractService;
 import vn.edu.utc.hotel_booking.modules.booking.service.GroupInquiryService;
@@ -36,6 +38,8 @@ import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -47,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -59,6 +64,7 @@ public class GroupContractServiceImpl implements GroupContractService {
     CompanyService companyService;
     StaffLookupService staffLookupService;
     MasterFolioService masterFolioService;
+    GroupContractWorkbookWriter groupContractWorkbookWriter;
 
     @Override
     @Transactional
@@ -272,40 +278,105 @@ public class GroupContractServiceImpl implements GroupContractService {
     @Override
     @Transactional(readOnly = true)
     public PageResponse<GroupContractResponse> filterContracts(GroupContractSearchDto searchDto) {
+        GroupContractSearchDto filter = searchDto != null ? searchDto : new GroupContractSearchDto();
         Sort sort = Sort.by(
-                "ASC".equalsIgnoreCase(searchDto.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
-                StringUtils.hasText(searchDto.getSortBy()) ? searchDto.getSortBy() : "id"
+                "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
+                StringUtils.hasText(filter.getSortBy()) ? filter.getSortBy() : "id"
         );
-        Pageable pageable = PageRequest.of(searchDto.getPage(), searchDto.getPageSize(), sort);
+        int page = filter.getPage() != null && filter.getPage() >= 0 ? filter.getPage() : 0;
+        int size = filter.getPageSize() != null && filter.getPageSize() > 0 ? filter.getPageSize() : 10;
+        Pageable pageable = PageRequest.of(page, size, sort);
 
-        Specification<GroupContract> spec = (root, query, cb) -> {
+        Specification<GroupContract> spec = buildFilterSpecification(filter);
+        Page<GroupContract> pageResult = groupContractRepository.findAll(spec, pageable);
+        return PageResponse.from(pageResult.map(c -> mapToResponse(c, null)));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportContractsToExcel(GroupContractSearchDto searchDto) {
+        GroupContractSearchDto filter = searchDto != null ? searchDto : new GroupContractSearchDto();
+        Sort sort = Sort.by(
+                "ASC".equalsIgnoreCase(filter.getSortDirection()) ? Sort.Direction.ASC : Sort.Direction.DESC,
+                StringUtils.hasText(filter.getSortBy()) ? filter.getSortBy() : "id"
+        );
+        Specification<GroupContract> spec = buildFilterSpecification(filter);
+        List<GroupContract> contracts = groupContractRepository.findAll(spec, sort);
+
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            groupContractWorkbookWriter.write(contracts, bos);
+            return bos.toByteArray();
+        } catch (IOException e) {
+            log.error("Lỗi khi xuất file Excel báo cáo hợp đồng đoàn", e);
+            throw new AppException(ErrorCode.UNCATEGORIZED_EXCEPTION, "Không thể xuất file Excel báo cáo hợp đồng đoàn");
+        }
+    }
+
+    private Specification<GroupContract> buildFilterSpecification(GroupContractSearchDto filter) {
+        return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.isFalse(root.get("isDeleted")));
 
-            if (searchDto.getHotelId() != null) {
-                predicates.add(cb.equal(root.get("hotel").get("id"), searchDto.getHotelId()));
+            if (filter == null) {
+                return cb.and(predicates.toArray(new Predicate[0]));
             }
-            if (StringUtils.hasText(searchDto.getContractNumber())) {
-                predicates.add(cb.like(cb.lower(root.get("contractNumber")), "%" + searchDto.getContractNumber().toLowerCase().trim() + "%"));
+
+            if (filter.getHotelId() != null) {
+                predicates.add(cb.equal(root.get("hotel").get("id"), filter.getHotelId()));
             }
-            if (StringUtils.hasText(searchDto.getGroupName())) {
-                predicates.add(cb.like(cb.lower(root.get("groupName")), "%" + searchDto.getGroupName().toLowerCase().trim() + "%"));
+
+            // Keyword: tra cứu đa trường (Mã HĐ, Tên đoàn, Tên công ty, MST)
+            String keyword = filter.getKeyword();
+            // Fallback: nếu frontend cũ truyền đồng thời contractNumber == groupName
+            if (!StringUtils.hasText(keyword)
+                    && StringUtils.hasText(filter.getContractNumber())
+                    && filter.getContractNumber().equals(filter.getGroupName())) {
+                keyword = filter.getContractNumber();
             }
-            if (searchDto.getStatus() != null) {
-                predicates.add(cb.equal(root.get("status"), searchDto.getStatus()));
+
+            if (StringUtils.hasText(keyword)) {
+                String pattern = "%" + keyword.toLowerCase().trim() + "%";
+                jakarta.persistence.criteria.Join<GroupContract, Company> companyJoin =
+                        root.join("company", jakarta.persistence.criteria.JoinType.LEFT);
+                query.distinct(true);
+
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("contractNumber")), pattern),
+                        cb.like(cb.lower(root.get("groupName")), pattern),
+                        cb.like(cb.lower(root.get("companyTaxCode")), pattern),
+                        cb.like(cb.lower(companyJoin.get("name")), pattern),
+                        cb.like(cb.lower(companyJoin.get("taxCode")), pattern)
+                ));
+            } else {
+                if (StringUtils.hasText(filter.getContractNumber())) {
+                    predicates.add(cb.like(cb.lower(root.get("contractNumber")),
+                            "%" + filter.getContractNumber().toLowerCase().trim() + "%"));
+                }
+                if (StringUtils.hasText(filter.getGroupName())) {
+                    predicates.add(cb.like(cb.lower(root.get("groupName")),
+                            "%" + filter.getGroupName().toLowerCase().trim() + "%"));
+                }
+                if (StringUtils.hasText(filter.getCompanyName())) {
+                    jakarta.persistence.criteria.Join<GroupContract, Company> companyJoin =
+                            root.join("company", jakarta.persistence.criteria.JoinType.LEFT);
+                    query.distinct(true);
+                    predicates.add(cb.like(cb.lower(companyJoin.get("name")),
+                            "%" + filter.getCompanyName().toLowerCase().trim() + "%"));
+                }
             }
-            if (searchDto.getCheckInDateFrom() != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("checkInDate"), searchDto.getCheckInDateFrom()));
+
+            if (filter.getStatus() != null) {
+                predicates.add(cb.equal(root.get("status"), filter.getStatus()));
             }
-            if (searchDto.getCheckInDateTo() != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), searchDto.getCheckInDateTo()));
+            if (filter.getCheckInDateFrom() != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("checkInDate"), filter.getCheckInDateFrom()));
+            }
+            if (filter.getCheckInDateTo() != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("checkInDate"), filter.getCheckInDateTo()));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));
         };
-
-        Page<GroupContract> page = groupContractRepository.findAll(spec, pageable);
-        return PageResponse.from(page.map(c -> mapToResponse(c, null)));
     }
 
     @Override

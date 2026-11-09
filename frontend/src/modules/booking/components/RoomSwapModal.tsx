@@ -3,6 +3,7 @@ import { ArrowLeftRight, AlertCircle, CheckCircle2, BedDouble, Building, Calenda
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import bookingService from '../services/booking.service';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
 import type { RoomInstanceDto } from '../../inventory/types/inventory.types';
@@ -234,20 +235,21 @@ export const RoomSwapModal: React.FC<RoomSwapModalProps> = ({
             </label>
             {roomTypeOptions.length > 1 && (
               <div className="flex items-center gap-2 text-xs">
-                <span className="text-neutral-500">Lọc theo hạng:</span>
-                <select
-                  aria-label="Lọc theo hạng phòng"
-                  value={filterRoomType}
-                  onChange={(e) => setFilterRoomType(e.target.value)}
-                  className="px-2.5 py-1 bg-white border border-neutral-300 rounded-lg text-neutral-700 text-xs focus:ring-2 focus:ring-red-600 focus:outline-none"
-                >
-                  <option value="ALL">Tất cả hạng phòng ({availableRooms.length})</option>
-                  {roomTypeOptions.map((opt) => (
-                    <option key={opt.id} value={String(opt.id)}>
-                      {opt.name}
-                    </option>
-                  ))}
-                </select>
+                <span className="text-neutral-500 whitespace-nowrap">Lọc theo hạng:</span>
+                <div className="w-56">
+                  <Select<string>
+                    value={filterRoomType}
+                    onChange={(val) => setFilterRoomType(val)}
+                    options={[
+                      { value: 'ALL', label: `Tất cả hạng phòng (${availableRooms.length})` },
+                      ...roomTypeOptions.map((opt) => ({
+                        value: String(opt.id),
+                        label: opt.name,
+                      })),
+                    ]}
+                    size="sm"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -342,18 +344,15 @@ export const RoomSwapModal: React.FC<RoomSwapModalProps> = ({
             <label className="text-xs font-bold text-neutral-700">
               Lý do đổi phòng <span className="text-red-500">*</span>
             </label>
-            <select
-              aria-label="Lý do đổi phòng"
+            <Select<string>
               value={selectedReasonOption}
-              onChange={(e) => setSelectedReasonOption(e.target.value)}
-              className="w-full h-11 px-3 bg-white border border-neutral-300 rounded-xl text-neutral-800 text-sm focus:ring-2 focus:ring-red-600 focus:outline-none"
-            >
-              {COMMON_SWAP_REASONS.map((reason, idx) => (
-                <option key={idx} value={reason}>
-                  {reason}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedReasonOption(val)}
+              options={COMMON_SWAP_REASONS.map((reason) => ({
+                value: reason,
+                label: reason,
+              }))}
+              size="md"
+            />
           </div>
 
           <div className="space-y-1.5">

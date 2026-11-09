@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Rollback generation independently via hotel.ai.rag.generation-enabled=false. No tools or retry loop. */
-@Service
+@Service("ragSpringAiGeminiAnswerGenerator")
 @ConditionalOnProperty(prefix = "hotel.ai.rag.provider", name = "enabled", havingValue = "true")
 public class GeminiRagAnswerGenerator implements RagAnswerGeneratorPort {
     private static final ObjectMapper JSON = new ObjectMapper();

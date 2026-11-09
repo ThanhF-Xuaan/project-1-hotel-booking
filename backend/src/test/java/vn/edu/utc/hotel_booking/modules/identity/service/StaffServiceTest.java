@@ -56,9 +56,6 @@ class StaffServiceTest {
     @Mock
     private KeycloakService keycloakService;
 
-    @Mock
-    private AuditLogService auditLogService;
-
     @InjectMocks
     private StaffServiceImpl staffService;
 
@@ -213,12 +210,12 @@ class StaffServiceTest {
 
         when(staffRepository.existsByUsernameAndIsDeletedFalse("admin_chain")).thenReturn(false);
         when(roleRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(role));
-        when(keycloakService.createUser(any(), any(), any(), any(), any(), any())).thenReturn(keycloakId);
         when(staffMapper.toEntity(request)).thenReturn(new Staff());
 
         AppException exception = assertThrows(AppException.class, () -> staffService.create(request));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_SCOPE_CONFIGURATION);
+        verify(keycloakService, never()).createUser(any(), any(), any(), any(), any(), any());
         verify(staffRepository, never()).save(any());
     }
 
@@ -295,7 +292,6 @@ class StaffServiceTest {
         assertThat(staff.getStatus()).isEqualTo("SUSPENDED");
         verify(keycloakService).disableUser(keycloakId);
         verify(keycloakService).logoutUser(keycloakId);
-        verify(auditLogService).recordLog(isNull(), eq("STAFF_STATUS_UPDATE"), eq("Staff"), eq("1"), any(), any(), isNull(), isNull());
     }
 
     @Test
@@ -332,6 +328,5 @@ class StaffServiceTest {
 
         verify(keycloakService).updateUser(eq(keycloakId), isNull(), isNull(), isNull(), isNull(), eq("NewPass@123"), isNull());
         verify(keycloakService).logoutUser(keycloakId);
-        verify(auditLogService).recordLog(isNull(), eq("STAFF_PASSWORD_RESET"), eq("Staff"), eq("1"), isNull(), any(), isNull(), isNull());
     }
 }

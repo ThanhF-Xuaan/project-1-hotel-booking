@@ -27,6 +27,16 @@ public class StaffLookupServiceImpl implements StaffLookupService {
 
     @Override
     @Transactional(readOnly = true)
+    public boolean hasActiveStaffInRegions(List<Short> regionIds) {
+        if (regionIds == null || regionIds.isEmpty()) {
+            return false;
+        }
+        List<Integer> integerIds = regionIds.stream().map(Short::intValue).toList();
+        return staffRepository.existsByRegionScopeInAndIsDeletedFalse(integerIds);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public boolean hasActiveStaffWithRoles(List<Short> roleIds) {
         if (roleIds == null || roleIds.isEmpty()) {
             return false;

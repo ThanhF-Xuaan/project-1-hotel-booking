@@ -2,9 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, RefreshCw, Search, Edit2, Building2 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import Select from '../../../core/components/ui/Select';
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
 import companyService from '../services/company.service';
+import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone';
 import type { CompanyDto } from '../types/company.types';
 
 export const CompanyListPage: React.FC = () => {
@@ -124,17 +126,22 @@ export const CompanyListPage: React.FC = () => {
       setFormError('Vui lòng nhập tên doanh nghiệp');
       return;
     }
+    if (formContactPhone.trim() && !isValidVietnamesePhone(formContactPhone.trim())) {
+      setFormError('Số điện thoại người liên hệ không hợp lệ (Ví dụ: 02462556789 hoặc 0912345678)');
+      return;
+    }
 
     setIsSubmitting(true);
     setFormError(null);
     try {
+      const sanitizedPhone = formContactPhone.trim() ? cleanPhoneNumber(formContactPhone.trim()) : undefined;
       if (editingCompany) {
         await companyService.update(editingCompany.id, {
           name: formName.trim(),
           taxCode: formTaxCode.trim() || undefined,
           address: formAddress.trim() || undefined,
           contactName: formContactName.trim() || undefined,
-          contactPhone: formContactPhone.trim() || undefined,
+          contactPhone: sanitizedPhone,
           contactEmail: formContactEmail.trim() || undefined,
           status: formStatus,
         });
@@ -144,7 +151,7 @@ export const CompanyListPage: React.FC = () => {
           taxCode: formTaxCode.trim() || undefined,
           address: formAddress.trim() || undefined,
           contactName: formContactName.trim() || undefined,
-          contactPhone: formContactPhone.trim() || undefined,
+          contactPhone: sanitizedPhone,
           contactEmail: formContactEmail.trim() || undefined,
           status: formStatus,
         });
@@ -213,15 +220,16 @@ export const CompanyListPage: React.FC = () => {
             <label className="block text-xs font-semibold text-neutral-700 mb-1">
               Trạng thái hợp tác
             </label>
-            <select
+            <Select<string>
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="ACTIVE">Đang hợp tác (ACTIVE)</option>
-              <option value="INACTIVE">Tạm ngưng (INACTIVE)</option>
-            </select>
+              onChange={(val) => setStatus(val)}
+              options={[
+                { value: '', label: 'Tất cả trạng thái' },
+                { value: 'ACTIVE', label: 'Đang hợp tác (ACTIVE)' },
+                { value: 'INACTIVE', label: 'Tạm ngưng (INACTIVE)' },
+              ]}
+              size="lg"
+            />
           </div>
           <div className="sm:col-span-3 flex gap-2">
             <Button type="submit" variant="primary" className="flex-1 bg-red-600 hover:bg-red-700">
@@ -425,14 +433,15 @@ export const CompanyListPage: React.FC = () => {
               <label className="block text-xs font-semibold text-neutral-700 mb-1">
                 Trạng thái hợp tác
               </label>
-              <select
+              <Select<'ACTIVE' | 'INACTIVE'>
                 value={formStatus}
-                onChange={(e) => setFormStatus(e.target.value as 'ACTIVE' | 'INACTIVE')}
-                className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-              >
-                <option value="ACTIVE">Đang hợp tác (ACTIVE)</option>
-                <option value="INACTIVE">Tạm ngưng (INACTIVE)</option>
-              </select>
+                onChange={(val) => setFormStatus(val)}
+                options={[
+                  { value: 'ACTIVE', label: 'Đang hợp tác (ACTIVE)' },
+                  { value: 'INACTIVE', label: 'Tạm ngưng (INACTIVE)' },
+                ]}
+                size="lg"
+              />
             </div>
 
             <div className="sm:col-span-2">
@@ -465,6 +474,11 @@ export const CompanyListPage: React.FC = () => {
                 placeholder="VD: 02462556789"
                 value={formContactPhone}
                 onChange={(e) => setFormContactPhone(e.target.value)}
+                error={
+                  formContactPhone.trim() && !isValidVietnamesePhone(formContactPhone.trim())
+                    ? 'Số điện thoại không đúng định dạng (VD: 02462556789 hoặc 0912345678)'
+                    : undefined
+                }
               />
             </div>
 

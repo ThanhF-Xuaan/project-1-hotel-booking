@@ -31,8 +31,8 @@ export const bookingService = {
   filter: (params: BookingSearchDto) =>
     apiClient.post<PageResponse<BookingResponse>>(`${BASE_URL}/filter`, params),
 
-  getById: (id: number) =>
-    apiClient.get<BookingResponse>(`${BASE_URL}/${id}`),
+  getById: (id: number, signal?: AbortSignal) =>
+    apiClient.get<BookingResponse>(`${BASE_URL}/${id}`, { signal }),
 
   getByNumber: (bookingNumber: string) =>
     apiClient.get<BookingResponse>(`${BASE_URL}/number/${bookingNumber}`),

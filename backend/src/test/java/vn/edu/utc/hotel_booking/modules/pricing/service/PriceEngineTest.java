@@ -52,6 +52,12 @@ class PriceEngineTest {
     VatRuleRepository vatRuleRepository;
 
     @Mock
+    vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService vatRuleService;
+
+    @Mock
+    vn.edu.utc.hotel_booking.modules.pricing.service.HotelAgePolicyService hotelAgePolicyService;
+
+    @Mock
     VoucherRepository voucherRepository;
 
     @Mock
@@ -68,7 +74,7 @@ class PriceEngineTest {
         vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.BaseRateHandler baseRateHandler =
                 new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.BaseRateHandler();
         vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SurchargeHandler surchargeHandler =
-                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SurchargeHandler(surchargeRuleRepository);
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SurchargeHandler(surchargeRuleRepository, hotelAgePolicyService);
         vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SeasonalityHandler seasonalityHandler =
                 new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.SeasonalityHandler(pricingRuleRepository);
         vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.PromotionHandler promotionHandler =
@@ -76,7 +82,7 @@ class PriceEngineTest {
         vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.AddonServiceHandler addonServiceHandler =
                 new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.AddonServiceHandler(menuRepository);
         vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.TaxAndFeeHandler taxAndFeeHandler =
-                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.TaxAndFeeHandler(vatRuleRepository);
+                new vn.edu.utc.hotel_booking.modules.pricing.pipeline.handler.TaxAndFeeHandler(vatRuleService);
 
         PricingPipelineFactory pipelineFactory = new PricingPipelineFactory(
                 baseRateHandler,
@@ -135,7 +141,7 @@ class PriceEngineTest {
         when(pricingRuleRepository.findActiveRulesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
         when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
         when(surchargeRuleRepository.findActiveSurchargesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
-        when(vatRuleRepository.findActiveVatRule(eq(1), any())).thenReturn(Optional.of(vatRule));
+        when(vatRuleService.getActiveVatPercent(eq(1), any())).thenReturn(new BigDecimal("10.00"));
 
         PriceBreakdownDto breakdown = priceEngine.calculatePrice(request);
 
@@ -176,7 +182,7 @@ class PriceEngineTest {
         when(pricingRuleRepository.findActiveRulesForRoomType(eq(1), any(), any())).thenReturn(List.of(rule));
         when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
         when(surchargeRuleRepository.findActiveSurchargesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
-        when(vatRuleRepository.findActiveVatRule(eq(1), any())).thenReturn(Optional.of(vatRule));
+        when(vatRuleService.getActiveVatPercent(eq(1), any())).thenReturn(new BigDecimal("10.00"));
 
         PriceBreakdownDto breakdown = priceEngine.calculatePrice(request);
 
@@ -213,7 +219,7 @@ class PriceEngineTest {
         when(pricingRuleRepository.findActiveRulesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
         when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(List.of(discountRule));
         when(surchargeRuleRepository.findActiveSurchargesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
-        when(vatRuleRepository.findActiveVatRule(eq(1), any())).thenReturn(Optional.of(vatRule));
+        when(vatRuleService.getActiveVatPercent(eq(1), any())).thenReturn(new BigDecimal("10.00"));
 
         PriceBreakdownDto breakdown = priceEngine.calculatePrice(request);
 
@@ -250,7 +256,7 @@ class PriceEngineTest {
         when(pricingRuleRepository.findActiveRulesForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
         when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
         when(surchargeRuleRepository.findActiveSurchargesForRoomType(eq(1), any(), any())).thenReturn(List.of(extraAdultRule));
-        when(vatRuleRepository.findActiveVatRule(eq(1), any())).thenReturn(Optional.of(vatRule));
+        when(vatRuleService.getActiveVatPercent(eq(1), any())).thenReturn(new BigDecimal("10.00"));
 
         PriceBreakdownDto breakdown = priceEngine.calculatePrice(request);
 
