@@ -25,7 +25,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.DateTimeException;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -49,30 +51,46 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     private final HttpClient httpClient;
     private final Supplier<String> apiKey;
     private final Function<String, RagOutboundLedger.Reservation> accounting;
+    private final Clock clock;
 
     /** Offline construction for deterministic callers and evaluation. */
     public HybridRoomAdvisorLlmService() {
-        this(new AdvisorProviderProperties());
+        this(new AdvisorProviderProperties(), Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
+    }
+
+    public HybridRoomAdvisorLlmService(Clock clock) {
+        this(new AdvisorProviderProperties(), clock);
     }
 
     @Autowired
-    public HybridRoomAdvisorLlmService(AdvisorProviderProperties provider) {
+    public HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, @Autowired(required = false) Clock clock) {
         this(provider, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
-                .followRedirects(HttpClient.Redirect.NEVER).build(), () -> System.getenv("GEMINI_API_KEY"));
+                .followRedirects(HttpClient.Redirect.NEVER).build(), () -> System.getenv("GEMINI_API_KEY"),
+                payload -> RagOutboundLedger.beforeCall("gemini-2.5-flash",
+                        new okhttp3.Request.Builder().url(GEMINI_ENDPOINT.toString())
+                                .post(okhttp3.RequestBody.create(payload, okhttp3.MediaType.get("application/json"))).build()),
+                clock != null ? clock : Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
     }
 
     HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, HttpClient httpClient, Supplier<String> apiKey) {
         this(provider, httpClient, apiKey, payload -> RagOutboundLedger.beforeCall("gemini-2.5-flash",
                 new okhttp3.Request.Builder().url(GEMINI_ENDPOINT.toString())
-                        .post(okhttp3.RequestBody.create(payload, okhttp3.MediaType.get("application/json"))).build()));
+                        .post(okhttp3.RequestBody.create(payload, okhttp3.MediaType.get("application/json"))).build()),
+                Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
     }
 
     HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, HttpClient httpClient, Supplier<String> apiKey,
                                Function<String, RagOutboundLedger.Reservation> accounting) {
+        this(provider, httpClient, apiKey, accounting, Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
+    }
+
+    HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, HttpClient httpClient, Supplier<String> apiKey,
+                               Function<String, RagOutboundLedger.Reservation> accounting, Clock clock) {
         this.provider = Objects.requireNonNull(provider);
         this.httpClient = Objects.requireNonNull(httpClient);
         this.apiKey = Objects.requireNonNull(apiKey);
         this.accounting = Objects.requireNonNull(accounting);
+        this.clock = Objects.requireNonNull(clock);
     }
 
     private static final Pattern EXPLICIT_DATE_PATTERN = Pattern.compile(
@@ -81,6 +99,32 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     private static final Pattern CHECK_OUT_HINT = Pattern.compile("trả\\s*phòng|tra\\s*phong|\\bcheck[- ]?out\\b");
     private static final Pattern DATE_RANGE_VN_PATTERN = Pattern.compile(
             "\\b(\\d{1,2})\\s*[-–—]\\s*(\\d{1,2})[/.-](\\d{1,2})[/.-](\\d{4})\\b"
+    );
+
+    private static final String RELATIVE_DATE_TOKEN = "(?:ngày\\s*mai|ngay\\s*mai|mai|hôm\\s*nay|hom\\s*nay|ngày\\s*kia|ngay\\s*kia|ngày\\s*mốt|ngay\\s*mot|mốt|mot)";
+
+    private static final Pattern RELATIVE_RANGE_DURATION_PATTERN = Pattern.compile(
+            "(?i)(?:từ\\s+|tu\\s+)?(" + RELATIVE_DATE_TOKEN + ")\\s+(?:đến|den|tới|toi|-)\\s+(\\d+)\\s*(?:ngày|ngay|đêm|dem)(?:\\s*(?:sau|nữa|nua))?"
+    );
+
+    private static final Pattern RELATIVE_RANGE_TOKEN_PATTERN = Pattern.compile(
+            "(?i)(?:từ\\s+|tu\\s+)?(" + RELATIVE_DATE_TOKEN + ")\\s+(?:đến|den|tới|toi|-)\\s*(" + RELATIVE_DATE_TOKEN + ")"
+    );
+
+    private static final Pattern RELATIVE_STAY_DURATION_PATTERN = Pattern.compile(
+            "(?i)(" + RELATIVE_DATE_TOKEN + ")(?:\\s*[,vàva]\\s*)?(?:\\s*(?:ở|o|thuê|thue|đặt|dat|trong|khoảng|khoang))?\\s+(\\d+)\\s*(?:ngày|ngay|đêm|dem)"
+    );
+
+    private static final Pattern RELATIVE_AND_EXPLICIT_RANGE_PATTERN = Pattern.compile(
+            "(?i)(?:từ\\s+|tu\\s+)?(" + RELATIVE_DATE_TOKEN + ")\\s+(?:đến|den|tới|toi|-)\\s*(\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[/.-]\\d{1,2}(?:[/.-]\\d{4})?)"
+    );
+
+    private static final Pattern SINGLE_RELATIVE_DATE_PATTERN = Pattern.compile(
+            "(?i)\\b(" + RELATIVE_DATE_TOKEN + ")\\b"
+    );
+
+    private static final Pattern DURATION_ONLY_PATTERN = Pattern.compile(
+            "(?i)(?:(?:ở|o|trong|khoảng|khoang)\\s+)?(\\d+)\\s*(?:đêm|dem|ngày|ngay)(?:\\s*(?:sau|nữa|nua))?"
     );
 
     private static final Pattern ADULTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:người\\s*lớn|nguoi\\s*lon|adults?)");
@@ -186,6 +230,17 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
                 builder.checkInDate(dates.getFirst());
             }
             hasPatch = true;
+        } else if (currentCriteria != null && currentCriteria.getCheckInDate() != null && currentCriteria.getCheckOutDate() == null) {
+            Matcher durationOnly = DURATION_ONLY_PATTERN.matcher(message);
+            if (durationOnly.find()) {
+                try {
+                    int stayDays = Integer.parseInt(durationOnly.group(1));
+                    if (stayDays > 0) {
+                        builder.checkOutDate(currentCriteria.getCheckInDate().plusDays(stayDays));
+                        hasPatch = true;
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
         }
 
         // 2. Guests & Capacity
@@ -275,9 +330,9 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     }
 
     private List<LocalDate> extractDates(String message) {
-        List<LocalDate> result = new ArrayList<>();
+        LocalDate today = LocalDate.now(clock);
 
-        // Date range pattern: dd-dd/MM/yyyy or dd–dd/MM/yyyy
+        // 1. Explicit range: dd-dd/MM/yyyy or dd–dd/MM/yyyy
         Matcher rangeMatcher = DATE_RANGE_VN_PATTERN.matcher(message);
         if (rangeMatcher.find()) {
             try {
@@ -291,18 +346,129 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             }
         }
 
+        // 2. Relative range with duration: "từ ngày mai đến 3 ngày sau"
+        Matcher relRangeDuration = RELATIVE_RANGE_DURATION_PATTERN.matcher(message);
+        if (relRangeDuration.find()) {
+            LocalDate checkIn = resolveRelativeDate(relRangeDuration.group(1), today);
+            try {
+                int stayDays = Integer.parseInt(relRangeDuration.group(2));
+                if (checkIn != null && stayDays > 0) {
+                    return List.of(checkIn, checkIn.plusDays(stayDays));
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+
+        // 3. Relative range between two relative tokens: "từ ngày mai đến ngày kia"
+        Matcher relRangeToken = RELATIVE_RANGE_TOKEN_PATTERN.matcher(message);
+        if (relRangeToken.find()) {
+            LocalDate checkIn = resolveRelativeDate(relRangeToken.group(1), today);
+            LocalDate checkOut = resolveRelativeDate(relRangeToken.group(2), today);
+            if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
+                return List.of(checkIn, checkOut);
+            }
+        }
+
+        // 4. Relative check-in + stay duration: "ngày mai ở 3 đêm"
+        Matcher relStay = RELATIVE_STAY_DURATION_PATTERN.matcher(message);
+        if (relStay.find()) {
+            LocalDate checkIn = resolveRelativeDate(relStay.group(1), today);
+            try {
+                int stayDays = Integer.parseInt(relStay.group(2));
+                if (checkIn != null && stayDays > 0) {
+                    return List.of(checkIn, checkIn.plusDays(stayDays));
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+
+        // 5. Relative check-in + Explicit check-out: "từ ngày mai đến 2026-11-20"
+        Matcher relAndExplicit = RELATIVE_AND_EXPLICIT_RANGE_PATTERN.matcher(message);
+        if (relAndExplicit.find()) {
+            LocalDate checkIn = resolveRelativeDate(relAndExplicit.group(1), today);
+            LocalDate checkOut = parseExplicitDate(relAndExplicit.group(2));
+            if (checkIn != null && checkOut != null && checkOut.isAfter(checkIn)) {
+                return List.of(checkIn, checkOut);
+            }
+        }
+
+        // 6. Explicit dates: yyyy-MM-dd or dd/MM/yyyy
+        List<LocalDate> explicitDates = new ArrayList<>();
         Matcher dates = EXPLICIT_DATE_PATTERN.matcher(message);
         while (dates.find()) {
             try {
-                result.add(dates.group(1) != null ? LocalDate.parse(dates.group(1))
+                explicitDates.add(dates.group(1) != null ? LocalDate.parse(dates.group(1))
                         : LocalDate.of(Integer.parseInt(dates.group(4)), Integer.parseInt(dates.group(3)),
                                 Integer.parseInt(dates.group(2))));
             } catch (DateTimeException invalidDate) {
                 return List.of();
             }
         }
+        if (explicitDates.size() >= 2) {
+            return explicitDates;
+        }
+        if (explicitDates.size() == 1) {
+            Matcher durationMatcher = DURATION_ONLY_PATTERN.matcher(message);
+            if (durationMatcher.find()) {
+                try {
+                    int stayDays = Integer.parseInt(durationMatcher.group(1));
+                    if (stayDays > 0) {
+                        return List.of(explicitDates.getFirst(), explicitDates.getFirst().plusDays(stayDays));
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            return explicitDates;
+        }
 
-        return result;
+        // 7. Single relative date: "nhận phòng ngày mai"
+        Matcher singleRel = SINGLE_RELATIVE_DATE_PATTERN.matcher(message);
+        if (singleRel.find()) {
+            LocalDate relDate = resolveRelativeDate(singleRel.group(1), today);
+            if (relDate != null) {
+                Matcher durationMatcher = DURATION_ONLY_PATTERN.matcher(message);
+                if (durationMatcher.find()) {
+                    try {
+                        int stayDays = Integer.parseInt(durationMatcher.group(1));
+                        if (stayDays > 0) {
+                            return List.of(relDate, relDate.plusDays(stayDays));
+                        }
+                    } catch (NumberFormatException ignored) {}
+                }
+                return List.of(relDate);
+            }
+        }
+
+        return List.of();
+    }
+
+    private LocalDate resolveRelativeDate(String phrase, LocalDate today) {
+        if (phrase == null) return null;
+        String s = phrase.toLowerCase(Locale.ROOT).trim().replaceAll("\\s+", "");
+        if (s.contains("mai")) {
+            return today.plusDays(1);
+        }
+        if (s.contains("homnay") || s.contains("hômnay") || s.equals("nay")) {
+            return today;
+        }
+        if (s.contains("kia") || s.contains("mot") || s.contains("mốt")) {
+            return today.plusDays(2);
+        }
+        return null;
+    }
+
+    private LocalDate parseExplicitDate(String text) {
+        if (text == null) return null;
+        try {
+            if (text.contains("-") && text.length() == 10 && text.indexOf('-') == 4) {
+                return LocalDate.parse(text);
+            }
+            String[] parts = text.split("[/.-]");
+            if (parts.length == 3) {
+                int d = Integer.parseInt(parts[0]);
+                int m = Integer.parseInt(parts[1]);
+                int y = Integer.parseInt(parts[2]);
+                return LocalDate.of(y, m, d);
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private BudgetDto extractBudget(String message, BudgetDto previousBudget) {
@@ -397,7 +563,8 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         RagOutboundLedger.Reservation reservation = null;
         boolean settled = false;
         try {
-            String prompt = "Extract hotel room search criteria from user message into JSON with keys: locationKeyword, checkInDate (yyyy-MM-dd), checkOutDate (yyyy-MM-dd), adults, children, infants, extraBeds, roomsCount, preferredFeatureCodes (array), budget (object with amount, currency, basis, coverage, hard). Return ONLY valid JSON: " + text;
+            LocalDate today = LocalDate.now(clock);
+            String prompt = "Today is " + today + ". Extract hotel room search criteria from user message into JSON with keys: locationKeyword, checkInDate (yyyy-MM-dd), checkOutDate (yyyy-MM-dd), adults, children, infants, extraBeds, roomsCount, preferredFeatureCodes (array), budget (object with amount, currency, basis, coverage, hard). If relative dates like 'ngày mai', 'hôm nay', '3 ngày sau' are mentioned, compute the exact yyyy-MM-dd using today's date (" + today + "). Return ONLY valid JSON: " + text;
 
             Map<String, Object> reqBody = Map.of(
                     "contents", List.of(

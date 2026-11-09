@@ -83,6 +83,47 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    @DisplayName("Should extract relative dates from Vietnamese message: từ ngày mai đến 3 ngày sau")
+    void shouldExtractRelativeDatesFromVietnameseMessage() {
+        String msg = "Tìm phòng đôi ở Đà Nẵng từ ngày mai đến 3 ngày sau cho 2 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        assertThat(patch.getLocationKeyword()).isEqualTo("Đà Nẵng");
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(today.plusDays(1));
+        assertThat(patch.getCheckOutDate()).isEqualTo(today.plusDays(4));
+        assertThat(patch.getAdults()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Should extract relative range between two relative tokens: từ ngày mai đến ngày kia")
+    void shouldExtractRelativeRangeTokens() {
+        String msg = "Tìm phòng tại Đà Nẵng từ ngày mai đến ngày kia cho 1 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(today.plusDays(1));
+        assertThat(patch.getCheckOutDate()).isEqualTo(today.plusDays(2));
+    }
+
+    @Test
+    @DisplayName("Should extract relative check-in with stay duration: ngày mai ở 3 đêm")
+    void shouldExtractRelativeCheckInWithStayDuration() {
+        String msg = "Tìm phòng tại Đà Nẵng ngày mai ở 3 đêm cho 2 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(today.plusDays(1));
+        assertThat(patch.getCheckOutDate()).isEqualTo(today.plusDays(4));
+    }
+
+    @Test
     void parsesVietnameseGroupedBudgetWithoutAssumingNightlyBasis() {
         String request = "Tìm phòng tại Hà Nội, nhận phòng 2026-11-09, trả phòng 2026-11-11, "
                 + "2 người lớn, ngân sách tối đa 1.500.000 VND";
