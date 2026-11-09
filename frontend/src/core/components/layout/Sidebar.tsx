@@ -32,6 +32,7 @@ import {
   Percent,
   Calendar,
   Clock,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -187,6 +188,12 @@ const navGroups: NavGroup[] = [
         to: '/operation/schedulers',
         icon: <Clock className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Kho Đa phương tiện',
+        to: '/operation/media',
+        icon: <ImageIcon className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
     ],
   },

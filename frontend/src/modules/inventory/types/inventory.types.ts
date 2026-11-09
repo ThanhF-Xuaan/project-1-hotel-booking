@@ -116,6 +116,7 @@ export interface HotelRoomTypeDto {
   basePrice: number
   totalQuantity: number
   status: string
+  coverImageUrl?: string
   beds?: HotelRoomTypeBedDto[]
   features?: RoomFeatureDto[]
   createdAt: string

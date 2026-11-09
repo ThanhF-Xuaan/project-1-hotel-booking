@@ -12,6 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.common.storage.domain.StorageCategory;
+import vn.edu.utc.hotel_booking.common.storage.entity.MediaObject;
+import vn.edu.utc.hotel_booking.common.storage.repository.MediaObjectRepository;
+import vn.edu.utc.hotel_booking.common.storage.service.InternalMediaDomainService;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeBedItemRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeCreateRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.HotelRoomTypeSearchDto;
@@ -54,6 +58,8 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
     RoomFeatureService roomFeatureService;
     HotelRoomTypeMapper hotelRoomTypeMapper;
     RoomAvailabilityGenerationService roomAvailabilityGenerationService;
+    MediaObjectRepository mediaObjectRepository;
+    InternalMediaDomainService internalMediaDomainService;
 
     @Override
     @Transactional
@@ -116,7 +122,9 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
     public HotelRoomTypeResponse getHotelRoomTypeById(Integer id) {
         HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND, "Không tìm thấy cấu hình loại phòng id: " + id));
-        return hotelRoomTypeMapper.toResponse(hotelRoomType);
+        HotelRoomTypeResponse response = hotelRoomTypeMapper.toResponse(hotelRoomType);
+        populateCoverImage(response);
+        return response;
     }
 
     @Override
@@ -144,8 +152,11 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
                 pageable
         );
 
+        List<HotelRoomTypeResponse> responses = hotelRoomTypeMapper.toResponseList(page.getContent());
+        populateCoverImages(responses);
+
         return PageResponse.<HotelRoomTypeResponse>builder()
-                .content(hotelRoomTypeMapper.toResponseList(page.getContent()))
+                .content(responses)
                 .pageNumber(page.getNumber())
                 .pageSize(page.getSize())
                 .totalElements(page.getTotalElements())
@@ -154,6 +165,37 @@ public class HotelRoomTypeServiceImpl implements HotelRoomTypeService {
                 .last(page.isLast())
                 .empty(page.isEmpty())
                 .build();
+    }
+
+    private void populateCoverImages(List<HotelRoomTypeResponse> responses) {
+        if (responses == null || responses.isEmpty()) {
+            return;
+        }
+        List<Long> ids = responses.stream()
+                .map(r -> r.getId().longValue())
+                .toList();
+
+        List<MediaObject> primaryImages = mediaObjectRepository
+                .findByCategoryAndReferenceIdInAndIsPrimaryTrueAndIsDeletedFalse(
+                        StorageCategory.HOTEL_ROOM_PHOTO, ids);
+
+        Map<Long, String> coverUrlMap = primaryImages.stream()
+                .collect(Collectors.toMap(
+                        MediaObject::getReferenceId,
+                        mo -> internalMediaDomainService.getDownloadUrl(mo.getStorageKey(), null),
+                        (existing, replacement) -> existing
+                ));
+
+        responses.forEach(r -> r.setCoverImageUrl(coverUrlMap.get(r.getId().longValue())));
+    }
+
+    private void populateCoverImage(HotelRoomTypeResponse response) {
+        if (response == null || response.getId() == null) {
+            return;
+        }
+        mediaObjectRepository.findByCategoryAndReferenceIdAndIsPrimaryTrueAndIsDeletedFalse(
+                        StorageCategory.HOTEL_ROOM_PHOTO, response.getId().longValue())
+                .ifPresent(mo -> response.setCoverImageUrl(internalMediaDomainService.getDownloadUrl(mo.getStorageKey(), null)));
     }
 
     @Override

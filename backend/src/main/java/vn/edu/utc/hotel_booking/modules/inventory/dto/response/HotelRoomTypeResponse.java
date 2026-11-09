@@ -70,6 +70,9 @@ public class HotelRoomTypeResponse {
     @Schema(description = "Trạng thái", example = "ACTIVE")
     String status;
 
+    @Schema(description = "URL ảnh đại diện chính của hạng phòng", example = "http://localhost:9000/hotel-booking-storage/public/hotels/1/rooms/202/room_cover.jpg")
+    String coverImageUrl;
+
     @Schema(description = "Danh sách tiện ích phòng")
     Set<RoomFeatureResponse> features;
 

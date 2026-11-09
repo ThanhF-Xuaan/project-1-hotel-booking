@@ -127,10 +127,17 @@ axiosInstance.interceptors.response.use(
       // Không refresh được: nếu TRƯỚC ĐÓ có token (hết hạn thật) → về trang đăng nhập.
       // Không có token từ đầu (API công khai/khách vãng lai) → để trang tự xử lý, không ép chuyển trang.
       if (hadToken) {
-        console.warn('Phiên làm việc hết hạn — chuyển về trang đăng nhập')
+        console.warn('Phiên làm việc hết hạn — dọn dẹp token')
         localStorage.removeItem(TOKEN_KEY)
         localStorage.removeItem(REFRESH_TOKEN_KEY)
-        if (!window.location.pathname.startsWith('/login')) {
+        const isPublicArea =
+          typeof window !== 'undefined' &&
+          (window.location.pathname === '/' ||
+            window.location.pathname.startsWith('/portal') ||
+            window.location.pathname.startsWith('/payment/result') ||
+            Boolean(originalConfig.url?.includes('/api/v1/public/')))
+
+        if (!isPublicArea && !window.location.pathname.startsWith('/login')) {
           window.location.replace('/login?session=expired')
         }
       } else {
