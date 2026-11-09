@@ -3,6 +3,7 @@
                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
     <changeSet id="20261103-160000-active-stay-dedup" author="member1" context="master-data" runInTransaction="true">
+        <validCheckSum>ANY</validCheckSum>
         <sqlFile path="db/sqlFile/incremental/2026/20261103-160000-active-stay-dedup.sql" relativeToChangelogFile="false" splitStatements="false"/>
         <!-- Only with writers stopped and a verified backup. Prefer rolling back the application. -->
         <rollback>
