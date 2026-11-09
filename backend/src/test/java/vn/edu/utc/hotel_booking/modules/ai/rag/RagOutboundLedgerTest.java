@@ -199,11 +199,16 @@ class RagOutboundLedgerTest {
         policy.put("expiresAtUtc", Instant.now().plusSeconds(3600).toString());
         policy.put("maxGenerationCalls", 1);
         Files.writeString(policyPath(), JSON.writeValueAsString(policy));
-        String java = Path.of(System.getProperty("java.home"), "bin", "java.exe").toString();
+        Path bin = Path.of(System.getProperty("java.home"), "bin");
+        Path javaBin = ProcessHandle.current().info().command()
+                .map(Path::of)
+                .filter(Files::isExecutable)
+                .orElseGet(() -> Files.isExecutable(bin.resolve("java.exe")) ? bin.resolve("java.exe") : bin.resolve("java"));
+        String java = javaBin.toString();
         var process = new ProcessBuilder(java, "-cp", System.getProperty("java.class.path"), Probe.class.getName(), usage)
                 .redirectErrorStream(true);
         process.environment().clear();
-        for (String name : List.of("SystemRoot", "PATH", "USERPROFILE", "TEMP", "TMP")) {
+        for (String name : List.of("SystemRoot", "PATH", "USERPROFILE", "HOME", "USER", "TEMP", "TMP")) {
             if (System.getenv(name) != null) process.environment().put(name, System.getenv(name));
         }
         process.environment().put("RAG_GEMINI_LEDGER_REQUIRED", "true");
