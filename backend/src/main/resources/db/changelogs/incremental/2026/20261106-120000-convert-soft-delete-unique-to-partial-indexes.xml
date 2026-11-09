@@ -6,6 +6,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="20261106-120000-convert-soft-delete-unique-to-partial-indexes" author="utc-hotel-team" context="master-data">
+        <validCheckSum>ANY</validCheckSum>
         <comment>Chuyen doi unique constraints sang partial unique index (WHERE is_deleted = false) cho 17 bang ho tro soft-delete</comment>
         <sqlFile path="db/sqlFile/incremental/2026/20261106-120000-convert-soft-delete-unique-to-partial-indexes.sql"
                  relativeToChangelogFile="false"
