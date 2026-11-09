@@ -31,6 +31,7 @@ import {
   Gauge,
   Percent,
   Calendar,
+  Clock,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -180,6 +181,12 @@ const navGroups: NavGroup[] = [
         to: '/operation/night-audit',
         icon: <Moon className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE'],
+      },
+      {
+        label: 'Tác vụ Lập lịch & Nền',
+        to: '/operation/schedulers',
+        icon: <Clock className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'PROPERTY_MANAGER'],
       },
     ],
   },
