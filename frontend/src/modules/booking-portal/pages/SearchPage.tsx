@@ -342,8 +342,8 @@ export const SearchPage: React.FC = () => {
     <div className="min-h-screen bg-neutral-50 pb-16">
       {/* Top Navigation */}
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="max-w-6xl mx-auto px-4 min-h-16 flex flex-wrap items-center justify-between gap-2 py-2 md:h-16 md:flex-nowrap md:py-0">
+          <div className="flex shrink-0 items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center font-extrabold text-lg shadow-xs">
               H
             </div>
@@ -352,7 +352,7 @@ export const SearchPage: React.FC = () => {
               <span className="text-red-600 font-bold ml-1 text-xs uppercase tracking-widest">Portal</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 md:w-auto md:flex-nowrap">
             <button
               type="button"
               onClick={() => navigate(`/portal/personalization?hotelId=${criteria.hotelId}`)}

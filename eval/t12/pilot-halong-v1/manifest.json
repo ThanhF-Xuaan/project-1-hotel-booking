@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "t12-pilot-eval-v1",
+  "status": "LOCKED_OFFLINE_DATA_ONLY",
+  "hotelId": 4,
+  "externalProcessingApproval": "PENDING",
+  "semanticExecution": "NOT_RUN",
+  "generationSuccessMustNotIncludeFallback": true,
+  "fileSha256": {
+    "corpus.json": "23795ffcc6953cb78333a875d8c3f9818e12f68be83669f17fbfae23ba377bc1",
+    "r1-scenarios.json": "9b76635c37042ffb380cb5db4bb69aae7b825685a1e8ff79a868c2ec9dc10ad6",
+    "rag-cases.json": "b2f4afc1679f36cee0e293988abe3090c75f22abeb6eb6e120882773b638ea05"
+  },
+  "protectedEvaluationSha256": {
+    "eval/t12/r2/.gitattributes": "2e661181b7cb10d6e0564b6e8376913a5ac2a855b944f0379e56277b1bd971a8",
+    "eval/t12/r2/rag-safety-cases.jsonl": "df744d01fabd19923ef53faa2ed16e2de3577093f62817bbe3ca6726b7a245bc",
+    "eval/t12/r2/README.md": "90eb7852c6cbd0848081c6f12a5818f2bab88bb07dac5dc7e0360ef861a6b0e0",
+    "eval/t12/r1/v0.1.0-draft/cases.json": "8b8f086d5da5f08679f63053e9d17dbc1cbaa510b68a8c16c68e2da680c6bf5c",
+    "eval/t12/r1/v0.1.0-draft/evaluation.schema.json": "793f370c4a8f77070427f56f200cbdfd3db41fece07b81632b993c252e75785d",
+    "eval/t12/r1/v0.1.0-draft/governance-coverage.json": "df56d879dc809c498d72ab9c67daff3432a09f3d64d07f93ea5c5e1bf9742dd7",
+    "eval/t12/r1/v0.1.0-draft/manifest.json": "94a4c53ab05c43bab278e4b6be02eb9d81f351785ae8dfb12cf5c712f2d67825",
+    "eval/t12/r1/v0.1.0-draft/README.md": "c3ba696da7a6e3b9291bac2d4eb5f7756f58157db99d3d7ffc8496f9f5437208",
+    "eval/t12/r2/gemini-v1/acceptance-cases.jsonl": "2e4db99dde8685506a177529662543035862e7a8e1d0002b4dfe30f716826759",
+    "eval/t12/r2/gemini-v1/corpus.json": "135f02fc6b348fa8bddee151e0ed504e5c7310d423e7fcb6518cfb70cd8e1347",
+    "eval/t12/r2/gemini-v1/dev-cases.jsonl": "85550eb22cb87b2273f63c5ece095868e8eb3c95ac4a637246352b6c8ea542a3",
+    "eval/t12/r2/gemini-v1/manifest.json": "5b3c2794a0a02fa6ec3499af8b6418da18b673b8d19548bc4b670bab2e8f4262"
+  },
+  "sourceApproval": "Five public source contents approved previously; Gemini ingestion is a separate reviewed operation"
+}

@@ -83,6 +83,47 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    @DisplayName("Should extract relative dates from Vietnamese message: từ ngày mai đến 3 ngày sau")
+    void shouldExtractRelativeDatesFromVietnameseMessage() {
+        String msg = "Tìm phòng đôi ở Đà Nẵng từ ngày mai đến 3 ngày sau cho 2 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        assertThat(patch.getLocationKeyword()).isEqualTo("Đà Nẵng");
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(today.plusDays(1));
+        assertThat(patch.getCheckOutDate()).isEqualTo(today.plusDays(4));
+        assertThat(patch.getAdults()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("Should extract relative range between two relative tokens: từ ngày mai đến ngày kia")
+    void shouldExtractRelativeRangeTokens() {
+        String msg = "Tìm phòng tại Đà Nẵng từ ngày mai đến ngày kia cho 1 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(today.plusDays(1));
+        assertThat(patch.getCheckOutDate()).isEqualTo(today.plusDays(2));
+    }
+
+    @Test
+    @DisplayName("Should extract relative check-in with stay duration: ngày mai ở 3 đêm")
+    void shouldExtractRelativeCheckInWithStayDuration() {
+        String msg = "Tìm phòng tại Đà Nẵng ngày mai ở 3 đêm cho 2 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(today.plusDays(1));
+        assertThat(patch.getCheckOutDate()).isEqualTo(today.plusDays(4));
+    }
+
+    @Test
     void parsesVietnameseGroupedBudgetWithoutAssumingNightlyBasis() {
         String request = "Tìm phòng tại Hà Nội, nhận phòng 2026-11-09, trả phòng 2026-11-11, "
                 + "2 người lớn, ngân sách tối đa 1.500.000 VND";
@@ -363,6 +404,67 @@ class HybridRoomAdvisorLlmServiceTest {
         AdvisorProviderProperties properties = new AdvisorProviderProperties();
         properties.setGeminiEnabled(true);
         return properties;
+    }
+
+    @Test void exhaustedSharedCampaignBlocksHttpBeforeSending() {
+        HttpClient client = mock(HttpClient.class);
+        var service = new HybridRoomAdvisorLlmService(enabled(), client, () -> TEST_KEY, payload -> {
+            throw new IllegalStateException("Synthetic cap reached");
+        });
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verifyNoInteractions(client);
+    }
+
+    @Test void reservationPrecedesHttpAndKnownUsageIsSettledWithoutCredentials() throws Exception {
+        HttpClient client = mock(HttpClient.class);
+        var reservation = mock(vn.edu.utc.hotel_booking.modules.ai.rag.service.RagOutboundLedger.Reservation.class);
+        var reserved = new AtomicBoolean();
+        String body = candidate("STOP", "{\"adults\":3}");
+        var json = new ObjectMapper().readTree(body);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) json).set("usageMetadata",
+                new ObjectMapper().valueToTree(Map.of("promptTokenCount", 10, "candidatesTokenCount", 5, "totalTokenCount", 18)));
+        stubResponse(client, 200, json.toString());
+        var service = new HybridRoomAdvisorLlmService(enabled(), client, () -> TEST_KEY, payload -> {
+            verifyNoInteractions(client);
+            assertThat(payload).doesNotContain(TEST_KEY);
+            reserved.set(true);
+            return reservation;
+        });
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(3);
+        assertThat(reserved).isTrue();
+        verify(reservation).complete(10, 5, 18);
+        verifyNoMoreInteractions(reservation);
+    }
+
+    @Test void unknownUsageCannotBeReportedAsSuccessfulProviderExtraction() throws Exception {
+        HttpClient client = mock(HttpClient.class);
+        var reservation = mock(vn.edu.utc.hotel_booking.modules.ai.rag.service.RagOutboundLedger.Reservation.class);
+        doThrow(new IllegalStateException("Synthetic missing usage")).when(reservation).complete(-1, -1, -1);
+        stubResponse(client, 200, candidate("STOP", "{\"adults\":3}"));
+        var service = new HybridRoomAdvisorLlmService(enabled(), client, () -> TEST_KEY, payload -> reservation);
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verify(reservation).complete(-1, -1, -1);
+    }
+
+    @Test void timeoutSettlesUnknownUsageAndCancelsHttp() {
+        var properties = enabled(); properties.setTimeoutMillis(100);
+        HttpClient client = mock(HttpClient.class);
+        var pending = new CompletableFuture<HttpResponse<String>>();
+        when(client.sendAsync(any(HttpRequest.class), org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<String>>any())).thenReturn(pending);
+        var reservation = mock(vn.edu.utc.hotel_booking.modules.ai.rag.service.RagOutboundLedger.Reservation.class);
+        var service = new HybridRoomAdvisorLlmService(properties, client, () -> TEST_KEY, payload -> reservation);
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verify(reservation).complete(-1, -1, -1);
+        assertThat(pending.isCancelled()).isTrue();
+    }
+
+    @Test void offlineProviderDoesNotTouchCampaignOrHttp() {
+        HttpClient client = mock(HttpClient.class);
+        var service = new HybridRoomAdvisorLlmService(new AdvisorProviderProperties(), client, () -> TEST_KEY, payload -> {
+            throw new AssertionError("Offline must not reserve");
+        });
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verifyNoInteractions(client);
     }
 
     private String candidate(String finishReason, String modelJson) throws Exception {

@@ -20,6 +20,7 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.store.InMemoryScopedVectorStore;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ScopedRagRetrievalAndGroundedAnswerTest {
 
@@ -396,5 +397,28 @@ class ScopedRagRetrievalAndGroundedAnswerTest {
 
         assertThat(res.getStatus()).isEqualTo(RagAnswerStatus.SCOPE_REQUIRED);
         assertThat(res.getAnswer()).contains("cung cấp thông tin khách sạn cụ thể");
+    }
+
+    @Test
+    void corruptLocalVectorIsADependencyFailureInsteadOfInsufficientEvidence() {
+        var selected = vectorStore.findCandidateChunks(null, 1, LocalDate.of(2026, 3, 1));
+        selected.forEach(chunk -> chunk.setEmbedding(new float[128]));
+        assertThatThrownBy(() -> answerService.answerQuestion(RagQueryRequestDto.builder()
+                .hotelId(1).question("Giờ nhận phòng?").asOfDate(LocalDate.of(2026, 3, 1)).build()))
+                .isInstanceOf(vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort.EmbeddingUnavailableException.class);
+    }
+
+    @Test
+    void localSearchKeepsPointThirtyEvenWhenGeminiThresholdIsHigher() {
+        var properties = new vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderProperties();
+        properties.setRetrievalThreshold(0.60);
+        var configured = new ScopedRagRetrievalService(vectorStore, embeddingService, properties);
+        var request = RagQueryRequestDto.builder().hotelId(1).question("Tôi đến muộn thì sao?")
+                .asOfDate(LocalDate.of(2026, 3, 1)).build();
+        var previous = retrievalService.retrieve(request);
+        var actual = configured.retrieve(request);
+        assertThat(previous).isNotEmpty();
+        assertThat(actual.stream().map(item -> item.getChunk().getChunkId()).toList())
+                .containsExactlyElementsOf(previous.stream().map(item -> item.getChunk().getChunkId()).toList());
     }
 }

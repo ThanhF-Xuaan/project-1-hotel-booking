@@ -24,7 +24,7 @@ test.beforeAll(() => { beforeDigest = databaseDigest(); });
 test.afterAll(() => { expect(databaseDigest()).toBe(beforeDigest); });
 test('real portal widget retrieves scoped citations, rejects inactive scope and keeps R1 available', async ({ page, request }) => {
   const token = await getKeycloakToken('admin');
-  const sourceId = `synthetic-widget-${Date.now()}`;
+  const sourceId = `SYNTHETIC-WIDGET-${Date.now()}`;
   const scope = { sourceId, version: 1, scopeType: 'HOTEL_SCOPED', hotelId: 1 };
   const stage = await request.post(`${BACKEND_URL}/api/v1/ai/admin/knowledge/stage?version=1`, { headers: { Authorization: `Bearer ${token}` }, data: {
     ...scope, category: 'POLICY', title: 'Synthetic check-in policy', content: 'Quy định nhận phòng từ 14:00 và trả phòng trước 12:00 tại khách sạn synthetic.', effectiveFrom: '2026-01-01', effectiveTo: '2027-01-01',
@@ -42,6 +42,10 @@ test('real portal widget retrieves scoped citations, rejects inactive scope and 
   const response = await query; expect(response.status()).toBe(200);
   const result = (await response.json()).result;
   expect(result.status).toBe('GROUNDED_ANSWER');
+  if (result.warnings.includes('GENERATION_FALLBACK_EXTRACTIVE')) {
+    await expect(page.getByText('Đang hiển thị trích đoạn tài liệu do dịch vụ AI tạm gián đoạn.')).toBeVisible();
+    await expect(page.getByText('GENERATION_FALLBACK_EXTRACTIVE')).toHaveCount(0);
+  }
   expect(result.citations.every((citation: { hotelId?: number }) => citation.hotelId == null || citation.hotelId === 1)).toBe(true);
   await expect(page.getByLabel('Nguồn tham khảo')).toBeVisible();
   await page.getByLabel('Khách sạn tra cứu').selectOption('2');
@@ -55,6 +59,25 @@ test('real portal widget retrieves scoped citations, rejects inactive scope and 
   const chat = page.waitForResponse(response => response.url().endsWith('/room-advisor/chat'));
   await page.getByLabel('Gửi tin nhắn').click();
   expect((await chat).status()).toBe(200);
+});
+
+for (const failure of [429, 503]) test(`real portal keeps room search accessible on knowledge ${failure}`, async ({ page }) => {
+  let attempts = 0;
+  await page.route('**/knowledge/ask', route => {
+    attempts++;
+    return route.fulfill({ status: failure, headers: { 'Retry-After': '60' }, json: { code: failure, message: 'PRIVATE_RUNTIME_SENTINEL' } });
+  });
+  await page.goto('/portal/search');
+  await page.getByRole('button', { name: 'Mở Trợ lý Tìm phòng AI' }).click();
+  await page.getByRole('button', { name: 'Chính sách & tiện ích' }).click();
+  await page.getByLabel('Khách sạn tra cứu').selectOption('1');
+  await page.getByLabel('Câu hỏi chính sách').fill('Giờ nhận phòng?');
+  await page.getByRole('button', { name: 'Tra cứu chính sách', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText(failure === 429 ? 'Đã vượt giới hạn' : 'tạm thời không khả dụng');
+  await expect(page.getByText('PRIVATE_RUNTIME_SENTINEL')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tìm phòng', exact: true }).click();
+  await expect(page.getByPlaceholder(/Nhập nhu cầu/)).toBeEnabled();
+  expect(attempts).toBe(1);
 });
 
 test('real R1 search returns verified rooms on missing inventory days without generating rows', async ({ request }) => {

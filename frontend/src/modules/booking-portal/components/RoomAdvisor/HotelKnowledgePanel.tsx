@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { askHotelKnowledge, loadKnowledgeHotels, type HotelKnowledgeResult, type KnowledgeHotel } from '../../services/hotelKnowledgeService';
+import { askHotelKnowledge, loadKnowledgeHotels, knowledgeSyntheticDemo, KnowledgeRateLimitError, type HotelKnowledgeResult, type KnowledgeHotel } from '../../services/hotelKnowledgeService';
 
 export function HotelKnowledgePanel() {
   const [hotels, setHotels] = useState<KnowledgeHotel[]>([]);
@@ -12,7 +12,7 @@ export function HotelKnowledgePanel() {
   const generation = useRef(0);
   useEffect(() => {
     const controller = new AbortController();
-    void loadKnowledgeHotels(controller.signal).then(setHotels).catch(() => {
+    void loadKnowledgeHotels(controller.signal).then(hotels => { if (!controller.signal.aborted) setHotels(hotels); }).catch(() => {
       if (!controller.signal.aborted) setError('Chưa tải được danh sách khách sạn. Có thể hỏi thông tin chung hoặc mở lại để thử.');
     });
     return () => { controller.abort(); request.current?.abort(); };
@@ -24,7 +24,7 @@ export function HotelKnowledgePanel() {
   };
   const ask = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!question.trim() || loading) return;
+    if (!question.trim()) return;
     request.current?.abort();
     const controller = new AbortController(); request.current = controller;
     const current = ++generation.current;
@@ -32,14 +32,19 @@ export function HotelKnowledgePanel() {
     try {
       const answer = await askHotelKnowledge(question.trim(), hotelId ? Number(hotelId) : undefined, controller.signal);
       if (!controller.signal.aborted && generation.current === current) setResult(answer);
-    } catch {
-      if (!controller.signal.aborted && generation.current === current) setError('Tra cứu chính sách tạm thời không khả dụng. Vẫn có thể dùng mục Tìm phòng.');
+    } catch (error) {
+      if (!controller.signal.aborted && generation.current === current) {
+        setError(error instanceof KnowledgeRateLimitError
+          ? `Đã vượt giới hạn tra cứu.${error.retryAfterSeconds ? ` Vui lòng thử lại sau ${error.retryAfterSeconds} giây.` : ' Vui lòng thử lại sau.'} Vẫn có thể dùng mục Tìm phòng.`
+          : 'Tra cứu chính sách tạm thời không khả dụng. Vẫn có thể dùng mục Tìm phòng.');
+      }
     } finally {
       if (!controller.signal.aborted && generation.current === current) setLoading(false);
     }
   };
   return <section aria-label="Tra cứu chính sách khách sạn" className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 text-sm">
     <p>Tra cứu chính sách và tiện ích từ nguồn đã duyệt. Giá và phòng trống được kiểm tra ở mục Tìm phòng.</p>
+    {knowledgeSyntheticDemo && <p>Dữ liệu giả lập (synthetic), chỉ phục vụ demo.</p>}
     <label className="block">Khách sạn
       <select aria-label="Khách sạn tra cứu" value={hotelId} onChange={event => changeHotel(event.target.value)} className="block w-full border rounded p-2">
         <option value="">Thông tin chung của chuỗi</option>
@@ -50,7 +55,7 @@ export function HotelKnowledgePanel() {
       <label className="block">Câu hỏi chính sách
         <textarea aria-label="Câu hỏi chính sách" value={question} onChange={event => setQuestion(event.target.value)} maxLength={2000} required rows={3} className="block w-full border rounded p-2" />
       </label>
-      <button type="submit" disabled={loading || !question.trim()} className="bg-red-600 text-white rounded px-3 py-2 disabled:opacity-50">Tra cứu chính sách</button>
+      <button type="submit" disabled={!question.trim()} className="bg-red-600 text-white rounded px-3 py-2 disabled:opacity-50">Tra cứu chính sách</button>
     </form>
     {loading && <p role="status">Đang tra cứu...</p>}
     {error && <p role="alert">{error}</p>}
@@ -62,7 +67,8 @@ export function HotelKnowledgePanel() {
           <p>{source.sourceId} — phiên bản {source.version}</p><p>{source.snippet}</p>
         </div>)}
       </div>}
-      {result.warnings.map((warning, index) => <p key={`w-${index}`}>{warning}</p>)}
+      {Array.from(new Set(result.warnings)).map((warning, index) => <p key={`w-${index}`}>{warning === 'GENERATION_FALLBACK_EXTRACTIVE'
+        ? 'Đang hiển thị trích đoạn tài liệu do dịch vụ AI tạm gián đoạn.' : warning}</p>)}
       {result.disclaimers.map((disclaimer, index) => <p key={`d-${index}`}>{disclaimer}</p>)}
     </div>}
   </section>;
