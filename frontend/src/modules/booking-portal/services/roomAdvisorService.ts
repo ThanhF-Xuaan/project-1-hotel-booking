@@ -5,6 +5,8 @@ import type {
   AdvisorRefreshRequestDto,
   AdvisorResultDto,
   AdvisorClientError,
+  UnifiedAdvisorRequest,
+  UnifiedAdvisorResult,
 } from '../types/roomAdvisor.types';
 
 const rawBaseUrl =
@@ -173,6 +175,25 @@ export async function sendAdvisorRefresh(
       '/api/v1/public/ai/room-advisor/refresh',
       payload,
       { signal: requestOptions?.signal }
+    );
+    return res.data.result;
+  } catch (err) {
+    return handleAdvisorError(err);
+  }
+}
+
+/**
+ * Gửi tin nhắn đến luồng hội thoại hợp nhất (Unified Conversational Flow - /converse)
+ */
+export async function sendUnifiedChat(
+  request: UnifiedAdvisorRequest,
+  options?: AdvisorRequestOptions
+): Promise<UnifiedAdvisorResult> {
+  try {
+    const res = await advisorClient.post<ApiResponse<UnifiedAdvisorResult>>(
+      '/api/v1/public/ai/room-advisor/converse',
+      request,
+      { signal: options?.signal }
     );
     return res.data.result;
   } catch (err) {

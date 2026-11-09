@@ -39,8 +39,8 @@ class DefaultPublicHotelCorpusInitializerTest {
         contextRunner.withPropertyValues("hotel.ai.rag.demo-corpus.enabled=true").run(context -> {
             RagKnowledgeLifecycleService lifecycleService = context.getBean(RagKnowledgeLifecycleService.class);
 
-            verify(lifecycleService, times(6)).ingestAndStage(any(RagIngestRequestDto.class), anyInt());
-            verify(lifecycleService, times(6)).activate(any(RagActivationRequestDto.class));
+            verify(lifecycleService, times(7)).ingestAndStage(any(RagIngestRequestDto.class), anyInt());
+            verify(lifecycleService, times(7)).activate(any(RagActivationRequestDto.class));
         });
     }
 

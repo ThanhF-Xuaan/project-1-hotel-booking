@@ -13,8 +13,10 @@ import {
 import {
   sendAdvisorChat,
   sendAdvisorRefresh,
+  sendUnifiedChat,
 } from '../../services/roomAdvisorService';
 import { RoomRecommendationCard } from './RoomRecommendationCard';
+import { KnowledgeAnswerBlock } from './KnowledgeAnswerBlock';
 import type {
   AdvisorResultDto,
   AdvisorRecommendation,
@@ -205,7 +207,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     }
   }, [messages, sessionId, sessionVersion]);
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, policyHotelId?: number) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || activeRequest.current || isLoading || cooldownSeconds > 0) return;
     const request = beginRequest();
@@ -222,30 +224,68 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     setIsLoading(true);
 
     try {
-      const result: AdvisorResultDto = await sendAdvisorChat({
-        contractVersion: '2.0',
-        message: text,
-        sessionId,
-        expectedSessionVersion: sessionVersion,
-      }, { signal: request.controller.signal });
-      if (!request.isCurrent()) return;
+      const isUnified =
+        import.meta.env.VITE_ADVISOR_UNIFIED === 'true' ||
+        (typeof window !== 'undefined' &&
+          ((window as unknown as { __VITE_ADVISOR_UNIFIED?: boolean }).__VITE_ADVISOR_UNIFIED === true ||
+            sessionStorage.getItem('VITE_ADVISOR_UNIFIED') === 'true'));
 
-      if (result.sessionId) {
-        setSessionId(result.sessionId);
+      if (isUnified) {
+        const unifiedResult = await sendUnifiedChat({
+          message: text,
+          sessionId,
+          expectedSessionVersion: sessionVersion,
+          policyHotelId,
+        }, { signal: request.controller.signal });
+        if (!request.isCurrent()) return;
+
+        if (unifiedResult.advisor?.sessionId) {
+          setSessionId(unifiedResult.advisor.sessionId);
+        }
+        if (typeof unifiedResult.advisor?.sessionVersion === 'number') {
+          setSessionVersion(unifiedResult.advisor.sessionVersion);
+        }
+
+        const replyText = unifiedResult.advisor?.reply
+          || unifiedResult.knowledge?.result?.answer
+          || 'Dưới đây là thông tin tôi tìm được cho bạn:';
+
+        const botMessage: ChatMessage = {
+          id: createMessageId('bot'),
+          sender: 'assistant',
+          text: replyText,
+          timestamp: new Date(),
+          result: unifiedResult.advisor,
+          knowledge: unifiedResult.knowledge,
+        };
+
+        setMessages((prev) => [...prev, botMessage]);
+      } else {
+        const result: AdvisorResultDto = await sendAdvisorChat({
+          contractVersion: '2.0',
+          message: text,
+          sessionId,
+          expectedSessionVersion: sessionVersion,
+        }, { signal: request.controller.signal });
+        if (!request.isCurrent()) return;
+
+        if (result.sessionId) {
+          setSessionId(result.sessionId);
+        }
+        if (typeof result.sessionVersion === 'number') {
+          setSessionVersion(result.sessionVersion);
+        }
+
+        const botMessage: ChatMessage = {
+          id: createMessageId('bot'),
+          sender: 'assistant',
+          text: result.reply,
+          timestamp: new Date(),
+          result,
+        };
+
+        setMessages((prev) => [...prev, botMessage]);
       }
-      if (typeof result.sessionVersion === 'number') {
-        setSessionVersion(result.sessionVersion);
-      }
-
-      const botMessage: ChatMessage = {
-        id: createMessageId('bot'),
-        sender: 'assistant',
-        text: result.reply,
-        timestamp: new Date(),
-        result,
-      };
-
-      setMessages((prev) => [...prev, botMessage]);
     } catch (err: unknown) {
       if (!request.isCurrent()) return;
       const clientErr = err as AdvisorClientError;
@@ -530,6 +570,18 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                         </p>
                       ))}
                     </div>
+                  )}
+
+                  {/* Knowledge Answer Block */}
+                  {msg.knowledge && (
+                    <KnowledgeAnswerBlock
+                      knowledge={msg.knowledge}
+                      disabled={isLoading || cooldownSeconds > 0}
+                      onSelectHotelChoice={(hotelId) => {
+                        const question = msg.knowledge?.policyQuestion || 'Chính sách khách sạn';
+                        handleSendMessage(question, hotelId);
+                      }}
+                    />
                   )}
                 </div>
               </div>

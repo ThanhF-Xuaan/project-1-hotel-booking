@@ -122,6 +122,18 @@ public class DefaultPublicHotelCorpusInitializer {
                 1
         );
 
+        // 7. POLICY-CHILD-BREAKFAST (DN-01, hotelId = 2)
+        ingestAndActivate(
+                "POLICY-CHILD-BREAKFAST",
+                RagScopeType.HOTEL_SCOPED,
+                2,
+                RagDocumentCategory.POLICY,
+                "Chính sách buffet sáng cho trẻ em",
+                "Trẻ em dưới 6 tuổi đi cùng bố mẹ được miễn phí buffet sáng tiêu chuẩn tại nhà hàng khách sạn. Trẻ em từ 6 đến 11 tuổi áp dụng mức phụ thu theo quy định được thông báo tại quầy lễ tân khi nhận phòng. Mỗi phòng được áp dụng miễn phí tối đa cho 1 trẻ em dưới 6 tuổi.",
+                LocalDate.of(2026, 1, 1),
+                1
+        );
+
         seeded.set(true);
         log.info("Default public hotel corpus seeded successfully.");
     }

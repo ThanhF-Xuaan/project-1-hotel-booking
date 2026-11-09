@@ -289,7 +289,7 @@ public final class RagRequestBudget {
 
     public static final class LimitExceededException extends RuntimeException {
         private final long retryAfterSeconds;
-        private LimitExceededException(long retryAfterSeconds) {
+        public LimitExceededException(long retryAfterSeconds) {
             super("RAG request limit exceeded"); this.retryAfterSeconds = retryAfterSeconds;
         }
         public long retryAfterSeconds() { return retryAfterSeconds; }

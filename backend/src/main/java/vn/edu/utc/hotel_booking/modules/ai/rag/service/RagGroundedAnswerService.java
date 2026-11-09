@@ -372,7 +372,8 @@ public class RagGroundedAnswerService {
         String lower = question.toLowerCase(Locale.ROOT);
         return asksCheckIn(lower) || asksCheckOut(lower) ||
                 lower.contains("hồ bơi") || lower.contains("bể bơi") ||
-                lower.contains("bữa sáng") || lower.contains("ăn sáng");
+                lower.contains("bữa sáng") || lower.contains("ăn sáng") ||
+                lower.contains("buffet");
     }
 
     private String synthesizeEnglishAnswer(String question, String context) {

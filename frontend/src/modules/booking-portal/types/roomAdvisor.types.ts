@@ -1,6 +1,6 @@
 /**
  * Room Advisor Type Definitions
- * Conforming strictly to frozen T12 R1 contract v2.0.0-draft.1
+ * Conforming strictly to frozen T12 R1 contract v2.0.0-draft.1 and additive v2.1 unified conversation
  */
 
 export interface AdvisorSearchCriteria {
@@ -135,12 +135,60 @@ export interface AdvisorClientError {
   isSessionConflict?: boolean;
 }
 
+export interface HotelChoice {
+  hotelId: number;
+  hotelName: string;
+}
+
+export interface KnowledgeCitation {
+  sourceId: string;
+  version: number;
+  chunkId: string;
+  category: string;
+  hotelId?: number | null;
+  effectiveFrom?: string | null;
+  snippet: string;
+  similarityScore: number;
+}
+
+export interface KnowledgeAnswer {
+  state: 'ANSWERED' | 'SCOPE_REQUIRED' | 'RATE_LIMITED' | 'UNAVAILABLE' | 'NOT_ASKED';
+  hotelId?: number;
+  hotelName?: string;
+  policyQuestion?: string;
+  result?: {
+    status: 'GROUNDED_ANSWER' | 'INSUFFICIENT_EVIDENCE' | 'SCOPE_REQUIRED' | 'CONFLICTING_SOURCES' | 'RAG_TEMP_UNAVAILABLE' | 'OUT_OF_SCOPE';
+    answer?: string;
+    citations?: KnowledgeCitation[];
+    warnings?: string[];
+    disclaimers?: string[];
+  };
+  retryAfterSeconds?: number;
+  hotelChoices?: HotelChoice[];
+}
+
+export interface UnifiedAdvisorRequest {
+  message: string;
+  sessionId?: string;
+  expectedSessionVersion?: number;
+  policyHotelId?: number;
+}
+
+export interface UnifiedAdvisorResult {
+  contractVersion: string;
+  requestId: string;
+  intent: 'SEARCH_ONLY' | 'POLICY_ONLY' | 'SEARCH_AND_POLICY' | 'OUT_OF_SCOPE';
+  advisor?: AdvisorResultDto;
+  knowledge?: KnowledgeAnswer;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant' | 'system';
   text: string;
   timestamp: Date;
   result?: AdvisorResultDto;
+  knowledge?: KnowledgeAnswer;
   isError?: boolean;
   rateLimitCountdown?: number;
 }
