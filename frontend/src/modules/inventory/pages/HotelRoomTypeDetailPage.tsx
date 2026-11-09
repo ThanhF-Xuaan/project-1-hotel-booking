@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Building2, BedDouble, Save, Check, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Building2, BedDouble, Save, Check, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Select from '../../../core/components/ui/Select'
@@ -9,6 +9,7 @@ import hotelRoomTypeService from '../services/hotelRoomType.service'
 import taxCategoryService from '../../pricing/services/taxCategory.service'
 import { HotelRoomTypeBedEditor } from '../components/HotelRoomTypeBedEditor'
 import { HotelRoomTypeFeatureEditor } from '../components/HotelRoomTypeFeatureEditor'
+import { RoomTypeMediaGalleryModal } from '../components/RoomTypeMediaGalleryModal'
 import type {
   HotelRoomTypeDto,
   HotelRoomTypeUpdateRequest,
@@ -25,6 +26,7 @@ export const HotelRoomTypeDetailPage: React.FC = () => {
   const [isSavingGeneral, setIsSavingGeneral] = useState(false)
   const [saveGeneralSuccess, setSaveGeneralSuccess] = useState(false)
   const [generalError, setGeneralError] = useState<string | null>(null)
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false)
 
   // Form General & Capacity Fields
   const [basePrice, setBasePrice] = useState<number>(0)
@@ -390,6 +392,85 @@ export const HotelRoomTypeDetailPage: React.FC = () => {
         initialFeatures={hotelRoomType.features || []}
         onUpdated={loadData}
       />
+
+      {/* Block 4: Bộ Sưu Tập Hình Ảnh Hạng Phòng (Media Gallery) */}
+      <div className="bg-white rounded-2xl border border-neutral-200/80 p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-red-50 text-red-600 rounded-xl">
+              <ImageIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-neutral-900">
+                Hình Ảnh Hạng Phòng (Room Type Media Gallery)
+              </h2>
+              <p className="text-xs text-neutral-500">
+                Quản lý ảnh đại diện và bộ sưu tập ảnh giới thiệu hạng phòng cho khách đặt trực tuyến
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setIsGalleryOpen(true)}
+          >
+            <ImageIcon className="w-4 h-4 mr-1.5" />
+            Quản Lý Thư Viện Ảnh
+          </Button>
+        </div>
+
+        {hotelRoomType.coverImageUrl ? (
+          <div className="flex flex-col sm:flex-row items-center gap-4 p-3 bg-neutral-50/70 rounded-xl border border-neutral-200/60">
+            <img
+              src={hotelRoomType.coverImageUrl}
+              alt={hotelRoomType.roomTypeName}
+              className="w-36 h-24 object-cover rounded-lg border border-neutral-200 shadow-xs shrink-0"
+            />
+            <div className="space-y-1 text-center sm:text-left">
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-700">
+                ★ Ảnh đại diện chính
+              </span>
+              <p className="text-xs text-neutral-600">
+                Ảnh này hiển thị trên cổng tìm kiếm & trang chi tiết đặt phòng của khách.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsGalleryOpen(true)}
+                className="text-xs font-semibold text-red-600 hover:text-red-700 hover:underline inline-block pt-1 cursor-pointer"
+              >
+                Tải lên thêm ảnh hoặc thay đổi ảnh đại diện →
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 border-2 border-dashed border-neutral-200 rounded-xl text-center space-y-2">
+            <p className="text-xs text-neutral-500">
+              Hạng phòng này chưa có ảnh nào. Hãy thêm ảnh để tăng tỷ lệ chuyển đổi khi khách tìm phòng!
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsGalleryOpen(true)}
+            >
+              <ImageIcon className="w-4 h-4 mr-1.5" />
+              Tải Lên Ảnh Ngay
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {isGalleryOpen && (
+        <RoomTypeMediaGalleryModal
+          isOpen={isGalleryOpen}
+          onClose={() => setIsGalleryOpen(false)}
+          hotelRoomTypeId={Number(id)}
+          roomTypeName={hotelRoomType.roomTypeName}
+          hotelName={hotelRoomType.hotelName}
+          onCoverImageChanged={loadData}
+        />
+      )}
     </div>
   )
 }

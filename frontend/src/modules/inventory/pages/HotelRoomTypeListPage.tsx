@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Trash2, RefreshCw, Search, Eye, Building2, BedDouble, Users } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Eye, Building2, BedDouble, Users, Image as ImageIcon } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Select, { type SelectOption } from '../../../core/components/ui/Select'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
@@ -12,6 +12,7 @@ import hotelRoomTypeService from '../services/hotelRoomType.service'
 import roomTypeService from '../services/roomType.service'
 import hotelService from '../../organization/services/hotel.service'
 import taxCategoryService from '../../pricing/services/taxCategory.service'
+import { RoomTypeMediaGalleryModal } from '../components/RoomTypeMediaGalleryModal'
 import type {
   HotelRoomTypeDto,
   HotelRoomTypeCreateRequest,
@@ -66,6 +67,13 @@ export const HotelRoomTypeListPage: React.FC = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [deletingIds, setDeletingIds] = useState<number[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Media Gallery Modal
+  const [galleryRoomType, setGalleryRoomType] = useState<{
+    id: number
+    name: string
+    hotelName: string
+  } | null>(null)
 
   // Tải danh sách khách sạn & hạng phòng thực tế đang có cấu hình (để bộ lọc đồng bộ 100% với dữ liệu)
   const refreshFilterSummary = useCallback(async () => {
@@ -513,8 +521,23 @@ export const HotelRoomTypeListPage: React.FC = () => {
                         {hrt.hotelName}
                       </td>
                       <td className="py-2.5 px-2 leading-snug">
-                        <div className="font-semibold text-neutral-900 leading-tight">{hrt.roomTypeName}</div>
-                        <div className="text-[11px] text-neutral-400 font-mono mt-0.5">{hrt.roomTypeCode}</div>
+                        <div className="flex items-center gap-2.5">
+                          {hrt.coverImageUrl ? (
+                            <img
+                              src={hrt.coverImageUrl}
+                              alt={hrt.roomTypeName}
+                              className="w-10 h-8 object-cover rounded-md border border-neutral-200 shrink-0 shadow-2xs"
+                            />
+                          ) : (
+                            <div className="w-10 h-8 rounded-md bg-neutral-100 border border-neutral-200/80 flex items-center justify-center text-neutral-400 shrink-0">
+                              <ImageIcon className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-semibold text-neutral-900 leading-tight">{hrt.roomTypeName}</div>
+                            <div className="text-[11px] text-neutral-400 font-mono mt-0.5">{hrt.roomTypeCode}</div>
+                          </div>
+                        </div>
                       </td>
                       <td className="py-2.5 px-2 text-right font-bold text-red-600 whitespace-nowrap">
                         {formatCurrency(hrt.basePrice)}
@@ -545,6 +568,21 @@ export const HotelRoomTypeListPage: React.FC = () => {
                       </td>
                       <td className="py-2.5 px-2 text-center whitespace-nowrap">
                         <div className="inline-flex items-center justify-center gap-1 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setGalleryRoomType({
+                                id: hrt.id,
+                                name: hrt.roomTypeName,
+                                hotelName: hrt.hotelName,
+                              })
+                            }
+                            className="p-1 text-neutral-400 hover:text-red-600 hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                            title="Quản lý ảnh hạng phòng"
+                            aria-label={`Quản lý ảnh ${hrt.roomTypeName}`}
+                          >
+                            <ImageIcon className="w-3.5 h-3.5" />
+                          </button>
                           <Button
                             variant="secondary"
                             size="sm"
@@ -718,6 +756,21 @@ export const HotelRoomTypeListPage: React.FC = () => {
         isLoading={isDeleting}
         variant="danger"
       />
+
+      {/* Media Gallery Modal */}
+      {galleryRoomType && (
+        <RoomTypeMediaGalleryModal
+          isOpen={!!galleryRoomType}
+          onClose={() => setGalleryRoomType(null)}
+          hotelRoomTypeId={galleryRoomType.id}
+          roomTypeName={galleryRoomType.name}
+          hotelName={galleryRoomType.hotelName}
+          onCoverImageChanged={() => {
+            loadData()
+            void refreshFilterSummary()
+          }}
+        />
+      )}
     </div>
   )
 }

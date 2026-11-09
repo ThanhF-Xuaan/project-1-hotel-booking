@@ -37,6 +37,7 @@ const UtilityManagementPage = lazy(() => import('./modules/operation/pages/Utili
 const NightAuditPage = lazy(() => import('./modules/operation/pages/NightAuditPage')
   .then((module) => ({ default: module.NightAuditPage })))
 const SystemSchedulerListPage = lazy(() => import('./modules/operation/pages/SystemSchedulerListPage'))
+const MediaManagementPage = lazy(() => import('./modules/media/pages/MediaManagementPage'))
 const ManagementDashboard = lazy(() => import('./modules/dashboard/pages/ManagementDashboard')
   .then((module) => ({ default: module.ManagementDashboard })))
 const SearchPage = lazy(() => import('./modules/booking-portal/pages/SearchPage'))
@@ -130,6 +131,9 @@ export function App() {
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'PROPERTY_MANAGER']} />}>
                 <Route path="/operation/schedulers" element={<SystemSchedulerListPage />} />
+              </Route>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
+                <Route path="/operation/media" element={<MediaManagementPage />} />
               </Route>
 
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'ENGINEERING', 'REGION_MANAGER']} />}>
