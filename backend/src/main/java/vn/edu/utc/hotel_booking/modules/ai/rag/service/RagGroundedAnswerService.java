@@ -1,6 +1,9 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.jspecify.annotations.Nullable;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.llm.PiiRedactionUtil;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagCitationDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto;
@@ -10,6 +13,7 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeChunk;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestRequestDto;
 
 import java.util.*;
+import java.text.Normalizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,6 +35,33 @@ public class RagGroundedAnswerService {
             "(?iu)(payroll|salary|bảng\\s*lương|guest.*(?:email|phone|passport)|employee.*(?:salary|payroll)|giá\\s*phòng\\s*hiện\\s*tại|"
                     + "how\\s+many\\s+rooms.*available|(?:create|cancel|hold)\\s+(?:a\\s+)?(?:booking|inventory)|available\\s+tonight)");
 
+    // Vacancy detection uses a room subject followed directly by a vacancy predicate.
+    private static final Pattern ROOM_CONTEXT = Pattern.compile(
+            "(?iuU)\\b(phong|deluxe|suite|superior|standard|rooms?)\\b");
+    private static final Pattern ROOM_PRICE_QUESTION = Pattern.compile(
+            "(?iuU)\\b(gia\\s*(?:[\\p{L}\\p{N}-]+\\s+){0,5}(?:bao\\s*nhieu|the\\s*nao|hien\\s*tai)|bao\\s*gia|"
+                    + "bao\\s*nhieu\\s*(?:tien|dong|vnd|(?:mot|1)\\s*dem)|"
+                    + "how\\s+much\\s+(?:(?:does|would)\\b[^?!;\\r\\n]{0,80}\\bcost|(?:is|are|for|per)\\b)|"
+                    + "what(?:'s|\\s+is|\\s+are)\\s+(?:the\\s+)?(?:current\\s+)?(?:room\\s+)?(?:prices?|rates?)|"
+                    + "(?:room\\s+)?rates?\\s+(?:for|today|tonight))\\b");
+    private static final Pattern DIRECT_ROOM_PRICE_QUESTION = Pattern.compile(
+            "(?iuU)\\bgia\\s+(?:(?:hang|loai)\\s+)?(?:(?:phong\\s+)?(?:deluxe|suite|superior|standard)|phong)"
+                    + "(?:\\s+(?:hom\\s*nay|ngay\\s*mai|toi\\s*nay|hien\\s*tai))?\\s*[?!.]*$");
+    private static final Pattern ROOM_AVAILABILITY_QUESTION = Pattern.compile(
+            "(?iuU)\\b(con\\s+(?:(?:bao\\s+nhieu|\\d+)\\s+)?(?:phong|deluxe|suite)|"
+                    + "(?:phong|deluxe|suite)\\s+(?:[\\p{L}\\p{N}-]+\\s+){0,5}kha\\s*dung|"
+                    + "tinh\\s*trang\\s*phong|(?:rooms?|deluxe|suite)\\s+(?:[\\p{L}\\p{N}-]+\\s+){0,6}available|"
+                    + "(?:room\\s+)?availability|vacanc(?:y|ies)|available\\s+(?:rooms?|tonight))\\b");
+    private static final Pattern ROOM_VACANCY_QUESTION = Pattern.compile(
+            "(?iuU)\\b(?:phong(?:\\s+(?:deluxe|suite|superior|standard))?|deluxe|suite)"
+                    + "(?:\\s+(?:huong\\s+(?:bien|vuon|nui|ho|thanh\\s+pho)|giuong\\s+(?:doi|don)|king|queen|twin|double)){0,3}"
+                    + "\\s+(?:(?:nay|do)\\s+)?(?:co\\s+)?(?:con\\s+)?trong\\b"
+                    + "(?=\\s*(?:[?!.]|$)|\\s+(?:khong|(?:(?:vao|tu|den|cho)\\s+)?"
+                    + "(?:hom\\s*nay|toi\\s*nay|ngay\\s*mai|dem\\s*mai|cuoi\\s*tuan|ngay\\s+\\d{1,2}(?:[/.-]\\d{1,2})?))\\b)");
+    private static final Pattern PET_TOPIC = Pattern.compile(
+            "(?iuU)\\b(?:thu\\s+cung|vat\\s+nuoi|cho\\s+(?:hoac\\s+)?meo|pets?|dogs?|cats?|animals?)\\b");
+    private static final Pattern ACCENTED_PET_TOPIC = Pattern.compile("(?iuU)\\b(?:chó|mèo)\\b");
+
     private static final Pattern ENGLISH_QUESTION_PATTERN = Pattern.compile(
             "(?i)\\b(what\\s*time|when\\s*(can|is|does)|where\\s*is|how\\s*much|is\\s*there|check-?in\\s*time|check-?out\\s*time)\\b"
     );
@@ -40,13 +71,23 @@ public class RagGroundedAnswerService {
 
     private final ScopedRagRetrievalService retrievalService;
     private final RagCorpusGovernanceValidator governanceValidator;
+    private final RagAnswerGeneratorPort generator;
+    private final RagGeneratedAnswerValidator generatedAnswerValidator = new RagGeneratedAnswerValidator();
 
     public RagGroundedAnswerService(
             ScopedRagRetrievalService retrievalService,
             RagCorpusGovernanceValidator governanceValidator
     ) {
+        this(retrievalService, governanceValidator, null);
+    }
+
+    @Autowired
+    public RagGroundedAnswerService(ScopedRagRetrievalService retrievalService,
+                                   RagCorpusGovernanceValidator governanceValidator,
+                                   @Nullable RagAnswerGeneratorPort generator) {
         this.retrievalService = retrievalService;
         this.governanceValidator = governanceValidator;
+        this.generator = generator;
     }
 
     public RagQueryResultDto answerQuestion(RagQueryRequestDto request) {
@@ -58,6 +99,11 @@ public class RagGroundedAnswerService {
         }
 
         String question = RagCorpusGovernanceValidator.canonicalSafetyText(request.getQuestion()).trim();
+        if (isDynamicRoomInquiry(question)) {
+            return RagQueryResultDto.builder().status(RagAnswerStatus.OUT_OF_SCOPE)
+                    .answer("Giá phòng và tình trạng phòng trống phải được kiểm tra qua Core Booking. "
+                            + "Vui lòng dùng chức năng tìm phòng để xem giá và phòng còn trống.").build();
+        }
         if (NON_STATIC_REQUEST.matcher(question).find()) {
             return RagQueryResultDto.builder().status(RagAnswerStatus.OUT_OF_SCOPE)
                     .answer("Trợ lý kiến thức chỉ tra cứu chính sách công khai. Vui lòng dùng chức năng nghiệp vụ tương ứng hoặc liên hệ nhân viên.").build();
@@ -105,43 +151,25 @@ public class RagGroundedAnswerService {
                     .build();
         }
 
-        // 5. Grounded synthesis
-        boolean isEnglish = "en".equalsIgnoreCase(request.getLanguage()) || ENGLISH_QUESTION_PATTERN.matcher(question).find();
-
-        List<RagCitationDto> citations = new ArrayList<>();
-        List<String> warnings = new ArrayList<>();
-        StringBuilder answerBuilder = new StringBuilder();
-
-        for (ScopedRagRetrievalService.ScoredChunk sc : retrieved) {
-            KnowledgeChunk chunk = sc.getChunk();
-            if (!ScopedRagRetrievalService.isEligibleEvidence(chunk, request.getHotelId(),
-                    request.getAsOfDate() == null ? java.time.LocalDate.now() : request.getAsOfDate())) continue;
-            String content = chunk.getSanitizedContent() != null ? chunk.getSanitizedContent() : chunk.getContent();
-            if (!governanceValidator.validateForIngestion(RagIngestRequestDto.builder().scopeType(chunk.getScopeType())
-                    .hotelId(chunk.getHotelId()).category(chunk.getCategory()).content(content).build()).isValid()) continue;
-            var sanitized = governanceValidator.sanitizeChunkContent(content);
-            content = sanitized.getSanitizedText();
-            if (content.isBlank() || !hasRequestedTimeEvidence(question, content)) continue;
-            var citation = sc.toCitation();
-            citation.setSnippet(content.length() > 150 ? content.substring(0, 150) + "..." : content);
-            citations.add(citation);
-            warnings.addAll(sanitized.getWarnings());
-            if (chunk.getWarnings() != null) {
-                warnings.addAll(chunk.getWarnings());
-            }
-
-            if (answerBuilder.length() > 0) {
-                answerBuilder.append("\n\n");
-            }
-            answerBuilder.append(content);
-        }
-
-        String rawAnswer = answerBuilder.toString();
-        if (citations.isEmpty()) return RagQueryResultDto.builder().status(RagAnswerStatus.INSUFFICIENT_EVIDENCE)
+        // Prepare once: both the generator and the extractive path use these exact safe chunks.
+        List<EvidenceCandidate> candidates = prepareEvidence(retrieved, request, question);
+        if (candidates.isEmpty()) return RagQueryResultDto.builder().status(RagAnswerStatus.INSUFFICIENT_EVIDENCE)
                 .answer("Chưa có bằng chứng chính sách hợp lệ. Vui lòng liên hệ lễ tân.").build();
-        if (hasConflictingTimes(question, rawAnswer)) return RagQueryResultDto.builder().status(RagAnswerStatus.CONFLICTING_SOURCES)
+        // Detect conflicts across ALL eligible evidence before the prompt budget can omit a source.
+        if (hasConflictingTimes(question, joinEvidence(candidates))) return RagQueryResultDto.builder()
+                .status(RagAnswerStatus.CONFLICTING_SOURCES)
                 .answer("Các tài liệu có thông tin giờ nhận/trả phòng mâu thuẫn. Vui lòng liên hệ lễ tân để xác nhận.")
-                .citations(citations).warnings(List.of("CONFLICTING_POLICY_TIMES")).build();
+                .citations(candidates.stream().map(EvidenceCandidate::citation).toList())
+                .warnings(List.of("CONFLICTING_POLICY_TIMES")).build();
+
+        boolean isEnglish = "en".equalsIgnoreCase(request.getLanguage()) || ENGLISH_QUESTION_PATTERN.matcher(question).find();
+        List<String> warnings = new ArrayList<>();
+        List<EvidenceCandidate> selected = boundEvidence(candidates, warnings);
+        if (selected.isEmpty()) return RagQueryResultDto.builder().status(RagAnswerStatus.INSUFFICIENT_EVIDENCE)
+                .answer("Chưa có đủ bằng chứng trong giới hạn tra cứu. Vui lòng liên hệ lễ tân.").warnings(warnings).build();
+        selected.forEach(item -> warnings.addAll(item.warnings()));
+        List<RagCitationDto> citations = selected.stream().map(EvidenceCandidate::citation).toList();
+        String rawAnswer = joinEvidence(selected);
         String finalAnswer;
 
         if (isEnglish) {
@@ -151,16 +179,98 @@ public class RagGroundedAnswerService {
             finalAnswer = synthesizeVietnameseAnswer(question, rawAnswer);
         }
 
+        if (generator != null) {
+            try {
+                if (generator.isEnabled()) {
+                    var input = new RagAnswerGeneratorPort.Request(PiiRedactionUtil.redact(question), isEnglish ? "en" : "vi",
+                            selected.stream().map(EvidenceCandidate::evidence).toList());
+                    var verified = generatedAnswerValidator.validate(generator.generate(input), input.evidence());
+                    Map<UUID, RagCitationDto> trusted = new HashMap<>();
+                    selected.forEach(item -> trusted.put(item.evidence().chunkId(), item.citation()));
+                    citations = verified.chunkIds().stream().map(trusted::get).toList();
+                    finalAnswer = verified.answer();
+                }
+            }
+            catch (Exception failure) {
+                // No raw provider/model/parser exception is logged or returned.
+                warnings.add("GENERATION_FALLBACK_EXTRACTIVE");
+            }
+        }
+
         return RagQueryResultDto.builder()
                 .status(RagAnswerStatus.GROUNDED_ANSWER)
                 .answer(finalAnswer)
                 .citations(citations)
-                .warnings(warnings)
+                .warnings(new ArrayList<>(new LinkedHashSet<>(warnings)))
                 .disclaimers(List.of(
                         "Thông tin được trích xuất từ tài liệu chính sách tĩnh đã được phê duyệt của khách sạn.",
                         "Giá phòng và tình trạng phòng trống luôn được quản lý trực tiếp qua hệ thống Core Booking."
                 ))
                 .build();
+    }
+
+    private boolean isDynamicRoomInquiry(String question) {
+        String intent = foldAccents(question);
+        return ROOM_CONTEXT.matcher(intent).find()
+                && (ROOM_PRICE_QUESTION.matcher(intent).find() || DIRECT_ROOM_PRICE_QUESTION.matcher(intent).find()
+                    || ROOM_AVAILABILITY_QUESTION.matcher(intent).find() || ROOM_VACANCY_QUESTION.matcher(intent).find());
+    }
+
+    private static String foldAccents(String text) {
+        return Normalizer.normalize(text, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").replace('đ', 'd').replace('Đ', 'D');
+    }
+
+    private boolean mentionsPets(String text) {
+        return PET_TOPIC.matcher(foldAccents(text)).find() || ACCENTED_PET_TOPIC.matcher(text).find();
+    }
+
+    private record EvidenceCandidate(RagAnswerGeneratorPort.Evidence evidence, RagCitationDto citation,
+                                     List<String> warnings) { }
+
+    private List<EvidenceCandidate> prepareEvidence(List<ScopedRagRetrievalService.ScoredChunk> retrieved,
+                                                     RagQueryRequestDto request, String question) {
+        if (retrieved.size() > RagAnswerGeneratorPort.MAX_CHUNKS) throw new IllegalStateException("RAG evidence boundary exceeded");
+        var date = request.getAsOfDate() == null ? java.time.LocalDate.now() : request.getAsOfDate();
+        List<EvidenceCandidate> safe = new ArrayList<>(); Set<UUID> seen = new HashSet<>();
+        for (var row : retrieved) {
+            if (row == null) continue;
+            KnowledgeChunk chunk = row.getChunk();
+            if (!ScopedRagRetrievalService.isEligibleEvidence(chunk, request.getHotelId(), date)) continue;
+            String content = chunk.getSanitizedContent() != null ? chunk.getSanitizedContent() : chunk.getContent();
+            if (content == null || content.length() > 64_000 || !governanceValidator.validateForIngestion(
+                    RagIngestRequestDto.builder().scopeType(chunk.getScopeType()).hotelId(chunk.getHotelId())
+                            .category(chunk.getCategory()).content(content).build()).isValid()) continue;
+            var sanitized = governanceValidator.sanitizeChunkContent(content); content = sanitized.getSanitizedText();
+            if (content.isBlank() || !hasRequestedTimeEvidence(question, content)) continue;
+            // Similarity alone is not evidence of a pet policy. Apply this before generation and fallback.
+            if (mentionsPets(question) && !mentionsPets(content)) continue;
+            if (!seen.add(chunk.getChunkId())) throw new IllegalStateException("RAG duplicate evidence identity");
+            RagCitationDto citation = row.toCitation();
+            citation.setSnippet(content.length() > 150 ? content.substring(0, 150) + "..." : content);
+            List<String> warnings = new ArrayList<>(sanitized.getWarnings());
+            if (chunk.getWarnings() != null) warnings.addAll(chunk.getWarnings());
+            safe.add(new EvidenceCandidate(new RagAnswerGeneratorPort.Evidence(chunk.getChunkId(), content), citation, List.copyOf(warnings)));
+        }
+        return safe;
+    }
+
+    private List<EvidenceCandidate> boundEvidence(List<EvidenceCandidate> candidates, List<String> warnings) {
+        List<EvidenceCandidate> selected = new ArrayList<>();
+        for (var candidate : candidates) {
+            List<RagAnswerGeneratorPort.Evidence> proposed = new ArrayList<>(selected.stream().map(EvidenceCandidate::evidence).toList());
+            proposed.add(candidate.evidence());
+            try {
+                RagGeneratedAnswerValidator.evidenceJson(proposed);
+                selected.add(candidate);
+            }
+            catch (IllegalArgumentException tooLarge) { warnings.add("EVIDENCE_CONTEXT_LIMIT"); }
+        }
+        return selected;
+    }
+
+    private String joinEvidence(List<EvidenceCandidate> evidence) {
+        return String.join("\n\n", evidence.stream().map(item -> item.evidence().content()).toList());
     }
 
     private boolean hasRequestedTimeEvidence(String question, String content) {

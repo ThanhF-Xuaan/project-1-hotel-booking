@@ -1,0 +1,41 @@
+{
+  "base": "f1e26b80268c166dae0c6d7ee91d7b7718190e54",
+  "sharedAccountingTests": {
+    "passed": 56,
+    "skipped": 0,
+    "failures": 0
+  },
+  "advisorRagRegression": {
+    "passed": 311,
+    "skipped": 1,
+    "failures": 0
+  },
+  "pilotPackIntegrity": {
+    "status": "PASS_DATA_INTEGRITY_ONLY",
+    "documents": 5,
+    "ragCases": 20,
+    "ragPlannedObservations": 40,
+    "r1ScenarioSpecifications": 12,
+    "rejectedTamperCases": 5,
+    "protectedFilesUnchanged": 12,
+    "applicationCasesExecuted": 0,
+    "geminiCalls": 0
+  },
+  "liveCompatibility": {
+    "passed": 0,
+    "failures": 1,
+    "skipped": 0
+  },
+  "providerObservedOutcome": "SUCCESS_USAGE_UNKNOWN",
+  "ledgerState": "HALT",
+  "reservedUsd": "0.000307200000",
+  "actualCostUsd": null,
+  "generationCalls": 0,
+  "embeddingInputsReserved": 1,
+  "databaseProvisioned": false,
+  "gitCommitPushMerge": false,
+  "logHashes": {
+    "backend/target/shared-ledger-tests.log": "63598c05ece4eb7b941ac7bd6c2b435da93be5329eac83dfedd2974a9de48919",
+    "backend/target/shared-ledger-regression.log": "2184e3ce0db357863878ae922890eb807dd4adbc7101c000a1a219b4330df1c9"
+  }
+}

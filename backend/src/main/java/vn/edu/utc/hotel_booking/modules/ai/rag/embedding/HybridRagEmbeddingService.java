@@ -1,12 +1,14 @@
 package vn.edu.utc.hotel_booking.modules.ai.rag.embedding;
 
 import org.springframework.stereotype.Service;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.*;
 
 @Service
+@ConditionalOnProperty(prefix = "hotel.ai.rag.provider", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class HybridRagEmbeddingService implements RagEmbeddingPort {
 
     private final int dimension;

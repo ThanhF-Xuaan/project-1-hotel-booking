@@ -1,0 +1,228 @@
+[
+  {
+    "id": "HL-001",
+    "hotelId": 4,
+    "question": "Deluxe Hướng Biển Giường Đôi rộng bao nhiêu?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-DELUXE"
+    ],
+    "requiredFacts": [
+      "38 m²"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-002",
+    "hotelId": 4,
+    "question": "Deluxe Hướng Biển Giường Đôi có giường gì?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-DELUXE"
+    ],
+    "requiredFacts": [
+      "giường đôi"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-003",
+    "hotelId": 4,
+    "question": "Phòng Deluxe Hướng Biển Giường Đôi nhìn ra đâu?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-DELUXE"
+    ],
+    "requiredFacts": [
+      "nhìn ra biển"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-004",
+    "hotelId": 4,
+    "question": "Vinpearl Resort & Spa Hạ Long nằm ở đâu?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-FACILITIES"
+    ],
+    "requiredFacts": [
+      "đảo Rều",
+      "Bãi Cháy",
+      "Quảng Ninh"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-005",
+    "hotelId": 4,
+    "question": "Khách sạn có những tiện ích nào?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-FACILITIES"
+    ],
+    "requiredFacts": [
+      "hồ bơi",
+      "Vincharm Spa",
+      "phòng gym"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-006",
+    "hotelId": 4,
+    "question": "Bayview phục vụ món gì?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-DINING"
+    ],
+    "requiredFacts": [
+      "món Á và Âu"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-007",
+    "hotelId": 4,
+    "question": "Accogliente phục vụ món gì?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-DINING"
+    ],
+    "requiredFacts": [
+      "món Ý"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-008",
+    "hotelId": 4,
+    "question": "Pearl Lounge ở đâu?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-DINING"
+    ],
+    "requiredFacts": [
+      "Pearl Lounge nằm tại sảnh"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-009",
+    "hotelId": 4,
+    "question": "Khách sạn có những địa điểm hội họp nào?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-MEETING"
+    ],
+    "requiredFacts": [
+      "The Pearl",
+      "Event Hall",
+      "Meeting Room"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-010",
+    "hotelId": 4,
+    "question": "Tiệc cưới có thể tổ chức ở những không gian nào?",
+    "expectedStatus": "GROUNDED_ANSWER",
+    "sources": [
+      "VP-HL-WEDDING"
+    ],
+    "requiredFacts": [
+      "tại sảnh và bãi biển"
+    ],
+    "iterations": 3
+  },
+  {
+    "id": "HL-011",
+    "hotelId": 4,
+    "question": "Khách sạn có cho mang thú cưng không?",
+    "expectedStatus": "INSUFFICIENT_EVIDENCE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-012",
+    "hotelId": 4,
+    "question": "Mấy giờ được nhận phòng?",
+    "expectedStatus": "INSUFFICIENT_EVIDENCE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-013",
+    "hotelId": 4,
+    "question": "Mấy giờ phải trả phòng?",
+    "expectedStatus": "INSUFFICIENT_EVIDENCE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-014",
+    "hotelId": 4,
+    "question": "Chính sách hủy phòng thế nào?",
+    "expectedStatus": "INSUFFICIENT_EVIDENCE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-015",
+    "hotelId": 4,
+    "question": "Bữa sáng phục vụ từ mấy giờ?",
+    "expectedStatus": "INSUFFICIENT_EVIDENCE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-016",
+    "hotelId": 4,
+    "question": "Bãi đỗ xe có thu phí không?",
+    "expectedStatus": "INSUFFICIENT_EVIDENCE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-017",
+    "hotelId": 4,
+    "question": "Giá phòng Deluxe?",
+    "expectedStatus": "OUT_OF_SCOPE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-018",
+    "hotelId": 4,
+    "question": "Phòng Deluxe hướng biển có trống ngày mai không?",
+    "expectedStatus": "OUT_OF_SCOPE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-019",
+    "hotelId": 4,
+    "question": "Phòng Deluxe có trống vào ngày mai không?",
+    "expectedStatus": "OUT_OF_SCOPE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  },
+  {
+    "id": "HL-020",
+    "hotelId": 4,
+    "question": "Còn 2 phòng tối nay không?",
+    "expectedStatus": "OUT_OF_SCOPE",
+    "sources": [],
+    "requiredFacts": [],
+    "iterations": 1
+  }
+]

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.context.annotation.Lazy;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.*;
 import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort;
+import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort.EmbeddingUnavailableException;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagScopeType;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagVersionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.governance.RagCorpusGovernanceValidator;
@@ -52,25 +53,40 @@ public class RagKnowledgeLifecycleService {
                     .build();
         }
 
+        if (version < 1 || request.getSourceId() == null
+                || !request.getSourceId().trim().toUpperCase(Locale.ROOT).matches("[A-Z0-9][A-Z0-9._:-]{0,127}")
+                || (request.getScopeType() == RagScopeType.CHAIN_PUBLIC && request.getHotelId() != null)
+                || (request.getHotelId() != null && request.getHotelId() > 32767)
+                || (request.getEffectiveFrom() != null && request.getEffectiveTo() != null
+                    && request.getEffectiveTo().isBefore(request.getEffectiveFrom()))) {
+            return RagIngestResultDto.builder().version(version).status(RagVersionStatus.REJECTED)
+                    .errorMessage("REJECTED_INVALID_DOCUMENT_METADATA").build();
+        }
+
         UUID docId = UUID.randomUUID();
         String raw = request.getContent() != null ? request.getContent().trim() : "";
         String hash = computeSha256(raw);
 
         // 2. Semantic paragraph chunking
         String[] rawChunks = raw.split("(?m)^\\s*\\n\\s*");
-        if (Arrays.stream(rawChunks).filter(part -> !part.isBlank()).limit(257).count() > 256) {
+        long chunkCount = Arrays.stream(rawChunks).filter(part -> !part.isBlank()).limit(257).count();
+        if (chunkCount > 256) return rejectedLimit(version);
+        int chunkLimit = Math.min(256, embeddingPort.getMaxDocumentChunks());
+        if (chunkCount > chunkLimit) {
             return rejectedLimit(version);
         }
         List<KnowledgeChunk> chunks = new ArrayList<>();
         int chunkIdx = 0;
 
         List<String> docWarnings = new ArrayList<>();
+        List<String> embeddingInputs = new ArrayList<>();
 
         for (String cText : rawChunks) {
             String trimmed = cText.trim();
             if (trimmed.isBlank()) {
                 continue;
             }
+            if (trimmed.length() > embeddingPort.getMaxDocumentChunkCharacters()) return rejectedLimit(version);
 
             // 3. Indirect injection & price claims sanitization (T12-014, T12-020, T12-V2-038)
             SanitizedContentResult san = governanceValidator.sanitizeChunkContent(trimmed);
@@ -79,7 +95,10 @@ public class RagKnowledgeLifecycleService {
             }
 
             String textToEmbed = (request.getTitle() != null && !request.getTitle().isBlank() ? request.getTitle() + "\n" : "") + san.getSanitizedText();
-            float[] embedding = embeddingPort.embedText(textToEmbed);
+            if (san.getSanitizedText().isBlank() || textToEmbed.length() > embeddingPort.getMaxEmbeddingInputCharacters()) {
+                return rejectedLimit(version);
+            }
+            embeddingInputs.add(textToEmbed);
 
             KnowledgeChunk chunk = KnowledgeChunk.builder()
                     .chunkId(UUID.randomUUID())
@@ -92,7 +111,6 @@ public class RagKnowledgeLifecycleService {
                     .category(request.getCategory())
                     .content(trimmed)
                     .sanitizedContent(san.getSanitizedText())
-                    .embedding(embedding)
                     .effectiveFrom(request.getEffectiveFrom())
                     .effectiveTo(request.getEffectiveTo())
                     .status(RagVersionStatus.STAGED)
@@ -101,6 +119,40 @@ public class RagKnowledgeLifecycleService {
 
             chunks.add(chunk);
         }
+
+        if (chunks.isEmpty()) return rejectedLimit(version);
+
+        // Read-only preflight, outside any write transaction. Store retains its atomic duplicate check.
+        try {
+            if (vectorStore.getExpectedDimension() != embeddingPort.getDimension()) {
+                if (embeddingPort.isExternalProvider()) throw new EmbeddingUnavailableException();
+                return RagIngestResultDto.builder().version(version).status(RagVersionStatus.REJECTED)
+                        .errorMessage("REJECTED_EMBEDDING_DIMENSION_MISMATCH").build();
+            }
+            var existing = vectorStore.getDocument(request.getScopeType(), request.getHotelId(), request.getSourceId(), version);
+            if (existing == null) throw new EmbeddingUnavailableException();
+            if (existing.isPresent()) return RagIngestResultDto.builder().sourceId(request.getSourceId()).version(version)
+                    .status(RagVersionStatus.REJECTED).errorMessage("REJECTED_DUPLICATE_VERSION").build();
+        }
+        catch (RuntimeException dependencyFailure) { throw new EmbeddingUnavailableException(); }
+
+        // No store mutation until the complete batch has been returned and validated.
+        try {
+            List<float[]> embeddings = embeddingPort.embedDocuments(embeddingInputs);
+            if (embeddings == null || embeddings.size() != chunks.size()) throw new EmbeddingUnavailableException();
+            for (int i = 0; i < chunks.size(); i++) {
+                float[] vector = embeddings.get(i);
+                if (vector == null || vector.length != embeddingPort.getDimension()) throw new EmbeddingUnavailableException();
+                double squared = 0;
+                for (float value : vector) {
+                    if (!Float.isFinite(value)) throw new EmbeddingUnavailableException();
+                    squared += (double) value * value;
+                }
+                if (!(squared > 0) || !Double.isFinite(squared)) throw new EmbeddingUnavailableException();
+                chunks.get(i).setEmbedding(vector.clone());
+            }
+        }
+        catch (RuntimeException providerFailure) { throw new EmbeddingUnavailableException(); }
 
         KnowledgeDocumentVersion doc = KnowledgeDocumentVersion.builder()
                 .documentId(docId)

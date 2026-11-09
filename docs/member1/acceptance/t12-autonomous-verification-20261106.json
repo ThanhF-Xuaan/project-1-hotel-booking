@@ -1,0 +1,35 @@
+{
+  "status": "PASS_DATA_INTEGRITY_ONLY",
+  "documents": 5,
+  "ragCases": 20,
+  "ragPlannedObservations": 40,
+  "r1ScenarioSpecifications": 12,
+  "rejectedTamperCases": 5,
+  "protectedFilesUnchanged": 12,
+  "applicationCasesExecuted": 0,
+  "geminiCalls": 0,
+  "base": "f1e26b80268c166dae0c6d7ee91d7b7718190e54",
+  "backendRegression": {
+    "total": 306,
+    "passed": 305,
+    "skipped": 1,
+    "failures": 0,
+    "errors": 0
+  },
+  "frontendBuild": "PASS",
+  "scope": "Offline integration and locked evaluation data; not live application acceptance",
+  "evidenceLogSha256": {
+    "backend/target-integration-check.log": "96a08eb83b9821045aef1691b6ba452e391a78034d20403dc46f5e7bfe3fb80f",
+    "frontend/build-integration-check.log": "f788098febf1deea2bdadcf70097c892efbbe6fea8ec627caf1e29c7080db848"
+  },
+  "artifactSha256": {
+    "docs/member1/acceptance/t12-autonomous-progress-20261106.md": "40976b19dc64c504fac3d2fbc44f2ed6d686cb65204f9308f5c254437c6b301f",
+    "docs/member1/contracts/t12-live-sandbox-member2-review.md": "242124c910fb4d9cadc48805ad7985eddd7011457ccc44a7bdaa009f0f57c839",
+    "tools/t12/build_pilot_eval.py": "fcdebf761d4f7ca1d6583b0fdaa32d5d710c639d3bed81e3c336d1798fce60e7",
+    "tools/t12/validate_pilot_eval.py": "bf9ed34d802395464db1803fc93f2ff4e417f86bc171c9ba258c867f7fd2d540",
+    "eval/t12/pilot-halong-v1/corpus.json": "23795ffcc6953cb78333a875d8c3f9818e12f68be83669f17fbfae23ba377bc1",
+    "eval/t12/pilot-halong-v1/manifest.json": "8fcb992e46a6d7c38e6d9d50437e5256eab463ce6bf5fb2927107c22358082d3",
+    "eval/t12/pilot-halong-v1/r1-scenarios.json": "9b76635c37042ffb380cb5db4bb69aae7b825685a1e8ff79a868c2ec9dc10ad6",
+    "eval/t12/pilot-halong-v1/rag-cases.json": "b2f4afc1679f36cee0e293988abe3090c75f22abeb6eb6e120882773b638ea05"
+  }
+}

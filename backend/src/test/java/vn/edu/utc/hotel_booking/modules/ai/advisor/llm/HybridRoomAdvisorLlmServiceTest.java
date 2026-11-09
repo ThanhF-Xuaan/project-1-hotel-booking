@@ -333,6 +333,67 @@ class HybridRoomAdvisorLlmServiceTest {
         return properties;
     }
 
+    @Test void exhaustedSharedCampaignBlocksHttpBeforeSending() {
+        HttpClient client = mock(HttpClient.class);
+        var service = new HybridRoomAdvisorLlmService(enabled(), client, () -> TEST_KEY, payload -> {
+            throw new IllegalStateException("Synthetic cap reached");
+        });
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verifyNoInteractions(client);
+    }
+
+    @Test void reservationPrecedesHttpAndKnownUsageIsSettledWithoutCredentials() throws Exception {
+        HttpClient client = mock(HttpClient.class);
+        var reservation = mock(vn.edu.utc.hotel_booking.modules.ai.rag.service.RagOutboundLedger.Reservation.class);
+        var reserved = new AtomicBoolean();
+        String body = candidate("STOP", "{\"adults\":3}");
+        var json = new ObjectMapper().readTree(body);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) json).set("usageMetadata",
+                new ObjectMapper().valueToTree(Map.of("promptTokenCount", 10, "candidatesTokenCount", 5, "totalTokenCount", 18)));
+        stubResponse(client, 200, json.toString());
+        var service = new HybridRoomAdvisorLlmService(enabled(), client, () -> TEST_KEY, payload -> {
+            verifyNoInteractions(client);
+            assertThat(payload).doesNotContain(TEST_KEY);
+            reserved.set(true);
+            return reservation;
+        });
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(3);
+        assertThat(reserved).isTrue();
+        verify(reservation).complete(10, 5, 18);
+        verifyNoMoreInteractions(reservation);
+    }
+
+    @Test void unknownUsageCannotBeReportedAsSuccessfulProviderExtraction() throws Exception {
+        HttpClient client = mock(HttpClient.class);
+        var reservation = mock(vn.edu.utc.hotel_booking.modules.ai.rag.service.RagOutboundLedger.Reservation.class);
+        doThrow(new IllegalStateException("Synthetic missing usage")).when(reservation).complete(-1, -1, -1);
+        stubResponse(client, 200, candidate("STOP", "{\"adults\":3}"));
+        var service = new HybridRoomAdvisorLlmService(enabled(), client, () -> TEST_KEY, payload -> reservation);
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verify(reservation).complete(-1, -1, -1);
+    }
+
+    @Test void timeoutSettlesUnknownUsageAndCancelsHttp() {
+        var properties = enabled(); properties.setTimeoutMillis(100);
+        HttpClient client = mock(HttpClient.class);
+        var pending = new CompletableFuture<HttpResponse<String>>();
+        when(client.sendAsync(any(HttpRequest.class), org.mockito.ArgumentMatchers.<HttpResponse.BodyHandler<String>>any())).thenReturn(pending);
+        var reservation = mock(vn.edu.utc.hotel_booking.modules.ai.rag.service.RagOutboundLedger.Reservation.class);
+        var service = new HybridRoomAdvisorLlmService(properties, client, () -> TEST_KEY, payload -> reservation);
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verify(reservation).complete(-1, -1, -1);
+        assertThat(pending.isCancelled()).isTrue();
+    }
+
+    @Test void offlineProviderDoesNotTouchCampaignOrHttp() {
+        HttpClient client = mock(HttpClient.class);
+        var service = new HybridRoomAdvisorLlmService(new AdvisorProviderProperties(), client, () -> TEST_KEY, payload -> {
+            throw new AssertionError("Offline must not reserve");
+        });
+        assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
+        verifyNoInteractions(client);
+    }
+
     private String candidate(String finishReason, String modelJson) throws Exception {
         return new ObjectMapper().writeValueAsString(Map.of("candidates", List.of(Map.of(
                 "finishReason", finishReason, "content", Map.of("parts", List.of(Map.of("text", modelJson)))))));

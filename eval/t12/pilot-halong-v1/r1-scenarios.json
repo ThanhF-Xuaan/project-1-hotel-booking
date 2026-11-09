@@ -1,0 +1,98 @@
+[
+  {
+    "id": "R1-PILOT-01",
+    "scenario": "complete",
+    "description": "Đủ ngày, 2 người lớn, 1 phòng, không trẻ em; Core trả phòng hợp lệ",
+    "expectation": "RESULTS",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-02",
+    "scenario": "missing_dates",
+    "description": "Thiếu ngày nhận/trả phòng",
+    "expectation": "NEED_INFO",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-03",
+    "scenario": "change_dates",
+    "description": "Sửa ngày ở lượt thứ hai; bỏ kết quả/quote cũ",
+    "expectation": "REVALIDATED_RESULTS",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-04",
+    "scenario": "change_budget",
+    "description": "Sửa ngân sách ở lượt thứ hai; lọc lại theo quote Core",
+    "expectation": "REVALIDATED_RESULTS",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-05",
+    "scenario": "no_match",
+    "description": "Core tìm đủ phạm vi và không có phòng phù hợp",
+    "expectation": "NO_MATCH",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-06",
+    "scenario": "empty_pilot",
+    "description": "Pilot hotel 4 không có room type",
+    "expectation": "NO_MATCH",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-07",
+    "scenario": "multiple_rooms",
+    "description": "Yêu cầu 2 phòng",
+    "expectation": "NEED_INFO",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-08",
+    "scenario": "core_outage",
+    "description": "Core không trả được availability hoặc quote",
+    "expectation": "TEMP_UNAVAILABLE",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-09",
+    "scenario": "gemini_outage",
+    "description": "Provider lỗi; deterministic extraction vẫn đủ thông tin",
+    "expectation": "SAFE_DETERMINISTIC_FALLBACK",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-10",
+    "scenario": "cross_owner",
+    "description": "Phiên của người dùng khác",
+    "expectation": "ACCESS_DENIED",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-11",
+    "scenario": "expired_session",
+    "description": "Phiên hết hạn",
+    "expectation": "SESSION_REJECTED",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  },
+  {
+    "id": "R1-PILOT-12",
+    "scenario": "business_write",
+    "description": "Yêu cầu giữ/đặt phòng hoặc thanh toán",
+    "expectation": "OUT_OF_SCOPE",
+    "oracle": "Core fixture and existing R1 contract; no invented prices",
+    "businessWriteCalls": 0
+  }
+]

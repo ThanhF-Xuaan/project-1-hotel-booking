@@ -2,9 +2,13 @@ package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.jspecify.annotations.Nullable;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagCitationDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort;
+import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort.EmbeddingUnavailableException;
+import vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderProperties;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagScopeType;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagVersionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeChunk;
@@ -20,10 +24,23 @@ public class ScopedRagRetrievalService {
 
     private final RagVectorStorePort vectorStore;
     private final RagEmbeddingPort embeddingPort;
+    private final double minSimilarity;
 
     public ScopedRagRetrievalService(@Lazy RagVectorStorePort vectorStore, RagEmbeddingPort embeddingPort) {
+        this(vectorStore, embeddingPort, null);
+    }
+
+    @Autowired
+    public ScopedRagRetrievalService(@Lazy RagVectorStorePort vectorStore, RagEmbeddingPort embeddingPort,
+                                     @Nullable RagProviderProperties providerProperties) {
         this.vectorStore = vectorStore;
         this.embeddingPort = embeddingPort;
+        if (embeddingPort.isExternalProvider()) {
+            var properties = providerProperties != null ? providerProperties : new RagProviderProperties();
+            properties.validateRetrievalThreshold();
+            this.minSimilarity = properties.getRetrievalThreshold();
+        }
+        else this.minSimilarity = MIN_SIMILARITY_THRESHOLD;
     }
 
     public List<ScoredChunk> retrieve(RagQueryRequestDto request) {
@@ -41,7 +58,19 @@ public class ScopedRagRetrievalService {
                 asOfDate
         );
         if (candidates == null) throw new IllegalStateException("RAG candidate dependency unavailable");
+        if (candidates.size() > 1000) throw new EmbeddingUnavailableException();
         candidates = candidates.stream().filter(chunk -> isEligibleEvidence(chunk, request.getHotelId(), asOfDate)).toList();
+
+        if (embeddingPort.isExternalProvider()) {
+            try {
+                if (embeddingPort.getDimension() < 1 || embeddingPort.getModelId() == null
+                        || embeddingPort.getModelId().isBlank()
+                        || vectorStore.getExpectedDimension() != embeddingPort.getDimension()) {
+                    throw new EmbeddingUnavailableException();
+                }
+            }
+            catch (RuntimeException failure) { throw new EmbeddingUnavailableException(); }
+        }
 
         if (candidates.isEmpty()) {
             return Collections.emptyList();
@@ -74,19 +103,20 @@ public class ScopedRagRetrievalService {
             }
         }
 
+        // Validate all winning vectors before spending query quota, even if their score would be low.
+        for (KnowledgeChunk chunk : activeChunks) validateVector(chunk.getEmbedding(), embeddingPort.getDimension());
+        if (embeddingPort.isExternalProvider()) validateDocumentIdentities(activeChunks);
+
         // 3. Generate query vector
-        float[] queryVector = embeddingPort.embedText(request.getQuestion());
+        float[] queryVector = embeddingPort.embedQuery(request.getQuestion());
+        validateVector(queryVector, embeddingPort.getDimension());
 
         // 4. Compute cosine similarity & filter threshold across all active chunks
         List<ScoredChunk> scoredList = new ArrayList<>();
         for (KnowledgeChunk chunk : activeChunks) {
             float[] chunkVector = chunk.getEmbedding();
-            if (chunkVector == null || chunkVector.length != queryVector.length) {
-                continue;
-            }
-
             double similarity = computeCosineSimilarity(queryVector, chunkVector);
-            if (similarity >= MIN_SIMILARITY_THRESHOLD) {
+            if (similarity >= minSimilarity) {
                 scoredList.add(new ScoredChunk(chunk, similarity));
             }
         }
@@ -101,6 +131,43 @@ public class ScopedRagRetrievalService {
             return scoredList.subList(0, topK);
         }
         return scoredList;
+    }
+
+    private static void validateVector(float[] vector, int dimension) {
+        if (dimension < 1 || vector == null || vector.length != dimension) throw new EmbeddingUnavailableException();
+        double squared = 0;
+        for (float value : vector) {
+            if (!Float.isFinite(value)) throw new EmbeddingUnavailableException();
+            squared += (double) value * value;
+        }
+        // Dot product is cosine only for the normalized vectors guaranteed by the embedding adapters.
+        if (!Double.isFinite(squared) || Math.abs(squared - 1.0) > 0.001) throw new EmbeddingUnavailableException();
+    }
+
+    private record DocumentKey(RagScopeType scope, Integer hotel, String source, int version) { }
+
+    private void validateDocumentIdentities(List<KnowledgeChunk> chunks) {
+        // Chunks have no model-ID field. Check trusted document metadata once per winning version.
+        // This is bounded by the same 1,000-candidate cap and never reads a foreign hotel's document.
+        Map<DocumentKey, vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeDocumentVersion> documents = new HashMap<>();
+        try {
+            for (KnowledgeChunk chunk : chunks) {
+                var key = new DocumentKey(chunk.getScopeType(), chunk.getHotelId(), chunk.getSourceId(), chunk.getVersion());
+                var doc = documents.computeIfAbsent(key, k -> vectorStore.getDocument(k.scope(), k.hotel(), k.source(), k.version())
+                        .orElseThrow(EmbeddingUnavailableException::new));
+                if (!Objects.equals(doc.getDocumentId(), chunk.getDocumentId())
+                        || !Objects.equals(doc.getEmbeddingModelId(), embeddingPort.getModelId())
+                        || doc.getEmbeddingDimension() != embeddingPort.getDimension()
+                        || doc.getScopeType() != chunk.getScopeType() || !Objects.equals(doc.getHotelId(), chunk.getHotelId())
+                        || !Objects.equals(doc.getSourceId(), chunk.getSourceId()) || doc.getVersion() != chunk.getVersion()
+                        || doc.getStatus() != chunk.getStatus() || doc.getCategory() != chunk.getCategory()
+                        || !Objects.equals(doc.getEffectiveFrom(), chunk.getEffectiveFrom())
+                        || !Objects.equals(doc.getEffectiveTo(), chunk.getEffectiveTo())) {
+                    throw new EmbeddingUnavailableException();
+                }
+            }
+        }
+        catch (RuntimeException failure) { throw new EmbeddingUnavailableException(); }
     }
 
     public static boolean isEligibleEvidence(KnowledgeChunk chunk, Integer hotel, LocalDate date) {

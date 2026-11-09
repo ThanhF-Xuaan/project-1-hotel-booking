@@ -1,0 +1,47 @@
+[
+  {
+    "sourceId": "VP-HL-DELUXE",
+    "hotelId": 4,
+    "scopeType": "HOTEL_SCOPED",
+    "version": 1,
+    "content": "Tại Vinpearl Resort & Spa Hạ Long, hạng Deluxe Hướng Biển Giường Đôi có diện tích 38 m² và giường đôi, nhìn ra biển.",
+    "contentSha256": "60d9e2c09cc5298914f7446d7c445fb820cb768c2505e9a91cfd9da1c238a363",
+    "url": "https://vinpearl.com/vi/hotels/vinpearl-resort-spa-ha-long/rooms"
+  },
+  {
+    "sourceId": "VP-HL-DINING",
+    "hotelId": 4,
+    "scopeType": "HOTEL_SCOPED",
+    "version": 1,
+    "content": "Vinpearl Resort & Spa Hạ Long giới thiệu Bayview với món Á và Âu; Accogliente phục vụ món Ý kết hợp nguyên liệu địa phương; Pavilion có kiến trúc nhà chòi trên biển. Pearl Lounge nằm tại sảnh. Pool Bar có tầm nhìn ra vịnh.",
+    "contentSha256": "3bbd12cafce8964eca6d4fc820039e53552a4745f09e6305563743082caab496",
+    "url": "https://vinpearl.com/vi/hotels/vinpearl-resort-spa-ha-long/foods"
+  },
+  {
+    "sourceId": "VP-HL-WEDDING",
+    "hotelId": 4,
+    "scopeType": "HOTEL_SCOPED",
+    "version": 1,
+    "content": "Vinpearl Resort & Spa Hạ Long có không gian tổ chức tiệc cưới tại sảnh và bãi biển. Trang giới thiệu liệt kê The Pearl và Event Hall.",
+    "contentSha256": "fe0965aca6b24977419ce6878cf77b2bf32f2e2fe07251e6594cc4cade790f3d",
+    "url": "https://vinpearl.com/vi/hotels/vinpearl-resort-spa-ha-long/wedding"
+  },
+  {
+    "sourceId": "VP-HL-MEETING",
+    "hotelId": 4,
+    "scopeType": "HOTEL_SCOPED",
+    "version": 1,
+    "content": "Vinpearl Resort & Spa Hạ Long giới thiệu hệ thống không gian dành cho hội họp và sự kiện. Các địa điểm được liệt kê gồm The Pearl, Event Hall và Meeting Room.",
+    "contentSha256": "0e8661c740299809e48ef936c799900fae8df1c3b5ccf9d2ddc49bb77a2582b5",
+    "url": "https://vinpearl.com/vi/hotels/vinpearl-resort-spa-ha-long/meeting-and-events"
+  },
+  {
+    "sourceId": "VP-HL-FACILITIES",
+    "hotelId": 4,
+    "scopeType": "HOTEL_SCOPED",
+    "version": 1,
+    "content": "Vinpearl Resort & Spa Hạ Long nằm trên đảo Rều, khu vực Bãi Cháy, Quảng Ninh. Bài giới thiệu đề cập bãi biển riêng, hồ bơi, Vincharm Spa, khu vui chơi trẻ em và phòng gym.",
+    "contentSha256": "efe288dd6a3bf6abd7c63d8f657a6767ad7da1e5ae124114f64d1caf0023751c",
+    "url": "https://vinpearl.com/vi/kham-pha-vinpearl-resort-spa-ha-long-tu-a-z"
+  }
+]

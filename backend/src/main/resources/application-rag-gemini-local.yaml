@@ -1,0 +1,64 @@
+# Start only through Start-RagGeminiDemo.ps1 with reviewed target/policy hashes.
+# No model IDs, credentials, role grants or DDL defaults are approved by this profile.
+spring:
+  config:
+    activate:
+      on-profile: rag-gemini-local
+  liquibase:
+    enabled: false
+  datasource:
+    url: ${RAG_GEMINI_PRIMARY_JDBC_URL}
+    username: ${RAG_GEMINI_PRIMARY_USERNAME}
+    password: ${RAG_GEMINI_PRIMARY_PASSWORD}
+    hikari:
+      read-only: true
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+server:
+  address: 127.0.0.1
+  port: ${RAG_GEMINI_BACKEND_PORT}
+hotel:
+  scheduling:
+    enabled: false
+  storage:
+    type: local
+    local:
+      base-path: ${RAG_GEMINI_STORAGE_DIRECTORY}
+  ai:
+    advisor:
+      provider:
+        gemini-enabled: false
+    rag:
+      outbound-ledger-required: true
+      store-type: pgvector
+      demo-corpus:
+        enabled: false
+      generation-enabled: true
+      pgvector:
+        jdbc-url: ${RAG_PGVECTOR_JDBC_URL}
+        username: ${RAG_PGVECTOR_USERNAME}
+        password: ${RAG_PGVECTOR_PASSWORD}
+      provider:
+        enabled: true
+        chat-model: ${RAG_GEMINI_CHAT_MODEL}
+        embedding-model: ${RAG_GEMINI_EMBEDDING_MODEL}
+        embedding-dimension: ${RAG_GEMINI_EMBEDDING_DIMENSION}
+        retrieval-threshold: ${RAG_GEMINI_RETRIEVAL_THRESHOLD}
+        embedding-timeout-millis: 3000
+        chat-timeout-millis: 7000
+        request-timeout-millis: 12000
+        max-output-tokens: 768
+        max-embedding-inputs: 64
+        max-embedding-input-characters: 2500
+logging:
+  level:
+    root: WARN
+    vn.edu.utc.hotel_booking: WARN
+    vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget: INFO
+    org.springframework.security: WARN
+    org.springframework.ai: 'OFF'
+    com.google.genai: 'OFF'
+    okhttp3: 'OFF'
+    org.hibernate.SQL: 'OFF'

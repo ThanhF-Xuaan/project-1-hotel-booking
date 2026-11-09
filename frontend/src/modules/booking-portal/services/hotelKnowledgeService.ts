@@ -4,6 +4,14 @@ const rawBaseUrl =
   import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const API_BASE_URL = rawBaseUrl.replace(/\/api\/?$/, '');
 const client = axios.create({ baseURL: API_BASE_URL, timeout: 15000 });
+export const knowledgeSyntheticDemo = import.meta.env.VITE_RAG_SYNTHETIC_DEMO === 'true';
+export class KnowledgeRateLimitError extends Error {
+  readonly retryAfterSeconds?: number;
+  constructor(retryAfterSeconds?: number) {
+    super('Knowledge request limit exceeded');
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
 const citation = z.object({ sourceId: z.string(), version: z.number().int().positive(),
   chunkId: z.string().uuid(), category: z.string(), hotelId: z.number().int().positive().nullish(),
   effectiveFrom: z.string().nullish(), snippet: z.string(), similarityScore: z.number() });
@@ -20,7 +28,17 @@ export async function loadKnowledgeHotels(signal: AbortSignal): Promise<Knowledg
   return z.array(hotelSchema).parse(data.result.content).filter(hotel => hotel.status === 'ACTIVE');
 }
 export async function askHotelKnowledge(question: string, hotelId: number | undefined, signal: AbortSignal): Promise<HotelKnowledgeResult> {
-  const { data } = await client.post('/api/v1/public/ai/room-advisor/knowledge/ask', { question, hotelId, language: 'vi', topK: 5 }, { signal });
+  let data;
+  try {
+    ({ data } = await client.post('/api/v1/public/ai/room-advisor/knowledge/ask', { question, hotelId, language: 'vi', topK: 5 }, { signal }));
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      const raw = error.response.headers['retry-after'];
+      const seconds = typeof raw === 'string' && /^[0-9]{1,6}$/.test(raw) ? Number(raw) : undefined;
+      throw new KnowledgeRateLimitError(seconds && seconds <= 86400 ? seconds : undefined);
+    }
+    throw error;
+  }
   const result = resultSchema.parse(data.result);
   if (result.citations.some(source => source.hotelId != null && source.hotelId !== hotelId)
       || (result.status === 'GROUNDED_ANSWER' && result.citations.length === 0)) throw new Error('Invalid knowledge evidence');

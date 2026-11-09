@@ -1,0 +1,22 @@
+{
+  "scope": "AUTHENTICATED_MODEL_METADATA_ONLY",
+  "checks": [
+    {
+      "generationCalls": 0,
+      "embeddingInputs": 0,
+      "metadataAvailable": true,
+      "httpStatus": 200,
+      "model": "gemini-2.5-flash"
+    },
+    {
+      "generationCalls": 0,
+      "embeddingInputs": 0,
+      "metadataAvailable": true,
+      "httpStatus": 200,
+      "model": "gemini-embedding-001"
+    }
+  ],
+  "providerBodiesStored": false,
+  "embeddingInputs": 0,
+  "paidGenerationCalls": 0
+}

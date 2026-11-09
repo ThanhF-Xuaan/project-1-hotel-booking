@@ -32,6 +32,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Flow;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import java.util.function.Function;
+import vn.edu.utc.hotel_booking.modules.ai.rag.service.RagOutboundLedger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,6 +48,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     private final AdvisorProviderProperties provider;
     private final HttpClient httpClient;
     private final Supplier<String> apiKey;
+    private final Function<String, RagOutboundLedger.Reservation> accounting;
 
     /** Offline construction for deterministic callers and evaluation. */
     public HybridRoomAdvisorLlmService() {
@@ -59,9 +62,17 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     }
 
     HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, HttpClient httpClient, Supplier<String> apiKey) {
+        this(provider, httpClient, apiKey, payload -> RagOutboundLedger.beforeCall("gemini-2.5-flash",
+                new okhttp3.Request.Builder().url(GEMINI_ENDPOINT.toString())
+                        .post(okhttp3.RequestBody.create(payload, okhttp3.MediaType.get("application/json"))).build()));
+    }
+
+    HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, HttpClient httpClient, Supplier<String> apiKey,
+                               Function<String, RagOutboundLedger.Reservation> accounting) {
         this.provider = Objects.requireNonNull(provider);
         this.httpClient = Objects.requireNonNull(httpClient);
         this.apiKey = Objects.requireNonNull(apiKey);
+        this.accounting = Objects.requireNonNull(accounting);
     }
 
     private static final Pattern ISO_DATE_PATTERN = Pattern.compile("\\b(\\d{4}-\\d{2}-\\d{2})\\b");
@@ -363,6 +374,8 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
     private CriteriaPatchDto callGeminiExtraction(String text, String apiKey) {
         CompletableFuture<HttpResponse<String>> pending = null;
+        RagOutboundLedger.Reservation reservation = null;
+        boolean settled = false;
         try {
             String prompt = "Extract hotel room search criteria from user message into JSON with keys: locationKeyword, checkInDate (yyyy-MM-dd), checkOutDate (yyyy-MM-dd), adults, children, infants, extraBeds, roomsCount, preferredFeatureCodes (array), budget (object with amount, currency, basis, coverage, hard). Return ONLY valid JSON: " + text;
 
@@ -377,6 +390,9 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             );
 
             String jsonPayload = objectMapper.writeValueAsString(reqBody);
+            // Shared durable R1/RAG campaign reservation happens before any HTTP work.
+            // Credentials are never copied into the ledger request.
+            reservation = accounting.apply(jsonPayload);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(GEMINI_ENDPOINT)
@@ -390,6 +406,10 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             HttpResponse<String> response = pending.get(provider.getTimeoutMillis(), TimeUnit.MILLISECONDS);
             if (response.statusCode() == 200) {
                 JsonNode root = objectMapper.readTree(response.body());
+                JsonNode usage = root.path("usageMetadata");
+                settled = true;
+                reservation.complete(usageToken(usage, "promptTokenCount"),
+                        usageToken(usage, "candidatesTokenCount"), usageToken(usage, "totalTokenCount"));
                 JsonNode candidate = root.path("candidates").path(0);
                 JsonNode candidateText = candidate.path("content").path("parts").path(0).path("text");
                 if ("STOP".equals(candidate.path("finishReason").asText()) && candidateText.isTextual()) {
@@ -405,8 +425,19 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             log.warn("Gemini extraction unavailable; using deterministic extraction");
         } finally {
             if (pending != null && !pending.isDone()) pending.cancel(true);
+            if (reservation != null && !settled) {
+                // Unknown billing retains the reservation and halts a configured campaign.
+                try { reservation.complete(-1, -1, -1); }
+                catch (RuntimeException unavailable) { log.warn("Gemini extraction accounting unavailable"); }
+            }
         }
         return null;
+    }
+
+    private static long usageToken(JsonNode usage, String name) {
+        JsonNode value = usage.path(name);
+        return value.isIntegralNumber() && value.canConvertToLong() && value.longValue() >= 0
+                ? value.longValue() : -1;
     }
 
     /** Bounds bytes while receiving, including error responses; no file or unbounded body buffer. */

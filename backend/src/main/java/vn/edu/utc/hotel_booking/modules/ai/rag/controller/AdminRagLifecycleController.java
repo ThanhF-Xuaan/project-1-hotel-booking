@@ -13,6 +13,7 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.dto.*;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagVersionStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeDocumentVersion;
 import vn.edu.utc.hotel_booking.modules.ai.rag.service.RagKnowledgeLifecycleService;
+import vn.edu.utc.hotel_booking.modules.ai.rag.embedding.RagEmbeddingPort.EmbeddingUnavailableException;
 
 @Slf4j
 @RestController
@@ -28,7 +29,7 @@ public class AdminRagLifecycleController {
             @Valid @RequestBody RagIngestRequestDto request,
             @RequestParam(name = "version", defaultValue = "1") int version
     ) {
-        log.info("Admin RAG stage requested for sourceId: {}, version: {}", request.getSourceId(), version);
+        log.info("Admin RAG stage requested");
         RagIngestResultDto result = lifecycleService.ingestAndStage(request, version);
 
         if (result.getStatus() == RagVersionStatus.REJECTED) {
@@ -137,6 +138,14 @@ public class AdminRagLifecycleController {
                         .code(400)
                         .message(e.getMessage())
                         .build());
+    }
+
+    @ExceptionHandler(EmbeddingUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmbeddingUnavailable(EmbeddingUnavailableException ignored) {
+        log.warn("Admin RAG embedding temporarily unavailable");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.<Void>builder().code(503)
+                        .message("RAG_TEMP_UNAVAILABLE: Dịch vụ nạp tri thức tạm thời không khả dụng.").build());
     }
 
 

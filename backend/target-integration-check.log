@@ -1,0 +1,169 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------< com.vn.edu.utc:hotel-booking-system >-----------------
+[INFO] Building hotel-booking-system 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ hotel-booking-system ---
+[INFO] Copying 4 resources from src\main\resources to target\classes
+[INFO] Copying 96 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ hotel-booking-system ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 884 source files with javac [debug parameters release 21] to target\classes
+[WARNING] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/main/java/vn/edu/utc/hotel_booking/modules/inventory/mapper/HotelRoomTypeMapper.java:[29,25] Unmapped target property: "description".
+[WARNING] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/main/java/vn/edu/utc/hotel_booking/modules/finance/mapper/FinanceMapper.java:[19,21] Unmapped target properties: "gatewayResponseDescription, bankCode, cardType, bankTranNo, payDate".
+[WARNING] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/main/java/vn/edu/utc/hotel_booking/common/config/RedisConfig.java:[34,41] org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer in org.springframework.data.redis.serializer has been deprecated and marked for removal
+[WARNING] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/main/java/vn/edu/utc/hotel_booking/common/config/RedisConfig.java:[36,45] org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer in org.springframework.data.redis.serializer has been deprecated and marked for removal
+[WARNING] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/main/java/vn/edu/utc/hotel_booking/common/config/RedisConfig.java:[46,101] org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer in org.springframework.data.redis.serializer has been deprecated and marked for removal
+[INFO] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/main/java/vn/edu/utc/hotel_booking/common/config/KeycloakJwtAuthenticationConverter.java: Some input files use or override a deprecated API.
+[INFO] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/main/java/vn/edu/utc/hotel_booking/common/config/KeycloakJwtAuthenticationConverter.java: Recompile with -Xlint:deprecation for details.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ hotel-booking-system ---
+[INFO] Copying 19 resources from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.1:testCompile (default-testCompile) @ hotel-booking-system ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 215 source files with javac [debug parameters release 21] to target\test-classes
+[WARNING] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/test/java/vn/edu/utc/hotel_booking/modules/ai/rag/RagProviderPrivacyTest.java:[154,56] getDefaultOptions() in org.springframework.ai.chat.model.ChatModel has been deprecated and marked for removal
+[INFO] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/test/java/vn/edu/utc/hotel_booking/common/storage/S3CompatibleStorageServiceTest.java: Some input files use or override a deprecated API.
+[INFO] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/test/java/vn/edu/utc/hotel_booking/common/storage/S3CompatibleStorageServiceTest.java: Recompile with -Xlint:deprecation for details.
+[INFO] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/test/java/vn/edu/utc/hotel_booking/modules/ai/advisor/session/RedisRoomAdvisorSessionStoreTest.java: Some input files use unchecked or unsafe operations.
+[INFO] /C:/Users/admin/.codex/worktrees/m1-t12-chatbot-20261106/backend/src/test/java/vn/edu/utc/hotel_booking/modules/ai/advisor/session/RedisRoomAdvisorSessionStoreTest.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- surefire:3.5.6:test (default-test) @ hotel-booking-system ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmServiceTest
+Java HotSpot(TM) 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+10:59:20.351 [main] INFO org.hibernate.validator.internal.util.Version -- HV000001: Hibernate Validator 9.0.1.Final
+10:59:20.764 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.boot.context.properties.ConfigurationPropertiesBindException: Error creating bean with name 'hotel.ai.advisor.provider-vn.edu.utc.hotel_booking.modules.ai.advisor.llm.AdvisorProviderProperties': Could not bind properties to 'AdvisorProviderProperties' : prefix=hotel.ai.advisor.provider, ignoreInvalidFields=false, ignoreUnknownFields=true
+10:59:20.821 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.boot.context.properties.ConfigurationPropertiesBindException: Error creating bean with name 'hotel.ai.advisor.provider-vn.edu.utc.hotel_booking.modules.ai.advisor.llm.AdvisorProviderProperties': Could not bind properties to 'AdvisorProviderProperties' : prefix=hotel.ai.advisor.provider, ignoreInvalidFields=false, ignoreUnknownFields=true
+10:59:20.845 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.boot.context.properties.ConfigurationPropertiesBindException: Error creating bean with name 'hotel.ai.advisor.provider-vn.edu.utc.hotel_booking.modules.ai.advisor.llm.AdvisorProviderProperties': Could not bind properties to 'AdvisorProviderProperties' : prefix=hotel.ai.advisor.provider, ignoreInvalidFields=false, ignoreUnknownFields=true
+10:59:20.868 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.boot.context.properties.ConfigurationPropertiesBindException: Error creating bean with name 'hotel.ai.advisor.provider-vn.edu.utc.hotel_booking.modules.ai.advisor.llm.AdvisorProviderProperties': Could not bind properties to 'AdvisorProviderProperties' : prefix=hotel.ai.advisor.provider, ignoreInvalidFields=false, ignoreUnknownFields=true
+10:59:21.122 [main] WARN vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmService -- Gemini extraction unavailable; using deterministic extraction
+10:59:21.156 [main] WARN vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmService -- Gemini extraction unavailable; using deterministic extraction
+10:59:21.171 [main] WARN vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmService -- Gemini extraction unavailable; using deterministic extraction
+10:59:21.242 [main] WARN vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmService -- Gemini extraction unavailable; using deterministic extraction
+10:59:21.428 [main] WARN vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmService -- Gemini extraction unavailable; using deterministic extraction
+[INFO] Tests run: 28, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.484 s -- in vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmServiceTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.GeminiRagEmbeddingServiceTest
+[INFO] Tests run: 13, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.276 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.GeminiRagEmbeddingServiceTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.GeminiRagGroundedAnswerTest
+[INFO] Tests run: 47, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.538 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.GeminiRagGroundedAnswerTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.GeminiRagRetrievalTest
+10:59:22.588 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=a0d84499-92aa-45bb-90d2-9ce7aa36bc54 model=local durationMs=10 inputTokens=0 outputTokens=0 totalTokens=0 outcome=UNAVAILABLE
+10:59:22.588 [main] WARN vn.edu.utc.hotel_booking.modules.ai.rag.controller.PublicRagKnowledgeController -- T12-V2-030: RAG knowledge temporarily unavailable
+[WARNING] Tests run: 38, Failures: 0, Errors: 0, Skipped: 1, Time elapsed: 0.396 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.GeminiRagRetrievalTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.RagKnowledgeReviewRegressionTest
+[INFO] Tests run: 84, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.216 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.RagKnowledgeReviewRegressionTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.RagOutboundLedgerTest
+10:59:28.256 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragRequestBudget': Failed to instantiate [vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget]: Constructor threw exception
+[INFO] Tests run: 22, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 5.423 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.RagOutboundLedgerTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.RagProviderConfigurationTest
+10:59:28.360 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: RAG_GEMINI_API_KEY is required when the RAG provider is enabled
+10:59:30.713 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: chat-model must be an explicit model ID without a URL or resource path
+10:59:30.723 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: chat-model must be an explicit model ID without a URL or resource path
+10:59:30.734 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: embedding-model must be an explicit model ID without a URL or resource path
+10:59:30.743 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: embedding-dimension must be between 1 and 3072
+10:59:30.754 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: embedding-dimension must be between 1 and 3072
+10:59:30.764 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: embedding-timeout-millis must be between 100 and 3000
+10:59:30.773 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: embedding-timeout-millis must be between 100 and 3000
+10:59:30.788 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: chat-timeout-millis must be between 100 and 7000
+10:59:30.799 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: request-timeout-millis must cover provider timeouts and be at most 12000
+10:59:30.810 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: request-timeout-millis must cover provider timeouts and be at most 12000
+10:59:30.822 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: max-output-tokens must be between 1 and 768
+10:59:30.835 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: max-output-tokens must be between 1 and 768
+10:59:30.849 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: max-embedding-inputs must be between 1 and 64
+10:59:30.860 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: max-embedding-input-characters must be between 1 and 2500
+10:59:30.869 [main] WARN org.springframework.context.annotation.AnnotationConfigApplicationContext -- Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'ragProviderValidation' defined in vn.edu.utc.hotel_booking.modules.ai.rag.config.RagProviderConfiguration: Invalid RAG provider configuration: chat-model must be an explicit model ID without a URL or resource path
+[INFO] Tests run: 27, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 3.543 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.RagProviderConfigurationTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.RagProviderIngestionTest
+10:59:32.323 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+10:59:32.323 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+10:59:32.325 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 2 ms
+10:59:32.437 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.controller.AdminRagLifecycleController -- Admin RAG stage requested
+10:59:32.443 [main] WARN vn.edu.utc.hotel_booking.modules.ai.rag.controller.AdminRagLifecycleController -- Admin RAG embedding temporarily unavailable
+10:59:32.523 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.controller.AdminRagLifecycleController -- Admin RAG stage requested
+10:59:32.524 [main] WARN vn.edu.utc.hotel_booking.modules.ai.rag.controller.AdminRagLifecycleController -- Admin RAG stage rejected: REJECTED_INPUT_LIMIT: Corpus input exceeds the bounded local limits
+10:59:32.538 [main] WARN vn.edu.utc.hotel_booking.modules.ai.rag.controller.AdminRagLifecycleController -- Admin RAG validation error: content: content cannot be blank
+[INFO] Tests run: 16, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.742 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.RagProviderIngestionTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.RagProviderPrivacyTest
+10:59:32.666 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_PROVIDER requestId=7881dace-f24f-4d4f-96a1-3e8e40f658a8 model=synthetic-chat durationMs=16 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=SUCCESS
+10:59:32.673 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=7881dace-f24f-4d4f-96a1-3e8e40f658a8 model=local durationMs=30 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=SUCCESS
+10:59:32.731 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=5507ac96-c651-454d-8e5a-9aed5537bbcc model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:32.732 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=f05a63d2-81fc-4d0a-b928-b23781fbe82b model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:33.165 [pool-4-thread-1] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_PROVIDER requestId=8ebf7bc4-5c30-490e-a84d-195a69e7b1e7 model=synthetic-chat durationMs=405 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=DEADLINE
+10:59:33.165 [pool-4-thread-1] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=8ebf7bc4-5c30-490e-a84d-195a69e7b1e7 model=local durationMs=414 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=DEADLINE
+10:59:33.165 [pool-4-thread-1] WARN vn.edu.utc.hotel_booking.modules.ai.rag.controller.PublicRagKnowledgeController -- T12-V2-030: RAG knowledge temporarily unavailable
+10:59:33.166 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=8583f453-26a6-4796-8578-7f998157cfc6 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:33.214 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=415d0d5c-b3ca-4792-b2fb-d8e4ef4d99f5 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:34.644 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_PROVIDER requestId=faa282d7-40d7-483d-84f1-f92e0224909c model=synthetic-chat durationMs=1405 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=PROVIDER_ERROR
+10:59:34.645 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=faa282d7-40d7-483d-84f1-f92e0224909c model=local durationMs=1413 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=SUCCESS
+10:59:34.689 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_PROVIDER requestId=264ceecb-0519-4485-b3f3-43946b6fff09 model=synthetic-embedding durationMs=2 inputTokens=11 outputTokens=-1 totalTokens=11 outcome=SUCCESS
+10:59:34.700 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_PROVIDER requestId=264ceecb-0519-4485-b3f3-43946b6fff09 model=synthetic-chat durationMs=2 inputTokens=7 outputTokens=13 totalTokens=20 outcome=SUCCESS
+10:59:34.702 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=264ceecb-0519-4485-b3f3-43946b6fff09 model=local durationMs=16 inputTokens=18 outputTokens=-1 totalTokens=31 outcome=SUCCESS
+[INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.098 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.RagProviderPrivacyTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.RagRequestBudgetTest
+10:59:35.132 [pool-5-thread-1] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_PROVIDER requestId=b0d8680c-129e-49f1-af29-7e6ec0853a66 model=synthetic-chat durationMs=411 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=DEADLINE
+10:59:35.133 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=24b85b39-1dc8-4d22-bc25-6de7a080e1a3 model=local durationMs=0 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=RATE_LIMITED
+10:59:35.133 [pool-5-thread-1] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=b0d8680c-129e-49f1-af29-7e6ec0853a66 model=local durationMs=414 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=DEADLINE
+10:59:35.134 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=a1e0454d-ba7b-4aa7-9c9c-41246861f009 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.136 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=664834fa-1112-44bb-b88c-05225fe6fde4 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.137 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=c8b8622a-dd51-478c-9b71-34898854a653 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.139 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=6d6455b8-d40d-4a69-b883-b5a7678b2412 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.139 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=e275f218-e263-4316-8355-0ee3c20d0436 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.139 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=669f1754-33bf-4e4b-9ca9-9a9abf86d3cd model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.140 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=20ca57b9-675e-4ee7-b727-449440a7efa7 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.140 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=5e5cabc0-b425-427f-8be0-b4fae51cc26f model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.140 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=1f751b68-326a-4bd3-8686-280658456aa9 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.140 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=3ba6f0ce-ec69-44f3-8427-b10d8791213a model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.140 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=6653bdbc-c571-425c-a2ed-05cbb1fc8738 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.140 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=0d658169-5075-499a-a309-58e3b6a26467 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.141 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=8c50d3c4-f144-46da-bae0-e3b840687a62 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.141 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=349145be-51b9-4f94-bf4b-e92ed2a09c3f model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.141 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=b9402ae6-ca0b-405e-9c1c-d82adc2c13c3 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.141 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=a9823a0d-79d0-4070-9e60-e7eceea4d195 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.141 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=a27a663a-fb48-41af-bc1b-7f7567452b8f model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.141 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=a5f68e05-3375-4682-be2b-010da93c9112 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.141 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=fb7dd733-7602-4454-8deb-db44601f7853 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.142 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=8869dda8-1868-40e2-b43d-a2e83326b68f model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.142 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=18a0bcd3-ee26-4514-af81-97e4e135a199 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.142 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=5a3bf1ed-906e-425a-b661-e14f0132cb7d model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.142 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=4874d698-b26e-4277-9d7e-7b64368fe452 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.142 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=5b2ee26e-efee-49da-9eb8-97180dcded4c model=local durationMs=0 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=RATE_LIMITED
+10:59:35.142 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=0ba8d98f-2b0f-4c8a-8eec-b2c8ea231c90 model=local durationMs=0 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=RATE_LIMITED
+10:59:35.143 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=6167d742-77d5-42c9-bc42-09a944aec2bc model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.155 [main] INFO org.springframework.mock.web.MockServletContext -- Initializing Spring TestDispatcherServlet ''
+10:59:35.155 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Initializing Servlet ''
+10:59:35.155 [main] INFO org.springframework.test.web.servlet.TestDispatcherServlet -- Completed initialization in 0 ms
+10:59:35.169 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=099dfd88-e8df-47cb-bc4a-b5d331b6e7a0 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.174 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=8f0c75c2-ab73-4cac-99f5-570a24416957 model=local durationMs=0 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=RATE_LIMITED
+10:59:35.180 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=58206e9b-fa4e-4413-9492-82f12d1f2429 model=local durationMs=2000 inputTokens=0 outputTokens=0 totalTokens=0 outcome=DEADLINE
+10:59:35.181 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=c2851111-ff3c-4771-b3c6-fbea46795174 model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.185 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=8bf1baaa-2b24-4396-8c60-f65c9abb2f19 model=local durationMs=0 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=RATE_LIMITED
+10:59:35.185 [pool-6-thread-2] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=f28114a7-2845-477f-b869-e7c01c80703c model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.185 [pool-6-thread-1] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=692d7360-75d1-46d8-81a1-f38a5c9e799f model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.187 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=9810fbf5-9583-4a82-80f7-a7ad7ed5871f model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=UNAVAILABLE
+10:59:35.188 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=89dfa39a-c4ba-45df-96e4-ec23e0ba8f4a model=local durationMs=0 inputTokens=0 outputTokens=0 totalTokens=0 outcome=SUCCESS
+10:59:35.189 [main] INFO vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget -- RAG_REQUEST requestId=9bd62d5b-b9a4-4398-9822-6f23abd905d7 model=local durationMs=0 inputTokens=-1 outputTokens=-1 totalTokens=-1 outcome=RATE_LIMITED
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.478 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.RagRequestBudgetTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.ScopedRagRetrievalAndGroundedAnswerTest
+[INFO] Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.042 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.ScopedRagRetrievalAndGroundedAnswerTest
+[INFO] Running vn.edu.utc.hotel_booking.modules.ai.rag.T12RagZeroWriteArchitectureTest
+[INFO] Tests run: 4, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.224 s -- in vn.edu.utc.hotel_booking.modules.ai.rag.T12RagZeroWriteArchitectureTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 306, Failures: 0, Errors: 0, Skipped: 1
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  51.504 s
+[INFO] Finished at: 2026-11-06T10:59:35+07:00
+[INFO] ------------------------------------------------------------------------
