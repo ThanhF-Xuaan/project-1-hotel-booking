@@ -1,11 +1,13 @@
 package vn.edu.utc.hotel_booking.modules.pricing.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
@@ -47,6 +49,9 @@ class DiscountRuleServiceImplTest {
 
     @Mock
     DiscountRuleMapper discountRuleMapper;
+
+    @Spy
+    ObjectMapper objectMapper = new ObjectMapper();
 
     @InjectMocks
     DiscountRuleServiceImpl discountRuleService;
@@ -199,4 +204,76 @@ class DiscountRuleServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> discountRuleService.createDiscountRule(request));
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_REQUEST_DATA);
     }
+
+    @Test
+    @DisplayName("Tạo thành công quy tắc giảm giá dài ngày LONG_STAY với các bậc (tiers) hợp lệ")
+    void createDiscountRule_Success_WithValidTiers() {
+        String validConditions = """
+                {
+                  "tiers": [
+                    {"minNights": 3, "maxNights": 6, "discountType": "PERCENT", "discountValue": 10},
+                    {"minNights": 7, "maxNights": 13, "discountType": "PERCENT", "discountValue": 15},
+                    {"minNights": 14, "maxNights": null, "discountType": "PERCENT", "discountValue": 20}
+                  ]
+                }
+                """;
+
+        DiscountRuleCreateRequest request = DiscountRuleCreateRequest.builder()
+                .hotelRoomTypeId(1)
+                .ruleTypeCode("LONG_STAY")
+                .discountType("PERCENT")
+                .discountValue(BigDecimal.valueOf(10))
+                .startDate(LocalDate.of(2026, 6, 1))
+                .endDate(LocalDate.of(2026, 8, 31))
+                .conditions(validConditions)
+                .build();
+
+        DiscountRuleType longStayType = DiscountRuleType.builder().code("LONG_STAY").displayName("Dài ngày").build();
+        DiscountRule ruleEntity = DiscountRule.builder().id(99).build();
+        DiscountRuleResponse expectedResp = DiscountRuleResponse.builder().id(99).ruleTypeCode("LONG_STAY").build();
+
+        when(hotelRoomTypeService.getEntityById(1)).thenReturn(sampleRoomType);
+        when(discountRuleTypeRepository.findByCode("LONG_STAY")).thenReturn(Optional.of(longStayType));
+        when(discountRuleMapper.toEntity(request)).thenReturn(ruleEntity);
+        when(discountRuleRepository.save(any(DiscountRule.class))).thenReturn(ruleEntity);
+        when(discountRuleMapper.toResponse(ruleEntity)).thenReturn(expectedResp);
+
+        DiscountRuleResponse actual = discountRuleService.createDiscountRule(request);
+
+        assertThat(actual).isNotNull();
+        assertThat(actual.getId()).isEqualTo(99);
+        verify(discountRuleRepository).save(any(DiscountRule.class));
+    }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi các bậc lưu trú bị chồng lấn số đêm")
+    void createDiscountRule_Fail_OverlappingTiers() {
+        String overlappingConditions = """
+                {
+                  "tiers": [
+                    {"minNights": 3, "maxNights": 7, "discountType": "PERCENT", "discountValue": 10},
+                    {"minNights": 6, "maxNights": 12, "discountType": "PERCENT", "discountValue": 15}
+                  ]
+                }
+                """;
+
+        DiscountRuleCreateRequest request = DiscountRuleCreateRequest.builder()
+                .hotelRoomTypeId(1)
+                .ruleTypeCode("LONG_STAY")
+                .discountType("PERCENT")
+                .discountValue(BigDecimal.valueOf(10))
+                .startDate(LocalDate.of(2026, 6, 1))
+                .endDate(LocalDate.of(2026, 8, 31))
+                .conditions(overlappingConditions)
+                .build();
+
+        DiscountRuleType longStayType = DiscountRuleType.builder().code("LONG_STAY").displayName("Dài ngày").build();
+        when(hotelRoomTypeService.getEntityById(1)).thenReturn(sampleRoomType);
+        when(discountRuleTypeRepository.findByCode("LONG_STAY")).thenReturn(Optional.of(longStayType));
+
+        AppException ex = assertThrows(AppException.class, () -> discountRuleService.createDiscountRule(request));
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_REQUEST_DATA);
+        assertThat(ex.getMessage()).contains("chồng lấn");
+    }
 }
+

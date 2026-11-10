@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, RefreshCw, Search, Edit2, Percent, Tag, Calendar, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Edit2, Percent, Tag, Calendar, AlertCircle, Layers, Zap } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Select from '../../../core/components/ui/Select'
@@ -16,6 +16,8 @@ import type {
   DiscountRuleUpdateRequest,
   DiscountRuleTypeDto,
   CampaignDto,
+  DiscountTierItem,
+  DiscountConditions,
 } from '../types/pricing.types'
 import type { HotelRoomTypeDto } from '../../inventory/types/inventory.types'
 import type { HotelDto } from '../../organization/types/organization.types'
@@ -55,6 +57,14 @@ export const DiscountRuleListPage: React.FC = () => {
   const [formStatus, setFormStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE')
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Tiers State for LONG_STAY / Tiered Discount
+  const [isTieredMode, setIsTieredMode] = useState(false)
+  const [formTiers, setFormTiers] = useState<DiscountTierItem[]>([
+    { minNights: 3, maxNights: 6, discountType: 'PERCENT', discountValue: 10 },
+    { minNights: 7, maxNights: 13, discountType: 'PERCENT', discountValue: 15 },
+    { minNights: 14, maxNights: null, discountType: 'PERCENT', discountValue: 20 },
+  ])
 
   // Delete Modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
@@ -152,6 +162,31 @@ export const DiscountRuleListPage: React.FC = () => {
     )
   }
 
+  const STANDARD_TIERS: DiscountTierItem[] = [
+    { minNights: 3, maxNights: 6, discountType: 'PERCENT', discountValue: 10 },
+    { minNights: 7, maxNights: 13, discountType: 'PERCENT', discountValue: 15 },
+    { minNights: 14, maxNights: null, discountType: 'PERCENT', discountValue: 20 },
+  ]
+
+  const WEEKLY_TIERS: DiscountTierItem[] = [
+    { minNights: 7, maxNights: 13, discountType: 'PERCENT', discountValue: 15 },
+    { minNights: 14, maxNights: 29, discountType: 'PERCENT', discountValue: 20 },
+    { minNights: 30, maxNights: null, discountType: 'PERCENT', discountValue: 25 },
+  ]
+
+  const parseTiers = (conditionsJson?: string): DiscountTierItem[] | null => {
+    if (!conditionsJson || conditionsJson.trim() === '' || conditionsJson === '{}') return null
+    try {
+      const parsed = JSON.parse(conditionsJson)
+      if (parsed.tiers && Array.isArray(parsed.tiers) && parsed.tiers.length > 0) {
+        return parsed.tiers
+      }
+    } catch {
+      // ignore
+    }
+    return null
+  }
+
   // Find currently selected campaign in modal to enforce date range constraint
   const selectedCampaignInForm = campaigns.find(
     (c) => c.id === (formCampaignId ? Number(formCampaignId) : undefined)
@@ -163,7 +198,10 @@ export const DiscountRuleListPage: React.FC = () => {
   const openCreateModal = () => {
     setEditingRule(null)
     setFormRoomTypeId(hotelRoomTypes.length > 0 ? hotelRoomTypes[0].id : '')
-    setFormRuleTypeCode(ruleTypes.length > 0 ? ruleTypes[0].code : 'SPECIAL_CAMPAIGN')
+    const defaultRuleType = ruleTypes.length > 0 ? ruleTypes[0].code : 'SPECIAL_CAMPAIGN'
+    setFormRuleTypeCode(defaultRuleType)
+    setIsTieredMode(defaultRuleType === 'LONG_STAY')
+    setFormTiers(STANDARD_TIERS)
     setFormCampaignId('')
     setFormDiscountType('PERCENT')
     setFormDiscountValue(10)
@@ -184,8 +222,64 @@ export const DiscountRuleListPage: React.FC = () => {
     setFormStartDate(rule.startDate)
     setFormEndDate(rule.endDate)
     setFormStatus(rule.status)
+
+    const existingTiers = parseTiers(rule.conditions)
+    if (existingTiers && existingTiers.length > 0) {
+      setFormTiers(existingTiers)
+      setIsTieredMode(true)
+    } else if (rule.ruleTypeCode === 'LONG_STAY') {
+      setIsTieredMode(true)
+      setFormTiers(STANDARD_TIERS)
+    } else {
+      setIsTieredMode(false)
+      setFormTiers(STANDARD_TIERS)
+    }
+
     setFormError(null)
     setIsFormModalOpen(true)
+  }
+
+  const handleApplyTemplate = (type: 'standard' | 'weekly') => {
+    setFormTiers(type === 'standard' ? [...STANDARD_TIERS] : [...WEEKLY_TIERS])
+  }
+
+  const handleAddTier = () => {
+    setFormTiers((prev) => {
+      if (prev.length === 0) {
+        return [{ minNights: 3, maxNights: 6, discountType: 'PERCENT', discountValue: 10 }]
+      }
+      const last = prev[prev.length - 1]
+      const nextMin = (last.maxNights ?? last.minNights) + 1
+      const updatedPrev = prev.map((t, idx) => {
+        if (idx === prev.length - 1 && t.maxNights == null) {
+          return { ...t, maxNights: nextMin - 1 }
+        }
+        return t
+      })
+      return [
+        ...updatedPrev,
+        {
+          minNights: nextMin,
+          maxNights: null,
+          discountType: last.discountType,
+          discountValue: last.discountValue + 5,
+        },
+      ]
+    })
+  }
+
+  const handleUpdateTier = (
+    index: number,
+    field: keyof DiscountTierItem,
+    value: string | number | null
+  ) => {
+    setFormTiers((prev) =>
+      prev.map((t, i) => (i === index ? { ...t, [field]: value } : t))
+    )
+  }
+
+  const handleRemoveTier = (index: number) => {
+    setFormTiers((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -202,15 +296,65 @@ export const DiscountRuleListPage: React.FC = () => {
       return
     }
 
-    if (formDiscountType === 'PERCENT') {
-      if (formDiscountValue <= 0 || formDiscountValue > 100) {
-        setFormError('Giá trị giảm giá theo phần trăm phải nằm trong khoảng từ 0.01% đến 100%')
+    let conditionsStr = '{}'
+    let effectiveDiscountType = formDiscountType
+    let effectiveDiscountValue = Number(formDiscountValue)
+
+    if (isTieredMode) {
+      if (formTiers.length === 0) {
+        setFormError('Vui lòng thêm ít nhất 1 bậc lưu trú')
         return
       }
+
+      for (let i = 0; i < formTiers.length; i++) {
+        const tier = formTiers[i]
+        if (!tier.minNights || tier.minNights < 1) {
+          setFormError(`Bậc ${i + 1}: Số đêm tối thiểu phải từ 1 đêm trở lên`)
+          return
+        }
+        if (tier.discountValue == null || tier.discountValue <= 0) {
+          setFormError(`Bậc ${i + 1}: Mức giảm giá phải lớn hơn 0`)
+          return
+        }
+        if (tier.discountType === 'PERCENT' && tier.discountValue > 100) {
+          setFormError(`Bậc ${i + 1}: Mức giảm giá theo phần trăm không được vượt quá 100%`)
+          return
+        }
+        if (tier.maxNights != null && tier.maxNights < tier.minNights) {
+          setFormError(`Bậc ${i + 1}: Số đêm tối đa (${tier.maxNights}) không được nhỏ hơn số đêm tối thiểu (${tier.minNights})`)
+          return
+        }
+        if (i < formTiers.length - 1 && tier.maxNights == null) {
+          setFormError(`Bậc ${i + 1}: Chỉ bậc cuối cùng mới được phép để trống số đêm tối đa`)
+          return
+        }
+        if (i > 0) {
+          const prev = formTiers[i - 1]
+          if (prev.maxNights != null && tier.minNights <= prev.maxNights) {
+            setFormError(`Khoảng đêm bị chồng lấn: Bậc ${i} kết thúc ở ${prev.maxNights} đêm, bậc ${i + 1} lại bắt đầu từ ${tier.minNights} đêm`)
+            return
+          }
+        }
+      }
+
+      const conditionsObj: DiscountConditions = {
+        minNights: formTiers[0].minNights,
+        tiers: formTiers,
+      }
+      conditionsStr = JSON.stringify(conditionsObj)
+      effectiveDiscountType = formTiers[0].discountType
+      effectiveDiscountValue = Number(formTiers[0].discountValue)
     } else {
-      if (formDiscountValue <= 0) {
-        setFormError('Số tiền giảm giá cố định phải lớn hơn 0 VNĐ')
-        return
+      if (formDiscountType === 'PERCENT') {
+        if (formDiscountValue <= 0 || formDiscountValue > 100) {
+          setFormError('Giá trị giảm giá theo phần trăm phải nằm trong khoảng từ 0.01% đến 100%')
+          return
+        }
+      } else {
+        if (formDiscountValue <= 0) {
+          setFormError('Số tiền giảm giá cố định phải lớn hơn 0 VNĐ')
+          return
+        }
       }
     }
 
@@ -237,8 +381,9 @@ export const DiscountRuleListPage: React.FC = () => {
       if (editingRule) {
         const updatePayload: DiscountRuleUpdateRequest = {
           campaignId: formCampaignId ? Number(formCampaignId) : undefined,
-          discountType: formDiscountType,
-          discountValue: Number(formDiscountValue),
+          conditions: conditionsStr,
+          discountType: effectiveDiscountType,
+          discountValue: effectiveDiscountValue,
           startDate: formStartDate,
           endDate: formEndDate,
           status: formStatus,
@@ -249,8 +394,9 @@ export const DiscountRuleListPage: React.FC = () => {
           hotelRoomTypeId: Number(formRoomTypeId),
           ruleTypeCode: formRuleTypeCode,
           campaignId: formCampaignId ? Number(formCampaignId) : undefined,
-          discountType: formDiscountType,
-          discountValue: Number(formDiscountValue),
+          conditions: conditionsStr,
+          discountType: effectiveDiscountType,
+          discountValue: effectiveDiscountValue,
           startDate: formStartDate,
           endDate: formEndDate,
           status: formStatus,
@@ -535,11 +681,42 @@ export const DiscountRuleListPage: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3 px-4">
-                        <span className="font-semibold text-emerald-600">
-                          {rule.discountType === 'PERCENT'
-                            ? `-${rule.discountValue}%`
-                            : `-${Number(rule.discountValue).toLocaleString('vi-VN')} đ`}
-                        </span>
+                        {(() => {
+                          const tiers = parseTiers(rule.conditions)
+                          if (tiers && tiers.length > 0) {
+                            return (
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                                  <Layers className="w-3 h-3" />
+                                  Phân tầng ({tiers.length} bậc)
+                                </span>
+                                <div className="flex flex-wrap gap-1 max-w-xs">
+                                  {tiers.map((t, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center text-[11px] bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded font-mono font-medium"
+                                    >
+                                      {t.minNights}
+                                      {t.maxNights ? `-${t.maxNights}` : '+'}đ:{' '}
+                                      <strong className="ml-0.5 text-emerald-700">
+                                        {t.discountType === 'PERCENT'
+                                          ? `-${t.discountValue}%`
+                                          : `-${Number(t.discountValue).toLocaleString('vi-VN')}đ`}
+                                      </strong>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          }
+                          return (
+                            <span className="font-semibold text-emerald-600">
+                              {rule.discountType === 'PERCENT'
+                                ? `-${rule.discountValue}%`
+                                : `-${Number(rule.discountValue).toLocaleString('vi-VN')} đ`}
+                            </span>
+                          )
+                        })()}
                       </td>
                       <td className="py-3 px-4 text-neutral-600 text-xs">
                         <div className="flex items-center gap-1">
@@ -643,7 +820,10 @@ export const DiscountRuleListPage: React.FC = () => {
               value={formRuleTypeCode}
               onChange={(val) => {
                 setFormRuleTypeCode(val)
-                // If switching to non-campaign and user hasn't selected campaign, keep clean
+                if (val === 'LONG_STAY') {
+                  setIsTieredMode(true)
+                  if (formTiers.length === 0) setFormTiers(STANDARD_TIERS)
+                }
               }}
               disabled={!!editingRule}
               options={
@@ -654,6 +834,7 @@ export const DiscountRuleListPage: React.FC = () => {
                     }))
                   : [
                       { value: 'SPECIAL_CAMPAIGN', label: 'Chiến dịch khuyến mại (SPECIAL_CAMPAIGN)' },
+                      { value: 'LONG_STAY', label: 'Giảm giá lưu trú dài ngày (LONG_STAY)' },
                       { value: 'LOYALTY', label: 'Khách hàng thân thiết (LOYALTY)' },
                       { value: 'EARLY_BIRD', label: 'Đặt sớm (EARLY_BIRD)' },
                       { value: 'LAST_MINUTE', label: 'Giờ chót (LAST_MINUTE)' },
@@ -707,38 +888,191 @@ export const DiscountRuleListPage: React.FC = () => {
             )}
           </div>
 
-          {/* Discount Type & Value */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Kiểu Giảm Giá <span className="text-red-500">*</span>
+          {/* Chế độ phân tầng Tiers cho LONG_STAY hoặc tùy chọn */}
+          <div className="pt-2 border-t border-neutral-100">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-semibold text-neutral-800">
+                  Cấu Hình Bậc Lưu Trú (Stay Duration Tiers)
+                </span>
+                {formRuleTypeCode === 'LONG_STAY' && (
+                  <span className="text-xs bg-red-50 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                    Khuyến nghị cho LONG_STAY
+                  </span>
+                )}
+              </div>
+              <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-medium text-neutral-600">
+                <input
+                  type="checkbox"
+                  className="rounded border-neutral-300 text-red-600 focus:ring-red-500"
+                  checked={isTieredMode}
+                  onChange={(e) => {
+                    setIsTieredMode(e.target.checked)
+                    if (e.target.checked && formTiers.length === 0) {
+                      setFormTiers(STANDARD_TIERS)
+                    }
+                  }}
+                />
+                Áp dụng giảm theo bậc số đêm
               </label>
-              <Select<'PERCENT' | 'FIXED'>
-                value={formDiscountType}
-                onChange={(val) => setFormDiscountType(val)}
-                options={[
-                  { value: 'PERCENT', label: 'Phần trăm (%)' },
-                  { value: 'FIXED', label: 'Số tiền cố định (VNĐ)' },
-                ]}
-                size="md"
-              />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Giá Trị Giảm Giá ({formDiscountType === 'PERCENT' ? '%' : 'VNĐ'}) <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="number"
-                step="any"
-                min="0.01"
-                max={formDiscountType === 'PERCENT' ? '100' : undefined}
-                placeholder={formDiscountType === 'PERCENT' ? 'VD: 15' : 'VD: 200000'}
-                value={formDiscountValue}
-                onChange={(e) => setFormDiscountValue(Number(e.target.value))}
-                required
-              />
-            </div>
+            {isTieredMode ? (
+              <div className="space-y-3 bg-neutral-50/70 p-3.5 rounded-xl border border-neutral-200/80">
+                {/* Presets bar */}
+                <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-neutral-200/60">
+                  <span className="text-xs text-neutral-500 flex items-center gap-1 font-medium">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" /> Mẫu nhanh:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTemplate('standard')}
+                    className="text-xs px-2.5 py-1 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-lg text-neutral-700 transition-colors"
+                  >
+                    Chuẩn (3-6đ: 10%, 7-13đ: 15%, ≥14đ: 20%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyTemplate('weekly')}
+                    className="text-xs px-2.5 py-1 bg-white hover:bg-neutral-100 border border-neutral-200 rounded-lg text-neutral-700 transition-colors"
+                  >
+                    Tuần/Tháng (7-13đ: 15%, 14-29đ: 20%, ≥30đ: 25%)
+                  </button>
+                </div>
+
+                {/* Tiers List */}
+                <div className="space-y-2">
+                  {formTiers.map((tier, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-white p-2.5 rounded-lg border border-neutral-200/70 text-xs shadow-2xs"
+                    >
+                      <span className="font-semibold text-neutral-700 w-12 shrink-0">
+                        Bậc {idx + 1}:
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <span className="text-neutral-500">Từ</span>
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-16 h-8 px-2 border border-neutral-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-red-500"
+                          value={tier.minNights}
+                          onChange={(e) =>
+                            handleUpdateTier(idx, 'minNights', Number(e.target.value))
+                          }
+                          required
+                        />
+                        <span className="text-neutral-500">đến</span>
+                        <input
+                          type="number"
+                          min={tier.minNights}
+                          placeholder="Trở lên"
+                          className="w-20 h-8 px-2 border border-neutral-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-red-500"
+                          value={tier.maxNights ?? ''}
+                          onChange={(e) =>
+                            handleUpdateTier(
+                              idx,
+                              'maxNights',
+                              e.target.value === '' ? null : Number(e.target.value)
+                            )
+                          }
+                        />
+                        <span className="text-neutral-500">đêm</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <select
+                          className="h-8 px-2 border border-neutral-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-red-500"
+                          value={tier.discountType}
+                          onChange={(e) =>
+                            handleUpdateTier(idx, 'discountType', e.target.value as 'PERCENT' | 'FIXED')
+                          }
+                        >
+                          <option value="PERCENT">Phần trăm (%)</option>
+                          <option value="FIXED">Cố định (VNĐ)</option>
+                        </select>
+
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            step="any"
+                            min="0.01"
+                            max={tier.discountType === 'PERCENT' ? '100' : undefined}
+                            className="w-20 h-8 px-2 border border-neutral-200 rounded-lg text-xs text-right font-medium text-emerald-700 focus:ring-1 focus:ring-red-500"
+                            value={tier.discountValue}
+                            onChange={(e) =>
+                              handleUpdateTier(idx, 'discountValue', Number(e.target.value))
+                            }
+                            required
+                          />
+                          <span className="text-neutral-500">
+                            {tier.discountType === 'PERCENT' ? '%' : 'đ'}
+                          </span>
+                        </div>
+
+                        {formTiers.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTier(idx)}
+                            aria-label={`Xóa bậc ${idx + 1}`}
+                            className="p-1.5 text-neutral-400 hover:text-red-600 rounded-md transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add Tier button */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleAddTier}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1.5 rounded-lg border border-dashed border-red-300 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm Bậc Mới
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Single Discount Type & Value */
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Kiểu Giảm Giá <span className="text-red-500">*</span>
+                  </label>
+                  <Select<'PERCENT' | 'FIXED'>
+                    value={formDiscountType}
+                    onChange={(val) => setFormDiscountType(val)}
+                    options={[
+                      { value: 'PERCENT', label: 'Phần trăm (%)' },
+                      { value: 'FIXED', label: 'Số tiền cố định (VNĐ)' },
+                    ]}
+                    size="md"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Giá Trị Giảm Giá ({formDiscountType === 'PERCENT' ? '%' : 'VNĐ'}) <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="number"
+                    step="any"
+                    min="0.01"
+                    max={formDiscountType === 'PERCENT' ? '100' : undefined}
+                    placeholder={formDiscountType === 'PERCENT' ? 'VD: 15' : 'VD: 200000'}
+                    value={formDiscountValue}
+                    onChange={(e) => setFormDiscountValue(Number(e.target.value))}
+                    required
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Date Range with Campaign Scope Constraints */}

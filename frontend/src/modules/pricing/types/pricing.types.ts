@@ -312,6 +312,21 @@ export interface DiscountRuleTypeUpdateRequest {
 // ==========================================
 // Discount Rule Types
 // ==========================================
+export interface DiscountTierItem {
+  minNights: number
+  maxNights?: number | null
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+}
+
+export interface DiscountConditions {
+  minNights?: number
+  maxNights?: number
+  minAdvanceDays?: number
+  maxAdvanceDays?: number
+  tiers?: DiscountTierItem[]
+}
+
 export interface DiscountRuleDto {
   id: number
   hotelRoomTypeId: number
@@ -322,6 +337,7 @@ export interface DiscountRuleDto {
   ruleTypeName?: string
   campaignId?: number
   campaignName?: string
+  conditions?: string
   discountType: 'PERCENT' | 'FIXED'
   discountValue: number
   startDate: string
@@ -335,6 +351,7 @@ export interface DiscountRuleCreateRequest {
   hotelRoomTypeId: number
   ruleTypeCode: string
   campaignId?: number
+  conditions?: string
   discountType: 'PERCENT' | 'FIXED'
   discountValue: number
   startDate: string
@@ -344,6 +361,7 @@ export interface DiscountRuleCreateRequest {
 
 export interface DiscountRuleUpdateRequest {
   campaignId?: number
+  conditions?: string
   discountType: 'PERCENT' | 'FIXED'
   discountValue: number
   startDate: string
