@@ -91,6 +91,20 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
     setPaymentError(null);
     setPaymentSuccessMsg(null);
     try {
+      if (paymentMethod === 'VNPAY') {
+        const res = await financeService.createVnPayPayment({
+          bookingId: settlement.bookingId,
+          method: 'VNPAY',
+          bankCode: 'NCB',
+          amount: paymentAmount,
+        });
+        if (res.result?.paymentUrl) {
+          window.location.assign(res.result.paymentUrl);
+          return;
+        }
+        throw new Error('Không nhận được liên kết chuyển hướng VNPay Sandbox.');
+      }
+
       await financeService.createPayment({
         bookingId: settlement.bookingId,
         totalAmount: paymentAmount,
@@ -377,7 +391,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                       { value: 'CASH', label: 'Tiền mặt tại quầy (CASH)' },
                       { value: 'CREDIT_CARD', label: 'Thẻ POS quầy (CREDIT_CARD)' },
                       { value: 'BANK_TRANSFER', label: 'Chuyển khoản NH (BANK_TRANSFER)' },
-                      { value: 'VNPAY', label: 'Quét mã VNPay QR' },
+                      { value: 'VNPAY', label: 'Cổng thanh toán VNPay Sandbox' },
                     ]}
                     size="sm"
                   />

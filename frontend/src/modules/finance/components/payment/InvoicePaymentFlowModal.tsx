@@ -14,15 +14,19 @@ import {
   Tag,
   Printer,
   ShieldCheck,
-  Clock,
   Sparkles,
   Building2,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import Button from '../../../../core/components/ui/Button';
 import Input from '../../../../core/components/ui/Input';
 import CurrencyInput from '../../../../core/components/ui/CurrencyInput';
 import { formatCurrency } from '../../../../core/utils/currency';
+import { getApiErrorMessage } from '../../../../core/api/error';
 import financeService from '../../services/finance.service';
+import CountdownBadge from './CountdownBadge';
+import PaymentStatusBadge from './PaymentStatusBadge';
 import type {
   PaymentResponse,
   InvoiceResponse,
@@ -47,7 +51,7 @@ export interface InvoicePaymentFlowModalProps {
   initialBalanceDue?: number;
 }
 
-type PaymentFlowStep = 1 | 2 | 3 | 4;
+type PaymentFlowStep = 1 | 2 | 4;
 
 const METHOD_OPTIONS: Array<{
   id: PaymentMethod;
@@ -56,21 +60,28 @@ const METHOD_OPTIONS: Array<{
   icon: React.ComponentType<{ className?: string }>;
   badge?: string;
 }> = [
-    {
-      id: 'CASH',
-      name: 'Tiền mặt tại quầy',
-      desc: 'Thu tiền mặt trực tiếp tại quầy lễ tân',
-      icon: Banknote,
-      badge: 'Trực tiếp',
-    },
-    {
-      id: 'VNPAY',
-      name: 'Thẻ ATM nội địa (Cổng VNPAY Sandbox)',
-      desc: 'Thanh toán thẻ ATM NCB trực tuyến qua cổng VNPAY (không quét QR)',
-      icon: CreditCard,
-      badge: 'Thẻ ATM Sandbox',
-    },
-  ];
+  {
+    id: 'VNPAY',
+    name: 'Cổng thanh toán VNPay Sandbox (Thẻ ATM NCB)',
+    desc: 'Chuyển hướng trực tiếp sang cổng sandbox.vnpayment.vn & tự cập nhật trạng thái khi quay về',
+    icon: CreditCard,
+    badge: 'Redirect Sandbox',
+  },
+  {
+    id: 'CASH',
+    name: 'Tiền mặt tại quầy',
+    desc: 'Thu tiền mặt trực tiếp tại quầy lễ tân (xác nhận SUCCESS ngay)',
+    icon: Banknote,
+    badge: 'Trực tiếp',
+  },
+  {
+    id: 'BANK_TRANSFER',
+    name: 'Chuyển khoản ngân hàng',
+    desc: 'Ghi nhận chờ đối soát (PENDING) → Kế toán xác nhận hoàn tất hoặc hủy',
+    icon: Building2,
+    badge: 'Chờ xác nhận',
+  },
+];
 
 export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = ({
   isOpen,
@@ -83,7 +94,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
 }) => {
   // ── Step State ─────────────────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState<PaymentFlowStep>(1);
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('CASH');
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('VNPAY');
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   // ── Voucher State ──────────────────────────────────────────────────────────
@@ -96,31 +107,26 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   } | null>(null);
   const [voucherError, setVoucherError] = useState<string | null>(null);
 
-  // ── Cash Details (Step 2) ──────────────────────────────────────────────────
+  // ── Amount to collect this session ─────────────────────────────────────────
+  const [customPayAmount, setCustomPayAmount] = useState<number>(0);
+
+  // ── Cash & Bank Transfer Details (Step 2) ──────────────────────────────────
   const [cashGiven, setCashGiven] = useState<number>(0);
   const [cashReceiptCode, setCashReceiptCode] = useState('');
+  const [bankRefCode, setBankRefCode] = useState('');
+  const [bankProviderName, setBankProviderName] = useState('');
+  const [bankFormError, setBankFormError] = useState<string | null>(null);
 
-  // ── VNPay Card Details (Step 2: Thẻ ATM nội địa - tự nhập & gợi ý test) ────
-  const [vnpayCardNumber, setVnpayCardNumber] = useState('');
-  const [vnpayCardHolder, setVnpayCardHolder] = useState('');
-  const [vnpayIssueDate, setVnpayIssueDate] = useState('');
-  const [vnpayCardError, setVnpayCardError] = useState<string | null>(null);
-
-  // ── VNPay State & Real API / Polling (Step 2: Thẻ ATM nội địa) ────────────
+  // ── VNPay State & Real API Redirect / Polling ──────────────────────────────
   const [vnPaySession, setVnPaySession] = useState<PaymentUrlResponse | null>(null);
   const [isCreatingVnPay, setIsCreatingVnPay] = useState(false);
-  const [vnPayError, setVnPayError] = useState<string | null>(null);
+  const [vnPayError, setVnPayError] = useState<{ code?: number; message: string } | null>(null);
+  const [blockingPendingId, setBlockingPendingId] = useState<number | null>(null);
+  const [isCancellingSession, setIsCancellingSession] = useState(false);
   const [vnpayCopiedField, setVnpayCopiedField] = useState<string | null>(null);
   const vnpayPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-
-  // ── OTP State (Step 3) ─────────────────────────────────────────────────────
-  const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
-  const [otpSecondsLeft, setOtpSecondsLeft] = useState(60);
-  const otpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
-
-  // ── Final Result State (Step 4) ────────────────────────────────────
+  // ── Final Result State (Step 4) ────────────────────────────────────────────
   const [isSuccess, setIsSuccess] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [completedPayment, setCompletedPayment] = useState<PaymentResponse | null>(null);
@@ -133,10 +139,6 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         clearInterval(vnpayPollRef.current);
         vnpayPollRef.current = null;
       }
-      if (otpTimerRef.current) {
-        clearInterval(otpTimerRef.current);
-        otpTimerRef.current = null;
-      }
       return;
     }
 
@@ -145,17 +147,17 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
       await Promise.resolve();
       if (!ignore) {
         setCurrentStep(1);
-        setSelectedMethod('CASH');
+        setSelectedMethod('VNPAY');
         setVoucherInput('');
         setAppliedVoucher(null);
         setVoucherError(null);
+        setCashReceiptCode('');
+        setBankRefCode('');
+        setBankProviderName('');
+        setBankFormError(null);
         setVnPaySession(null);
-        setVnpayCardNumber('');
-        setVnpayCardHolder('');
-        setVnpayIssueDate('');
-        setVnpayCardError(null);
-        setOtpValues(['', '', '', '', '', '']);
-        setOtpSecondsLeft(60);
+        setVnPayError(null);
+        setBlockingPendingId(null);
         setIsSuccess(true);
         setErrorMessage('');
         setCompletedPayment(null);
@@ -397,21 +399,24 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     return grandTotal;
   }, [remainingDue, grandTotal]);
 
-  // Cập nhật số tiền khách đưa mặc định khi chuyển sang Form 2
+  // Đồng bộ số tiền thanh toán mặc định khi mở modal hoặc khi áp dụng voucher
   useEffect(() => {
-    if (currentStep !== 2 || selectedMethod !== 'CASH') return;
+    if (!isOpen) return;
     let ignore = false;
-    const syncCash = async () => {
+    const syncPayAmount = async () => {
       await Promise.resolve();
       if (!ignore) {
+        setCustomPayAmount(effectivePayAmount);
         setCashGiven(effectivePayAmount);
       }
     };
-    syncCash();
+    syncPayAmount();
     return () => {
       ignore = true;
     };
-  }, [currentStep, selectedMethod, effectivePayAmount]);
+  }, [isOpen, effectivePayAmount]);
+
+  const activePayAmount = customPayAmount > 0 ? customPayAmount : effectivePayAmount;
 
   // ── Xử lý áp dụng Voucher ──────────────────────────────────────────────────
   const handleApplyVoucher = (e?: React.FormEvent) => {
@@ -465,35 +470,94 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     setVoucherError(null);
   };
 
-  // ── Khởi tạo phiên VNPay thật từ Cổng Sandbox (Nếu chọn VNPay) ─────────────
-  const initializeVnPaySession = async () => {
+  // ── Khởi tạo phiên VNPay thật & redirect thẳng sang Cổng Sandbox ──────────
+  const initializeVnPaySession = async (autoRedirect = true) => {
     if (!booking) return;
+    if (activePayAmount <= 0) {
+      setVnPayError({ message: 'Số tiền thanh toán phải lớn hơn 0 đ.' });
+      return;
+    }
     setIsCreatingVnPay(true);
     setVnPayError(null);
+    setBlockingPendingId(null);
 
     try {
       const res = await financeService.createVnPayPayment({
         bookingId: booking.id,
         method: 'VNPAY',
         bankCode: 'NCB',
-        amount: effectivePayAmount,
+        amount: activePayAmount,
       });
-      if (res.result) {
+      if (res.result?.paymentUrl) {
         setVnPaySession(res.result);
+        setCurrentStep(2);
         startVnPayPolling(res.result.paymentId);
+        if (autoRedirect) {
+          window.location.assign(res.result.paymentUrl);
+        }
       }
     } catch (err: unknown) {
-      console.warn('Lỗi tạo phiên VNPay sandbox thật:', err);
-      setVnPayError(
-        'Không thể tạo phiên thanh toán VNPay Sandbox. Hãy đảm bảo VNPAY_TMN_ID và VNPAY_HASH_SECRET đã được thiết lập đúng trong file .env và backend đang chạy.'
-      );
+      const apiErr = getApiErrorMessage(err, 'Không thể tạo phiên thanh toán VNPay Sandbox');
+      setVnPayError(apiErr);
+
+      // Nếu bị chặn lock 8005 (đã có phiên PENDING trước đó) → tìm payment PENDING để hỗ trợ hủy & tạo lại
+      try {
+        const listRes = await financeService.getPaymentsByBookingId(booking.id);
+        const pendingGateway = (listRes.result || []).find(
+          (p) => p.status === 'PENDING' && (p.paymentMethod === 'VNPAY' || p.paymentMethod === 'MOMO')
+        );
+        if (pendingGateway) {
+          setBlockingPendingId(pendingGateway.id);
+        }
+      } catch {
+        // Bỏ qua nếu không tải được danh sách
+      }
     } finally {
       setIsCreatingVnPay(false);
     }
   };
 
+  // Hủy phiên PENDING cũ đang giữ lock Redis rồi tạo ngay phiên VNPay mới & redirect
+  const handleCancelBlockingAndRetry = async () => {
+    if (!blockingPendingId) return;
+    setIsCancellingSession(true);
+    try {
+      await financeService.cancelPayment(blockingPendingId);
+      setBlockingPendingId(null);
+      setVnPayError(null);
+      await initializeVnPaySession(true);
+    } catch (err: unknown) {
+      const apiErr = getApiErrorMessage(err, 'Không thể hủy phiên thanh toán cũ');
+      setVnPayError(apiErr);
+    } finally {
+      setIsCancellingSession(false);
+    }
+  };
 
-  // Polling lắng nghe VNPay redirect về BE /vnpay/return
+  // Hủy phiên VNPay hiện tại ở Step 2 (PENDING → CANCELLED + mở lock Redis)
+  const handleCancelCurrentVnPaySession = async () => {
+    if (!vnPaySession) {
+      setCurrentStep(1);
+      return;
+    }
+    setIsCancellingSession(true);
+    try {
+      await financeService.cancelPayment(vnPaySession.paymentId);
+      if (vnpayPollRef.current) {
+        clearInterval(vnpayPollRef.current);
+        vnpayPollRef.current = null;
+      }
+      setVnPaySession(null);
+      setCurrentStep(1);
+    } catch (err: unknown) {
+      const apiErr = getApiErrorMessage(err, 'Không thể hủy phiên VNPay');
+      setVnPayError(apiErr);
+    } finally {
+      setIsCancellingSession(false);
+    }
+  };
+
+  // Polling lắng nghe VNPay redirect về BE /vnpay/return (phòng trường hợp mở tab mới)
   const startVnPayPolling = (paymentId: number) => {
     if (vnpayPollRef.current) clearInterval(vnpayPollRef.current);
 
@@ -508,8 +572,12 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
           onPaymentSuccess(res.result);
         } else if (res.result && (res.result.status === 'FAILED' || res.result.status === 'CANCELLED')) {
           if (vnpayPollRef.current) clearInterval(vnpayPollRef.current);
+          setCompletedPayment(res.result);
           setIsSuccess(false);
-          setErrorMessage('Cổng VNPAY báo giao dịch bị hủy hoặc thanh toán không thành công.');
+          setErrorMessage(
+            res.result.gatewayResponseDescription ||
+              'Cổng VNPAY báo giao dịch bị hủy hoặc thanh toán không thành công.'
+          );
           setCurrentStep(4);
         }
       } catch {
@@ -518,140 +586,95 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     }, 2500);
   };
 
-  // ── Xử lý đếm ngược OTP (Form 3) ───────────────────────────────────────────
-  const startOtpCountdown = () => {
-    setOtpSecondsLeft(60);
-    if (otpTimerRef.current) clearInterval(otpTimerRef.current);
-
-    otpTimerRef.current = setInterval(() => {
-      setOtpSecondsLeft((prev) => {
-        if (prev <= 1) {
-          if (otpTimerRef.current) clearInterval(otpTimerRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  // ── Chuyển bước 1 ➔ 2 ─────────────────────────────────────────────────────
+  // ── Chuyển bước 1 ➔ Bước tiếp theo theo từng phương thức ─────────────────
   const handleConfirmStep1 = () => {
-    setCurrentStep(2);
+    setVnPayError(null);
     if (selectedMethod === 'VNPAY') {
-      initializeVnPaySession();
+      void initializeVnPaySession(true);
+      return;
     }
+    setCashGiven(activePayAmount);
+    setCurrentStep(2);
   };
 
-  // Định dạng số thẻ hiển thị trên thẻ đồ họa
-  const formatCardNumberPreview = (raw: string) => {
-    const digits = raw.replace(/\D/g, '');
-    if (!digits) return '•••• •••• •••• •••• •••';
-    return digits.replace(/(\d{4})/g, '$1 ').trim();
-  };
-
-  // ── Chuyển bước 2 ➔ 3 (hoặc hoàn tất tiền mặt) ────────────────────────────
+  // ── Xử lý submit ở Bước 2 (Tiền mặt hoặc Chuyển khoản NH) ────────────────
   const handleProceedFromStep2 = () => {
     if (selectedMethod === 'CASH') {
-      // Tiền mặt: Hoàn tất trực tiếp, không cần OTP
-      executeRecordPayment('CASH', cashReceiptCode || generatePaymentRef('PT-', 6));
+      void executeRecordPayment(
+        'CASH',
+        cashReceiptCode.trim() || generatePaymentRef('PT-', 6),
+        'Quầy Lễ tân (Tiền mặt)'
+      );
       return;
     }
 
-    if (selectedMethod === 'VNPAY') {
-      const cleanVnCard = vnpayCardNumber.replace(/\s+/g, '');
-      if (!cleanVnCard || cleanVnCard.length < 16) {
-        setVnpayCardError('Vui lòng nhập số thẻ ATM NCB hợp lệ (16 - 19 số, hoặc bấm "Điền nhanh tài khoản test").');
+    if (selectedMethod === 'BANK_TRANSFER') {
+      if (!bankRefCode.trim()) {
+        setBankFormError('Vui lòng nhập mã giao dịch ngân hàng (VD: FT260930001).');
         return;
       }
-      if (!vnpayCardHolder.trim()) {
-        setVnpayCardError('Vui lòng nhập tên in trên thẻ ATM.');
-        return;
+      setBankFormError(null);
+      void executeRecordPayment(
+        'BANK_TRANSFER',
+        bankRefCode.trim(),
+        bankProviderName.trim() || 'Chuyển khoản Ngân hàng'
+      );
+    }
+  };
+
+  // ── Tương tác chuyển trạng thái trực tiếp trên thanh toán PENDING ở Step 4 ─
+  const handleCompletePendingPayment = async () => {
+    if (!completedPayment) return;
+    setIsSubmitting(true);
+    try {
+      const res = await financeService.completePayment(completedPayment.id);
+      if (res.result) {
+        setCompletedPayment(res.result);
+        setIsSuccess(true);
+        onPaymentSuccess(res.result);
       }
-      if (!vnpayIssueDate.trim()) {
-        setVnpayCardError('Vui lòng nhập ngày phát hành thẻ (MM/YY).');
-        return;
-      }
-      setVnpayCardError(null);
-    }
-
-    // Chuyển sang Form 3 xác thực OTP
-    setCurrentStep(3);
-    setOtpValues(['', '', '', '', '', '']);
-    startOtpCountdown();
-    setTimeout(() => {
-      otpInputsRef.current[0]?.focus();
-    }, 150);
-  };
-
-  // ── Điền nhanh OTP test ────────────────────────────────────────────────────
-  const handleQuickFillOtp = () => {
-    setOtpValues(['1', '2', '3', '4', '5', '6']);
-    otpInputsRef.current[5]?.focus();
-  };
-
-  const handleOtpChange = (index: number, val: string) => {
-    if (!/^\d*$/.test(val)) return;
-    const newValues = [...otpValues];
-    newValues[index] = val.slice(-1);
-    setOtpValues(newValues);
-
-    if (val && index < 5) {
-      otpInputsRef.current[index + 1]?.focus();
-    }
-  };
-
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
-      otpInputsRef.current[index - 1]?.focus();
-    }
-  };
-
-  // ── Xác nhận OTP (Form 3) ──────────────────────────────────────────────────
-  const handleConfirmOtp = () => {
-    const fullOtp = otpValues.join('');
-    if (fullOtp.length < 6) {
-      alert('Vui lòng nhập đủ 6 chữ số mã OTP');
-      return;
-    }
-
-    if (fullOtp !== '123456') {
-      // Báo lỗi sai OTP
+    } catch (err: unknown) {
+      const apiErr = getApiErrorMessage(err, 'Không thể xác nhận hoàn tất thanh toán');
       setIsSuccess(false);
-      setErrorMessage('Mã xác thực OTP không chính xác. Vui lòng kiểm tra lại mã đã nhận.');
-      setCurrentStep(4);
-      return;
+      setErrorMessage(apiErr.message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    // OTP đúng 123456 -> Ghi nhận thanh toán thành công
-    const refPrefix = selectedMethod === 'VNPAY' ? 'VNP' : 'PT';
-
-    const generatedRef = generatePaymentRef(refPrefix);
-    executeRecordPayment(selectedMethod, generatedRef);
   };
 
-  // ── Mô phỏng thất bại có chủ đích (Để test nút làm lại) ────────────────────
-  const handleSimulateFailed = () => {
-    setIsSuccess(false);
-    setErrorMessage('Giao dịch bị từ chối do thẻ hết hạn mức hoặc tài khoản không đủ số dư.');
-    setCurrentStep(4);
+  const handleCancelPendingPayment = async () => {
+    if (!completedPayment) return;
+    setIsSubmitting(true);
+    try {
+      const res = await financeService.cancelPayment(completedPayment.id);
+      if (res.result) {
+        setCompletedPayment(res.result);
+        setIsSuccess(false);
+        setErrorMessage('Giao dịch đã được hủy (PENDING → CANCELLED). Bạn có thể tạo thanh toán mới.');
+        onPaymentSuccess(res.result);
+      }
+    } catch (err: unknown) {
+      const apiErr = getApiErrorMessage(err, 'Không thể hủy giao dịch');
+      setErrorMessage(apiErr.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ── Ghi nhận thanh toán vào Backend ────────────────────────────────────────
-  const executeRecordPayment = async (method: PaymentMethod, refCode: string) => {
+  const executeRecordPayment = async (method: PaymentMethod, refCode: string, provider: string) => {
     if (!booking) return;
     setIsSubmitting(true);
+    setErrorMessage('');
 
     try {
       const res = await financeService.createPayment({
         bookingId: booking.id,
-        totalAmount: effectivePayAmount,
+        totalAmount: activePayAmount,
         paymentMethod: method,
-        paymentPurpose: 'FULL_PAYMENT' as PaymentPurpose,
+        paymentPurpose: (activePayAmount >= remainingDue ? 'FULL_PAYMENT' : 'DEPOSIT') as PaymentPurpose,
         transactionReference: refCode,
-        paymentProvider:
-          method === 'VNPAY'
-            ? 'VNPAY Gateway'
-            : 'Quầy Lễ tân (Trực tiếp)',
+        paymentProvider: provider,
       });
 
       if (res.result) {
@@ -661,26 +684,11 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         onPaymentSuccess(res.result);
       }
     } catch (err: unknown) {
-      console.warn('Lưu thanh toán backend báo lỗi, dùng kết quả giao dịch:', err);
-      // Fallback hiển thị biên lai thành công
-      const mockResult: PaymentResponse = {
-        id: Date.now(),
-        bookingId: booking.id,
-        bookingNumber: booking.bookingNumber,
-        totalAmount: grandTotal,
-        status: 'SUCCESS',
-        paymentMethod: method,
-        paymentPurpose: 'FULL_PAYMENT',
-        paymentProvider: 'Hệ thống Quản lý Khách sạn',
-        transactionReference: refCode,
-        paidAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setCompletedPayment(mockResult);
-      setIsSuccess(true);
+      const apiErr = getApiErrorMessage(err, 'Không thể ghi nhận thanh toán vào hệ thống');
+      setCompletedPayment(null);
+      setIsSuccess(false);
+      setErrorMessage(apiErr.code ? `[Mã lỗi ${apiErr.code}] ${apiErr.message}` : apiErr.message);
       setCurrentStep(4);
-      onPaymentSuccess(mockResult);
     } finally {
       setIsSubmitting(false);
     }
@@ -690,9 +698,9 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   const handleRetryFromStep1 = () => {
     setCurrentStep(1);
     setErrorMessage('');
+    setVnPayError(null);
+    setBlockingPendingId(null);
     setIsSuccess(true);
-    setOtpValues(['', '', '', '', '', '']);
-    setOtpSecondsLeft(60);
   };
 
   if (!isOpen || !booking) return null;
@@ -720,12 +728,21 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold text-neutral-900">
                   {currentStep === 1 && 'Hóa đơn & Chọn Phương thức Thanh toán'}
-                  {currentStep === 2 && 'Màn hình Thanh toán Sandbox'}
-                  {currentStep === 3 && 'Xác thực OTP Bảo mật'}
-                  {currentStep === 4 && (isSuccess ? 'Thanh toán Thành công' : 'Thanh toán Thất bại')}
+                  {currentStep === 2 &&
+                    (selectedMethod === 'VNPAY'
+                      ? 'Đang chuyển hướng sang Cổng VNPay Sandbox'
+                      : selectedMethod === 'BANK_TRANSFER'
+                        ? 'Ghi nhận Chuyển khoản Ngân hàng'
+                        : 'Thu Tiền Mặt Tại Quầy Lễ Tân')}
+                  {currentStep === 4 &&
+                    (completedPayment?.status === 'PENDING'
+                      ? 'Giao dịch Đang chờ xác nhận (PENDING)'
+                      : isSuccess
+                        ? 'Thanh toán Thành công'
+                        : 'Thanh toán Chưa hoàn tất')}
                 </h2>
                 <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-neutral-200 text-neutral-800">
-                  Bước {currentStep}/3
+                  {currentStep === 4 ? 'Kết quả' : `Bước ${currentStep}/2`}
                 </span>
               </div>
               <p className="text-xs text-neutral-500">
@@ -885,6 +902,78 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       );
                     })}
                   </div>
+
+                  {/* Thông tin thẻ test VNPay Sandbox khi chọn VNPAY */}
+                  {selectedMethod === 'VNPAY' && (
+                    <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                          <CreditCard className="w-4 h-4 text-blue-600" />
+                          Thẻ ATM test trên cổng VNPay Sandbox (Ngân hàng NCB):
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text = `Ngân hàng: ${VNPAY_ATM_TEST_CARD.bankName}\nSố thẻ: ${VNPAY_ATM_TEST_CARD.cardNumber}\nChủ thẻ: ${VNPAY_ATM_TEST_CARD.cardHolder}\nNgày phát hành: ${VNPAY_ATM_TEST_CARD.issueDate}\nOTP: ${VNPAY_ATM_TEST_CARD.otp}`;
+                            navigator.clipboard.writeText(text);
+                            setVnpayCopiedField('all');
+                            setTimeout(() => setVnpayCopiedField(null), 2000);
+                          }}
+                          className="text-[11px] text-blue-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          {vnpayCopiedField === 'all' ? (
+                            <span className="text-emerald-600 font-bold">✓ Đã sao chép</span>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              Sao chép thẻ test
+                            </>
+                          )}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-[11px] text-neutral-700">
+                        <div>Ngân hàng: <strong className="text-neutral-900">NCB</strong></div>
+                        <div>Ngày phát hành: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.issueDate}</strong></div>
+                        <div className="col-span-2">
+                          Số thẻ: <strong className="font-mono text-neutral-900">{VNPAY_ATM_TEST_CARD.cardNumber}</strong>
+                        </div>
+                        <div className="col-span-2">
+                          Chủ thẻ: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.cardHolder}</strong> • OTP: <strong className="text-emerald-700 font-bold">{VNPAY_ATM_TEST_CARD.otp}</strong>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-blue-800/80 pt-1 border-t border-blue-200/70">
+                        Khi bấm <strong>"Thanh toán qua VNPay Sandbox"</strong>, trình duyệt sẽ chuyển hướng trực tiếp sang trang <strong>sandbox.vnpayment.vn</strong> và tự động quay về hệ thống cập nhật trạng thái.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Hiển thị lỗi khi tạo phiên VNPay (kèm nút hủy phiên PENDING cũ nếu vướng lock 8005) */}
+                  {vnPayError && (
+                    <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl space-y-2 text-xs text-red-800">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <div className="font-bold">
+                            Không thể tạo phiên VNPay {vnPayError.code ? `(Mã lỗi: ${vnPayError.code})` : ''}
+                          </div>
+                          <p className="mt-0.5">{vnPayError.message}</p>
+                        </div>
+                      </div>
+                      {blockingPendingId && (
+                        <div className="pt-1 flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={handleCancelBlockingAndRetry}
+                            isLoading={isCancellingSession}
+                            className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                          >
+                            Hủy phiên PENDING cũ (#{blockingPendingId}) &amp; Thanh toán lại
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1026,27 +1115,62 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                   </div>
                 </div>
 
-                {/* Tổng thanh toán cuối cùng & Nút xác nhận */}
+                {/* Tổng thanh toán cuối cùng & Điều chỉnh số tiền thu */}
                 <div className="pt-3 border-t border-neutral-200 space-y-3">
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     {initialPaidAmount > 0 && (
                       <div className="flex justify-between text-xs text-neutral-600">
                         <span>Đã thanh toán trước đó:</span>
                         <span className="font-semibold text-emerald-600">{formatCurrency(initialPaidAmount)}</span>
                       </div>
                     )}
+
+                    <div className="bg-white p-3 rounded-xl border border-neutral-200 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <label htmlFor="custom-pay-amount" className="font-bold text-neutral-700">
+                          Số tiền thanh toán đợt này (VNĐ)
+                        </label>
+                        {customPayAmount !== effectivePayAmount && effectivePayAmount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setCustomPayAmount(effectivePayAmount)}
+                            className="text-[11px] text-red-600 hover:underline font-semibold cursor-pointer"
+                          >
+                            Thu đủ ({formatCurrency(effectivePayAmount)})
+                          </button>
+                        )}
+                      </div>
+                      <CurrencyInput
+                        id="custom-pay-amount"
+                        value={customPayAmount}
+                        onChangeValue={(val) => setCustomPayAmount(val)}
+                        suffix="VNĐ"
+                        className="h-10 font-bold text-neutral-900"
+                      />
+                      {activePayAmount > effectivePayAmount && effectivePayAmount > 0 && (
+                        <p className="text-[11px] text-amber-700 font-medium">
+                          Lưu ý: Số tiền vượt dư nợ còn lại ({formatCurrency(effectivePayAmount)}) có thể bị backend từ chối (mã 8003).
+                        </p>
+                      )}
+                      {selectedMethod === 'VNPAY' && activePayAmount > 0 && activePayAmount < 5000 && (
+                        <p className="text-[11px] text-amber-700 font-medium">
+                          VNPay Sandbox yêu cầu giao dịch tối thiểu từ 5.000 đ trở lên.
+                        </p>
+                      )}
+                    </div>
+
                     <div className="flex justify-between items-baseline">
                       <span className="text-sm font-bold text-neutral-800">
-                        {initialPaidAmount > 0 ? 'Số tiền thanh toán đợt này:' : 'Tổng cộng thanh toán:'}
+                        {initialPaidAmount > 0 ? 'Thanh toán đợt này:' : 'Tổng cộng thanh toán:'}
                       </span>
                       <span className="text-2xl font-black text-red-600">
-                        {formatCurrency(effectivePayAmount)}
+                        {formatCurrency(activePayAmount)}
                       </span>
                     </div>
                     {initialPaidAmount > 0 && (
                       <div className="flex justify-between text-xs text-neutral-500">
                         <span>Tổng phát sinh: {formatCurrency(grandTotal)}</span>
-                        <span>Dư nợ còn lại sau thu: {formatCurrency(Math.max(0, remainingDue - effectivePayAmount))}</span>
+                        <span>Dư nợ còn lại sau thu: {formatCurrency(Math.max(0, remainingDue - activePayAmount))}</span>
                       </div>
                     )}
                   </div>
@@ -1058,10 +1182,16 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <Button
                       variant="primary"
                       onClick={handleConfirmStep1}
-                      rightIcon={<ArrowRight className="w-4 h-4" />}
+                      isLoading={isCreatingVnPay}
+                      disabled={isCreatingVnPay || activePayAmount <= 0}
+                      rightIcon={!isCreatingVnPay ? <ArrowRight className="w-4 h-4" /> : undefined}
                       className="px-6 font-bold"
                     >
-                      Xác nhận &amp; Tiến hành thanh toán
+                      {selectedMethod === 'VNPAY'
+                        ? isCreatingVnPay
+                          ? 'Đang chuyển sang VNPay Sandbox...'
+                          : 'Thanh toán qua VNPay Sandbox'
+                        : 'Xác nhận & Tiếp tục'}
                     </Button>
                   </div>
                 </div>
@@ -1070,7 +1200,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
           )}
 
           {/* ================================================================= */}
-          {/* BƯỚC 2: FORM THÔNG TIN VÀ CÁCH THANH TOÁN THEO PHƯƠNG THỨC        */}
+          {/* BƯỚC 2: XỬ LÝ THANH TOÁN THEO PHƯƠNG THỨC                        */}
           {/* ================================================================= */}
           {currentStep === 2 && (
             <div className="space-y-6">
@@ -1078,15 +1208,24 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setCurrentStep(1)}
+                  onClick={() => {
+                    if (selectedMethod === 'VNPAY' && vnPaySession) {
+                      void handleCancelCurrentVnPaySession();
+                    } else {
+                      setCurrentStep(1);
+                    }
+                  }}
+                  disabled={isCancellingSession}
                   leftIcon={<ArrowLeft className="w-4 h-4" />}
                 >
-                  Quay lại sửa thông tin hóa đơn
+                  {selectedMethod === 'VNPAY' && vnPaySession
+                    ? 'Hủy phiên & Quay lại'
+                    : 'Quay lại sửa thông tin'}
                 </Button>
                 <div className="text-right">
-                  <span className="text-xs text-neutral-500 block">Số tiền cần thanh toán</span>
+                  <span className="text-xs text-neutral-500 block">Số tiền thanh toán đợt này</span>
                   <strong className="text-lg font-black text-red-600">
-                    {formatCurrency(effectivePayAmount)}
+                    {formatCurrency(activePayAmount)}
                   </strong>
                 </div>
               </div>
@@ -1101,7 +1240,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <div>
                       <h3 className="font-bold text-base text-neutral-900">Thu Tiền Mặt Tại Quầy Lễ Tân</h3>
                       <p className="text-xs text-neutral-500">
-                        Nhập số tiền khách đưa để tính tiền thối lại và in phiếu thu
+                        Nhập số tiền khách đưa để tính tiền thối lại và ghi nhận SUCCESS ngay
                       </p>
                     </div>
                   </div>
@@ -1124,17 +1263,17 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       <button
                         type="button"
-                        onClick={() => setCashGiven(grandTotal)}
-                        className="text-xs px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-medium"
+                        onClick={() => setCashGiven(activePayAmount)}
+                        className="text-xs px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-medium cursor-pointer"
                       >
-                        Đúng số tiền ({formatCurrency(grandTotal)})
+                        Đúng số tiền ({formatCurrency(activePayAmount)})
                       </button>
                       {[500000, 1000000, 2000000, 5000000].map((amt) => (
                         <button
                           key={amt}
                           type="button"
                           onClick={() => setCashGiven(amt)}
-                          className="text-xs px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-medium"
+                          className="text-xs px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 rounded-lg font-medium cursor-pointer"
                         >
                           {formatCurrency(amt)}
                         </button>
@@ -1144,8 +1283,8 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <div className="flex justify-between items-center p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
                       <span className="text-xs font-semibold text-emerald-800">Tiền thối lại khách:</span>
                       <strong className="text-base font-bold text-emerald-700">
-                        {cashGiven >= grandTotal
-                          ? formatCurrency(cashGiven - grandTotal)
+                        {cashGiven >= activePayAmount
+                          ? formatCurrency(cashGiven - activePayAmount)
                           : 'Khách chưa đưa đủ tiền'}
                       </strong>
                     </div>
@@ -1169,7 +1308,8 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <Button
                       variant="primary"
                       onClick={handleProceedFromStep2}
-                      disabled={isSubmitting || cashGiven < grandTotal}
+                      isLoading={isSubmitting}
+                      disabled={isSubmitting || cashGiven < activePayAmount || activePayAmount <= 0}
                       className="px-6 font-bold"
                     >
                       {isSubmitting ? 'Đang ghi nhận...' : 'Xác nhận Đã thu đủ tiền mặt'}
@@ -1178,388 +1318,288 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                 </div>
               )}
 
-              {/* 🌐 PHƯƠNG THỨC 2: CỔNG VNPAY (THẺ ATM NỘI ĐỊA) */}
-              {selectedMethod === 'VNPAY' && (
-                <div className="max-w-2xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg">
-                        <CreditCard className="w-6 h-6 text-blue-700" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-base text-neutral-900 flex items-center gap-2">
-                          <span>Thanh Toán Thẻ ATM Cổng VNPAY Sandbox</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold">
-                            Không cần QR
-                          </span>
-                        </h3>
-                        <p className="text-xs text-neutral-500">
-                          Thanh toán thẻ ghi nợ nội địa NCB (Napas) trực tiếp qua cổng VNPAY
-                        </p>
-                      </div>
+              {/* 🏦 PHƯƠNG THỨC 2: CHUYỂN KHOẢN NGÂN HÀNG (TẠO PENDING ĐỂ TƯƠNG TÁC) */}
+              {selectedMethod === 'BANK_TRANSFER' && (
+                <div className="max-w-xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                      <Building2 className="w-6 h-6" />
                     </div>
-
-                    <span className="text-xs px-2.5 py-1 bg-neutral-200 text-neutral-800 rounded-xl font-bold">
-                      NCB Bank
-                    </span>
-                  </div>
-
-                  {/* Thông báo lỗi hoặc cảnh báo VNPAY */}
-                  {vnPayError && (
-                    <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl text-xs">
-                      {vnPayError}
-                    </div>
-                  )}
-
-                  {/* HÌNH ẢNH MÔ PHỎNG THẺ ATM NỘI ĐỊA NCB CHUẨN */}
-                  <div className="p-6 rounded-3xl bg-gradient-to-tr from-blue-900 via-indigo-900 to-cyan-800 text-white space-y-4 shadow-xl relative overflow-hidden">
-                    <div className="absolute right-0 top-0 w-44 h-44 bg-cyan-400/10 rounded-full blur-2xl pointer-events-none" />
-
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-sm tracking-wider uppercase text-cyan-300">
-                          NCB BANK
-                        </span>
-                        <span className="text-[10px] text-neutral-300 font-semibold px-2 py-0.5 rounded bg-white/10">
-                          THẺ GHI NỢ NỘI ĐỊA
-                        </span>
-                      </div>
-                      <span className="font-black text-xs italic tracking-widest text-cyan-200">
-                        NAPAS
-                      </span>
-                    </div>
-
-                    {/* Chip EMV */}
-                    <div className="w-10 h-7 rounded-md bg-amber-300/80 border border-amber-200/50 flex items-center justify-center">
-                      <div className="w-6 h-4 border border-amber-700/40 rounded-xs" />
-                    </div>
-
-                    {/* Dãy 19 số thẻ */}
-                    <div className="text-xl font-mono tracking-widest font-black text-white pt-1">
-                      {formatCardNumberPreview(vnpayCardNumber)}
-                    </div>
-
-                    <div className="flex justify-between items-end text-xs text-neutral-200 pt-1">
-                      <div>
-                        <span className="text-[9px] block text-cyan-300/80 uppercase font-semibold">
-                          CHỦ THẺ
-                        </span>
-                        <strong className="text-white tracking-wider">
-                          {vnpayCardHolder ? vnpayCardHolder.toUpperCase() : 'HỌ VÀ TÊN CHỦ THẺ'}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[9px] block text-cyan-300/80 uppercase font-semibold">
-                          NGÀY PHÁT HÀNH
-                        </span>
-                        <strong className="text-white font-mono">
-                          {vnpayIssueDate || 'MM/YY'}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-[9px] block text-cyan-300/80 uppercase font-semibold">
-                          MÃ OTP TEST
-                        </span>
-                        <strong className="text-emerald-300 font-mono font-bold">
-                          {VNPAY_ATM_TEST_CARD.otp}
-                        </strong>
-                      </div>
+                    <div>
+                      <h3 className="font-bold text-base text-neutral-900">
+                        Ghi nhận Chuyển khoản Ngân hàng
+                      </h3>
+                      <p className="text-xs text-neutral-500">
+                        Giao dịch tạo ở trạng thái PENDING để kế toán đối soát ➔ xác nhận SUCCESS hoặc CANCELLED
+                      </p>
                     </div>
                   </div>
 
-                  {/* FORM NHẬP THÔNG TIN THẺ ATM & HỘP GỢI Ý TEST */}
-                  <div className="bg-white p-4 rounded-2xl border border-neutral-200 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-neutral-800 text-xs flex items-center gap-1.5">
-                        <CreditCard className="w-4 h-4 text-blue-600" />
-                        Thông tin thẻ ATM thanh toán (Tự nhập):
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {(vnpayCardNumber || vnpayCardHolder || vnpayIssueDate) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setVnpayCardNumber('');
-                              setVnpayCardHolder('');
-                              setVnpayIssueDate('');
-                              setVnpayCardError(null);
-                            }}
-                            className="text-[11px] text-red-600 hover:underline font-semibold"
-                          >
-                            Xóa trắng
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setVnpayCardNumber(VNPAY_ATM_TEST_CARD.cardNumber);
-                            setVnpayCardHolder(VNPAY_ATM_TEST_CARD.cardHolder);
-                            setVnpayIssueDate(VNPAY_ATM_TEST_CARD.issueDate);
-                            setVnpayCardError(null);
-                          }}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-lg transition-colors text-[11px] border border-blue-200"
-                        >
-                          ⚡ Điền nhanh tài khoản test
-                        </button>
-                      </div>
+                  <div className="space-y-3 bg-white p-4 rounded-2xl border border-neutral-200">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1">
+                        Ngân hàng nhận / chuyển (Tùy chọn)
+                      </label>
+                      <Input
+                        placeholder="VD: Vietcombank, BIDV, MB Bank..."
+                        value={bankProviderName}
+                        onChange={(e) => setBankProviderName(e.target.value)}
+                      />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                      <div className="sm:col-span-2">
-                        <label className="text-neutral-600 font-semibold block mb-1">
-                          Số thẻ ATM nội địa <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                          placeholder="Nhập 16 - 19 số thẻ (VD: 9704 1985 2619 1432 198)"
-                          value={vnpayCardNumber}
-                          onChange={(e) => {
-                            setVnpayCardNumber(e.target.value);
-                            setVnpayCardError(null);
-                          }}
-                          className="h-10 font-mono text-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-neutral-600 font-semibold block mb-1">
-                          Tên in trên thẻ (không dấu) <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                          placeholder="VD: NGUYEN VAN A"
-                          value={vnpayCardHolder}
-                          onChange={(e) => {
-                            setVnpayCardHolder(e.target.value.toUpperCase());
-                            setVnpayCardError(null);
-                          }}
-                          className="h-10 uppercase text-xs"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-neutral-600 font-semibold block mb-1">
-                          Ngày phát hành (MM/YY) <span className="text-red-500">*</span>
-                        </label>
-                        <Input
-                          placeholder="VD: 07/15"
-                          value={vnpayIssueDate}
-                          onChange={(e) => {
-                            setVnpayIssueDate(e.target.value);
-                            setVnpayCardError(null);
-                          }}
-                          className="h-10 text-xs font-mono"
-                        />
-                      </div>
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 mb-1">
+                        Mã giao dịch ngân hàng (FT Code) <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        placeholder="VD: FT26111000123"
+                        value={bankRefCode}
+                        onChange={(e) => {
+                          setBankRefCode(e.target.value);
+                          setBankFormError(null);
+                        }}
+                      />
+                      {bankFormError && (
+                        <p className="text-xs text-red-600 font-medium mt-1">{bankFormError}</p>
+                      )}
                     </div>
 
-                    {vnpayCardError && (
-                      <p className="text-xs text-red-600 font-medium">{vnpayCardError}</p>
-                    )}
-
-                    {/* HỘP GỢI Ý TÀI KHOẢN TEST THEO DOCS VNPAY SANDBOX */}
-                    <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-blue-900 flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                          Gợi ý tài khoản kiểm thử VNPAY Sandbox (NCB Bank):
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const allInfo = `Ngân hàng: ${VNPAY_ATM_TEST_CARD.bankName}\nSố thẻ: ${VNPAY_ATM_TEST_CARD.cardNumber}\nTên chủ thẻ: ${VNPAY_ATM_TEST_CARD.cardHolder}\nNgày phát hành: ${VNPAY_ATM_TEST_CARD.issueDate}\nOTP: ${VNPAY_ATM_TEST_CARD.otp}`;
-                            navigator.clipboard.writeText(allInfo);
-                            setVnpayCopiedField('all');
-                            setTimeout(() => setVnpayCopiedField(null), 2000);
-                          }}
-                          className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
-                        >
-                          {vnpayCopiedField === 'all' ? (
-                            <span className="text-emerald-600 font-bold">✓ Đã sao chép</span>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              Sao chép thông tin
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-neutral-700 font-medium">
-                        <div>Ngân hàng: <strong className="text-neutral-900">NCB</strong></div>
-                        <div>Số thẻ: <strong className="font-mono text-neutral-900">{VNPAY_ATM_TEST_CARD.cardNumber}</strong></div>
-                        <div>Chủ thẻ: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.cardHolder}</strong></div>
-                        <div>Hạn: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.issueDate}</strong> • OTP: <strong className="text-emerald-700 font-bold">{VNPAY_ATM_TEST_CARD.otp}</strong></div>
-                      </div>
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                      Sau khi tạo, bạn có thể nhấn <strong>"Xác nhận đã nhận tiền (PENDING → SUCCESS)"</strong> ngay ở bước tiếp theo hoặc trong bảng lịch sử Folio.
                     </div>
                   </div>
 
-                  {/* Thanh thông tin phiên VNPAY từ Backend & Link mở cổng */}
-                  {vnPaySession ? (
-                    <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
-                      <div>
-                        <span className="text-blue-700 font-semibold block">
-                          Đã tạo phiên VNPAY: <strong className="font-mono">{vnPaySession.txnRef}</strong>
-                        </span>
-                        <span className="text-neutral-500">
-                          Nhấp nút để mở cổng thanh toán VNPAY nhập thông tin thẻ ATM NCB
-                        </span>
-                      </div>
-                      <a
-                        href={vnPaySession.paymentUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors shadow-xs"
-                      >
-                        <span>Mở Cổng VNPAY (Thẻ ATM)</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="p-3 bg-neutral-100 rounded-xl text-xs text-neutral-600 flex items-center justify-between">
-                      <span>Đang kết nối backend tạo phiên VNPAY Thẻ ATM...</span>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={initializeVnPaySession}
-                        disabled={isCreatingVnPay}
-                      >
-                        {isCreatingVnPay ? 'Đang tạo...' : 'Tạo lại phiên VNPAY'}
-                      </Button>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap justify-end gap-3 pt-2">
+                  <div className="flex justify-end gap-3 pt-2">
                     <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                      Hủy
+                      Quay lại
                     </Button>
                     <Button
                       variant="primary"
                       onClick={handleProceedFromStep2}
-                      rightIcon={<ArrowRight className="w-4 h-4" />}
+                      isLoading={isSubmitting}
+                      disabled={isSubmitting || activePayAmount <= 0}
                       className="px-6 font-bold"
                     >
-                      Tiếp tục xác thực OTP VNPAY ➔
+                      {isSubmitting ? 'Đang tạo giao dịch...' : 'Ghi nhận chuyển khoản (PENDING)'}
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {/* 🌐 PHƯƠNG THỨC 3: CỔNG VNPAY SANDBOX THẬT */}
+              {selectedMethod === 'VNPAY' && (
+                <div className="max-w-2xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                        <CreditCard className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-base text-neutral-900">
+                          Cổng thanh toán VNPay Sandbox
+                        </h3>
+                        <p className="text-xs text-neutral-500">
+                          Nhập thông tin thẻ NCB trực tiếp trên trang sandbox.vnpayment.vn
+                        </p>
+                      </div>
+                    </div>
+                    <PaymentStatusBadge status="PENDING" />
+                  </div>
+
+                  {vnPayError && (
+                    <div className="p-3.5 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-xs space-y-1">
+                      <div className="font-bold">
+                        Lỗi tạo phiên VNPay {vnPayError.code ? `(Mã ${vnPayError.code})` : ''}
+                      </div>
+                      <p>{vnPayError.message}</p>
+                    </div>
+                  )}
+
+                  {vnPaySession ? (
+                    <div className="bg-white p-5 rounded-2xl border border-blue-200 space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-neutral-100">
+                        <div>
+                          <span className="text-xs text-neutral-500 block">Mã tham chiếu phiên (vnp_TxnRef)</span>
+                          <strong className="font-mono text-sm text-neutral-900">{vnPaySession.txnRef}</strong>
+                        </div>
+                        <CountdownBadge expiresAt={vnPaySession.expiresAt} />
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs text-blue-900">
+                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                        <span>
+                          Đang chờ bạn hoàn tất thanh toán trên trang <strong>sandbox.vnpayment.vn</strong>. Nếu trình duyệt chưa tự chuyển trang, hãy bấm nút bên dưới.
+                        </span>
+                      </div>
+
+                      <div className="p-3.5 bg-neutral-50 border border-neutral-200 rounded-xl space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-neutral-800">Thẻ ATM test NCB trên VNPay Sandbox:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const text = `Ngân hàng: ${VNPAY_ATM_TEST_CARD.bankName}\nSố thẻ: ${VNPAY_ATM_TEST_CARD.cardNumber}\nChủ thẻ: ${VNPAY_ATM_TEST_CARD.cardHolder}\nNgày phát hành: ${VNPAY_ATM_TEST_CARD.issueDate}\nOTP: ${VNPAY_ATM_TEST_CARD.otp}`;
+                              navigator.clipboard.writeText(text);
+                              setVnpayCopiedField('all');
+                              setTimeout(() => setVnpayCopiedField(null), 2000);
+                            }}
+                            className="text-[11px] text-blue-700 hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            {vnpayCopiedField === 'all' ? 'Đã sao chép!' : 'Sao chép thông tin thẻ'}
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5 text-[11px] text-neutral-700">
+                          <div>Ngân hàng: <strong className="text-neutral-900">NCB</strong></div>
+                          <div>Ngày phát hành: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.issueDate}</strong></div>
+                          <div className="col-span-2">
+                            Số thẻ: <strong className="font-mono text-neutral-900">{VNPAY_ATM_TEST_CARD.cardNumber}</strong>
+                          </div>
+                          <div className="col-span-2">
+                            Tên chủ thẻ: <strong className="text-neutral-900">{VNPAY_ATM_TEST_CARD.cardHolder}</strong> • OTP: <strong className="text-emerald-700 font-bold">{VNPAY_ATM_TEST_CARD.otp}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2.5 pt-1">
+                        <Button
+                          variant="primary"
+                          onClick={() => window.location.assign(vnPaySession.paymentUrl)}
+                          rightIcon={<ExternalLink className="w-4 h-4" />}
+                          className="flex-1 font-bold"
+                        >
+                          Mở Cổng VNPay Sandbox ngay
+                        </Button>
+                        <a
+                          href={vnPaySession.paymentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-800 rounded-xl transition-colors"
+                        >
+                          Mở tab mới
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <Button
+                          variant="outline"
+                          onClick={() => void handleCancelCurrentVnPaySession()}
+                          isLoading={isCancellingSession}
+                          disabled={isCancellingSession}
+                          className="text-red-600 border-red-200 hover:bg-red-50"
+                        >
+                          Hủy phiên (#{vnPaySession.paymentId})
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-white border border-neutral-200 rounded-2xl text-xs text-neutral-600 flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-red-600" />
+                        Chưa có phiên VNPay hoặc phiên đã hủy...
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => void initializeVnPaySession(true)}
+                        isLoading={isCreatingVnPay}
+                        disabled={isCreatingVnPay}
+                      >
+                        {isCreatingVnPay ? 'Đang tạo...' : 'Tạo phiên VNPay mới'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
           {/* ================================================================= */}
-          {/* BƯỚC 3: FORM XÁC THỰC OTP BẢO MẬT (SANDBOX)                       */}
-          {/* ================================================================= */}
-          {currentStep === 3 && (
-            <div className="max-w-md mx-auto space-y-6 text-center py-4">
-              <div className="w-14 h-14 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto">
-                <Clock className="w-7 h-7" />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-bold text-neutral-900">Xác thực Giao dịch OTP</h3>
-                <p className="text-xs text-neutral-500 mt-1">
-                  Mã OTP 6 số đã được gửi đến số điện thoại liên kết của quý khách.
-                </p>
-              </div>
-
-              {/* 6 ô nhập mã OTP */}
-              <div className="flex justify-center gap-2 sm:gap-3">
-                {otpValues.map((val, idx) => (
-                  <input
-                    key={idx}
-                    ref={(el) => {
-                      otpInputsRef.current[idx] = el;
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={val}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-11 h-13 sm:w-12 sm:h-14 text-center text-xl font-bold bg-neutral-50 border-2 border-neutral-200 rounded-xl focus:border-red-600 focus:bg-white focus:outline-hidden transition-all"
-                  />
-                ))}
-              </div>
-
-              {/* Đồng hồ đếm ngược và gửi lại mã */}
-              <div className="text-xs text-neutral-500 flex items-center justify-center gap-2">
-                <span>Mã có hiệu lực trong:</span>
-                <span className="font-mono font-bold text-red-600">
-                  {Math.floor(otpSecondsLeft / 60)
-                    .toString()
-                    .padStart(2, '0')}
-                  :{(otpSecondsLeft % 60).toString().padStart(2, '0')}
-                </span>
-                {otpSecondsLeft === 0 && (
-                  <button
-                    type="button"
-                    onClick={startOtpCountdown}
-                    className="text-red-600 underline font-semibold ml-2"
-                  >
-                    Gửi lại mã
-                  </button>
-                )}
-              </div>
-
-              {/* Hộp gợi ý mã test Sandbox */}
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center justify-between">
-                <div>
-                  Mã OTP kiểm thử Sandbox: <strong className="font-mono font-bold">123456</strong>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleQuickFillOtp}
-                  className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 font-bold rounded-lg transition-colors"
-                >
-                  Điền nhanh 123456
-                </button>
-              </div>
-
-              {/* Nút hành động */}
-              <div className="space-y-2 pt-2">
-                <Button
-                  variant="primary"
-                  onClick={handleConfirmOtp}
-                  disabled={isSubmitting || otpValues.join('').length < 6}
-                  className="w-full py-3 font-bold text-sm"
-                >
-                  {isSubmitting ? 'Đang xác thực giao dịch...' : 'Xác nhận OTP & Hoàn tất Thanh toán'}
-                </Button>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentStep(2)}
-                    className="flex-1 text-xs"
-                  >
-                    Quay lại bước 2
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSimulateFailed}
-                    className="flex-1 text-xs text-red-600 hover:bg-red-50"
-                  >
-                    Mô phỏng thanh toán thất bại
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ================================================================= */}
-          {/* BƯỚC 4: KẾT QUẢ THANH TOÁN (THÀNH CÔNG HOẶC THẤT BẠI)             */}
+          {/* BƯỚC 4: KẾT QUẢ & TƯƠNG TÁC CHUYỂN TRẠNG THÁI GIAO DỊCH           */}
           {/* ================================================================= */}
           {currentStep === 4 && (
             <div className="max-w-md mx-auto py-6 text-center space-y-6">
-              {isSuccess ? (
+              {completedPayment?.status === 'PENDING' ? (
+                <>
+                  <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto animate-in zoom-in">
+                    <Loader2 className="w-9 h-9" />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-center gap-2">
+                      <h3 className="text-xl font-bold text-neutral-900">Giao dịch Đang chờ xác nhận</h3>
+                      <PaymentStatusBadge status="PENDING" />
+                    </div>
+                    <p className="text-xs text-neutral-500">
+                      Thanh toán #{completedPayment.id} đang ở trạng thái <strong>PENDING</strong>. Bạn có thể xác nhận hoàn tất hoặc hủy bỏ giao dịch này.
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-neutral-50 border border-neutral-200 rounded-2xl text-left text-xs space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500">Mã giao dịch:</span>
+                      <strong className="font-mono text-neutral-900">
+                        {completedPayment.transactionReference || `PAY-${completedPayment.id}`}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500">Phương thức:</span>
+                      <span className="font-semibold text-neutral-800">{completedPayment.paymentMethod}</span>
+                    </div>
+                    {completedPayment.paymentProvider && (
+                      <div className="flex justify-between">
+                        <span className="text-neutral-500">Ngân hàng / Nhà CC:</span>
+                        <span className="font-semibold text-neutral-800">{completedPayment.paymentProvider}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2 border-t border-neutral-200 text-sm font-bold">
+                      <span className="text-neutral-700">Số tiền:</span>
+                      <span className="text-amber-700">
+                        {formatCurrency(completedPayment.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {errorMessage && (
+                    <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs">
+                      {errorMessage}
+                    </div>
+                  )}
+
+                  <div className="space-y-2.5 pt-1">
+                    <Button
+                      variant="primary"
+                      onClick={() => void handleCompletePendingPayment()}
+                      isLoading={isSubmitting}
+                      disabled={isSubmitting}
+                      leftIcon={<CheckCircle2 className="w-4 h-4" />}
+                      className="w-full py-3 font-bold bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      Xác nhận đã nhận tiền (PENDING → SUCCESS)
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => void handleCancelPendingPayment()}
+                      disabled={isSubmitting}
+                      leftIcon={<XCircle className="w-4 h-4" />}
+                      className="w-full text-red-600 border-red-200 hover:bg-red-50 font-semibold"
+                    >
+                      Hủy giao dịch (PENDING → CANCELLED)
+                    </Button>
+                    <Button variant="ghost" onClick={onClose} className="w-full text-xs">
+                      Đóng (xử lý sau trong Folio)
+                    </Button>
+                  </div>
+                </>
+              ) : isSuccess && completedPayment?.status === 'SUCCESS' ? (
                 <>
                   <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto animate-in zoom-in">
                     <CheckCircle2 className="w-10 h-10" />
                   </div>
 
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-bold text-neutral-900">Thanh toán Thành công!</h3>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-center gap-2">
+                      <h3 className="text-xl font-bold text-neutral-900">Thanh toán Thành công!</h3>
+                      <PaymentStatusBadge status="SUCCESS" />
+                    </div>
                     <p className="text-xs text-neutral-500">
                       Giao dịch thanh toán hóa đơn đã được ghi nhận vào hệ thống tài chính
                     </p>
@@ -1570,7 +1610,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <div className="flex justify-between">
                       <span className="text-neutral-500">Mã giao dịch:</span>
                       <strong className="font-mono text-neutral-900">
-                        {completedPayment?.transactionReference || 'N/A'}
+                        {completedPayment?.transactionReference || `PAY-${completedPayment?.id || ''}`}
                       </strong>
                     </div>
                     <div className="flex justify-between">
@@ -1590,20 +1630,20 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       </div>
                     )}
 
-                    {/* Đối chiếu kỹ thuật nếu thanh toán VNPAY Thẻ ATM */}
-                    {selectedMethod === 'VNPAY' && (
+                    {/* Đối chiếu kỹ thuật nếu thanh toán VNPAY */}
+                    {completedPayment?.paymentMethod === 'VNPAY' && (
                       <div className="p-2.5 bg-blue-50/80 border border-blue-200 rounded-xl space-y-1 text-[11px] text-blue-900">
                         <div className="font-bold flex items-center justify-between text-blue-950">
-                          <span>Đối chiếu Cổng VNPAY (Thẻ ATM):</span>
+                          <span>Đối chiếu Cổng VNPay Sandbox:</span>
                           <span className="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded text-[10px]">
-                            Mã 00 - Thành công
+                            Mã {completedPayment.gatewayResponseCode || '00'} - Thành công
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-1 text-neutral-700 pt-1">
-                          <div>Ngân hàng: <strong>NCB</strong></div>
-                          <div>Loại thẻ: <strong>ATM nội địa</strong></div>
-                          <div>Mã GD VNPAY: <strong className="font-mono">{completedPayment?.transactionReference || vnPaySession?.txnRef}</strong></div>
-                          <div>Mã tham chiếu: <strong className="font-mono">{completedPayment?.gatewayTxnId || vnPaySession?.txnRef}</strong></div>
+                          <div>Ngân hàng: <strong>{completedPayment.bankCode || 'NCB'}</strong></div>
+                          <div>Loại thẻ: <strong>{completedPayment.cardType || 'ATM'}</strong></div>
+                          <div>vnp_TxnRef: <strong className="font-mono">{completedPayment.transactionReference || vnPaySession?.txnRef}</strong></div>
+                          <div>vnp_TransactionNo: <strong className="font-mono">{completedPayment.gatewayTxnId || 'N/A'}</strong></div>
                         </div>
                       </div>
                     )}
@@ -1611,7 +1651,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <div className="flex justify-between pt-2 border-t border-neutral-200 text-sm font-bold">
                       <span className="text-neutral-700">Tổng tiền đã trả:</span>
                       <span className="text-emerald-700">
-                        {formatCurrency(grandTotal)}
+                        {formatCurrency(completedPayment?.totalAmount ?? activePayAmount)}
                       </span>
                     </div>
                   </div>
@@ -1644,10 +1684,17 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     <XCircle className="w-10 h-10" />
                   </div>
 
-                  <div className="space-y-1">
-                    <h3 className="text-xl font-bold text-neutral-900">Thanh toán Thất bại</h3>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-center gap-2">
+                      <h3 className="text-xl font-bold text-neutral-900">
+                        {completedPayment?.status === 'CANCELLED' ? 'Giao dịch Đã hủy' : 'Thanh toán Thất bại'}
+                      </h3>
+                      {completedPayment?.status && <PaymentStatusBadge status={completedPayment.status} />}
+                    </div>
                     <p className="text-xs text-neutral-500">
-                      {errorMessage || 'Giao dịch chưa được hoàn tất do lỗi xác thực hoặc kết nối.'}
+                      {errorMessage ||
+                        completedPayment?.gatewayResponseDescription ||
+                        'Giao dịch chưa được hoàn tất do lỗi xác thực hoặc kết nối.'}
                     </p>
                   </div>
 
@@ -1681,7 +1728,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
           invoice={invoice}
           payment={completedPayment}
           appliedVoucher={appliedVoucher}
-          customAmountPaid={effectivePayAmount}
+          customAmountPaid={completedPayment?.totalAmount ?? activePayAmount}
         />
       )}
     </div>

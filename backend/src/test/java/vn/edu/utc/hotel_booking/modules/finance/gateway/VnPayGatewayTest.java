@@ -68,9 +68,12 @@ class VnPayGatewayTest {
                 .contains("vnp_Amount=150000000")
                 .contains("vnp_TmnCode=TESTTMN01")
                 .contains("vnp_BankCode=VNBANK")
+                .contains("vnp_CurrCode=VND")
+                .contains("vnp_OrderType=other")
+                .contains("vnp_ExpireDate=")
                 .contains("vnp_SecureHash=")
-                .contains("vnp_SecureHashType=SHA512")
-                .contains("vnp_ReturnUrl=");
+                .contains("vnp_ReturnUrl=")
+                .doesNotContain("vnp_SecureHashType=");
     }
 
     @Test

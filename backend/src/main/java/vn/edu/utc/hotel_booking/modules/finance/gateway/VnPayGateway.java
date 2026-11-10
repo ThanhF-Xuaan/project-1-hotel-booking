@@ -46,6 +46,7 @@ public class VnPayGateway implements PaymentGateway {
     private static final String VNPAY_VERSION = "2.1.0";
     private static final String VNPAY_COMMAND = "pay";
     private static final String VNPAY_CURR_CODE = "VND";
+    private static final String VNPAY_ORDER_TYPE = "other";
     private static final String VNPAY_LOCALE = "vn";
     private static final String HMAC_ALGO = "HmacSHA512";
     private static final ZoneId VN_TZ = ZoneId.of("Asia/Ho_Chi_Minh");
@@ -82,6 +83,7 @@ public class VnPayGateway implements PaymentGateway {
                     "Chưa cấu hình VNPay (VNPAY_TMN_ID / VNPAY_HASH_SECRET)");
         }
 
+        LocalDateTime now = LocalDateTime.now(VN_TZ);
         Map<String, String> data = new LinkedHashMap<>();
         data.put("vnp_Version", VNPAY_VERSION);
         data.put("vnp_Command", VNPAY_COMMAND);
@@ -94,20 +96,22 @@ public class VnPayGateway implements PaymentGateway {
         String effectiveBankCode = (bankCode != null && !bankCode.isBlank()) ? bankCode : "VNBANK";
         data.put("vnp_BankCode", effectiveBankCode);
 
-        data.put("vnp_CreateDate", LocalDateTime.now(VN_TZ).format(VNPAY_DATE));
+        data.put("vnp_CreateDate", now.format(VNPAY_DATE));
+        data.put("vnp_ExpireDate", now.plusMinutes(15).format(VNPAY_DATE));
+        data.put("vnp_CurrCode", VNPAY_CURR_CODE);
         String effectiveIp = (ipAddress == null || ipAddress.isBlank() || ipAddress.contains(":"))
                 ? "127.0.0.1" : ipAddress;
         data.put("vnp_IpAddr", effectiveIp);
         data.put("vnp_Locale", VNPAY_LOCALE);
         data.put("vnp_OrderInfo", orderInfo);
+        data.put("vnp_OrderType", VNPAY_ORDER_TYPE);
         data.put("vnp_ReturnUrl", returnUrl);
         data.put("vnp_TxnRef", txnRef);
 
         String query = buildQueryString(data);
         String sign = sign(query);
         return paymentUrl + "?" + query
-                + "&vnp_SecureHash=" + sign
-                + "&vnp_SecureHashType=SHA512";
+                + "&vnp_SecureHash=" + sign;
     }
 
     @Override
@@ -121,10 +125,12 @@ public class VnPayGateway implements PaymentGateway {
         boolean valid = false;
         if (secretReady && secureHash != null && !secureHash.isBlank()
                 && txnRef != null && !txnRef.isBlank()) {
-            // Loại 2 field chữ ký khỏi chuỗi ký rồi xác thực lại
+            // Loại 2 field chữ ký và giá trị rỗng khỏi chuỗi ký rồi xác thực lại
             Map<String, String> data = params.entrySet().stream()
-                    .filter(e -> !"vnp_SecureHash".equals(e.getKey())
-                            && !"vnp_SecureHashType".equals(e.getKey()))
+                    .filter(e -> e.getKey() != null && e.getKey().startsWith("vnp_")
+                            && !"vnp_SecureHash".equals(e.getKey())
+                            && !"vnp_SecureHashType".equals(e.getKey())
+                            && e.getValue() != null && !e.getValue().isBlank())
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             String expected = sign(buildQueryString(data));
             valid = secureHash.equalsIgnoreCase(expected);
@@ -161,8 +167,8 @@ public class VnPayGateway implements PaymentGateway {
     }
 
     /**
-     * Chuỗi ký: sort key ASCII, mỗi value encode URL (UTF-8, space → %20),
-     * nối "key=value" bằng "&" — chuẩn VNPay v2.
+     * Chuỗi ký: sort key ASCII, mỗi value encode URL (UTF-8, chuẩn URLEncoder VNPay v2.1.0),
+     * nối "key=value" bằng "&" — chuẩn VNPay v2.1.0.
      */
     public String buildQueryString(Map<String, String> data) {
         return new TreeMap<>(data).entrySet().stream()
@@ -183,7 +189,7 @@ public class VnPayGateway implements PaymentGateway {
     }
 
     private static String urlEncode(String value) {
-        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+        return java.net.URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private static String toJson(Map<String, String> params) {

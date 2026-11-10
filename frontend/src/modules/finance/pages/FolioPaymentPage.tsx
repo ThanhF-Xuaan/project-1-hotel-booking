@@ -5,6 +5,8 @@ import {
   Search,
   RefreshCw,
   CheckCircle,
+  CheckCircle2,
+  XCircle,
   Receipt,
   Printer,
 } from 'lucide-react';
@@ -12,7 +14,7 @@ import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import CurrencyInput from '../../../core/components/ui/CurrencyInput';
 import Select from '../../../core/components/ui/Select';
-import Modal from '../../../core/components/ui/Modal';
+import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
 import { formatCurrency } from '../../../core/utils/currency';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
 import { isSessionExpiredError } from '../../../core/api/client';
@@ -25,7 +27,9 @@ import InvoicePaymentFlowModal from '../components/payment/InvoicePaymentFlowMod
 import HotelFolioReceipt from '../components/payment/HotelFolioReceipt';
 import type {
   PaymentResponse,
+  PaymentStatus,
   InvoiceResponse,
+  InvoiceStatus,
   PaymentMethod,
   PaymentPurpose,
   GatewayMethod,
@@ -82,6 +86,14 @@ export const FolioPaymentPage: React.FC = () => {
   const [paymentError, setPaymentError] = useState<ApiErrorInfo | null>(null);
   const [isCancellingPayment, setIsCancellingPayment] = useState(false);
   const referenceInputRef = useRef<HTMLInputElement>(null);
+
+  // Tương tác chuyển trạng thái thanh toán & lọc bảng lịch sử
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<'ALL' | PaymentStatus>('ALL');
+  const [actionConfirm, setActionConfirm] = useState<{
+    type: 'complete' | 'cancel';
+    payment: PaymentResponse;
+  } | null>(null);
+  const [isMutatingStatus, setIsMutatingStatus] = useState(false);
 
   // Refund Modal
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
@@ -564,11 +576,77 @@ export const FolioPaymentPage: React.FC = () => {
       const res = await financeService.issueInvoice(invoice.id);
       if (res.result) {
         setInvoice(res.result);
-        setSuccessMessage('Hóa đơn đã được phát hành chính thức!');
+        setSuccessMessage('Hóa đơn đã được phát hành chính thức (DRAFT → ISSUED)!');
       }
     } catch (err) {
       console.error('Lỗi phát hành hóa đơn:', err);
-      alert('Phát hành hóa đơn thất bại.');
+      setPaymentError(getApiErrorMessage(err, 'Phát hành hóa đơn thất bại'));
+    }
+  };
+
+  const handleConfirmStatusTransition = async () => {
+    if (!actionConfirm || !currentBooking) return;
+    setIsMutatingStatus(true);
+    try {
+      if (actionConfirm.type === 'complete') {
+        await financeService.completePayment(actionConfirm.payment.id);
+        setSuccessMessage(
+          `Đã xác nhận hoàn tất giao dịch ${actionConfirm.payment.transactionReference || `PAY-${actionConfirm.payment.id}`} (PENDING → SUCCESS)!`
+        );
+      } else {
+        await financeService.cancelPayment(actionConfirm.payment.id);
+        setSuccessMessage(
+          `Đã hủy giao dịch ${actionConfirm.payment.transactionReference || `PAY-${actionConfirm.payment.id}`} (PENDING → CANCELLED) và mở khóa phiên thanh toán.`
+        );
+      }
+      setActionConfirm(null);
+      await fetchFolioData(currentBooking.bookingNumber);
+    } catch (err: unknown) {
+      setActionConfirm(null);
+      setPaymentError(
+        getApiErrorMessage(
+          err,
+          actionConfirm.type === 'complete'
+            ? 'Không thể xác nhận hoàn tất giao dịch'
+            : 'Không thể hủy giao dịch'
+        )
+      );
+    } finally {
+      setIsMutatingStatus(false);
+    }
+  };
+
+  const filteredPayments = useMemo(() => {
+    if (paymentStatusFilter === 'ALL') return payments;
+    return payments.filter((p) => p.status === paymentStatusFilter);
+  }, [payments, paymentStatusFilter]);
+
+  const invoiceStatusBadge = (status: InvoiceStatus) => {
+    switch (status) {
+      case 'PAID':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            Đã thanh toán (PAID)
+          </span>
+        );
+      case 'ISSUED':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+            Đã phát hành (ISSUED)
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+            Đã hủy (CANCELLED)
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+            Nháp (DRAFT)
+          </span>
+        );
     }
   };
 
@@ -925,9 +1003,47 @@ export const FolioPaymentPage: React.FC = () => {
 
           {/* BẢNG LỊCH SỬ THANH TOÁN */}
           <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden">
-            <div className="p-4 border-b border-neutral-200 font-bold text-neutral-900 flex justify-between items-center">
-              <span>Lịch sử Giao dịch & Thanh toán</span>
-              <span className="text-xs font-normal text-neutral-500">{payments.length} khoản</span>
+            <div className="p-4 border-b border-neutral-200 flex flex-wrap justify-between items-center gap-3">
+              <div className="flex items-center gap-2 font-bold text-neutral-900">
+                <span>Lịch sử Giao dịch &amp; Thanh toán</span>
+                <span className="text-xs font-normal text-neutral-500">
+                  ({filteredPayments.length}/{payments.length} khoản)
+                </span>
+              </div>
+
+              {/* Bộ lọc trạng thái thanh toán */}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                {(
+                  [
+                    { key: 'ALL', label: 'Tất cả' },
+                    { key: 'PENDING', label: 'PENDING' },
+                    { key: 'SUCCESS', label: 'SUCCESS' },
+                    { key: 'FAILED', label: 'FAILED' },
+                    { key: 'CANCELLED', label: 'CANCELLED' },
+                    { key: 'REFUNDED', label: 'REFUNDED' },
+                  ] as const
+                ).map((tab) => {
+                  const count =
+                    tab.key === 'ALL'
+                      ? payments.length
+                      : payments.filter((item) => item.status === tab.key).length;
+                  const active = paymentStatusFilter === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setPaymentStatusFilter(tab.key)}
+                      className={`px-2.5 py-1 rounded-xl font-semibold transition-colors cursor-pointer ${
+                        active
+                          ? 'bg-red-600 text-white shadow-2xs'
+                          : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                      }`}
+                    >
+                      {tab.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -944,19 +1060,41 @@ export const FolioPaymentPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
-                  {payments.length === 0 ? (
+                  {filteredPayments.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-6 text-center text-neutral-400">
-                        Chưa có giao dịch thanh toán nào được ghi nhận cho Folio này.
+                        {payments.length === 0
+                          ? 'Chưa có giao dịch thanh toán nào được ghi nhận cho Folio này.'
+                          : `Không có giao dịch nào ở trạng thái ${paymentStatusFilter}.`}
                       </td>
                     </tr>
                   ) : (
-                    payments.map((p) => (
+                    filteredPayments.map((p) => (
                       <tr key={p.id} className="hover:bg-neutral-50">
-                        <td className="p-4 font-mono font-semibold text-neutral-900">
-                          {p.transactionReference || `PAY-${p.id}`}
+                        <td className="p-4">
+                          <div className="font-mono font-semibold text-neutral-900">
+                            {p.transactionReference || `PAY-${p.id}`}
+                          </div>
+                          {(p.gatewayTxnId || p.gatewayResponseCode) && (
+                            <div className="text-[11px] text-neutral-500 mt-0.5 font-mono">
+                              {p.gatewayTxnId ? `GW: ${p.gatewayTxnId}` : ''}
+                              {p.gatewayTxnId && p.gatewayResponseCode ? ' • ' : ''}
+                              {p.gatewayResponseCode ? `Mã ${p.gatewayResponseCode}` : ''}
+                              {p.bankCode ? ` (${p.bankCode})` : ''}
+                            </div>
+                          )}
+                          {p.gatewayResponseDescription && p.status !== 'SUCCESS' && (
+                            <div className="text-[11px] text-neutral-500 mt-0.5 max-w-xs truncate" title={p.gatewayResponseDescription}>
+                              {p.gatewayResponseDescription}
+                            </div>
+                          )}
                         </td>
-                        <td className="p-4 text-neutral-700">{p.paymentMethod}</td>
+                        <td className="p-4 text-neutral-700">
+                          <div>{p.paymentMethod}</div>
+                          {p.paymentProvider && (
+                            <div className="text-[11px] text-neutral-400">{p.paymentProvider}</div>
+                          )}
+                        </td>
                         <td className="p-4 text-neutral-600">{p.paymentPurpose}</td>
                         <td className="p-4 text-right font-bold text-neutral-900">
                           {formatCurrency(p.totalAmount)}
@@ -965,10 +1103,36 @@ export const FolioPaymentPage: React.FC = () => {
                           <PaymentStatusBadge status={p.status} />
                         </td>
                         <td className="p-4 text-xs text-neutral-500">
-                          {p.paidAt ? new Date(p.paidAt).toLocaleString('vi-VN') : 'N/A'}
+                          {p.paidAt
+                            ? new Date(p.paidAt).toLocaleString('vi-VN')
+                            : p.createdAt
+                              ? new Date(p.createdAt).toLocaleString('vi-VN')
+                              : 'N/A'}
                         </td>
                         <td className="p-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex flex-wrap items-center justify-center gap-1.5">
+                            {p.status === 'PENDING' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setActionConfirm({ type: 'complete', payment: p })}
+                                  className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1 cursor-pointer"
+                                  title="Xác nhận giao dịch thành công (PENDING → SUCCESS)"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Xác nhận
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setActionConfirm({ type: 'cancel', payment: p })}
+                                  className="text-xs text-red-600 hover:text-red-800 font-semibold px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 flex items-center gap-1 cursor-pointer"
+                                  title="Hủy giao dịch PENDING & mở khóa tạo phiên mới"
+                                >
+                                  <XCircle className="w-3.5 h-3.5" />
+                                  Hủy
+                                </button>
+                              </>
+                            )}
                             {p.status === 'SUCCESS' && (
                               <>
                                 <button
@@ -986,11 +1150,33 @@ export const FolioPaymentPage: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleOpenRefundModal(p)}
-                                  className="text-xs text-amber-600 hover:text-amber-800 font-semibold px-2 py-1 rounded-md hover:bg-amber-50 cursor-pointer"
+                                  className="text-xs text-amber-700 hover:text-amber-900 font-semibold px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 cursor-pointer"
                                 >
                                   Hoàn tiền
                                 </button>
                               </>
+                            )}
+                            {(p.status === 'FAILED' || p.status === 'CANCELLED') && balanceDue > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleOpenPaymentModal}
+                                className="text-xs text-red-600 hover:text-red-800 font-semibold px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 cursor-pointer"
+                              >
+                                Thanh toán lại
+                              </button>
+                            )}
+                            {p.status === 'REFUNDED' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedReceiptPayment(p);
+                                  setIsReceiptModalOpen(true);
+                                }}
+                                className="text-xs text-neutral-600 hover:text-neutral-900 font-semibold px-2 py-1 rounded-md hover:bg-neutral-100 flex items-center gap-1 border border-neutral-200 cursor-pointer"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                                Biên lai
+                              </button>
                             )}
                           </div>
                         </td>
@@ -1026,6 +1212,7 @@ export const FolioPaymentPage: React.FC = () => {
                       <Receipt className="w-3.5 h-3.5" />
                       Nhấp để thanh toán hóa đơn
                     </span>
+                    {invoiceStatusBadge(invoice.status)}
                     {(() => {
                       const assignedRooms = currentBooking?.bookingDetails?.flatMap((d) => d.bookingRooms || []) || [];
                       const roomsWithInfo = assignedRooms.filter((r) => r.roomNumber);
@@ -1043,7 +1230,7 @@ export const FolioPaymentPage: React.FC = () => {
                     })()}
                   </div>
                   <span className="text-xs text-neutral-500 mt-1 block">
-                    Đơn đặt phòng: <b className="font-mono text-neutral-800">{currentBooking?.bookingNumber}</b> | Khách hàng: <b className="text-neutral-800">{currentBooking?.guestName}</b> | Trạng thái: <b className="text-neutral-800">{invoice.status}</b> | Ngày lập:{' '}
+                    Đơn đặt phòng: <b className="font-mono text-neutral-800">{currentBooking?.bookingNumber}</b> | Khách hàng: <b className="text-neutral-800">{currentBooking?.guestName}</b> | Ngày lập:{' '}
                     {new Date(invoice.createdAt).toLocaleDateString('vi-VN')}
                   </span>
                 </div>
@@ -1052,18 +1239,32 @@ export const FolioPaymentPage: React.FC = () => {
                   <p className="text-xl font-bold text-red-600">
                     {formatCurrency(invoice.grandTotal)}
                   </p>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsInvoicePaymentFlowOpen(true);
-                    }}
-                    className="mt-1"
-                  >
-                    <Receipt className="w-4 h-4 mr-1.5" />
-                    Thanh toán hóa đơn này
-                  </Button>
+                  <div className="flex flex-wrap justify-end gap-2 mt-1">
+                    {invoice.status === 'DRAFT' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleIssueInvoice();
+                        }}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1.5" />
+                        Phát hành (DRAFT → ISSUED)
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsInvoicePaymentFlowOpen(true);
+                      }}
+                    >
+                      <Receipt className="w-4 h-4 mr-1.5" />
+                      Thanh toán hóa đơn này
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -1271,12 +1472,44 @@ export const FolioPaymentPage: React.FC = () => {
         initialBalanceDue={balanceDue}
         onPaymentSuccess={(payment) => {
           setSuccessMessage(
-            `Thanh toán ${payment.transactionReference || `PAY-${payment.id}`} đã được ghi nhận thành công!`
+            payment.status === 'PENDING'
+              ? `Giao dịch ${payment.transactionReference || `PAY-${payment.id}`} đã được ghi nhận (PENDING — chờ xác nhận).`
+              : `Thanh toán ${payment.transactionReference || `PAY-${payment.id}`} đã được ghi nhận thành công!`
           );
           if (currentBooking) {
             fetchFolioData(currentBooking.bookingNumber);
           }
         }}
+      />
+
+      {/* MODAL XÁC NHẬN CHUYỂN TRẠNG THÁI GIAO DỊCH PENDING */}
+      <ConfirmModal
+        isOpen={actionConfirm !== null}
+        onClose={() => setActionConfirm(null)}
+        onConfirm={handleConfirmStatusTransition}
+        isLoading={isMutatingStatus}
+        variant={actionConfirm?.type === 'complete' ? 'success' : 'danger'}
+        title={
+          actionConfirm?.type === 'complete'
+            ? 'Xác nhận hoàn tất thanh toán?'
+            : 'Hủy giao dịch thanh toán đang chờ?'
+        }
+        description={
+          actionConfirm
+            ? actionConfirm.type === 'complete'
+              ? `Chuyển giao dịch ${
+                  actionConfirm.payment.transactionReference || `PAY-${actionConfirm.payment.id}`
+                } (${formatCurrency(actionConfirm.payment.totalAmount)}) từ PENDING → SUCCESS, mở khóa phiên Redis và cập nhật trạng thái hóa đơn.`
+              : `Chuyển giao dịch ${
+                  actionConfirm.payment.transactionReference || `PAY-${actionConfirm.payment.id}`
+                } (${formatCurrency(actionConfirm.payment.totalAmount)}) từ PENDING → CANCELLED và giải phóng khóa thanh toán để tạo phiên mới.`
+            : undefined
+        }
+        confirmText={
+          actionConfirm?.type === 'complete'
+            ? 'Xác nhận (PENDING → SUCCESS)'
+            : 'Hủy giao dịch (PENDING → CANCELLED)'
+        }
       />
 
       {/* MODAL XEM VÀ IN BIÊN LAI FOLIO ĐẦY ĐỦ */}
