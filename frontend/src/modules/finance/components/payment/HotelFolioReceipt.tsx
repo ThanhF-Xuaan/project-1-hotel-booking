@@ -4,6 +4,7 @@ import Button from '../../../../core/components/ui/Button';
 import { formatCurrency } from '../../../../core/utils/currency';
 import type { BookingResponse } from '../../../booking/types/booking.types';
 import type { InvoiceResponse, PaymentResponse } from '../../types/finance.types';
+import { buildFolioBreakdown } from '../../utils/folioBreakdown.utils';
 
 export interface HotelFolioReceiptProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export interface HotelFolioReceiptProps {
     description?: string;
   } | null;
   customAmountPaid?: number;
+  totalPaidAmount?: number;
 }
 
 export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
@@ -28,6 +30,7 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
   payment,
   appliedVoucher,
   customAmountPaid,
+  totalPaidAmount,
 }) => {
   if (!isOpen || !booking) return null;
 
@@ -63,228 +66,17 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
   }
 
   // ── 2. BẢNG KÊ TẤT CẢ CÁC DỊCH VỤ SỬ DỤNG THEO TỪNG PHÒNG ─────────────────
-  interface FolioItem {
-    id: number | string;
-    roomNumber?: string;
-    roomTypeName?: string;
-    name: string;
-    category: string;
-    quantity: number;
-    unitPrice: number;
-    vatRate: number;
-    vatAmount: number;
-    subtotal: number;
-    totalAmount: number;
-  }
-
-  interface RoomFolioGroup {
-    roomKey: string;
-    roomNumber?: string;
-    roomTypeName?: string;
-    guestNames?: string[];
-    items: FolioItem[];
-    subtotal: number;
-    vatAmount: number;
-    totalAmount: number;
-  }
-
-  const serviceItems: FolioItem[] = [];
-
-  if (invoice?.details && invoice.details.length > 0) {
-    // Nếu đã có chi tiết hóa đơn chính thức, lấy chính xác từ hóa đơn
-    invoice.details.forEach((d, idx) => {
-      const match = d.description.match(/(?:Phòng|P\.)\s*([A-Za-z0-9-]+)/i);
-      const extractedRoom = match ? match[1] : undefined;
-
-      serviceItems.push({
-        id: d.id || idx + 1,
-        roomNumber: extractedRoom,
-        name: d.description,
-        category:
-          d.lineType === 'ROOM_RATE'
-            ? 'Tiền phòng'
-            : d.lineType === 'PRODUCT'
-              ? 'Ẩm thực / Minibar'
-              : d.lineType === 'SERVICE'
-                ? 'Dịch vụ / Ăn uống'
-                : 'Phụ phí',
-        quantity: d.quantity,
-        unitPrice: Number(d.unitPrice),
-        vatRate: Number(d.vatRate || 8),
-        vatAmount: Number(d.vatAmount),
-        subtotal: Number(d.subtotal),
-        totalAmount: Number(d.totalAmount),
-      });
-    });
-  } else {
-    // Phân tích chi tiết từ booking theo từng phòng
-    let counter = 1;
-    booking.bookingDetails?.forEach((detail) => {
-      const roomTypeName = detail.roomTypeName || 'Phòng Khách sạn';
-      const assignedRoomsInDetail = detail.bookingRooms || [];
-
-      if (assignedRoomsInDetail.length > 0) {
-        assignedRoomsInDetail.forEach((rm) => {
-          const roomNum = rm.roomNumber;
-
-          // Tiền phòng cho phòng vật lý này
-          if (rm.dailyRates && rm.dailyRates.length > 0) {
-            rm.dailyRates.forEach((dr) => {
-              const sub = Number(dr.netPrice) || 0;
-              const vat = Math.round(sub * (Number(dr.vatPercent || 8) / 100));
-              serviceItems.push({
-                id: counter++,
-                roomNumber: roomNum,
-                roomTypeName: roomTypeName,
-                name: `Tiền phòng: ${roomTypeName} (${dr.stayDate})`,
-                category: 'Tiền phòng',
-                quantity: 1,
-                unitPrice: sub,
-                vatRate: Number(dr.vatPercent || 8),
-                vatAmount: vat,
-                subtotal: sub,
-                totalAmount: sub + vat,
-              });
-            });
-          } else {
-            const roomCount = assignedRoomsInDetail.length || 1;
-            const baseSubtotal = Number(booking.subtotalAmount) || 1250000;
-            const unit = Math.round(baseSubtotal / roomCount);
-            const vat = Math.round(unit * 0.08);
-
-            serviceItems.push({
-              id: counter++,
-              roomNumber: roomNum,
-              roomTypeName: roomTypeName,
-              name: `Tiền phòng: ${roomTypeName} (${detail.checkInDate} ➔ ${detail.checkOutDate})`,
-              category: 'Tiền phòng',
-              quantity: 1,
-              unitPrice: unit,
-              vatRate: 8,
-              vatAmount: vat,
-              subtotal: unit,
-              totalAmount: unit + vat,
-            });
-          }
-
-          // Các khoản dịch vụ ăn uống, minibar, giặt là của phòng này
-          rm.charges?.forEach((ch) => {
-            const chType = String(ch.chargeType);
-            const cat =
-              chType === 'RESTAURANT' || chType === 'MINIBAR'
-                ? 'Ẩm thực / Minibar'
-                : chType === 'LAUNDRY' || chType === 'SPA'
-                  ? 'Dịch vụ phòng'
-                  : 'Phụ phí';
-
-            serviceItems.push({
-              id: counter++,
-              roomNumber: roomNum,
-              roomTypeName: roomTypeName,
-              name: ch.itemName || 'Dịch vụ phòng',
-              category: cat,
-              quantity: ch.quantity || 1,
-              unitPrice: Number(ch.unitPrice),
-              vatRate: Number(ch.vatRate || 8),
-              vatAmount: Number(ch.vatAmount || 0),
-              subtotal: Number(ch.subtotal || ch.unitPrice),
-              totalAmount: Number(ch.totalAmount),
-            });
-          });
-        });
-      } else {
-        // Chưa xếp phòng cụ thể
-        const sub = Number(booking.subtotalAmount || booking.totalAmount || 1000000);
-        const vat = Math.round(sub * 0.08);
-        serviceItems.push({
-          id: counter++,
-          name: `Tiền phòng: ${roomTypeName} (${detail.checkInDate} ➔ ${detail.checkOutDate})`,
-          category: 'Tiền phòng',
-          quantity: detail.quantity || 1,
-          unitPrice: sub,
-          vatRate: 8,
-          vatAmount: vat,
-          subtotal: sub,
-          totalAmount: sub + vat,
-        });
-      }
-    });
-
-    if (serviceItems.length === 0) {
-      const sub = Number(booking.subtotalAmount || booking.totalAmount || 1000000);
-      const vat = Math.round(sub * 0.08);
-      serviceItems.push({
-        id: 1,
-        name: 'Dịch vụ lưu trú khách sạn trọn gói',
-        category: 'Lưu trú',
-        quantity: 1,
-        unitPrice: sub,
-        vatRate: 8,
-        vatAmount: vat,
-        subtotal: sub,
-        totalAmount: sub + vat,
-      });
-    }
-  }
-
-  // Nhóm các dịch vụ theo từng phòng
-  const roomGroupsMap = new Map<string, RoomFolioGroup>();
-
-  serviceItems.forEach((item) => {
-    const rKey = item.roomNumber ? `Phòng ${item.roomNumber}` : 'Dịch vụ chung đoàn / Khác';
-    if (!roomGroupsMap.has(rKey)) {
-      const guestsInRoom = item.roomNumber
-        ? booking.bookingDetails
-            ?.flatMap((d) => d.bookingRooms || [])
-            .find((r) => r.roomNumber === item.roomNumber)
-            ?.bookingGuests?.map((g) => g.fullName || `${g.firstName} ${g.lastName}`.trim())
-            .filter(Boolean) || []
-        : [];
-
-      const matchedRoomTypeName = item.roomTypeName || (item.roomNumber
-        ? booking.bookingDetails
-            ?.find((d) => d.bookingRooms?.some((r) => r.roomNumber === item.roomNumber))
-            ?.roomTypeName
-        : undefined);
-
-      roomGroupsMap.set(rKey, {
-        roomKey: rKey,
-        roomNumber: item.roomNumber,
-        roomTypeName: matchedRoomTypeName,
-        guestNames: guestsInRoom,
-        items: [],
-        subtotal: 0,
-        vatAmount: 0,
-        totalAmount: 0,
-      });
-    }
-
-    const g = roomGroupsMap.get(rKey)!;
-    g.items.push(item);
-    g.subtotal += item.subtotal;
-    g.vatAmount += item.vatAmount;
-    g.totalAmount += item.totalAmount;
-  });
-
-  const roomGroups = Array.from(roomGroupsMap.values());
+  const {
+    items: serviceItems,
+    roomGroups,
+    hasValidInvoice,
+    baseSubtotal,
+    serviceFeeAmount,
+    totalVatAmount,
+    grandTotalBeforeVoucher: totalBeforeVoucher,
+  } = buildFolioBreakdown(booking, invoice);
 
   // ── 3. TÍNH TOÁN DÒNG TIỀN VÀ THUẾ PHÍ ──────────────────────────────────────
-  const baseSubtotal =
-    invoice?.subTotal !== undefined
-      ? Number(invoice.subTotal)
-      : serviceItems.reduce((acc, it) => acc + it.subtotal, 0);
-
-  const serviceFeeAmount =
-    invoice?.serviceFeeAmount !== undefined
-      ? Number(invoice.serviceFeeAmount)
-      : Math.round(baseSubtotal * 0.05);
-
-  const totalVatAmount =
-    invoice?.vatAmount !== undefined
-      ? Number(invoice.vatAmount)
-      : serviceItems.reduce((acc, it) => acc + it.vatAmount, 0);
-
-  const totalBeforeVoucher = baseSubtotal + serviceFeeAmount + totalVatAmount;
 
   let voucherDiscount = 0;
   if (appliedVoucher) {
@@ -295,18 +87,35 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
     }
   }
 
-  const grandTotal =
-    invoice?.grandTotal !== undefined
-      ? Number(invoice.grandTotal)
-      : Math.max(0, totalBeforeVoucher - voucherDiscount);
+  const grandTotal = hasValidInvoice
+    ? Math.max(0, Number(invoice!.grandTotal) - voucherDiscount)
+    : Math.max(0, totalBeforeVoucher - voucherDiscount);
 
-  // Số tiền thanh toán kỳ này
+  // Số tiền thanh toán kỳ này & tổng đã trả lũy kế
   const paidThisTime =
     payment?.totalAmount !== undefined
       ? Number(payment.totalAmount)
       : customAmountPaid !== undefined
         ? customAmountPaid
-        : grandTotal;
+        : totalPaidAmount !== undefined
+          ? totalPaidAmount
+          : 0;
+
+  const effectivePaidTotal =
+    totalPaidAmount !== undefined ? Math.max(totalPaidAmount, paidThisTime) : paidThisTime;
+  const remainingBalance = Math.max(0, grandTotal - effectivePaidTotal);
+  const isPaidComplete =
+    invoice?.status === 'PAID' ||
+    (grandTotal > 0 && remainingBalance <= 0) ||
+    (payment?.status === 'SUCCESS' && grandTotal <= paidThisTime);
+  const isPartialPaid = !isPaidComplete && effectivePaidTotal > 0;
+
+  const displayFeeRate =
+    invoice?.serviceFeeRate ??
+    booking.serviceFeeRate ??
+    (baseSubtotal > 0 && serviceFeeAmount > 0
+      ? Math.round((serviceFeeAmount / baseSubtotal) * 100)
+      : 0);
 
   // Xác định phương thức thanh toán
   const paymentMethodDisplay =
@@ -314,7 +123,7 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
       ? 'Thẻ ATM nội địa (Cổng VNPAY Sandbox)'
       : payment?.paymentMethod === 'CASH'
         ? 'Tiền mặt tại quầy (Trực tiếp)'
-        : payment?.paymentMethod || 'Tiền mặt tại quầy';
+        : payment?.paymentMethod || (effectivePaidTotal > 0 ? 'Đã ghi nhận tại quầy' : 'Chưa thanh toán');
 
   const receiptNumber =
     invoice?.invoiceNumber ||
@@ -584,10 +393,20 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
                   </div>
                   <div className="flex justify-between items-center pt-1 border-t border-neutral-200">
                     <span>Trạng thái thanh toán:</span>
-                    <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      ĐÃ THANH TOÁN HOÀN TẤT
-                    </span>
+                    {isPaidComplete ? (
+                      <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        ĐÃ THANH TOÁN HOÀN TẤT
+                      </span>
+                    ) : isPartialPaid ? (
+                      <span className="inline-flex items-center gap-1 font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-[11px]">
+                        ĐÃ THANH TOÁN MỘT PHẦN
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded text-[11px]">
+                        CHỜ THANH TOÁN
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -624,13 +443,15 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
                 <strong className="text-neutral-900">{formatCurrency(baseSubtotal)}</strong>
               </div>
 
-              <div className="flex justify-between text-neutral-600">
-                <span>Phí dịch vụ khách sạn (Service Charge 5%):</span>
-                <span>+{formatCurrency(serviceFeeAmount)}</span>
-              </div>
+              {serviceFeeAmount > 0 && (
+                <div className="flex justify-between text-neutral-600">
+                  <span>Phí dịch vụ khách sạn (Service Charge {displayFeeRate}%):</span>
+                  <span>+{formatCurrency(serviceFeeAmount)}</span>
+                </div>
+              )}
 
               <div className="flex justify-between text-neutral-600">
-                <span>Thuế giá trị gia tăng (VAT 8%):</span>
+                <span>Thuế giá trị gia tăng (VAT):</span>
                 <span>+{formatCurrency(totalVatAmount)}</span>
               </div>
 
@@ -646,15 +467,21 @@ export const HotelFolioReceipt: React.FC<HotelFolioReceiptProps> = ({
                 <span className="text-neutral-900 text-base">{formatCurrency(grandTotal)}</span>
               </div>
 
-              <div className="flex justify-between text-sm font-bold text-emerald-700 bg-emerald-50/70 p-2 rounded-xl border border-emerald-200">
-                <span>SỐ TIỀN THANH TOÁN KỲ NÀY:</span>
+              <div
+                className={`flex justify-between text-sm font-bold p-2 rounded-xl border ${
+                  effectivePaidTotal > 0
+                    ? 'text-emerald-700 bg-emerald-50/70 border-emerald-200'
+                    : 'text-neutral-700 bg-neutral-50 border-neutral-200'
+                }`}
+              >
+                <span>{payment ? 'SỐ TIỀN THANH TOÁN KỲ NÀY:' : 'ĐÃ THANH TOÁN TỔNG CỘNG:'}</span>
                 <span className="text-base">{formatCurrency(paidThisTime)}</span>
               </div>
 
               <div className="flex justify-between text-xs font-semibold text-neutral-600 pt-1">
                 <span>Số dư công nợ còn lại:</span>
-                <span className={grandTotal - paidThisTime > 0 ? 'text-red-600 font-bold' : 'text-neutral-800'}>
-                  {formatCurrency(Math.max(0, grandTotal - paidThisTime))}
+                <span className={remainingBalance > 0 ? 'text-red-600 font-bold' : 'text-emerald-700 font-bold'}>
+                  {formatCurrency(remainingBalance)}
                 </span>
               </div>
             </div>

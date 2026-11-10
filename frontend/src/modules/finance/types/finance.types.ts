@@ -33,7 +33,10 @@ export interface PaymentSearchDto {
   paymentPurpose?: PaymentPurpose;
   status?: PaymentStatus;
   page?: number;
+  pageSize?: number;
   size?: number;
+  sortBy?: string;
+  sortDirection?: 'ASC' | 'DESC';
 }
 
 export interface PaymentResponse {

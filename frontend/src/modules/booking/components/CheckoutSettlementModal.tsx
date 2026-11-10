@@ -17,6 +17,7 @@ import Input from '../../../core/components/ui/Input';
 import Select from '../../../core/components/ui/Select';
 import bookingService from '../services/booking.service';
 import { financeService } from '../../finance/services/finance.service';
+import { getApiErrorMessage } from '../../../core/api/error';
 import type { CheckoutSettlementResponse, SettlementLineItemDto } from '../types/booking.types';
 import type { PaymentMethod } from '../../finance/types/finance.types';
 
@@ -43,7 +44,26 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
   const [paymentReference, setPaymentReference] = useState('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [blockingPendingIds, setBlockingPendingIds] = useState<number[]>([]);
+  const [isCancellingSession, setIsCancellingSession] = useState(false);
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setIsSubmittingPayment(false);
+        if (isOpen && bookingRoomId) {
+          void bookingService.getCheckoutSettlement(bookingRoomId).then((res) => {
+            if (res.result) setSettlement(res.result);
+          });
+        }
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, [isOpen, bookingRoomId]);
 
   const fetchSettlement = useCallback(async () => {
     if (!bookingRoomId) return;
@@ -89,6 +109,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
     }
     setIsSubmittingPayment(true);
     setPaymentError(null);
+    setBlockingPendingIds([]);
     setPaymentSuccessMsg(null);
     try {
       if (paymentMethod === 'VNPAY') {
@@ -119,12 +140,42 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
       await fetchSettlement();
     } catch (err: unknown) {
       console.error('Lỗi ghi nhận thanh toán:', err);
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Ghi nhận thanh toán thất bại. Vui lòng kiểm tra lại.';
-      setPaymentError(msg);
+      const apiErr = getApiErrorMessage(err, 'Ghi nhận thanh toán thất bại. Vui lòng kiểm tra lại.');
+      setPaymentError(apiErr.code ? `[Mã ${apiErr.code}] ${apiErr.message}` : apiErr.message);
+
+      if (apiErr.code === 8005) {
+        try {
+          const listRes = await financeService.getPaymentsByBookingId(settlement.bookingId);
+          const staleIds = (listRes.result || [])
+            .filter((p) => p.status === 'PENDING' && (p.paymentMethod === 'VNPAY' || p.paymentMethod === 'MOMO'))
+            .sort((a, b) => b.id - a.id)
+            .map((p) => p.id);
+          setBlockingPendingIds(staleIds);
+        } catch {
+          // Bỏ qua nếu không tải được
+        }
+      }
     } finally {
       setIsSubmittingPayment(false);
+    }
+  };
+
+  const handleCancelBlockingAndRetry = async () => {
+    if (!settlement || blockingPendingIds.length === 0) return;
+    setIsCancellingSession(true);
+    try {
+      for (const pid of blockingPendingIds) {
+        try {
+          await financeService.cancelPayment(pid);
+        } catch {
+          // Best-effort
+        }
+      }
+      setBlockingPendingIds([]);
+      setPaymentError(null);
+      await handleMakePayment();
+    } finally {
+      setIsCancellingSession(false);
     }
   };
 
@@ -219,9 +270,24 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
 
           {/* Messages */}
           {paymentError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs text-red-800">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{paymentError}</span>
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-2 text-xs text-red-800">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{paymentError}</span>
+              </div>
+              {blockingPendingIds.length > 0 && (
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    onClick={() => void handleCancelBlockingAndRetry()}
+                    isLoading={isCancellingSession}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                  >
+                    Hủy phiên PENDING cũ ({blockingPendingIds.map((id) => `#${id}`).join(', ')}) &amp; Mở lại VNPay
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           {paymentSuccessMsg && (
@@ -390,7 +456,6 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                     options={[
                       { value: 'CASH', label: 'Tiền mặt tại quầy (CASH)' },
                       { value: 'CREDIT_CARD', label: 'Thẻ POS quầy (CREDIT_CARD)' },
-                      { value: 'BANK_TRANSFER', label: 'Chuyển khoản NH (BANK_TRANSFER)' },
                       { value: 'VNPAY', label: 'Cổng thanh toán VNPay Sandbox' },
                     ]}
                     size="sm"
@@ -404,7 +469,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                   <Input
                     value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
-                    placeholder="VD: POS-9988, UNC-01..."
+                    placeholder="VD: POS-9988, PT-001..."
                   />
                 </div>
               </div>

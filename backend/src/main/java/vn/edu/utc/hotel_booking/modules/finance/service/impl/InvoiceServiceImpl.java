@@ -22,8 +22,11 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.Invoice;
 import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceDetail;
 import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceLineType;
 import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceStatus;
+import vn.edu.utc.hotel_booking.modules.finance.entity.Payment;
+import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
+import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
@@ -42,6 +45,7 @@ import java.util.List;
 public class InvoiceServiceImpl implements InvoiceService {
 
     InvoiceRepository invoiceRepository;
+    PaymentRepository paymentRepository;
     BookingLookupService bookingLookupService;
     ServiceOrderService serviceOrderService;
     FinanceMapper financeMapper;
@@ -51,13 +55,25 @@ public class InvoiceServiceImpl implements InvoiceService {
     public InvoiceResponse createInvoice(InvoiceCreateRequest request) {
         Booking booking = bookingLookupService.getBookingEntityById(request.getBookingId());
 
-        BigDecimal serviceFeeRate = request.getServiceFeeRate() != null ? request.getServiceFeeRate() : booking.getServiceFeeRate();
+        BigDecimal rawFeeRate = request.getServiceFeeRate() != null ? request.getServiceFeeRate() : booking.getServiceFeeRate();
+        BigDecimal serviceFeeRate = rawFeeRate != null ? rawFeeRate : BigDecimal.ZERO;
 
         List<Invoice> existingInvoices = invoiceRepository.findByBookingId(booking.getId());
         Invoice invoice;
         if (existingInvoices != null && !existingInvoices.isEmpty()) {
             invoice = existingInvoices.get(0);
-            if (invoice.getStatus() == InvoiceStatus.ISSUED || invoice.getStatus() == InvoiceStatus.PAID) {
+            boolean isBrokenEmptyInvoice = (invoice.getDetails() == null || invoice.getDetails().isEmpty())
+                    && invoice.getGrandTotal() != null
+                    && invoice.getGrandTotal().compareTo(BigDecimal.ZERO) == 0
+                    && booking.getTotalAmount() != null
+                    && booking.getTotalAmount().compareTo(BigDecimal.ZERO) > 0;
+
+            if ((invoice.getStatus() == InvoiceStatus.ISSUED || invoice.getStatus() == InvoiceStatus.PAID)
+                    && !isBrokenEmptyInvoice) {
+                boolean updatedToPaid = syncPaidStatusIfSettled(invoice, booking);
+                if (updatedToPaid) {
+                    invoice = invoiceRepository.save(invoice);
+                }
                 return financeMapper.toResponse(invoice);
             }
             invoice.getDetails().clear();
@@ -73,6 +89,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
 
         populateInvoiceData(invoice, booking, serviceFeeRate);
+        syncPaidStatusIfSettled(invoice, booking);
 
         Invoice saved = invoiceRepository.save(invoice);
         return financeMapper.toResponse(saved);
@@ -81,66 +98,205 @@ public class InvoiceServiceImpl implements InvoiceService {
     private void populateInvoiceData(Invoice invoice, Booking booking, BigDecimal serviceFeeRate) {
         List<InvoiceDetail> details = new ArrayList<>();
         BigDecimal subTotal = BigDecimal.ZERO;
+        BigDecimal totalServiceFee = BigDecimal.ZERO;
         BigDecimal totalVat = BigDecimal.ZERO;
+        boolean hasRoomRateDetails = false;
 
         // 1. Tiền phòng lưu trú (BookingDailyRate -> ROOM_RATE)
-        for (BookingDetail detail : booking.getBookingDetails()) {
-            for (BookingRoom br : detail.getBookingRooms()) {
-                for (BookingDailyRate dr : br.getDailyRates()) {
-                    BigDecimal lineSubtotal = dr.getNetPrice();
-                    BigDecimal lineServiceFee = lineSubtotal.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    BigDecimal lineTaxable = lineSubtotal.add(lineServiceFee);
-                    BigDecimal lineVat = lineTaxable.multiply(dr.getVatPercent()).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                    BigDecimal lineTotal = lineTaxable.add(lineVat);
+        if (booking.getBookingDetails() != null) {
+            for (BookingDetail detail : booking.getBookingDetails()) {
+                if (detail.getBookingRooms() == null) continue;
+                for (BookingRoom br : detail.getBookingRooms()) {
+                    if (br.getDailyRates() != null) {
+                        for (BookingDailyRate dr : br.getDailyRates()) {
+                            hasRoomRateDetails = true;
+                            BigDecimal vatPct = dr.getVatPercent() != null ? dr.getVatPercent() : BigDecimal.ZERO;
+                            BigDecimal lineSubtotal;
+                            BigDecimal lineFeeRate;
+                            BigDecimal lineServiceFee;
+                            BigDecimal lineVat;
+                            BigDecimal lineTotal;
 
-                    String roomPrefix = (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null)
-                            ? "Phòng " + br.getRoomInstance().getRoomNumber() + " - "
-                            : "";
+                            // BookingDailyRate từ bảng giá đã gồm basePrice/serviceFeeAmount/vatAmount và netPrice (đã gồm thuế/phí)
+                            if (dr.getBasePrice() != null || (dr.getVatAmount() != null && dr.getVatAmount().compareTo(BigDecimal.ZERO) > 0)) {
+                                BigDecimal base = dr.getBasePrice() != null ? dr.getBasePrice() : BigDecimal.ZERO;
+                                BigDecimal discount = dr.getDiscountAmount() != null ? dr.getDiscountAmount() : BigDecimal.ZERO;
+                                BigDecimal surcharge = dr.getSurchargeAmount() != null ? dr.getSurchargeAmount() : BigDecimal.ZERO;
+                                lineSubtotal = base.subtract(discount).add(surcharge);
 
-                    InvoiceDetail invDetail = InvoiceDetail.builder()
-                            .invoice(invoice)
-                            .referenceId(dr.getId())
-                            .lineType(InvoiceLineType.ROOM_RATE)
-                            .description(roomPrefix + detail.getRoomTypeName() + " (" + dr.getStayDate() + ")")
-                            .quantity(1)
-                            .unitPrice(dr.getNetPrice())
-                            .subtotal(lineSubtotal)
-                            .serviceFeeRate(serviceFeeRate)
-                            .serviceFeeAmount(lineServiceFee)
-                            .vatRate(dr.getVatPercent())
-                            .vatAmount(lineVat)
-                            .totalAmount(lineTotal)
-                            .build();
+                                lineFeeRate = (dr.getServiceFeeRate() != null && dr.getServiceFeeRate().compareTo(BigDecimal.ZERO) > 0)
+                                        ? dr.getServiceFeeRate()
+                                        : serviceFeeRate;
+                                lineServiceFee = (dr.getServiceFeeAmount() != null && dr.getServiceFeeAmount().compareTo(BigDecimal.ZERO) > 0)
+                                        ? dr.getServiceFeeAmount()
+                                        : lineSubtotal.multiply(lineFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-                    details.add(invDetail);
-                    subTotal = subTotal.add(lineSubtotal);
-                    totalVat = totalVat.add(lineVat);
+                                lineVat = (dr.getVatAmount() != null && dr.getVatAmount().compareTo(BigDecimal.ZERO) >= 0)
+                                        ? dr.getVatAmount()
+                                        : lineSubtotal.add(lineServiceFee).multiply(vatPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                                lineTotal = (dr.getNetPrice() != null && dr.getNetPrice().compareTo(BigDecimal.ZERO) > 0)
+                                        ? dr.getNetPrice()
+                                        : lineSubtotal.add(lineServiceFee).add(lineVat);
+                            } else {
+                                // Dữ liệu cũ / fixture đơn giản chỉ truyền netPrice làm đơn giá trước thuế
+                                lineSubtotal = dr.getNetPrice() != null ? dr.getNetPrice() : BigDecimal.ZERO;
+                                lineFeeRate = serviceFeeRate;
+                                lineServiceFee = lineSubtotal.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                                BigDecimal lineTaxable = lineSubtotal.add(lineServiceFee);
+                                lineVat = lineTaxable.multiply(vatPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                                lineTotal = lineTaxable.add(lineVat);
+                            }
+
+                            String roomPrefix = (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null)
+                                    ? "Phòng " + br.getRoomInstance().getRoomNumber() + " - "
+                                    : "";
+
+                            InvoiceDetail invDetail = InvoiceDetail.builder()
+                                    .invoice(invoice)
+                                    .referenceId(dr.getId())
+                                    .lineType(InvoiceLineType.ROOM_RATE)
+                                    .description(roomPrefix + detail.getRoomTypeName() + " (" + dr.getStayDate() + ")")
+                                    .quantity(1)
+                                    .unitPrice(lineSubtotal)
+                                    .subtotal(lineSubtotal)
+                                    .serviceFeeRate(lineFeeRate)
+                                    .serviceFeeAmount(lineServiceFee)
+                                    .vatRate(vatPct)
+                                    .vatAmount(lineVat)
+                                    .totalAmount(lineTotal)
+                                    .build();
+
+                            details.add(invDetail);
+                            subTotal = subTotal.add(lineSubtotal);
+                            totalServiceFee = totalServiceFee.add(lineServiceFee);
+                            totalVat = totalVat.add(lineVat);
+                        }
+                    }
+
+                    // 2. Phụ thu phòng & Phí phạt (BookingCharge -> SURCHARGE / PENALTY)
+                    if (br.getCharges() != null) {
+                        for (BookingCharge charge : br.getCharges()) {
+                            InvoiceLineType chargeLineType = (charge.getChargeType() == BookingChargeType.PENALTY)
+                                    ? InvoiceLineType.PENALTY
+                                    : InvoiceLineType.SURCHARGE;
+
+                            BigDecimal chargeSub = charge.getSubtotal() != null ? charge.getSubtotal() : BigDecimal.ZERO;
+                            BigDecimal chargeFee = charge.getServiceFeeAmount() != null ? charge.getServiceFeeAmount() : BigDecimal.ZERO;
+                            BigDecimal chargeVat = charge.getVatAmount() != null ? charge.getVatAmount() : BigDecimal.ZERO;
+
+                            InvoiceDetail invDetail = InvoiceDetail.builder()
+                                    .invoice(invoice)
+                                    .referenceId(charge.getId())
+                                    .lineType(chargeLineType)
+                                    .description(charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name())
+                                    .quantity(charge.getQuantity())
+                                    .unitPrice(charge.getUnitPrice())
+                                    .subtotal(chargeSub)
+                                    .serviceFeeRate(charge.getServiceFeeRate())
+                                    .serviceFeeAmount(chargeFee)
+                                    .vatRate(charge.getVatRate())
+                                    .vatAmount(chargeVat)
+                                    .totalAmount(charge.getTotalAmount())
+                                    .build();
+
+                            details.add(invDetail);
+                            subTotal = subTotal.add(chargeSub);
+                            totalServiceFee = totalServiceFee.add(chargeFee);
+                            totalVat = totalVat.add(chargeVat);
+                        }
+                    }
                 }
+            }
+        }
 
-                // 2. Phụ thu phòng & Phí phạt (BookingCharge -> SURCHARGE / PENALTY)
-                for (BookingCharge charge : br.getCharges()) {
-                    InvoiceLineType chargeLineType = (charge.getChargeType() == BookingChargeType.PENALTY)
-                            ? InvoiceLineType.PENALTY
-                            : InvoiceLineType.SURCHARGE;
+        // Fallback cho các đơn đặt phòng chưa có bảng giá từng ngày (booking_daily_rates rỗng)
+        if (!hasRoomRateDetails) {
+            BigDecimal bookingSub = booking.getSubtotalAmount() != null ? booking.getSubtotalAmount() : BigDecimal.ZERO;
+            BigDecimal bookingVat = booking.getTotalVatAmount() != null ? booking.getTotalVatAmount() : BigDecimal.ZERO;
+            BigDecimal bookingFee = bookingSub.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal bookingTaxable = bookingSub.add(bookingFee);
+            BigDecimal effectiveVatRate = (bookingTaxable.compareTo(BigDecimal.ZERO) > 0 && bookingVat.compareTo(BigDecimal.ZERO) > 0)
+                    ? bookingVat.multiply(BigDecimal.valueOf(100)).divide(bookingTaxable, 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
 
-                    InvoiceDetail invDetail = InvoiceDetail.builder()
+            if (bookingSub.compareTo(BigDecimal.ZERO) > 0) {
+                List<BookingDetail> bDetails = booking.getBookingDetails();
+                if (bDetails != null && !bDetails.isEmpty()) {
+                    int count = bDetails.size();
+                    BigDecimal remSub = bookingSub;
+                    BigDecimal remVat = bookingVat;
+                    for (int i = 0; i < count; i++) {
+                        BookingDetail bd = bDetails.get(i);
+                        BigDecimal lineSub = (i == count - 1)
+                                ? remSub
+                                : bookingSub.divide(BigDecimal.valueOf(count), 2, RoundingMode.DOWN);
+                        remSub = remSub.subtract(lineSub);
+
+                        BigDecimal lineVat = (i == count - 1)
+                                ? remVat
+                                : bookingVat.divide(BigDecimal.valueOf(count), 2, RoundingMode.DOWN);
+                        remVat = remVat.subtract(lineVat);
+
+                        BigDecimal lineServiceFee = lineSub.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        int qty = (bd.getQuantity() != null && bd.getQuantity() > 0) ? bd.getQuantity().intValue() : 1;
+                        BigDecimal unitPrice = lineSub.divide(BigDecimal.valueOf(qty), 2, RoundingMode.HALF_UP);
+
+                        String roomLabel = "";
+                        if (bd.getBookingRooms() != null) {
+                            String joinedRooms = bd.getBookingRooms().stream()
+                                    .filter(br -> br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null)
+                                    .map(br -> "Phòng " + br.getRoomInstance().getRoomNumber())
+                                    .distinct()
+                                    .reduce((a, b) -> a + ", " + b)
+                                    .orElse("");
+                            if (!joinedRooms.isBlank()) {
+                                roomLabel = joinedRooms + " - ";
+                            }
+                        }
+                        String dateRange = (bd.getCheckInDate() != null && bd.getCheckOutDate() != null)
+                                ? " (" + bd.getCheckInDate() + " ➔ " + bd.getCheckOutDate() + ")"
+                                : "";
+
+                        InvoiceDetail fallbackDetail = InvoiceDetail.builder()
+                                .invoice(invoice)
+                                .referenceId(bd.getId())
+                                .lineType(InvoiceLineType.ROOM_RATE)
+                                .description(roomLabel + (bd.getRoomTypeName() != null ? bd.getRoomTypeName() : "Lưu trú phòng") + dateRange)
+                                .quantity(qty)
+                                .unitPrice(unitPrice)
+                                .subtotal(lineSub)
+                                .serviceFeeRate(serviceFeeRate)
+                                .serviceFeeAmount(lineServiceFee)
+                                .vatRate(effectiveVatRate)
+                                .vatAmount(lineVat)
+                                .totalAmount(lineSub.add(lineServiceFee).add(lineVat))
+                                .build();
+
+                        details.add(fallbackDetail);
+                        subTotal = subTotal.add(lineSub);
+                        totalServiceFee = totalServiceFee.add(lineServiceFee);
+                        totalVat = totalVat.add(lineVat);
+                    }
+                } else {
+                    InvoiceDetail fallbackDetail = InvoiceDetail.builder()
                             .invoice(invoice)
-                            .referenceId(charge.getId())
-                            .lineType(chargeLineType)
-                            .description(charge.getItemName() != null ? charge.getItemName() : charge.getChargeType().name())
-                            .quantity(charge.getQuantity())
-                            .unitPrice(charge.getUnitPrice())
-                            .subtotal(charge.getSubtotal())
-                            .serviceFeeRate(charge.getServiceFeeRate())
-                            .serviceFeeAmount(charge.getServiceFeeAmount())
-                            .vatRate(charge.getVatRate())
-                            .vatAmount(charge.getVatAmount())
-                            .totalAmount(charge.getTotalAmount())
+                            .referenceId(booking.getId())
+                            .lineType(InvoiceLineType.ROOM_RATE)
+                            .description("Lưu trú khách sạn (" + booking.getBookingNumber() + ")")
+                            .quantity(1)
+                            .unitPrice(bookingSub)
+                            .subtotal(bookingSub)
+                            .serviceFeeRate(serviceFeeRate)
+                            .serviceFeeAmount(bookingFee)
+                            .vatRate(effectiveVatRate)
+                            .vatAmount(bookingVat)
+                            .totalAmount(bookingSub.add(bookingFee).add(bookingVat))
                             .build();
 
-                    details.add(invDetail);
-                    subTotal = subTotal.add(charge.getSubtotal());
-                    totalVat = totalVat.add(charge.getVatAmount());
+                    details.add(fallbackDetail);
+                    subTotal = subTotal.add(bookingSub);
+                    totalServiceFee = totalServiceFee.add(bookingFee);
+                    totalVat = totalVat.add(bookingVat);
                 }
             }
         }
@@ -167,6 +323,9 @@ public class InvoiceServiceImpl implements InvoiceService {
                                 : InvoiceLineType.SERVICE;
 
                         String rawItemName = item.getItemName() != null ? item.getItemName() : "Dịch vụ/Sản phẩm POS";
+                        BigDecimal itemSub = item.getSubtotal() != null ? item.getSubtotal() : BigDecimal.ZERO;
+                        BigDecimal itemFee = item.getServiceFeeAmount() != null ? item.getServiceFeeAmount() : BigDecimal.ZERO;
+                        BigDecimal itemVat = item.getVatAmount() != null ? item.getVatAmount() : BigDecimal.ZERO;
 
                         InvoiceDetail invDetail = InvoiceDetail.builder()
                                 .invoice(invoice)
@@ -175,26 +334,28 @@ public class InvoiceServiceImpl implements InvoiceService {
                                 .description(orderRoomPrefix + rawItemName)
                                 .quantity(item.getQuantity())
                                 .unitPrice(item.getUnitPrice())
-                                .subtotal(item.getSubtotal())
+                                .subtotal(itemSub)
                                 .serviceFeeRate(item.getServiceFeeRate())
-                                .serviceFeeAmount(item.getServiceFeeAmount())
+                                .serviceFeeAmount(itemFee)
                                 .vatRate(item.getVatRate())
-                                .vatAmount(item.getVatAmount())
+                                .vatAmount(itemVat)
                                 .totalAmount(item.getTotalAmount())
                                 .build();
 
                         details.add(invDetail);
-                        subTotal = subTotal.add(item.getSubtotal());
-                        totalVat = totalVat.add(item.getVatAmount());
+                        subTotal = subTotal.add(itemSub);
+                        totalServiceFee = totalServiceFee.add(itemFee);
+                        totalVat = totalVat.add(itemVat);
                     }
                 }
             }
         }
 
-        BigDecimal serviceFeeAmount = subTotal.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        BigDecimal serviceFeeAmount = totalServiceFee;
         BigDecimal grandTotal = subTotal.add(serviceFeeAmount).add(totalVat);
 
-        invoice.setDetails(details);
+        invoice.getDetails().clear();
+        invoice.getDetails().addAll(details);
         invoice.setSubTotal(subTotal);
         invoice.setServiceFeeAmount(serviceFeeAmount);
         invoice.setVatAmount(totalVat);
@@ -282,9 +443,35 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         invoice.setStatus(InvoiceStatus.ISSUED);
         invoice.setIssuedAt(OffsetDateTime.now());
+        if (invoice.getBooking() != null) {
+            syncPaidStatusIfSettled(invoice, invoice.getBooking());
+        }
         Invoice saved = invoiceRepository.save(invoice);
 
         return financeMapper.toResponse(saved);
+    }
+
+    private boolean syncPaidStatusIfSettled(Invoice invoice, Booking booking) {
+        if (invoice.getStatus() == InvoiceStatus.CANCELLED || invoice.getStatus() == InvoiceStatus.PAID) {
+            return false;
+        }
+        if (invoice.getGrandTotal() == null || invoice.getGrandTotal().compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        BigDecimal totalPaid = (payments == null ? List.<Payment>of() : payments).stream()
+                .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                .map(Payment::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalPaid.compareTo(invoice.getGrandTotal()) >= 0) {
+            invoice.setStatus(InvoiceStatus.PAID);
+            if (invoice.getIssuedAt() == null) {
+                invoice.setIssuedAt(OffsetDateTime.now());
+            }
+            return true;
+        }
+        return false;
     }
 
     private String generateInvoiceNumber() {
