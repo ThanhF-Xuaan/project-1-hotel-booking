@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import { formatCurrency } from '../../../core/utils/currency';
+import { getErrorStatus } from '../../../core/api/client';
 import financeService from '../services/finance.service';
 import PaymentStatusBadge from '../components/payment/PaymentStatusBadge';
 import type { PaymentResponse, PaymentStatus } from '../types/finance.types';
@@ -57,10 +58,12 @@ export const PaymentResultPage: React.FC = () => {
   const bookingIdParam = searchParams.get('bookingId');
 
   const isPaidByParams =
-    statusParam === 'PAID' || vnpResponseCode === '00' || momoResultCode === '0';
+    statusParam === 'PAID' ||
+    (!statusParam && (vnpResponseCode === '00' || momoResultCode === '0'));
 
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
   const [pollFailed, setPollFailed] = useState(false);
+  const [authPollStopped, setAuthPollStopped] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showRawPayload, setShowRawPayload] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -75,18 +78,33 @@ export const PaymentResultPage: React.FC = () => {
         const res = await financeService.getPaymentById(paymentId);
         if (!active || !res.result) return;
         setPollFailed(false);
+        setAuthPollStopped(false);
         setPayment(res.result);
         if (res.result.status !== 'PENDING' && intervalRef.current) {
           clearInterval(intervalRef.current);
           intervalRef.current = null;
         }
-      } catch {
-        if (active) setPollFailed(true);
+      } catch (err: unknown) {
+        if (!active) return;
+        const status = getErrorStatus(err);
+        if (status === 401 || status === 403) {
+          // Người dùng không có token ở origin hiện tại (VD: port 80 vs 3000 hoặc khách portal)
+          // ➔ dừng poll lặp vô hạn và dùng kết quả đã được BE xác thực chữ ký trên query params
+          setAuthPollStopped(true);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
+          return;
+        }
+        setPollFailed(true);
       }
     };
 
-    check();
-    intervalRef.current = setInterval(check, 3000);
+    void check();
+    intervalRef.current = setInterval(() => {
+      void check();
+    }, 3000);
 
     return () => {
       active = false;
@@ -97,14 +115,19 @@ export const PaymentResultPage: React.FC = () => {
     };
   }, [paymentId]);
 
-  // Trạng thái hiển thị
+  // Trạng thái hiển thị: ưu tiên trạng thái DB nếu poll được; fallback sang URL params từ BE redirect nếu 401/403 hoặc thiếu paymentId
   const displayStatus: PaymentStatus = payment
     ? payment.status
-    : paymentId
-    ? 'PENDING'
-    : isPaidByParams
-    ? 'SUCCESS'
-    : 'FAILED';
+    : !paymentId || authPollStopped
+    ? isPaidByParams
+      ? 'SUCCESS'
+      : 'FAILED'
+    : 'PENDING';
+
+  const isSignatureInvalid =
+    statusParam === 'INVALID_SIGNATURE' ||
+    vnpResponseCode === '97' ||
+    (statusParam === 'FAILED' && vnpResponseCode === '00');
 
   const isPaid = displayStatus === 'SUCCESS';
   const isConfirming = displayStatus === 'PENDING';
@@ -261,10 +284,17 @@ export const PaymentResultPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-xl text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Chữ ký HMAC-SHA512 Hợp Lệ</span>
-            </div>
+            {isSignatureInvalid ? (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border border-red-400/40 text-red-200 rounded-xl text-xs font-semibold">
+                <XCircle className="w-4 h-4 text-red-400" />
+                <span>Chữ ký / Phản hồi Không Hợp Lệ</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 rounded-xl text-xs font-semibold">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>{isConfirming ? 'Đang đối soát chữ ký...' : 'Chữ ký HMAC-SHA512 Hợp Lệ'}</span>
+              </div>
+            )}
           </div>
 
           <div className="p-6 space-y-6">
@@ -502,7 +532,13 @@ export const PaymentResultPage: React.FC = () => {
             {isFailed && (
               <Button
                 variant="primary"
-                onClick={() => navigate(-1)}
+                onClick={() =>
+                  navigate(
+                    bookingIdParam
+                      ? `/finance/folios?bookingId=${bookingIdParam}`
+                      : '/finance/folios'
+                  )
+                }
                 className="w-full sm:w-auto"
               >
                 Thử Thanh Toán Lại

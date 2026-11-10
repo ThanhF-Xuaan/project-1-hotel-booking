@@ -15,8 +15,12 @@ import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.Invoice;
 import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceDetail;
 import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceLineType;
+import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceStatus;
+import vn.edu.utc.hotel_booking.modules.finance.entity.Payment;
+import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
+import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.impl.InvoiceServiceImpl;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
@@ -35,6 +39,9 @@ class InvoiceServiceTest {
 
     @Mock
     private InvoiceRepository invoiceRepository;
+
+    @Mock
+    private PaymentRepository paymentRepository;
 
     @Mock
     private BookingLookupService bookingLookupService;
@@ -238,5 +245,155 @@ class InvoiceServiceTest {
         assertThat(details).hasSize(3);
         List<InvoiceLineType> lineTypes = details.stream().map(InvoiceDetail::getLineType).toList();
         assertThat(lineTypes).doesNotContain(InvoiceLineType.PRODUCT);
+    }
+
+    @Test
+    @DisplayName("Fallback chi tiết phòng khi booking chưa có dailyRates & tự đánh dấu PAID nếu đã thanh toán đủ")
+    void shouldBuildRoomDetailsAndMarkPaidWhenDailyRatesEmptyAndSettled() {
+        BookingRoom roomWithoutRates = BookingRoom.builder().id(301L).build();
+        BookingDetail detail = BookingDetail.builder()
+                .id(111L)
+                .roomTypeName("Executive Suite")
+                .quantity((short) 1)
+                .checkInDate(LocalDate.of(2026, 10, 10))
+                .checkOutDate(LocalDate.of(2026, 10, 12))
+                .bookingRooms(List.of(roomWithoutRates))
+                .build();
+
+        Booking seedLikeBooking = Booking.builder()
+                .id(11L)
+                .bookingNumber("BK-TEST-1005")
+                .subtotalAmount(new BigDecimal("4800000.00"))
+                .serviceFeeRate(BigDecimal.ZERO)
+                .serviceFeeAmount(BigDecimal.ZERO)
+                .totalVatAmount(new BigDecimal("384000.00"))
+                .totalAmount(new BigDecimal("5184000.00"))
+                .bookingDetails(List.of(detail))
+                .build();
+
+        Payment successPay = Payment.builder()
+                .id(155L)
+                .booking(seedLikeBooking)
+                .totalAmount(new BigDecimal("5184000.00"))
+                .status(PaymentStatus.SUCCESS)
+                .build();
+
+        when(bookingLookupService.getBookingEntityById(11L)).thenReturn(seedLikeBooking);
+        when(serviceOrderService.getOrdersByBookingId(11L)).thenReturn(List.of());
+        when(paymentRepository.findByBookingId(11L)).thenReturn(List.of(successPay));
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(financeMapper.toResponse(any(Invoice.class))).thenReturn(InvoiceResponse.builder().id(10L).build());
+
+        invoiceService.createInvoice(InvoiceCreateRequest.builder().bookingId(11L).build());
+
+        ArgumentCaptor<Invoice> captor = ArgumentCaptor.forClass(Invoice.class);
+        verify(invoiceRepository).save(captor.capture());
+        Invoice saved = captor.getValue();
+
+        assertThat(saved.getDetails()).hasSize(1);
+        assertThat(saved.getDetails().get(0).getDescription()).contains("Executive Suite");
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("5184000.00");
+        assertThat(saved.getStatus()).isEqualTo(InvoiceStatus.PAID);
+        assertThat(saved.getIssuedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Tự phục hồi hóa đơn bị rỗng 0 đ khi gọi lại createInvoice")
+    void shouldRebuildBrokenZeroInvoiceWhenRetried() {
+        BookingDetail detail = BookingDetail.builder()
+                .id(112L)
+                .roomTypeName("Suite")
+                .quantity((short) 1)
+                .build();
+
+        Booking booking = Booking.builder()
+                .id(12L)
+                .bookingNumber("BK-TEST-999")
+                .subtotalAmount(new BigDecimal("2600000.00"))
+                .serviceFeeRate(BigDecimal.ZERO)
+                .totalVatAmount(new BigDecimal("208000.00"))
+                .totalAmount(new BigDecimal("2808000.00"))
+                .bookingDetails(List.of(detail))
+                .build();
+
+        Invoice brokenZeroInvoice = Invoice.builder()
+                .id(5L)
+                .booking(booking)
+                .invoiceNumber("INV-ZERO")
+                .grandTotal(BigDecimal.ZERO)
+                .status(InvoiceStatus.ISSUED)
+                .build();
+
+        when(bookingLookupService.getBookingEntityById(12L)).thenReturn(booking);
+        when(invoiceRepository.findByBookingId(12L)).thenReturn(List.of(brokenZeroInvoice));
+        when(serviceOrderService.getOrdersByBookingId(12L)).thenReturn(List.of());
+        when(paymentRepository.findByBookingId(12L)).thenReturn(List.of());
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(financeMapper.toResponse(any(Invoice.class))).thenReturn(InvoiceResponse.builder().id(5L).build());
+
+        invoiceService.createInvoice(InvoiceCreateRequest.builder().bookingId(12L).build());
+
+        assertThat(brokenZeroInvoice.getDetails()).hasSize(1);
+        assertThat(brokenZeroInvoice.getGrandTotal()).isEqualByComparingTo("2808000.00");
+        assertThat(brokenZeroInvoice.getStatus()).isEqualTo(InvoiceStatus.ISSUED);
+    }
+
+    @Test
+    @DisplayName("Không tính thuế/phí 2 lần khi BookingDailyRate đã có sẵn basePrice, serviceFeeAmount, vatAmount và netPrice")
+    void shouldNotDoubleTaxDailyRatesThatAlreadyIncludeFeeAndVat() {
+        BookingDailyRate inclusiveRate = BookingDailyRate.builder()
+                .id(77L)
+                .stayDate(LocalDate.of(2026, 11, 3))
+                .basePrice(new BigDecimal("2500000.00"))
+                .discountAmount(BigDecimal.ZERO)
+                .surchargeAmount(BigDecimal.ZERO)
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .serviceFeeAmount(new BigDecimal("125000.00"))
+                .vatPercent(new BigDecimal("8.00"))
+                .vatAmount(new BigDecimal("210000.00"))
+                .netPrice(new BigDecimal("2835000.00"))
+                .build();
+
+        BookingRoom room = BookingRoom.builder()
+                .id(700L)
+                .dailyRates(List.of(inclusiveRate))
+                .build();
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(701L)
+                .roomTypeName("Deluxe Room")
+                .bookingRooms(List.of(room))
+                .build();
+
+        Booking booking = Booking.builder()
+                .id(23L)
+                .bookingNumber("BKG-20261103-0001")
+                .subtotalAmount(new BigDecimal("2500000.00"))
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .serviceFeeAmount(new BigDecimal("125000.00"))
+                .totalVatAmount(new BigDecimal("210000.00"))
+                .totalAmount(new BigDecimal("2835000.00"))
+                .bookingDetails(List.of(detail))
+                .build();
+
+        when(bookingLookupService.getBookingEntityById(23L)).thenReturn(booking);
+        when(serviceOrderService.getOrdersByBookingId(23L)).thenReturn(List.of());
+        when(paymentRepository.findByBookingId(23L)).thenReturn(List.of());
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(financeMapper.toResponse(any(Invoice.class))).thenReturn(InvoiceResponse.builder().id(12L).build());
+
+        invoiceService.createInvoice(InvoiceCreateRequest.builder().bookingId(23L).build());
+
+        ArgumentCaptor<Invoice> captor = ArgumentCaptor.forClass(Invoice.class);
+        verify(invoiceRepository).save(captor.capture());
+        Invoice saved = captor.getValue();
+
+        assertThat(saved.getDetails()).hasSize(1);
+        assertThat(saved.getDetails().get(0).getUnitPrice()).isEqualByComparingTo("2500000.00");
+        assertThat(saved.getDetails().get(0).getTotalAmount()).isEqualByComparingTo("2835000.00");
+        assertThat(saved.getSubTotal()).isEqualByComparingTo("2500000.00");
+        assertThat(saved.getServiceFeeAmount()).isEqualByComparingTo("125000.00");
+        assertThat(saved.getVatAmount()).isEqualByComparingTo("210000.00");
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("2835000.00");
     }
 }

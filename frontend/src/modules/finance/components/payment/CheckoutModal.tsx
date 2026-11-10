@@ -43,7 +43,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const label = GATEWAY_LABEL[gateway];
 
   const handleOpenGateway = () => {
-    window.open(session.paymentUrl, '_blank', 'noopener,noreferrer');
+    window.location.assign(session.paymentUrl);
   };
 
   const handleCopyCardInfo = () => {
