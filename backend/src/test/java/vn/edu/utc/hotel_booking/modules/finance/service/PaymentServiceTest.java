@@ -492,4 +492,104 @@ class PaymentServiceTest {
         assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.PAID);
         verify(invoiceRepository).save(invoice);
     }
+
+    @Test
+    @DisplayName("completePayment chuyển PENDING → SUCCESS, ghi Transaction, xóa lock Redis và tất toán Hóa đơn")
+    void completePayment_Pending_SuccessReleasesLockAndSettlesInvoice() {
+        Payment pending = Payment.builder()
+                .id(20L)
+                .booking(testBooking)
+                .totalAmount(BigDecimal.valueOf(1500000))
+                .paymentMethod(PaymentMethod.BANK_TRANSFER)
+                .status(PaymentStatus.PENDING)
+                .transactionReference("FT261110001")
+                .build();
+
+        Invoice invoice = Invoice.builder()
+                .id(51L)
+                .booking(testBooking)
+                .invoiceNumber("INV-2026-002")
+                .grandTotal(BigDecimal.valueOf(1500000))
+                .status(InvoiceStatus.DRAFT)
+                .build();
+
+        when(paymentRepository.findById(20L)).thenReturn(Optional.of(pending));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(invoiceRepository.findByBookingId(1L)).thenReturn(List.of(invoice));
+        when(paymentRepository.findByBookingId(1L)).thenReturn(List.of(pending));
+        when(financeMapper.toResponse(any(Payment.class))).thenReturn(
+                PaymentResponse.builder().id(20L).status(PaymentStatus.SUCCESS).build());
+
+        PaymentResponse response = paymentService.completePayment(20L);
+
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(pending.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(pending.getPaidAt()).isNotNull();
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        verify(redisTemplate).delete("payment:lock:booking:1");
+        assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.PAID);
+        assertThat(invoice.getIssuedAt()).isNotNull();
+        verify(invoiceRepository).save(invoice);
+    }
+
+    @Test
+    @DisplayName("completePayment từ chối thanh toán đã CANCELLED → PAYMENT_NOT_PENDING (8006)")
+    void completePayment_NotPending_Throws8006() {
+        Payment cancelled = Payment.builder()
+                .id(21L)
+                .booking(testBooking)
+                .totalAmount(BigDecimal.valueOf(1500000))
+                .paymentMethod(PaymentMethod.VNPAY)
+                .status(PaymentStatus.CANCELLED)
+                .build();
+        when(paymentRepository.findById(21L)).thenReturn(Optional.of(cancelled));
+
+        assertThatThrownBy(() -> paymentService.completePayment(21L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.PAYMENT_NOT_PENDING));
+
+        verify(paymentRepository, never()).save(any(Payment.class));
+        verify(redisTemplate, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("completePayment từ chối thanh toán đã SUCCESS → PAYMENT_ALREADY_COMPLETED (8003)")
+    void completePayment_AlreadySuccess_Throws8003() {
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(testPayment)); // SUCCESS
+
+        assertThatThrownBy(() -> paymentService.completePayment(10L))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.PAYMENT_ALREADY_COMPLETED));
+
+        verify(paymentRepository, never()).save(any(Payment.class));
+        verify(redisTemplate, never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("refundPayment trả Hóa đơn PAID về ISSUED khi hoàn tiền làm phát sinh dư nợ")
+    void refundPayment_RevertsPaidInvoiceToIssued_WhenBalanceReturns() {
+        Invoice invoice = Invoice.builder()
+                .id(52L)
+                .booking(testBooking)
+                .invoiceNumber("INV-2026-003")
+                .grandTotal(BigDecimal.valueOf(1500000))
+                .status(InvoiceStatus.PAID)
+                .issuedAt(OffsetDateTime.now().minusHours(1))
+                .build();
+
+        when(paymentRepository.findById(10L)).thenReturn(Optional.of(testPayment));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(invoiceRepository.findByBookingId(1L)).thenReturn(List.of(invoice));
+        when(paymentRepository.findByBookingId(1L)).thenReturn(List.of(testPayment));
+        when(financeMapper.toResponse(any(Payment.class))).thenReturn(
+                PaymentResponse.builder().id(10L).status(PaymentStatus.REFUNDED).build());
+
+        PaymentResponse response = paymentService.refundPayment(10L, BigDecimal.valueOf(500000), "Hoàn tiền một phần");
+
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.ISSUED);
+        verify(invoiceRepository).save(invoice);
+    }
 }
