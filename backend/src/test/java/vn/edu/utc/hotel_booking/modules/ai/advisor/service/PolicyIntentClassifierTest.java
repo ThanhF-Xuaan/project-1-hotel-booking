@@ -111,4 +111,59 @@ class PolicyIntentClassifierTest {
         assertThat(result.getPolicyQuestion()).isNull();
         assertThat(result.isWriteIntent()).isFalse();
     }
+
+    @Test
+    @DisplayName("Combined message with cancellation question separates search text and policy question")
+    void combinedMessageWithCancellationSeparatesCorrectly() {
+        String input = "Tìm phòng đôi ở Đà Nẵng cho 2 người lớn, hủy phòng trước mấy ngày?";
+        PolicyIntentClassifier.ClassificationResult result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.SEARCH_AND_POLICY);
+        assertThat(result.isWriteIntent()).isFalse();
+        assertThat(result.getSearchText()).contains("2 người lớn");
+        assertThat(result.getSearchText()).doesNotContain("hủy phòng");
+        assertThat(result.getPolicyQuestion()).contains("hủy phòng");
+    }
+
+    @Test
+    @DisplayName("Short question ending with question mark classifies as POLICY_ONLY")
+    void shortQuestionWithQuestionMarkClassifiedAsPolicyOnly() {
+        String input = "Phụ thu thêm người?";
+        PolicyIntentClassifier.ClassificationResult result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
+        assertThat(result.isWriteIntent()).isFalse();
+        assertThat(result.getPolicyQuestion()).contains("Phụ thu thêm người?");
+    }
+
+    @Test
+    @DisplayName("Write command ending with question mark is blocked as OUT_OF_SCOPE")
+    void writeCommandWithQuestionMarkBlocked() {
+        String input = "Hủy phòng mã BK123 cho tôi?";
+        PolicyIntentClassifier.ClassificationResult result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.OUT_OF_SCOPE);
+        assertThat(result.isWriteIntent()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Payment command with question mark is blocked as OUT_OF_SCOPE")
+    void paymentCommandWithQuestionMarkBlocked() {
+        String input = "Thanh toán đơn phòng cho tôi ngay được không?";
+        PolicyIntentClassifier.ClassificationResult result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.OUT_OF_SCOPE);
+        assertThat(result.isWriteIntent()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Cancellation policy inquiry classifies as POLICY_ONLY")
+    void cancellationPolicyInquiryClassifiedAsPolicyOnly() {
+        String input = "Chính sách hủy phòng như thế nào?";
+        PolicyIntentClassifier.ClassificationResult result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
+        assertThat(result.isWriteIntent()).isFalse();
+        assertThat(result.getPolicyQuestion()).contains("hủy phòng");
+    }
 }

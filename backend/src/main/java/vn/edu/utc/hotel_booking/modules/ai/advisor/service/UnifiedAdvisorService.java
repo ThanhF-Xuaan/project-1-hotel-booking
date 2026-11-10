@@ -15,6 +15,7 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagAnswerStatus;
 import vn.edu.utc.hotel_booking.modules.ai.rag.service.RagPublicQueryFacade;
 import vn.edu.utc.hotel_booking.modules.ai.rag.service.RagPublicQueryOutcome;
+import vn.edu.utc.hotel_booking.modules.ai.rag.service.RagRequestBudget;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -116,6 +117,7 @@ public class UnifiedAdvisorService {
             AdvisorResultDto advisorResult,
             RoomAdvisorSession existingSession
     ) {
+        String safePolicyQuestion = RagRequestBudget.redactQuestion(policyQuestion);
         Integer targetHotelId = explicitPolicyHotelId;
         String targetHotelName = null;
         List<HotelChoiceDto> choices = null;
@@ -143,7 +145,7 @@ public class UnifiedAdvisorService {
                         .toList();
                 return KnowledgeAnswerDto.builder()
                         .state(KnowledgeState.SCOPE_REQUIRED)
-                        .policyQuestion(policyQuestion)
+                        .policyQuestion(safePolicyQuestion)
                         .hotelChoices(choices)
                         .result(RagQueryResultDto.builder()
                                 .status(RagAnswerStatus.SCOPE_REQUIRED)
@@ -153,6 +155,13 @@ public class UnifiedAdvisorService {
             }
         }
 
+        // Fallback to advisorResult criteria if recommendations was empty (e.g. NEED_INFO or NO_MATCH)
+        if (targetHotelId == null && advisorResult != null && advisorResult.getCriteria() != null
+                && advisorResult.getCriteria().getHotelId() != null) {
+            targetHotelId = advisorResult.getCriteria().getHotelId();
+            targetHotelName = advisorResult.getCriteria().getLocationKeyword();
+        }
+
         // Fallback to session criteria if available
         if (targetHotelId == null && existingSession != null && existingSession.getCriteria() != null
                 && existingSession.getCriteria().getHotelId() != null) {
@@ -160,13 +169,13 @@ public class UnifiedAdvisorService {
         }
 
         // Execute query through facade
-        RagPublicQueryOutcome outcome = ragFacade.ask(policyQuestion, targetHotelId);
+        RagPublicQueryOutcome outcome = ragFacade.ask(safePolicyQuestion, targetHotelId);
 
         return KnowledgeAnswerDto.builder()
                 .state(outcome.getState())
                 .hotelId(targetHotelId)
                 .hotelName(targetHotelName)
-                .policyQuestion(policyQuestion)
+                .policyQuestion(safePolicyQuestion)
                 .result(outcome.getResult())
                 .retryAfterSeconds(outcome.getRetryAfterSeconds())
                 .hotelChoices(choices)

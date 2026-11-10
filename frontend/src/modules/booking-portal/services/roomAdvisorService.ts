@@ -7,6 +7,7 @@ import type {
   AdvisorClientError,
   UnifiedAdvisorRequest,
   UnifiedAdvisorResult,
+  KnowledgeCitation,
 } from '../types/roomAdvisor.types';
 
 const rawBaseUrl =
@@ -195,7 +196,32 @@ export async function sendUnifiedChat(
       request,
       { signal: options?.signal }
     );
-    return res.data.result;
+
+    const result = res.data.result;
+    const knowledge = result?.knowledge;
+    if (knowledge && (knowledge.state === 'ANSWERED' || (knowledge as unknown as Record<string, unknown>).state === 'GROUNDED_ANSWER')) {
+      const isGrounded = knowledge.result?.status === 'GROUNDED_ANSWER' || (knowledge as unknown as Record<string, unknown>).state === 'GROUNDED_ANSWER';
+      if (isGrounded) {
+        const citations = knowledge.result?.citations ?? (knowledge as unknown as { citations?: KnowledgeCitation[] }).citations;
+        const invalidCitations = !citations || citations.length === 0;
+        const crossHotelLeak =
+          knowledge.hotelId != null &&
+          citations?.some((c) => c.hotelId != null && c.hotelId !== knowledge.hotelId);
+        if (invalidCitations || crossHotelLeak) {
+          result.knowledge = {
+            ...knowledge,
+            state: 'UNAVAILABLE',
+            result: {
+              status: 'RAG_TEMP_UNAVAILABLE',
+              answer: 'Không thể xác thực nguồn trích dẫn cho câu trả lời chính sách.',
+              citations: [],
+            },
+          };
+        }
+      }
+    }
+
+    return result;
   } catch (err) {
     return handleAdvisorError(err);
   }

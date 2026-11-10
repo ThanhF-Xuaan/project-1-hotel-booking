@@ -242,4 +242,66 @@ class UnifiedAdvisorServiceTest {
         assertThat(result.getIntent()).isEqualTo(UnifiedIntent.OUT_OF_SCOPE);
         assertThat(result.getKnowledge()).isNull();
     }
+
+    @Test
+    @DisplayName("When recommendations empty (NEED_INFO), fallback to criteria.hotelId for RAG scope")
+    void fallbackToCriteriaHotelIdWhenRecommendationsEmpty() {
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .hotelId(1)
+                .locationKeyword("Hà Nội Grand")
+                .build();
+        AdvisorResultDto mockAdvisor = AdvisorResultDto.builder()
+                .status(AdvisorStatus.NEED_INFO)
+                .criteria(criteria)
+                .recommendations(List.of())
+                .build();
+        when(roomAdvisorService.chat(any(), eq("owner-1"))).thenReturn(mockAdvisor);
+
+        RagQueryResultDto ragResult = RagQueryResultDto.builder()
+                .status(RagAnswerStatus.GROUNDED_ANSWER)
+                .answer("Giờ nhận phòng từ 14:00.")
+                .build();
+        when(ragFacade.ask(anyString(), eq(1))).thenReturn(RagPublicQueryOutcome.answer(ragResult));
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("Tìm phòng tại khách sạn, nhận phòng lúc mấy giờ?")
+                .build();
+
+        UnifiedAdvisorResultDto result = unifiedService.converse(request, "owner-1");
+
+        assertThat(result.getKnowledge()).isNotNull();
+        assertThat(result.getKnowledge().getState()).isEqualTo(KnowledgeState.ANSWERED);
+        assertThat(result.getKnowledge().getHotelId()).isEqualTo(1);
+        verify(ragFacade).ask(anyString(), eq(1));
+    }
+
+    @Test
+    @DisplayName("Policy question in KnowledgeAnswerDto is redacted for PII")
+    void policyQuestionIsRedactedForPii() {
+        AdvisorResultDto mockAdvisor = AdvisorResultDto.builder()
+                .status(AdvisorStatus.RESULTS)
+                .recommendations(List.of(
+                        RoomRecommendationDto.builder()
+                                .room(RoomSummaryDto.builder().hotelId(2).hotelName("Đà Nẵng").build())
+                                .build()
+                ))
+                .build();
+        when(roomAdvisorService.chat(any(), eq("owner-1"))).thenReturn(mockAdvisor);
+
+        RagQueryResultDto ragResult = RagQueryResultDto.builder()
+                .status(RagAnswerStatus.GROUNDED_ANSWER)
+                .answer("Chính sách hủy phòng áp dụng trước 24h.")
+                .build();
+        when(ragFacade.ask(anyString(), eq(2))).thenReturn(RagPublicQueryOutcome.answer(ragResult));
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("Tìm phòng Đà Nẵng, gọi 0912345678 hủy phòng trước mấy ngày?")
+                .build();
+
+        UnifiedAdvisorResultDto result = unifiedService.converse(request, "owner-1");
+
+        assertThat(result.getKnowledge()).isNotNull();
+        assertThat(result.getKnowledge().getPolicyQuestion()).doesNotContain("0912345678");
+        assertThat(result.getKnowledge().getPolicyQuestion()).contains("[REDACTED_PHONE]");
+    }
 }

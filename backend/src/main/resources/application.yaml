@@ -132,7 +132,7 @@ hotel:
         max-evidence-chars: ${HOTEL_AI_RAG_GENERATION_MAX_EVIDENCE_CHARS:12000}
     advisor:
       unified:
-        enabled: 
+        enabled: ${HOTEL_AI_ADVISOR_UNIFIED_ENABLED:false}
       security:
         anon-token-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET:9aB8cE7dF6gH5jK4mN3pQ2rT1vW0xYzA_bCdEfGhJkMnPqRtVwXyZ}
         anon-token-secondary-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET:}

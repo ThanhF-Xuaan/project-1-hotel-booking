@@ -63,7 +63,7 @@ public class RagPublicQueryFacade {
             log.warn("T12-V2-031: RAG query rate limited; wait {} seconds", limited.retryAfterSeconds());
             return RagPublicQueryOutcome.rateLimited(limited.retryAfterSeconds());
         } catch (Exception e) {
-            log.warn("T12-V2-032: RAG query failed or temporarily unavailable: {}", e.getMessage());
+            log.warn("T12-V2-032: RAG query failed or temporarily unavailable (type={})", e.getClass().getSimpleName());
             return RagPublicQueryOutcome.unavailable();
         }
     }

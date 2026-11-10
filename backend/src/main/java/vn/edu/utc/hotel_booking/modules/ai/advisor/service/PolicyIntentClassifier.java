@@ -25,14 +25,10 @@ public class PolicyIntentClassifier {
     );
 
     private static final Pattern EXPLICIT_WRITE_COMMAND_PATTERN = Pattern.compile(
-            "(?iu)(?:hãy\\s+)?(?:đặt|dat|giữ|giu|hủy|huy|thanh\\s*toán|thanh\\s*toan)\\s*(?:phòng|phong|đơn|don|booking|reservation|mã\\s*\\w+|ma\\s*\\w+|cho\\s*tôi|giúp\\s*tôi|ngay|này|nay)|" +
-                    "(?:hủy|huy)\\s*phòng\\s*(?:mã|id|cho|giúp|giup|ngay|này|nay)|" +
+            "(?iu)(?:hãy\\s+)?(?:đặt|dat|giữ|giu|hủy|huy|thanh\\s*toán|thanh\\s*toan)\\s+.*?(?:mã\\s*\\w+|id\\s*\\w+|đơn\\s*\\w+|don\\s*\\w+|cho\\s*tôi(?!\\s*(?:biết|hỏi|xem))|giúp\\s*tôi(?!\\s*(?:biết|hỏi|xem))|hộ\\s*tôi|ngay|luôn)\\b|" +
+                    "(?:hủy|huy)\\s*phòng\\s*(?:mã|id|cho\\s*tôi|giúp\\s*tôi|hộ\\s*tôi|ngay|luôn|này|nay)\\b|" +
+                    "(?:đặt|dat|giữ|giu)\\s*phòng\\s*(?:này|nay|cho\\s*tôi|giúp\\s*tôi|hộ\\s*tôi|ngay|luôn)\\b|" +
                     "\\b(?:book\\s+(?:now|for\\s+me|this)|cancel\\s+(?:booking|reservation|order|my)|pay\\s+now)\\b"
-    );
-
-    private static final Pattern POLICY_EXEMPTION_FROM_WRITE_PATTERN = Pattern.compile(
-            "(?iu)(?:chính\\s*sách|chinh\\s*sach|quy\\s*định|quy\\s*dinh|điều\\s*khoản|dieu\\s*khoan|điều\\s*kiện|dieu\\s*kien|" +
-                    "như\\s*thế\\s*nào|nhu\\s*the\\s*nao|thế\\s*nào|the\\s*nao|ra\\s*sao|có\\s*được.*?không|co\\s*duoc.*?khong|\\?)"
     );
 
     private static final Pattern POLICY_INQUIRY_MARKERS = Pattern.compile(
@@ -44,7 +40,8 @@ public class PolicyIntentClassifier {
                     "được\\s*không|duoc\\s*khong|check[- ]?in|check[- ]?out|nhận\\s*phòng|tra\\s*phong|trả\\s*phòng|" +
                     "buffet|bữa\\s*sáng|ăn\\s*sáng|an\\s*sang|hồ\\s*bơi|bể\\s*bơi|ho\\s*boi|be\\s*boi|" +
                     "thú\\s*cưng|thu\\s*cung|chó\\s*mèo|cho\\s*meo|hút\\s*thuốc|hut\\s*thuoc|đỗ\\s*xe|do\\s*xe|gửi\\s*xe|gui\\s*xe|" +
-                    "phụ\\s*thu|phu\\s*thu|miễn\\s*phí|mien\\s*phi|giường\\s*phụ|giuong\\s*phu)"
+                    "phụ\\s*thu|phu\\s*thu|miễn\\s*phí|mien\\s*phi|giường\\s*phụ|giuong\\s*phu|" +
+                    "hủy\\s*phòng|huy\\s*phong|hoàn\\s*tiền|hoan\\s*tien|đổi\\s*lịch|doi\\s*lich)"
     );
 
     private static final Pattern DYNAMIC_PRICING_INQUIRY_PATTERN = Pattern.compile(
@@ -88,11 +85,8 @@ public class PolicyIntentClassifier {
                     .build();
         }
 
-        // 2. Explicit write/mutation commands vs policy questions
-        boolean isExplicitWrite = EXPLICIT_WRITE_COMMAND_PATTERN.matcher(raw).find();
-        boolean isPolicyExempt = POLICY_EXEMPTION_FROM_WRITE_PATTERN.matcher(raw).find();
-
-        if (isExplicitWrite && !isPolicyExempt) {
+        // 2. Explicit write/mutation commands (without exemptions)
+        if (EXPLICIT_WRITE_COMMAND_PATTERN.matcher(raw).find()) {
             return ClassificationResult.builder()
                     .intent(UnifiedIntent.OUT_OF_SCOPE)
                     .searchText(raw)
@@ -155,10 +149,15 @@ public class PolicyIntentClassifier {
     }
 
     private boolean isPolicyClause(String clause) {
-        if (clause.contains("?")) {
+        if (POLICY_INQUIRY_MARKERS.matcher(clause).find()) {
             return true;
         }
-        return POLICY_INQUIRY_MARKERS.matcher(clause).find();
+        if (clause.contains("?")) {
+            String trimmed = clause.trim();
+            boolean isExplicitSearchPrompt = trimmed.matches("(?iu)^(?:tìm|tim|cần|can|search)\\s+.*");
+            return !isExplicitSearchPrompt;
+        }
+        return false;
     }
 
     /**
@@ -166,8 +165,8 @@ public class PolicyIntentClassifier {
      */
     private List<String> splitClausesSafely(String text) {
         List<String> result = new ArrayList<>();
-        // Split by question marks or periods or semicolons first
-        String[] majorSentences = text.split("[?;.]+");
+        // Split by question marks or periods or semicolons first while keeping '?' on the preceding clause
+        String[] majorSentences = text.split("(?<=[?;])(?![?;])\\s*|\\.+\\s*");
 
         for (String sentence : majorSentences) {
             String s = sentence.trim();
@@ -185,7 +184,13 @@ public class PolicyIntentClassifier {
             StringBuilder currentClause = new StringBuilder(tokens[0]);
             for (int i = 1; i < tokens.length; i++) {
                 String next = tokens[i].trim();
-                if (isPolicyClause(next)) {
+                boolean currentIsPolicy = isPolicyClause(currentClause.toString());
+                boolean nextIsPolicy = isPolicyClause(next);
+
+                if (nextIsPolicy) {
+                    result.add(currentClause.toString().trim());
+                    currentClause = new StringBuilder(next);
+                } else if (currentIsPolicy) {
                     result.add(currentClause.toString().trim());
                     currentClause = new StringBuilder(next);
                 } else if (isSubordinateGuestOrAmenityClause(next)) {
@@ -204,6 +209,9 @@ public class PolicyIntentClassifier {
     }
 
     private boolean isSubordinateGuestOrAmenityClause(String clause) {
+        if (isPolicyClause(clause)) {
+            return false;
+        }
         String lower = clause.toLowerCase(Locale.ROOT);
         // Matches "1 bé 4 tuổi", "2 người lớn", "1 trẻ em", "có wifi", "hồ bơi", "view biển"
         if (lower.matches("^\\d+\\s*(?:bé|be|trẻ\\s*em|tre\\s*em|người|nguoi|khách|khach|em|lớn|lon).*")) {

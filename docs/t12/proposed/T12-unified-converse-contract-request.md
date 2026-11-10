@@ -55,16 +55,20 @@ This contract request proposes an **additive** conversational endpoint allowing 
 ### Response Body (`ApiResponse<UnifiedAdvisorResultDto>`)
 ```json
 {
-  "success": true,
-  "data": {
+  "code": 200,
+  "message": "Success",
+  "result": {
     "contractVersion": "2.1-proposed",
     "requestId": "7d91e324-4f81-49b8-a612-4a0058b8ef42",
     "intent": "SEARCH_AND_POLICY",
     "advisor": {
-      "status": "MATCHED",
+      "contractVersion": "2.0",
+      "requestId": "7d91e324-4f81-49b8-a612-4a0058b8ef42",
       "sessionId": "4b68e715-6db5-48d6-9533-5b8cb46f483c",
       "sessionVersion": 2,
-      "cards": [ ... ],
+      "status": "RESULTS",
+      "reply": "Tôi đã tìm thấy 1 hạng phòng phù hợp với yêu cầu của bạn tại Đà Nẵng.",
+      "recommendations": [ ... ],
       "disclaimers": [ ... ]
     },
     "knowledge": {
@@ -77,18 +81,21 @@ This contract request proposes an **additive** conversational endpoint allowing 
         "answer": "Trẻ em dưới 6 tuổi đi cùng bố mẹ được miễn phí buffet sáng tiêu chuẩn tại nhà hàng khách sạn.",
         "citations": [
           {
+            "sourceId": "POLICY-CHILD-BREAKFAST",
+            "version": 1,
+            "chunkId": "POLICY-CHILD-BREAKFAST#chunk-0",
+            "category": "POLICY",
             "hotelId": 2,
-            "documentId": "POLICY-CHILD-BREAKFAST",
-            "section": "Chính sách buffet sáng cho trẻ em",
-            "content": "Trẻ em dưới 6 tuổi đi cùng bố mẹ được miễn phí buffet sáng..."
+            "effectiveFrom": "2026-01-01",
+            "snippet": "Trẻ em dưới 6 tuổi đi cùng bố mẹ được miễn phí buffet sáng...",
+            "similarityScore": 0.95
           }
         ]
       },
       "hotelChoices": null,
       "retryAfterSeconds": null
     }
-  },
-  "message": null
+  }
 }
 ```
 
