@@ -14,7 +14,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleCreateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PricingRuleResponse;
@@ -58,8 +58,8 @@ class RatePlanCacheTest {
         }
 
         @Bean
-        public HotelRoomTypeRepository hotelRoomTypeRepository() {
-            return mock(HotelRoomTypeRepository.class);
+        public HotelRoomTypeService hotelRoomTypeService() {
+            return mock(HotelRoomTypeService.class);
         }
 
         @Bean
@@ -85,7 +85,7 @@ class RatePlanCacheTest {
     private PricingRuleRepository pricingRuleRepository;
 
     @Autowired
-    private HotelRoomTypeRepository hotelRoomTypeRepository;
+    private HotelRoomTypeService hotelRoomTypeService;
 
     @Autowired
     private PricingRuleTypeRepository pricingRuleTypeRepository;
@@ -104,7 +104,7 @@ class RatePlanCacheTest {
         if (cacheManager.getCache("ratePlans") != null) {
             cacheManager.getCache("ratePlans").clear();
         }
-        reset(pricingRuleRepository, hotelRoomTypeRepository, pricingRuleTypeRepository, pricingRuleMapper);
+        reset(pricingRuleRepository, hotelRoomTypeService, pricingRuleTypeRepository, pricingRuleMapper);
 
         RoomType rt = RoomType.builder().id((short) 1).name("Standard Room").code("STD").build();
         HotelRoomType hrt = HotelRoomType.builder().id(1).roomType(rt).build();
@@ -175,7 +175,7 @@ class RatePlanCacheTest {
                 .status("ACTIVE")
                 .build();
 
-        when(hotelRoomTypeRepository.findByIdAndIsDeletedFalse(1)).thenReturn(Optional.of(sampleRule.getHotelRoomType()));
+        when(hotelRoomTypeService.getEntityById(1)).thenReturn(sampleRule.getHotelRoomType());
         when(pricingRuleTypeRepository.findByCode("SEASONAL")).thenReturn(Optional.of(sampleRule.getRuleType()));
         when(pricingRuleMapper.toEntity(createReq)).thenReturn(sampleRule);
         when(pricingRuleRepository.save(any())).thenReturn(sampleRule);

@@ -33,6 +33,8 @@ import {
   Calendar,
   Clock,
   Image as ImageIcon,
+  Sliders,
+  Tag,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -357,9 +359,27 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
+        label: 'Loại Quy tắc Giá',
+        to: '/pricing/rule-types',
+        icon: <Sliders className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
         label: 'Chiến dịch Khuyến mại',
         to: '/pricing/campaigns',
         icon: <Megaphone className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Quy tắc Giảm giá',
+        to: '/pricing/discount-rules',
+        icon: <Percent className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Loại Quy tắc Giảm giá',
+        to: '/pricing/discount-rule-types',
+        icon: <Tag className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {

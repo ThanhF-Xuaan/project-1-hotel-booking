@@ -13,7 +13,10 @@ const HotelRoomTypeListPage = lazy(() => import('./modules/inventory/pages/Hotel
 const HotelRoomTypeDetailPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeDetailPage'))
 const HotelRoomTypeAllocationMatrixPage = lazy(() => import('./modules/inventory/pages/HotelRoomTypeAllocationMatrixPage'))
 const PricingRuleListPage = lazy(() => import('./modules/pricing/pages/PricingRuleListPage'))
+const PricingRuleTypeListPage = lazy(() => import('./modules/pricing/pages/PricingRuleTypeListPage'))
 const CampaignListPage = lazy(() => import('./modules/pricing/pages/CampaignListPage'))
+const DiscountRuleListPage = lazy(() => import('./modules/pricing/pages/DiscountRuleListPage'))
+const DiscountRuleTypeListPage = lazy(() => import('./modules/pricing/pages/DiscountRuleTypeListPage'))
 const TaxCategoryListPage = lazy(() => import('./modules/pricing/pages/TaxCategoryListPage'))
 const VatRuleListPage = lazy(() => import('./modules/pricing/pages/VatRuleListPage'))
 const HotelAgePolicyListPage = lazy(() => import('./modules/pricing/pages/HotelAgePolicyListPage'))
@@ -204,7 +207,10 @@ export function App() {
               {/* Phân hệ Giá & Khuyến mại */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
                 <Route path="/pricing/rules" element={<PricingRuleListPage />} />
+                <Route path="/pricing/rule-types" element={<PricingRuleTypeListPage />} />
                 <Route path="/pricing/campaigns" element={<CampaignListPage />} />
+                <Route path="/pricing/discount-rules" element={<DiscountRuleListPage />} />
+                <Route path="/pricing/discount-rule-types" element={<DiscountRuleTypeListPage />} />
                 <Route path="/pricing/age-policies" element={<HotelAgePolicyListPage />} />
                 <Route path="/pricing/holiday-calendars" element={<HolidayCalendarListPage />} />
               </Route>
