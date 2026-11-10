@@ -15,7 +15,6 @@ import {
   Printer,
   ShieldCheck,
   Sparkles,
-  Building2,
   Loader2,
   AlertTriangle,
 } from 'lucide-react';
@@ -36,6 +35,7 @@ import type {
 } from '../../types/finance.types';
 import type { BookingResponse } from '../../../booking/types/booking.types';
 import { VNPAY_ATM_TEST_CARD } from '../../utils/vnpay.utils';
+import { buildFolioBreakdown } from '../../utils/folioBreakdown.utils';
 import HotelFolioReceipt from './HotelFolioReceipt';
 
 const generatePaymentRef = (prefix: string, length = 8) =>
@@ -47,6 +47,7 @@ export interface InvoicePaymentFlowModalProps {
   booking: BookingResponse | null;
   invoice: InvoiceResponse | null;
   onPaymentSuccess: (payment: PaymentResponse) => void;
+  onPaymentsChanged?: () => void;
   initialPaidAmount?: number;
   initialBalanceDue?: number;
 }
@@ -74,13 +75,6 @@ const METHOD_OPTIONS: Array<{
     icon: Banknote,
     badge: 'Trực tiếp',
   },
-  {
-    id: 'BANK_TRANSFER',
-    name: 'Chuyển khoản ngân hàng',
-    desc: 'Ghi nhận chờ đối soát (PENDING) → Kế toán xác nhận hoàn tất hoặc hủy',
-    icon: Building2,
-    badge: 'Chờ xác nhận',
-  },
 ];
 
 export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = ({
@@ -89,6 +83,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   booking,
   invoice,
   onPaymentSuccess,
+  onPaymentsChanged,
   initialPaidAmount = 0,
   initialBalanceDue,
 }) => {
@@ -110,18 +105,16 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   // ── Amount to collect this session ─────────────────────────────────────────
   const [customPayAmount, setCustomPayAmount] = useState<number>(0);
 
-  // ── Cash & Bank Transfer Details (Step 2) ──────────────────────────────────
+  // ── Cash Details (Step 2) ──────────────────────────────────────────────────
   const [cashGiven, setCashGiven] = useState<number>(0);
   const [cashReceiptCode, setCashReceiptCode] = useState('');
-  const [bankRefCode, setBankRefCode] = useState('');
-  const [bankProviderName, setBankProviderName] = useState('');
-  const [bankFormError, setBankFormError] = useState<string | null>(null);
 
   // ── VNPay State & Real API Redirect / Polling ──────────────────────────────
   const [vnPaySession, setVnPaySession] = useState<PaymentUrlResponse | null>(null);
   const [isCreatingVnPay, setIsCreatingVnPay] = useState(false);
   const [vnPayError, setVnPayError] = useState<{ code?: number; message: string } | null>(null);
   const [blockingPendingId, setBlockingPendingId] = useState<number | null>(null);
+  const [pendingGatewayIds, setPendingGatewayIds] = useState<number[]>([]);
   const [isCancellingSession, setIsCancellingSession] = useState(false);
   const [vnpayCopiedField, setVnpayCopiedField] = useState<string | null>(null);
   const vnpayPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -132,7 +125,19 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   const [completedPayment, setCompletedPayment] = useState<PaymentResponse | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ── Reset state when modal opens or closes ─────────────────────────────────
+  // ── Reset state & tải trước danh sách phiên gateway PENDING khi mở modal ───
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setIsCreatingVnPay(false);
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
+
   useEffect(() => {
     if (!isOpen) {
       if (vnpayPollRef.current) {
@@ -152,221 +157,46 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         setAppliedVoucher(null);
         setVoucherError(null);
         setCashReceiptCode('');
-        setBankRefCode('');
-        setBankProviderName('');
-        setBankFormError(null);
         setVnPaySession(null);
         setVnPayError(null);
         setBlockingPendingId(null);
+        setPendingGatewayIds([]);
+        setIsCreatingVnPay(false);
         setIsSuccess(true);
         setErrorMessage('');
         setCompletedPayment(null);
       }
+
+      if (booking?.id) {
+        try {
+          const listRes = await financeService.getPaymentsByBookingId(booking.id);
+          if (!ignore && listRes.result) {
+            const staleIds = listRes.result
+              .filter((p) => p.status === 'PENDING' && (p.paymentMethod === 'VNPAY' || p.paymentMethod === 'MOMO'))
+              .sort((a, b) => b.id - a.id)
+              .map((p) => p.id);
+            setPendingGatewayIds(staleIds);
+          }
+        } catch {
+          // Bỏ qua nếu không tải trước được
+        }
+      }
     };
-    resetOnOpen();
+    void resetOnOpen();
     return () => {
       ignore = true;
     };
-  }, [isOpen]);
+  }, [isOpen, booking?.id]);
 
-  // ── Dịch vụ & Chiết tính chi phí hiển thị theo từng phòng ─────────────────
-  interface ModalFolioItem {
-    id: number | string;
-    roomNumber?: string;
-    roomTypeName?: string;
-    name: string;
-    quantity: number;
-    unitPrice: number;
-    vatRate: number;
-    vatAmount: number;
-    subtotal: number;
-    totalAmount: number;
-  }
-
-  const serviceItems: ModalFolioItem[] = useMemo(() => {
-    if (invoice?.details && invoice.details.length > 0) {
-      return invoice.details.map((d): ModalFolioItem => {
-        const match = d.description.match(/(?:Phòng|P\.)\s*([A-Za-z0-9-]+)/i);
-        const extractedRoom = match ? match[1] : undefined;
-
-        return {
-          id: d.id,
-          roomNumber: extractedRoom,
-          roomTypeName: undefined,
-          name: d.description,
-          quantity: d.quantity,
-          unitPrice: Number(d.unitPrice),
-          vatRate: Number(d.vatRate || 8),
-          vatAmount: Number(d.vatAmount),
-          subtotal: Number(d.subtotal),
-          totalAmount: Number(d.totalAmount),
-        };
-      });
-    }
-
-    // Nếu chưa có hóa đơn chính thức, phân tích từ booking theo từng phòng
-    if (!booking) return [];
-
-    const items: ModalFolioItem[] = [];
-
-    let itemId = 1;
-
-    // Chi tiết phòng lưu trú theo từng phòng
-    booking.bookingDetails?.forEach((detail) => {
-      const roomTypeName = detail.roomTypeName || 'Phòng Khách sạn';
-      const assignedRoomsInDetail = detail.bookingRooms || [];
-
-      if (assignedRoomsInDetail.length > 0) {
-        assignedRoomsInDetail.forEach((rm) => {
-          const roomNum = rm.roomNumber;
-
-          // Tiền phòng cho phòng vật lý này
-          if (rm.dailyRates && rm.dailyRates.length > 0) {
-            rm.dailyRates.forEach((dr) => {
-              const sub = Number(dr.netPrice) || 0;
-              const vat = Math.round(sub * (Number(dr.vatPercent || 8) / 100));
-              items.push({
-                id: itemId++,
-                roomNumber: roomNum,
-                roomTypeName: roomTypeName,
-                name: `Lưu trú: ${roomTypeName} (${dr.stayDate})`,
-                quantity: 1,
-                unitPrice: sub,
-                vatRate: Number(dr.vatPercent || 8),
-                vatAmount: vat,
-                subtotal: sub,
-                totalAmount: sub + vat,
-              });
-            });
-          } else {
-            const roomCount = assignedRoomsInDetail.length || 1;
-            const baseSubtotal = Number(booking.subtotalAmount) || 1250000;
-            const unit = Math.round(baseSubtotal / roomCount);
-            const vat = Math.round(unit * 0.08);
-
-            items.push({
-              id: itemId++,
-              roomNumber: roomNum,
-              roomTypeName: roomTypeName,
-              name: `Lưu trú: ${roomTypeName} (${detail.checkInDate} ➔ ${detail.checkOutDate})`,
-              quantity: 1,
-              unitPrice: unit,
-              vatRate: 8,
-              vatAmount: vat,
-              subtotal: unit,
-              totalAmount: unit + vat,
-            });
-          }
-
-          // Các phụ phí / ẩm thực / minibar gán theo phòng này
-          rm.charges?.forEach((ch) => {
-            items.push({
-              id: itemId++,
-              roomNumber: roomNum,
-              roomTypeName: roomTypeName,
-              name: `${ch.itemName} (${rm.roomNumber ? `P.${rm.roomNumber}` : 'Dịch vụ'})`,
-              quantity: ch.quantity || 1,
-              unitPrice: Number(ch.unitPrice),
-              vatRate: Number(ch.vatRate || 8),
-              vatAmount: Number(ch.vatAmount || 0),
-              subtotal: Number(ch.subtotal || ch.unitPrice),
-              totalAmount: Number(ch.totalAmount),
-            });
-          });
-        });
-      } else {
-        const roomCount = detail.quantity || 1;
-        const baseSubtotal = Number(booking.subtotalAmount) || 1250000;
-        const unit = roomCount > 0 ? Math.round(baseSubtotal / roomCount) : baseSubtotal;
-        const vatAmount = Math.round(baseSubtotal * 0.08);
-
-        items.push({
-          id: itemId++,
-          name: `Lưu trú: ${roomTypeName} (${detail.checkInDate} ➔ ${detail.checkOutDate})`,
-          quantity: roomCount,
-          unitPrice: unit,
-          vatRate: 8,
-          vatAmount: vatAmount,
-          subtotal: baseSubtotal,
-          totalAmount: baseSubtotal + vatAmount,
-        });
-      }
-    });
-
-    if (items.length === 0) {
-      const sub = Number(booking.subtotalAmount || booking.totalAmount || 1000000);
-      const vat = Math.round(sub * 0.08);
-      items.push({
-        id: 1,
-        name: 'Dịch vụ lưu trú khách sạn',
-        quantity: 1,
-        unitPrice: sub,
-        vatRate: 8,
-        vatAmount: vat,
-        subtotal: sub,
-        totalAmount: sub + vat,
-      });
-    }
-
-    return items;
-  }, [invoice, booking]);
-
-  // Gom các dịch vụ theo từng phòng để hiển thị chi tiết
-  const roomGroups = useMemo(() => {
-    const map = new Map<string, {
-      roomKey: string;
-      roomNumber?: string;
-      roomTypeName?: string;
-      items: ModalFolioItem[];
-      subtotal: number;
-      totalAmount: number;
-    }>();
-
-    serviceItems.forEach((item) => {
-      const rKey = item.roomNumber ? `Phòng ${item.roomNumber}` : 'Dịch vụ chung đoàn / Khác';
-      if (!map.has(rKey)) {
-        const matchedRoomTypeName = item.roomTypeName || (item.roomNumber
-          ? booking?.bookingDetails
-              ?.find((d) => d.bookingRooms?.some((r) => r.roomNumber === item.roomNumber))
-              ?.roomTypeName
-          : undefined);
-
-        map.set(rKey, {
-          roomKey: rKey,
-          roomNumber: item.roomNumber,
-          roomTypeName: matchedRoomTypeName,
-          items: [],
-          subtotal: 0,
-          totalAmount: 0,
-        });
-      }
-      const g = map.get(rKey)!;
-      g.items.push(item);
-      g.subtotal += item.subtotal;
-      g.totalAmount += item.totalAmount;
-    });
-
-    return Array.from(map.values());
-  }, [serviceItems, booking]);
-
-  // Tổng tiền trước thuế, phí, VAT
-  const baseSubtotal = useMemo(() => {
-    return serviceItems.reduce((acc, it) => acc + it.subtotal, 0);
-  }, [serviceItems]);
-
-  const serviceFeeAmount = useMemo(() => {
-    if (invoice?.serviceFeeAmount !== undefined) return Number(invoice.serviceFeeAmount);
-    return Math.round(baseSubtotal * 0.05);
-  }, [invoice, baseSubtotal]);
-
-  const totalVatAmount = useMemo(() => {
-    if (invoice?.vatAmount !== undefined) return Number(invoice.vatAmount);
-    return serviceItems.reduce((acc, it) => acc + it.vatAmount, 0);
-  }, [invoice, serviceItems]);
-
-  const totalBeforeVoucher = useMemo(() => {
-    return baseSubtotal + serviceFeeAmount + totalVatAmount;
-  }, [baseSubtotal, serviceFeeAmount, totalVatAmount]);
+  // ── Dịch vụ & Chiết tính chi phí theo từng phòng (dùng chung helper với Biên lai) ──
+  const {
+    items: serviceItems,
+    roomGroups,
+    baseSubtotal,
+    serviceFeeAmount,
+    totalVatAmount,
+    grandTotalBeforeVoucher: totalBeforeVoucher,
+  } = useMemo(() => buildFolioBreakdown(booking, invoice), [booking, invoice]);
 
   // Giảm trừ voucher
   const voucherDiscount = useMemo(() => {
@@ -393,11 +223,10 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     return Math.max(0, grandTotal - initialPaidAmount);
   }, [initialBalanceDue, voucherDiscount, grandTotal, initialPaidAmount]);
 
-  // Số tiền thanh toán kỳ này (mặc định lấy toàn bộ dư nợ còn lại)
+  // Số tiền thanh toán kỳ này: trả 0 khi đã tất toán đủ (KHÔNG fallback về grandTotal gây lỗi 8003)
   const effectivePayAmount = useMemo(() => {
-    if (remainingDue > 0) return remainingDue;
-    return grandTotal;
-  }, [remainingDue, grandTotal]);
+    return Math.max(0, remainingDue);
+  }, [remainingDue]);
 
   // Đồng bộ số tiền thanh toán mặc định khi mở modal hoặc khi áp dụng voucher
   useEffect(() => {
@@ -416,7 +245,8 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     };
   }, [isOpen, effectivePayAmount]);
 
-  const activePayAmount = customPayAmount > 0 ? customPayAmount : effectivePayAmount;
+  const activePayAmount =
+    effectivePayAmount <= 0 ? 0 : customPayAmount > 0 ? customPayAmount : effectivePayAmount;
 
   // ── Xử lý áp dụng Voucher ──────────────────────────────────────────────────
   const handleApplyVoucher = (e?: React.FormEvent) => {
@@ -473,8 +303,12 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
   // ── Khởi tạo phiên VNPay thật & redirect thẳng sang Cổng Sandbox ──────────
   const initializeVnPaySession = async (autoRedirect = true) => {
     if (!booking) return;
-    if (activePayAmount <= 0) {
-      setVnPayError({ message: 'Số tiền thanh toán phải lớn hơn 0 đ.' });
+    if (remainingDue <= 0 || activePayAmount <= 0) {
+      setBlockingPendingId(null);
+      setVnPayError({
+        code: 8003,
+        message: 'Đơn đặt phòng đã thanh toán hoàn tất (Dư nợ = 0 đ). Không thể tạo giao dịch mới.',
+      });
       return;
     }
     setIsCreatingVnPay(true);
@@ -492,6 +326,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         setVnPaySession(res.result);
         setCurrentStep(2);
         startVnPayPolling(res.result.paymentId);
+        onPaymentsChanged?.();
         if (autoRedirect) {
           window.location.assign(res.result.paymentUrl);
         }
@@ -500,32 +335,54 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
       const apiErr = getApiErrorMessage(err, 'Không thể tạo phiên thanh toán VNPay Sandbox');
       setVnPayError(apiErr);
 
-      // Nếu bị chặn lock 8005 (đã có phiên PENDING trước đó) → tìm payment PENDING để hỗ trợ hủy & tạo lại
-      try {
-        const listRes = await financeService.getPaymentsByBookingId(booking.id);
-        const pendingGateway = (listRes.result || []).find(
-          (p) => p.status === 'PENDING' && (p.paymentMethod === 'VNPAY' || p.paymentMethod === 'MOMO')
-        );
-        if (pendingGateway) {
-          setBlockingPendingId(pendingGateway.id);
+      // CHỈ tìm & đề nghị hủy phiên PENDING cũ khi bị chặn lock 8005 (KHÔNG nhầm với 8003 đã tất toán)
+      if (apiErr.code === 8005) {
+        try {
+          const listRes = await financeService.getPaymentsByBookingId(booking.id);
+          const staleIds = (listRes.result || [])
+            .filter((p) => p.status === 'PENDING' && (p.paymentMethod === 'VNPAY' || p.paymentMethod === 'MOMO'))
+            .sort((a, b) => b.id - a.id)
+            .map((p) => p.id);
+          setPendingGatewayIds(staleIds);
+          if (staleIds.length > 0) {
+            setBlockingPendingId(staleIds[0]);
+          }
+        } catch {
+          // Bỏ qua nếu không tải được danh sách
         }
-      } catch {
-        // Bỏ qua nếu không tải được danh sách
       }
     } finally {
       setIsCreatingVnPay(false);
     }
   };
 
-  // Hủy phiên PENDING cũ đang giữ lock Redis rồi tạo ngay phiên VNPay mới & redirect
-  const handleCancelBlockingAndRetry = async () => {
-    if (!blockingPendingId) return;
+  // Hủy phiên PENDING cũ đang giữ lock Redis (1 hoặc toàn bộ phiên cũ của đơn) rồi tạo lại phiên VNPay mới
+  const handleCancelBlockingAndRetry = async (retryAfterCancel = true) => {
+    if (!booking) return;
+    const idsToCancel = Array.from(
+      new Set([
+        ...(blockingPendingId ? [blockingPendingId] : []),
+        ...pendingGatewayIds,
+      ])
+    );
+    if (idsToCancel.length === 0) return;
+
     setIsCancellingSession(true);
     try {
-      await financeService.cancelPayment(blockingPendingId);
+      for (const pid of idsToCancel) {
+        try {
+          await financeService.cancelPayment(pid);
+        } catch {
+          // Best-effort: phiên khác có thể đã chuyển trạng thái trước đó
+        }
+      }
       setBlockingPendingId(null);
+      setPendingGatewayIds([]);
       setVnPayError(null);
-      await initializeVnPaySession(true);
+      onPaymentsChanged?.();
+      if (retryAfterCancel && remainingDue > 0) {
+        await initializeVnPaySession(true);
+      }
     } catch (err: unknown) {
       const apiErr = getApiErrorMessage(err, 'Không thể hủy phiên thanh toán cũ');
       setVnPayError(apiErr);
@@ -548,6 +405,8 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
         vnpayPollRef.current = null;
       }
       setVnPaySession(null);
+      setPendingGatewayIds((prev) => prev.filter((id) => id !== vnPaySession.paymentId));
+      onPaymentsChanged?.();
       setCurrentStep(1);
     } catch (err: unknown) {
       const apiErr = getApiErrorMessage(err, 'Không thể hủy phiên VNPay');
@@ -597,27 +456,13 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
     setCurrentStep(2);
   };
 
-  // ── Xử lý submit ở Bước 2 (Tiền mặt hoặc Chuyển khoản NH) ────────────────
+  // ── Xử lý submit ở Bước 2 (Thu tiền mặt tại quầy) ─────────────────────────
   const handleProceedFromStep2 = () => {
     if (selectedMethod === 'CASH') {
       void executeRecordPayment(
         'CASH',
         cashReceiptCode.trim() || generatePaymentRef('PT-', 6),
         'Quầy Lễ tân (Tiền mặt)'
-      );
-      return;
-    }
-
-    if (selectedMethod === 'BANK_TRANSFER') {
-      if (!bankRefCode.trim()) {
-        setBankFormError('Vui lòng nhập mã giao dịch ngân hàng (VD: FT260930001).');
-        return;
-      }
-      setBankFormError(null);
-      void executeRecordPayment(
-        'BANK_TRANSFER',
-        bankRefCode.trim(),
-        bankProviderName.trim() || 'Chuyển khoản Ngân hàng'
       );
     }
   };
@@ -731,9 +576,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                   {currentStep === 2 &&
                     (selectedMethod === 'VNPAY'
                       ? 'Đang chuyển hướng sang Cổng VNPay Sandbox'
-                      : selectedMethod === 'BANK_TRANSFER'
-                        ? 'Ghi nhận Chuyển khoản Ngân hàng'
-                        : 'Thu Tiền Mặt Tại Quầy Lễ Tân')}
+                      : 'Thu Tiền Mặt Tại Quầy Lễ Tân')}
                   {currentStep === 4 &&
                     (completedPayment?.status === 'PENDING'
                       ? 'Giao dịch Đang chờ xác nhận (PENDING)'
@@ -947,7 +790,48 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                     </div>
                   )}
 
-                  {/* Hiển thị lỗi khi tạo phiên VNPay (kèm nút hủy phiên PENDING cũ nếu vướng lock 8005) */}
+                  {/* Cảnh báo trước nếu đơn đang có phiên VNPay PENDING (tránh lỗi lock 8005 ở lần bấm kế tiếp) */}
+                  {selectedMethod === 'VNPAY' &&
+                    remainingDue > 0 &&
+                    pendingGatewayIds.length > 0 &&
+                    !vnPayError && (
+                      <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 text-xs text-amber-900">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div>
+                            <div className="font-bold">
+                              Đơn đang có {pendingGatewayIds.length} phiên VNPay ở trạng thái PENDING (
+                              {pendingGatewayIds.map((id) => `#${id}`).join(', ')})
+                            </div>
+                            <p className="mt-0.5 text-amber-800">
+                              Nếu bạn vừa quay lại từ trang VNPay, hãy hủy phiên chờ cũ để mở khóa Redis và tạo phiên thanh toán mới ngay.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap justify-end gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => void handleCancelBlockingAndRetry(false)}
+                            isLoading={isCancellingSession}
+                            className="border-amber-300 text-amber-900 hover:bg-amber-100 text-xs"
+                          >
+                            Chỉ hủy phiên PENDING cũ
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => void handleCancelBlockingAndRetry(true)}
+                            isLoading={isCancellingSession}
+                            className="bg-red-600 hover:bg-red-700 text-white text-xs"
+                          >
+                            Hủy phiên cũ &amp; Mở VNPay mới
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Hiển thị lỗi khi tạo phiên VNPay (chỉ gợi ý hủy lock khi thực sự vướng lỗi 8005) */}
                   {vnPayError && (
                     <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl space-y-2 text-xs text-red-800">
                       <div className="flex items-start gap-2">
@@ -959,16 +843,16 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                           <p className="mt-0.5">{vnPayError.message}</p>
                         </div>
                       </div>
-                      {blockingPendingId && (
+                      {vnPayError.code === 8005 && (blockingPendingId || pendingGatewayIds.length > 0) && (
                         <div className="pt-1 flex justify-end">
                           <Button
                             size="sm"
                             variant="primary"
-                            onClick={handleCancelBlockingAndRetry}
+                            onClick={() => void handleCancelBlockingAndRetry(true)}
                             isLoading={isCancellingSession}
                             className="bg-red-600 hover:bg-red-700 text-white text-xs"
                           >
-                            Hủy phiên PENDING cũ (#{blockingPendingId}) &amp; Thanh toán lại
+                            Hủy phiên PENDING cũ ({blockingPendingId ? `#${blockingPendingId}` : `${pendingGatewayIds.length} phiên`}) &amp; Thanh toán lại
                           </Button>
                         </div>
                       )}
@@ -1039,11 +923,14 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       </strong>
                     </div>
                     <div className="flex justify-between text-neutral-600">
-                      <span>Phí dịch vụ khách sạn (5%):</span>
+                      <span>
+                        Phí dịch vụ khách sạn (
+                        {invoice?.serviceFeeRate ?? booking.serviceFeeRate ?? 0}%):
+                      </span>
                       <span>+{formatCurrency(serviceFeeAmount)}</span>
                     </div>
                     <div className="flex justify-between text-neutral-600">
-                      <span>Thuế GTGT (VAT 8%):</span>
+                      <span>Thuế GTGT (VAT):</span>
                       <span>+{formatCurrency(totalVatAmount)}</span>
                     </div>
 
@@ -1125,39 +1012,78 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       </div>
                     )}
 
-                    <div className="bg-white p-3 rounded-xl border border-neutral-200 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <label htmlFor="custom-pay-amount" className="font-bold text-neutral-700">
-                          Số tiền thanh toán đợt này (VNĐ)
-                        </label>
-                        {customPayAmount !== effectivePayAmount && effectivePayAmount > 0 && (
+                    {remainingDue <= 0 ? (
+                      <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 space-y-1">
+                        <div className="font-bold flex items-center gap-1.5 text-emerald-800">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>Đơn đặt phòng này đã thanh toán đủ 100% (Dư nợ = 0 đ)</span>
+                        </div>
+                        <p className="text-emerald-700">
+                          Không thể tạo thêm giao dịch thu tiền mới cho đơn đã tất toán. Nếu cần test lại trên đơn này, hãy bấm <strong>Hoàn tiền</strong> một khoản đã thành công trong bảng lịch sử hoặc chọn đơn còn dư nợ.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-white p-3 rounded-xl border border-neutral-200 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <label htmlFor="custom-pay-amount" className="font-bold text-neutral-700">
+                            Số tiền thanh toán đợt này (VNĐ)
+                          </label>
+                          {customPayAmount !== effectivePayAmount && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomPayAmount(effectivePayAmount)}
+                              className="text-[11px] text-red-600 hover:underline font-semibold cursor-pointer"
+                            >
+                              Thu đủ ({formatCurrency(effectivePayAmount)})
+                            </button>
+                          )}
+                        </div>
+                        <CurrencyInput
+                          id="custom-pay-amount"
+                          value={customPayAmount}
+                          onChangeValue={(val) => setCustomPayAmount(val)}
+                          suffix="VNĐ"
+                          className="h-10 font-bold text-neutral-900"
+                        />
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {remainingDue >= 100000 && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomPayAmount(100000)}
+                              className="text-[11px] px-2 py-0.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-semibold cursor-pointer"
+                            >
+                              Test 100.000 đ
+                            </button>
+                          )}
+                          {remainingDue >= 200000 && (
+                            <button
+                              type="button"
+                              onClick={() => setCustomPayAmount(Math.round(remainingDue / 2))}
+                              className="text-[11px] px-2 py-0.5 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-semibold cursor-pointer"
+                            >
+                              Cọc 50% ({formatCurrency(Math.round(remainingDue / 2))})
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => setCustomPayAmount(effectivePayAmount)}
-                            className="text-[11px] text-red-600 hover:underline font-semibold cursor-pointer"
+                            className="text-[11px] px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-semibold cursor-pointer"
                           >
                             Thu đủ ({formatCurrency(effectivePayAmount)})
                           </button>
+                        </div>
+                        {activePayAmount > effectivePayAmount && (
+                          <p className="text-[11px] text-amber-700 font-medium">
+                            Lưu ý: Số tiền vượt dư nợ còn lại ({formatCurrency(effectivePayAmount)}) có thể bị backend từ chối (mã 8002).
+                          </p>
+                        )}
+                        {selectedMethod === 'VNPAY' && activePayAmount > 0 && activePayAmount < 5000 && (
+                          <p className="text-[11px] text-amber-700 font-medium">
+                            VNPay Sandbox yêu cầu giao dịch tối thiểu từ 5.000 đ trở lên.
+                          </p>
                         )}
                       </div>
-                      <CurrencyInput
-                        id="custom-pay-amount"
-                        value={customPayAmount}
-                        onChangeValue={(val) => setCustomPayAmount(val)}
-                        suffix="VNĐ"
-                        className="h-10 font-bold text-neutral-900"
-                      />
-                      {activePayAmount > effectivePayAmount && effectivePayAmount > 0 && (
-                        <p className="text-[11px] text-amber-700 font-medium">
-                          Lưu ý: Số tiền vượt dư nợ còn lại ({formatCurrency(effectivePayAmount)}) có thể bị backend từ chối (mã 8003).
-                        </p>
-                      )}
-                      {selectedMethod === 'VNPAY' && activePayAmount > 0 && activePayAmount < 5000 && (
-                        <p className="text-[11px] text-amber-700 font-medium">
-                          VNPay Sandbox yêu cầu giao dịch tối thiểu từ 5.000 đ trở lên.
-                        </p>
-                      )}
-                    </div>
+                    )}
 
                     <div className="flex justify-between items-baseline">
                       <span className="text-sm font-bold text-neutral-800">
@@ -1167,12 +1093,10 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                         {formatCurrency(activePayAmount)}
                       </span>
                     </div>
-                    {initialPaidAmount > 0 && (
-                      <div className="flex justify-between text-xs text-neutral-500">
-                        <span>Tổng phát sinh: {formatCurrency(grandTotal)}</span>
-                        <span>Dư nợ còn lại sau thu: {formatCurrency(Math.max(0, remainingDue - activePayAmount))}</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between text-xs text-neutral-500">
+                      <span>Tổng phát sinh: {formatCurrency(grandTotal)}</span>
+                      <span>Dư nợ còn lại sau thu: {formatCurrency(Math.max(0, remainingDue - activePayAmount))}</span>
+                    </div>
                   </div>
 
                   <div className="flex gap-3 justify-end">
@@ -1183,7 +1107,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                       variant="primary"
                       onClick={handleConfirmStep1}
                       isLoading={isCreatingVnPay}
-                      disabled={isCreatingVnPay || activePayAmount <= 0}
+                      disabled={isCreatingVnPay || activePayAmount <= 0 || remainingDue <= 0}
                       rightIcon={!isCreatingVnPay ? <ArrowRight className="w-4 h-4" /> : undefined}
                       className="px-6 font-bold"
                     >
@@ -1318,75 +1242,7 @@ export const InvoicePaymentFlowModal: React.FC<InvoicePaymentFlowModalProps> = (
                 </div>
               )}
 
-              {/* 🏦 PHƯƠNG THỨC 2: CHUYỂN KHOẢN NGÂN HÀNG (TẠO PENDING ĐỂ TƯƠNG TÁC) */}
-              {selectedMethod === 'BANK_TRANSFER' && (
-                <div className="max-w-xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                      <Building2 className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-base text-neutral-900">
-                        Ghi nhận Chuyển khoản Ngân hàng
-                      </h3>
-                      <p className="text-xs text-neutral-500">
-                        Giao dịch tạo ở trạng thái PENDING để kế toán đối soát ➔ xác nhận SUCCESS hoặc CANCELLED
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 bg-white p-4 rounded-2xl border border-neutral-200">
-                    <div>
-                      <label className="block text-xs font-bold text-neutral-700 mb-1">
-                        Ngân hàng nhận / chuyển (Tùy chọn)
-                      </label>
-                      <Input
-                        placeholder="VD: Vietcombank, BIDV, MB Bank..."
-                        value={bankProviderName}
-                        onChange={(e) => setBankProviderName(e.target.value)}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-neutral-700 mb-1">
-                        Mã giao dịch ngân hàng (FT Code) <span className="text-red-500">*</span>
-                      </label>
-                      <Input
-                        placeholder="VD: FT26111000123"
-                        value={bankRefCode}
-                        onChange={(e) => {
-                          setBankRefCode(e.target.value);
-                          setBankFormError(null);
-                        }}
-                      />
-                      {bankFormError && (
-                        <p className="text-xs text-red-600 font-medium mt-1">{bankFormError}</p>
-                      )}
-                    </div>
-
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-                      Sau khi tạo, bạn có thể nhấn <strong>"Xác nhận đã nhận tiền (PENDING → SUCCESS)"</strong> ngay ở bước tiếp theo hoặc trong bảng lịch sử Folio.
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
-                    <Button variant="outline" onClick={() => setCurrentStep(1)}>
-                      Quay lại
-                    </Button>
-                    <Button
-                      variant="primary"
-                      onClick={handleProceedFromStep2}
-                      isLoading={isSubmitting}
-                      disabled={isSubmitting || activePayAmount <= 0}
-                      className="px-6 font-bold"
-                    >
-                      {isSubmitting ? 'Đang tạo giao dịch...' : 'Ghi nhận chuyển khoản (PENDING)'}
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* 🌐 PHƯƠNG THỨC 3: CỔNG VNPAY SANDBOX THẬT */}
+              {/* 🌐 PHƯƠNG THỨC 2: CỔNG VNPAY SANDBOX THẬT */}
               {selectedMethod === 'VNPAY' && (
                 <div className="max-w-2xl mx-auto space-y-5 bg-neutral-50 p-6 rounded-3xl border border-neutral-200">
                   <div className="flex items-center justify-between gap-3">
