@@ -253,5 +253,59 @@ class MediaManagementServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().getReferenceName()).isEqualTo("Deluxe Room (DLX)");
     }
+
+    @Test
+    @DisplayName("uploadMedia - HOTEL_PROPERTY_PHOTO tự động gán referenceId bằng hotelId khi referenceId null")
+    void uploadMedia_propertyPhoto_defaultsReferenceIdToHotelId() {
+        MockMultipartFile file = new MockMultipartFile("files", "hotel.jpg", "image/jpeg", new byte[10]);
+        Hotel targetHotel = Hotel.builder().id((short) 1).name("Khách sạn Hà Nội").build();
+
+        when(hotelRepository.existsById((short) 1)).thenReturn(true);
+        when(hotelRepository.findById((short) 1)).thenReturn(Optional.of(targetHotel));
+
+        MediaUploadResponse uploadResp = MediaUploadResponse.builder().mediaId(300L).build();
+        MediaObject saved = MediaObject.builder()
+                .id(300L)
+                .category(StorageCategory.HOTEL_PROPERTY_PHOTO)
+                .hotelId((short) 1)
+                .referenceId(1L)
+                .storageKey("public/hotels/1/properties/1/uuid_hotel.jpg")
+                .originalFilename("hotel.jpg")
+                .build();
+
+        when(internalMediaDomainService.upload(eq(file), eq(StorageCategory.HOTEL_PROPERTY_PHOTO), eq((short) 1), eq(1L), any()))
+                .thenReturn(uploadResp);
+        when(mediaObjectRepository.findByIdAndIsDeletedFalse(300L)).thenReturn(Optional.of(saved));
+
+        List<MediaItemResponse> result = mediaManagementService.uploadMedia(
+                StorageCategory.HOTEL_PROPERTY_PHOTO, (short) 1, null, List.of(file), "admin"
+        );
+
+        assertThat(result).hasSize(1);
+        verify(internalMediaDomainService).upload(eq(file), eq(StorageCategory.HOTEL_PROPERTY_PHOTO), eq((short) 1), eq(1L), any());
+    }
+
+    @Test
+    @DisplayName("setPrimary - HOTEL_PROPERTY_PHOTO tự động cập nhật referenceId nếu đang null")
+    void setPrimary_propertyPhoto_setsReferenceIdIfNull() {
+        MediaObject target = MediaObject.builder()
+                .id(70L)
+                .category(StorageCategory.HOTEL_PROPERTY_PHOTO)
+                .hotelId((short) 1)
+                .referenceId(null)
+                .isPrimary(false)
+                .build();
+
+        when(mediaObjectRepository.findByIdAndIsDeletedFalse(70L)).thenReturn(Optional.of(target));
+        when(mediaObjectRepository.findByCategoryAndReferenceIdAndIsPrimaryTrueAndIsDeletedFalse(
+                StorageCategory.HOTEL_PROPERTY_PHOTO, 1L))
+                .thenReturn(Optional.empty());
+
+        mediaManagementService.setPrimary(70L);
+
+        assertThat(target.getIsPrimary()).isTrue();
+        assertThat(target.getReferenceId()).isEqualTo(1L);
+        verify(mediaObjectRepository).save(target);
+    }
 }
 
