@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityGenerationService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomMaintenanceBlockService;
 
 import static org.mockito.Mockito.*;
 
@@ -16,8 +17,21 @@ class RoomAvailabilitySchedulerTest {
     @Mock
     RoomAvailabilityGenerationService generationService;
 
+    @Mock
+    RoomMaintenanceBlockService roomMaintenanceBlockService;
+
     @InjectMocks
     RoomAvailabilityScheduler scheduler;
+
+    @Test
+    @DisplayName("scheduleAutoExpireMaintenanceBlocks: Thành công gọi autoExpireOverdueBlocks")
+    void scheduleAutoExpireMaintenanceBlocks_success() {
+        when(roomMaintenanceBlockService.autoExpireOverdueBlocks()).thenReturn(2);
+
+        scheduler.scheduleAutoExpireMaintenanceBlocks();
+
+        verify(roomMaintenanceBlockService, times(1)).autoExpireOverdueBlocks();
+    }
 
     @Test
     @DisplayName("scheduleDailyRollingHorizon: Thành công gọi cuộn tồn kho 365 ngày cho toàn bộ hạng phòng ACTIVE")

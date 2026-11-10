@@ -87,8 +87,8 @@ class RoomMaintenanceBlockServiceTest {
     @Test
     @DisplayName("Case 1: Happy path - Tạo block OOO thành công, trừ quỹ phòng, cập nhật trạng thái phòng")
     void create_Ooo_Success() {
-        LocalDate start = LocalDate.now().plusDays(1);
-        LocalDate end = LocalDate.now().plusDays(3);
+        LocalDate start = LocalDate.now();
+        LocalDate end = LocalDate.now().plusDays(2);
         RoomMaintenanceBlockCreateRequest req = RoomMaintenanceBlockCreateRequest.builder()
                 .roomInstanceId(101)
                 .blockType("OOO")
@@ -137,7 +137,7 @@ class RoomMaintenanceBlockServiceTest {
     @Test
     @DisplayName("Case 2: Happy path - Tạo block OOS thành công, không gọi applyOooDelta")
     void create_Oos_Success() {
-        LocalDate start = LocalDate.now().plusDays(1);
+        LocalDate start = LocalDate.now();
         LocalDate end = LocalDate.now().plusDays(2);
         RoomMaintenanceBlockCreateRequest req = RoomMaintenanceBlockCreateRequest.builder()
                 .roomInstanceId(101)
@@ -176,6 +176,50 @@ class RoomMaintenanceBlockServiceTest {
         assertThat(result.getBlockType()).isEqualTo("OOS");
         verify(roomAvailabilityService, never()).applyOooDelta(any(), any(), any(), anyInt());
         verify(roomInstanceRepository).save(room);
+    }
+
+    @Test
+    @DisplayName("Case 2b: Happy path - Tạo block tương lai không đổi trạng thái phòng ngay lập tức")
+    void create_FutureBlock_DoesNotChangeRoomStatusImmediately() {
+        LocalDate start = LocalDate.now().plusDays(2);
+        LocalDate end = LocalDate.now().plusDays(4);
+        RoomMaintenanceBlockCreateRequest req = RoomMaintenanceBlockCreateRequest.builder()
+                .roomInstanceId(101)
+                .blockType("OOO")
+                .startDate(start)
+                .endDate(end)
+                .reason("Bảo trì tuần tới")
+                .build();
+
+        RoomMaintenanceBlock entity = RoomMaintenanceBlock.builder()
+                .id(3L)
+                .roomInstance(room)
+                .blockType("OOO")
+                .startDate(start)
+                .endDate(end)
+                .reason(req.getReason())
+                .status("ACTIVE")
+                .build();
+
+        RoomMaintenanceBlockResponse resp = RoomMaintenanceBlockResponse.builder()
+                .id(3L)
+                .blockType("OOO")
+                .status("ACTIVE")
+                .build();
+
+        when(roomInstanceRepository.findByIdWithLock(101)).thenReturn(Optional.of(room));
+        when(repository.findActiveOverlap(101, start, end)).thenReturn(Collections.emptyList());
+        when(bookingService.isRoomBookedBetween(101, start, end)).thenReturn(false);
+        when(mapper.toEntity(req)).thenReturn(entity);
+        when(repository.save(any(RoomMaintenanceBlock.class))).thenReturn(entity);
+        when(mapper.toResponse(entity)).thenReturn(resp);
+
+        RoomMaintenanceBlockResponse result = service.create(req);
+
+        assertThat(result).isNotNull();
+        assertThat(room.getCurrentStatus()).isEqualTo("READY");
+        verify(roomAvailabilityService).applyOooDelta(10, start, end, 1);
+        verify(roomInstanceRepository, never()).save(room);
     }
 
     @Test
@@ -416,5 +460,59 @@ class RoomMaintenanceBlockServiceTest {
         assertThatThrownBy(() -> service.getById(999L))
                 .isInstanceOf(AppException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MAINTENANCE_BLOCK_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("Case 12: completeActiveBlocksForRoom - Giải phóng tất cả active block của phòng")
+    void completeActiveBlocksForRoom_Success() {
+        RoomMaintenanceBlock block = RoomMaintenanceBlock.builder()
+                .id(100L)
+                .roomInstance(room)
+                .blockType("OOS")
+                .startDate(LocalDate.now().minusDays(1))
+                .endDate(LocalDate.now().plusDays(1))
+                .status("ACTIVE")
+                .build();
+
+        when(repository.findByRoomInstanceIdAndStatus(101, "ACTIVE")).thenReturn(List.of(block));
+        when(repository.findById(100L)).thenReturn(Optional.of(block));
+        when(roomInstanceRepository.findByIdWithLock(101)).thenReturn(Optional.of(room));
+        when(roomSlotRepository.findByMaintenanceBlockIdWithLock(100L)).thenReturn(Collections.emptyList());
+        when(repository.existsByRoomInstanceIdAndStatus(101, "ACTIVE")).thenReturn(false);
+        when(roomSlotRepository.findByRoomInstanceIdAndSlotDate(101, LocalDate.now())).thenReturn(Optional.empty());
+        when(repository.save(any(RoomMaintenanceBlock.class))).thenReturn(block);
+        when(mapper.toResponse(block)).thenReturn(RoomMaintenanceBlockResponse.builder().id(100L).status("COMPLETED").build());
+
+        service.completeActiveBlocksForRoom(101);
+
+        assertThat(block.getStatus()).isEqualTo("COMPLETED");
+        verify(roomInstanceRepository).save(room);
+    }
+
+    @Test
+    @DisplayName("Case 13: autoExpireOverdueBlocks - Tự động hoàn tất các block đã hết hạn")
+    void autoExpireOverdueBlocks_Success() {
+        RoomMaintenanceBlock overdueBlock = RoomMaintenanceBlock.builder()
+                .id(101L)
+                .roomInstance(room)
+                .blockType("OOS")
+                .startDate(LocalDate.now().minusDays(5))
+                .endDate(LocalDate.now().minusDays(1))
+                .status("ACTIVE")
+                .build();
+
+        when(repository.findActiveBlocksEndingBefore(LocalDate.now())).thenReturn(List.of(overdueBlock));
+        when(repository.findById(101L)).thenReturn(Optional.of(overdueBlock));
+        when(roomInstanceRepository.findByIdWithLock(101)).thenReturn(Optional.of(room));
+        when(roomSlotRepository.findByMaintenanceBlockIdWithLock(101L)).thenReturn(Collections.emptyList());
+        when(repository.existsByRoomInstanceIdAndStatus(101, "ACTIVE")).thenReturn(false);
+        when(roomSlotRepository.findByRoomInstanceIdAndSlotDate(101, LocalDate.now())).thenReturn(Optional.empty());
+        when(repository.save(any(RoomMaintenanceBlock.class))).thenReturn(overdueBlock);
+        when(mapper.toResponse(overdueBlock)).thenReturn(RoomMaintenanceBlockResponse.builder().id(101L).status("COMPLETED").build());
+
+        int count = service.autoExpireOverdueBlocks();
+
+        assertThat(count).isEqualTo(1);
+        assertThat(overdueBlock.getStatus()).isEqualTo("COMPLETED");
     }
 }
