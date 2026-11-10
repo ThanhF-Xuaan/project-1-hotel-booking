@@ -162,10 +162,12 @@ export const MediaDetailModal: React.FC<MediaDetailModalProps> = ({
               ) : (
                 <div className="text-neutral-500 italic">Phạm vi: Toàn chuỗi (Không gắn cơ sở)</div>
               )}
-              {media.referenceName ? (
+              {media.category === 'HOTEL_ROOM_PHOTO' && media.referenceName ? (
                 <div className="text-red-600 font-semibold">Hạng phòng: {media.referenceName}</div>
+              ) : media.category === 'HOTEL_PROPERTY_PHOTO' ? (
+                <div className="text-neutral-500">Mã cơ sở: #{media.referenceId || media.hotelId}</div>
               ) : media.referenceId ? (
-                <div className="text-neutral-500">Mã tham chiếu: {media.referenceId}</div>
+                <div className="text-neutral-500">Mã tham chiếu: #{media.referenceId}</div>
               ) : null}
             </div>
 

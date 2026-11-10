@@ -132,7 +132,7 @@ public class MediaManagementServiceImpl implements MediaManagementService {
         List<MediaItemResponse> items = pageResult.getContent().stream()
                 .map(mo -> {
                     String hotelName = hotelNameMap.get(mo.getHotelId());
-                    String refName = (mo.getReferenceId() != null)
+                    String refName = (mo.getCategory() == StorageCategory.HOTEL_ROOM_PHOTO && mo.getReferenceId() != null)
                             ? roomTypeNameMap.get(mo.getReferenceId().intValue())
                             : null;
                     return mapToResponse(mo, hotelName, refName);
