@@ -34,12 +34,15 @@ export const MaintenanceBlockEditModal: React.FC<MaintenanceBlockEditModalProps>
 
   useEffect(() => {
     if (block && isOpen) {
-      setBlockType(block.blockType);
-      setStartDate(block.startDate || '');
-      setEndDate(block.endDate || '');
-      setReason(block.reason || '');
-      setNotes(block.notes || '');
-      setFormError(null);
+      const timer = setTimeout(() => {
+        setBlockType(block.blockType);
+        setStartDate(block.startDate || '');
+        setEndDate(block.endDate || '');
+        setReason(block.reason || '');
+        setNotes(block.notes || '');
+        setFormError(null);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [block, isOpen]);
 
