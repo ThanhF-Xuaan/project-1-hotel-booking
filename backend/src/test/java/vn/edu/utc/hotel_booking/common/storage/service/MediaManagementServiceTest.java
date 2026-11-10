@@ -93,6 +93,47 @@ class MediaManagementServiceTest {
     }
 
     @Test
+    @DisplayName("filterMedia - HOTEL_PROPERTY_PHOTO không bị gán nhầm referenceName dù referenceId trùng ID hạng phòng")
+    void filterMedia_propertyPhoto_doesNotAttachRoomTypeNameEvenIfReferenceIdMatches() {
+        MediaObject roomPhoto = MediaObject.builder()
+                .id(1L)
+                .category(StorageCategory.HOTEL_ROOM_PHOTO)
+                .hotelId((short) 1)
+                .referenceId(1L)
+                .storageKey("public/hotels/1/rooms/1/room.jpg")
+                .originalFilename("room.jpg")
+                .sizeBytes(1024L)
+                .build();
+
+        MediaObject propertyPhoto = MediaObject.builder()
+                .id(2L)
+                .category(StorageCategory.HOTEL_PROPERTY_PHOTO)
+                .hotelId((short) 1)
+                .referenceId(1L)
+                .storageKey("public/hotels/1/properties/1/hotel.jpg")
+                .originalFilename("hotel.jpg")
+                .sizeBytes(2048L)
+                .build();
+
+        Hotel targetHotel = Hotel.builder().id((short) 1).name("Khách sạn Hà Nội").build();
+        RoomType rtEntity = RoomType.builder().id((short) 1).code("DLX").name("Deluxe Room").build();
+        HotelRoomType roomType = HotelRoomType.builder().id(1).roomType(rtEntity).build();
+
+        when(mediaObjectRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(roomPhoto, propertyPhoto)));
+        when(hotelRepository.findAllById(any())).thenReturn(List.of(targetHotel));
+        when(hotelRoomTypeRepository.findAllById(any())).thenReturn(List.of(roomType));
+        when(internalMediaDomainService.getDownloadUrl(any(), any())).thenReturn("http://download");
+
+        MediaSearchDto criteria = MediaSearchDto.builder().page(0).pageSize(10).build();
+        PageResponse<MediaItemResponse> response = mediaManagementService.filterMedia(criteria);
+
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent().get(0).getReferenceName()).isEqualTo("Deluxe Room (DLX)");
+        assertThat(response.getContent().get(1).getReferenceName()).isNull();
+    }
+
+    @Test
     @DisplayName("getAvailableCategories - Trả về đúng metadata các loại đa phương tiện")
     void getAvailableCategories_success() {
         StoragePolicy policy = StoragePolicy.builder()
@@ -252,6 +293,60 @@ class MediaManagementServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().getReferenceName()).isEqualTo("Deluxe Room (DLX)");
+    }
+
+    @Test
+    @DisplayName("uploadMedia - HOTEL_PROPERTY_PHOTO tự động gán referenceId bằng hotelId khi referenceId null")
+    void uploadMedia_propertyPhoto_defaultsReferenceIdToHotelId() {
+        MockMultipartFile file = new MockMultipartFile("files", "hotel.jpg", "image/jpeg", new byte[10]);
+        Hotel targetHotel = Hotel.builder().id((short) 1).name("Khách sạn Hà Nội").build();
+
+        when(hotelRepository.existsById((short) 1)).thenReturn(true);
+        when(hotelRepository.findById((short) 1)).thenReturn(Optional.of(targetHotel));
+
+        MediaUploadResponse uploadResp = MediaUploadResponse.builder().mediaId(300L).build();
+        MediaObject saved = MediaObject.builder()
+                .id(300L)
+                .category(StorageCategory.HOTEL_PROPERTY_PHOTO)
+                .hotelId((short) 1)
+                .referenceId(1L)
+                .storageKey("public/hotels/1/properties/1/uuid_hotel.jpg")
+                .originalFilename("hotel.jpg")
+                .build();
+
+        when(internalMediaDomainService.upload(eq(file), eq(StorageCategory.HOTEL_PROPERTY_PHOTO), eq((short) 1), eq(1L), any()))
+                .thenReturn(uploadResp);
+        when(mediaObjectRepository.findByIdAndIsDeletedFalse(300L)).thenReturn(Optional.of(saved));
+
+        List<MediaItemResponse> result = mediaManagementService.uploadMedia(
+                StorageCategory.HOTEL_PROPERTY_PHOTO, (short) 1, null, List.of(file), "admin"
+        );
+
+        assertThat(result).hasSize(1);
+        verify(internalMediaDomainService).upload(eq(file), eq(StorageCategory.HOTEL_PROPERTY_PHOTO), eq((short) 1), eq(1L), any());
+    }
+
+    @Test
+    @DisplayName("setPrimary - HOTEL_PROPERTY_PHOTO tự động cập nhật referenceId nếu đang null")
+    void setPrimary_propertyPhoto_setsReferenceIdIfNull() {
+        MediaObject target = MediaObject.builder()
+                .id(70L)
+                .category(StorageCategory.HOTEL_PROPERTY_PHOTO)
+                .hotelId((short) 1)
+                .referenceId(null)
+                .isPrimary(false)
+                .build();
+
+        when(mediaObjectRepository.findByIdAndIsDeletedFalse(70L)).thenReturn(Optional.of(target));
+        when(mediaObjectRepository.findByCategoryAndReferenceIdAndIsPrimaryTrueAndIsDeletedFalse(
+                StorageCategory.HOTEL_PROPERTY_PHOTO, 1L))
+                .thenReturn(Optional.empty());
+
+        mediaManagementService.setPrimary(70L);
+
+        assertThat(target.getIsPrimary()).isTrue();
+        assertThat(target.getReferenceId()).isEqualTo(1L);
+        verify(mediaObjectRepository).save(target);
     }
 }
 

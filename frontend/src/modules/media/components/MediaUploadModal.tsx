@@ -156,7 +156,11 @@ export const MediaUploadModal: React.FC<MediaUploadModalProps> = ({
 
     try {
       const hId = isBrandAsset || !selectedHotelId ? undefined : Number(selectedHotelId);
-      const refId = isRoomPhoto && selectedRoomTypeId ? Number(selectedRoomTypeId) : undefined;
+      const refId = isRoomPhoto && selectedRoomTypeId
+        ? Number(selectedRoomTypeId)
+        : isPropertyPhoto && selectedHotelId
+          ? Number(selectedHotelId)
+          : undefined;
 
       await mediaService.upload(selectedCategory, selectedFiles, hId, refId);
       setSelectedFiles([]);

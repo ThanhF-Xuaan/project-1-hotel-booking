@@ -132,7 +132,7 @@ public class MediaManagementServiceImpl implements MediaManagementService {
         List<MediaItemResponse> items = pageResult.getContent().stream()
                 .map(mo -> {
                     String hotelName = hotelNameMap.get(mo.getHotelId());
-                    String refName = (mo.getReferenceId() != null)
+                    String refName = (mo.getCategory() == StorageCategory.HOTEL_ROOM_PHOTO && mo.getReferenceId() != null)
                             ? roomTypeNameMap.get(mo.getReferenceId().intValue())
                             : null;
                     return mapToResponse(mo, hotelName, refName);
@@ -159,6 +159,10 @@ public class MediaManagementServiceImpl implements MediaManagementService {
         }
 
         Short resolvedHotelId = validateAndResolveScope(category, hotelId, referenceId);
+        Long resolvedReferenceId = referenceId;
+        if (category == StorageCategory.HOTEL_PROPERTY_PHOTO && resolvedReferenceId == null && resolvedHotelId != null) {
+            resolvedReferenceId = resolvedHotelId.longValue();
+        }
 
         String resolvedRefName = null;
         if (category == StorageCategory.HOTEL_ROOM_PHOTO && referenceId != null) {
@@ -172,12 +176,12 @@ public class MediaManagementServiceImpl implements MediaManagementService {
         List<MediaItemResponse> uploadedItems = new ArrayList<>();
 
         for (MultipartFile file : files) {
-            MediaUploadResponse uploaded = internalMediaDomainService.upload(file, category, resolvedHotelId, referenceId, uploaderId);
+            MediaUploadResponse uploaded = internalMediaDomainService.upload(file, category, resolvedHotelId, resolvedReferenceId, uploaderId);
             MediaObject media = mediaObjectRepository.findByIdAndIsDeletedFalse(uploaded.getMediaId())
                     .orElseThrow(() -> new AppException(ErrorCode.MEDIA_NOT_FOUND));
 
             // Nếu đây là ảnh duy nhất hiện có của đối tượng, tự động đánh dấu làm ảnh chính
-            Long refIdToCheck = referenceId != null ? referenceId : (resolvedHotelId != null ? resolvedHotelId.longValue() : null);
+            Long refIdToCheck = resolvedReferenceId != null ? resolvedReferenceId : (resolvedHotelId != null ? resolvedHotelId.longValue() : null);
             if (refIdToCheck != null) {
                 boolean hasPrimary = mediaObjectRepository
                         .findByCategoryAndReferenceIdAndIsPrimaryTrueAndIsDeletedFalse(category, refIdToCheck)
@@ -251,6 +255,10 @@ public class MediaManagementServiceImpl implements MediaManagementService {
         Long refId = targetMedia.getReferenceId();
         if (refId == null && targetMedia.getHotelId() != null) {
             refId = targetMedia.getHotelId().longValue();
+        }
+
+        if (targetMedia.getCategory() == StorageCategory.HOTEL_PROPERTY_PHOTO && targetMedia.getReferenceId() == null && refId != null) {
+            targetMedia.setReferenceId(refId);
         }
 
         if (refId != null) {

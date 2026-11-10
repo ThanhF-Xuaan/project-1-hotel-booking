@@ -488,7 +488,7 @@ export default function MediaManagementPage() {
                       {media.hotelName ? (
                         <div>
                           <div className="font-medium text-neutral-900">{media.hotelName}</div>
-                          {media.referenceName && (
+                          {media.category === 'HOTEL_ROOM_PHOTO' && media.referenceName && (
                             <div className="text-[11px] text-red-600 font-semibold">{media.referenceName}</div>
                           )}
                         </div>
