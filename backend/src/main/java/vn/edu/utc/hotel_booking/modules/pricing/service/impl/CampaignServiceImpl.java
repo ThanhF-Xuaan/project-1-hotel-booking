@@ -14,7 +14,7 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
-import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
+import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.CampaignCreateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.CampaignSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.CampaignUpdateRequest;
@@ -33,14 +33,17 @@ import java.util.List;
 public class CampaignServiceImpl implements CampaignService {
 
     CampaignRepository campaignRepository;
-    HotelRepository hotelRepository;
+    HotelService hotelService;
     CampaignMapper campaignMapper;
 
     @Override
     @Transactional
     public CampaignResponse createCampaign(CampaignCreateRequest request) {
-        Hotel hotel = hotelRepository.findByIdAndIsDeletedFalse(request.getHotelId())
-                .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn id: " + request.getHotelId()));
+        if (request.getEndDate().isBefore(request.getStartDate())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ngày kết thúc chiến dịch phải sau hoặc bằng ngày bắt đầu");
+        }
+
+        Hotel hotel = hotelService.getEntityById(request.getHotelId());
 
         if (campaignRepository.findByHotelIdAndNameAndIsDeletedFalse(request.getHotelId(), request.getName()).isPresent()) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Tên chiến dịch đã tồn tại trong khách sạn này");
@@ -59,6 +62,10 @@ public class CampaignServiceImpl implements CampaignService {
         Campaign campaign = campaignRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CAMPAIGN_NOT_FOUND, "Không tìm thấy chiến dịch id: " + id));
 
+        if (request.getEndDate() != null && request.getStartDate() != null && request.getEndDate().isBefore(request.getStartDate())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ngày kết thúc chiến dịch phải sau hoặc bằng ngày bắt đầu");
+        }
+
         campaignMapper.updateEntity(campaign, request);
         Campaign updated = campaignRepository.save(campaign);
         return campaignMapper.toResponse(updated);
@@ -69,6 +76,12 @@ public class CampaignServiceImpl implements CampaignService {
         Campaign campaign = campaignRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.CAMPAIGN_NOT_FOUND, "Không tìm thấy chiến dịch id: " + id));
         return campaignMapper.toResponse(campaign);
+    }
+
+    @Override
+    public Campaign getEntityById(Integer id) {
+        return campaignRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.CAMPAIGN_NOT_FOUND, "Không tìm thấy chiến dịch id: " + id));
     }
 
     @Override

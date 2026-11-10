@@ -6,17 +6,20 @@ import Select from '../../../core/components/ui/Select'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
 import Pagination from '../../../core/components/ui/Pagination'
 import pricingService from '../services/pricing.service'
+import pricingRuleTypeService from '../services/pricingRuleType.service'
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service'
 import type {
   PricingRuleDto,
   PricingRuleCreateRequest,
   PricingRuleUpdateRequest,
+  PricingRuleTypeDto,
 } from '../types/pricing.types'
 import type { HotelRoomTypeDto } from '../../inventory/types/inventory.types'
 
 export const PricingRuleListPage: React.FC = () => {
   const [rules, setRules] = useState<PricingRuleDto[]>([])
   const [hotelRoomTypes, setHotelRoomTypes] = useState<HotelRoomTypeDto[]>([])
+  const [ruleTypes, setRuleTypes] = useState<PricingRuleTypeDto[]>([])
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [page, setPage] = useState(0)
@@ -54,6 +57,13 @@ export const PricingRuleListPage: React.FC = () => {
         if (res.result) setHotelRoomTypes(res.result.content || [])
       })
       .catch((err) => console.error('Lỗi tải danh mục loại phòng:', err))
+
+    pricingRuleTypeService
+      .getActive()
+      .then((res) => {
+        if (res.result) setRuleTypes(res.result)
+      })
+      .catch((err) => console.error('Lỗi tải loại quy tắc giá:', err))
   }, [])
 
   const loadData = useCallback(async () => {
@@ -115,7 +125,7 @@ export const PricingRuleListPage: React.FC = () => {
 
     setEditingRule(null)
     setFormRoomTypeId(hotelRoomTypes.length > 0 ? hotelRoomTypes[0].id : '')
-    setFormRuleTypeCode('PEAK_SEASON')
+    setFormRuleTypeCode(ruleTypes.length > 0 ? ruleTypes[0].code : 'PEAK_SEASON')
     setFormAdjustmentType('PERCENT')
     setFormAdjustmentValue(10)
     setFormStartDate('')
@@ -149,6 +159,11 @@ export const PricingRuleListPage: React.FC = () => {
 
     if (formStartDate > formEndDate) {
       setFormError('Ngày kết thúc phải sau ngày bắt đầu')
+      return
+    }
+
+    if (formAdjustmentType === 'PERCENT' && (formAdjustmentValue < -100 || formAdjustmentValue > 100)) {
+      setFormError('Giá trị điều chỉnh phần trăm phải nằm trong khoảng từ -100% đến +100%')
       return
     }
 
@@ -277,9 +292,16 @@ export const PricingRuleListPage: React.FC = () => {
               onChange={(val) => setRuleTypeCode(val)}
               options={[
                 { value: '', label: 'Tất cả loại quy tắc' },
-                { value: 'PEAK_SEASON', label: 'Mùa cao điểm (PEAK_SEASON)' },
-                { value: 'HOLIDAY', label: 'Lễ tết (HOLIDAY)' },
-                { value: 'WEEKEND', label: 'Cuối tuần (WEEKEND)' },
+                ...(ruleTypes.length > 0
+                  ? ruleTypes.map((rt) => ({
+                      value: rt.code,
+                      label: `${rt.displayName} (${rt.code})`,
+                    }))
+                  : [
+                      { value: 'PEAK_SEASON', label: 'Mùa cao điểm (PEAK_SEASON)' },
+                      { value: 'HOLIDAY', label: 'Lễ tết (HOLIDAY)' },
+                      { value: 'WEEKEND', label: 'Cuối tuần (WEEKEND)' },
+                    ]),
               ]}
               size="lg"
             />
@@ -513,11 +535,18 @@ export const PricingRuleListPage: React.FC = () => {
                 value={formRuleTypeCode}
                 onChange={(val) => setFormRuleTypeCode(val)}
                 disabled={!!editingRule}
-                options={[
-                  { value: 'PEAK_SEASON', label: 'Mùa cao điểm (PEAK_SEASON)' },
-                  { value: 'HOLIDAY', label: 'Lễ tết (HOLIDAY)' },
-                  { value: 'WEEKEND', label: 'Cuối tuần (WEEKEND)' },
-                ]}
+                options={
+                  ruleTypes.length > 0
+                    ? ruleTypes.map((rt) => ({
+                        value: rt.code,
+                        label: `${rt.displayName} (${rt.code})`,
+                      }))
+                    : [
+                        { value: 'PEAK_SEASON', label: 'Mùa cao điểm (PEAK_SEASON)' },
+                        { value: 'HOLIDAY', label: 'Lễ tết (HOLIDAY)' },
+                        { value: 'WEEKEND', label: 'Cuối tuần (WEEKEND)' },
+                      ]
+                }
                 size="md"
               />
             </div>

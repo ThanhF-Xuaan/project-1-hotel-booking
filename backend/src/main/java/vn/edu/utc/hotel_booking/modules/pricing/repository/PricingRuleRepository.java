@@ -28,6 +28,8 @@ public interface PricingRuleRepository extends JpaRepository<PricingRule, Intege
 
     boolean existsByHolidayCalendarIdAndIsDeletedFalse(Integer holidayCalendarId);
 
+    boolean existsByRuleTypeCodeAndIsDeletedFalse(String ruleTypeCode);
+
     @Query("SELECT pr FROM PricingRule pr " +
             "JOIN FETCH pr.ruleType prt " +
             "LEFT JOIN FETCH pr.holidayCalendar hc " +

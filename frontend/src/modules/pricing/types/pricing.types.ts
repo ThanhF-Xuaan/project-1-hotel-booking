@@ -252,3 +252,111 @@ export interface HolidayCalendarSearchDto extends BaseSearchDto {
   month?: number
   status?: string
 }
+
+// ==========================================
+// Pricing Rule Type Types
+// ==========================================
+export interface PricingRuleTypeDto {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface PricingRuleTypeCreateRequest {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface PricingRuleTypeUpdateRequest {
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+// ==========================================
+// Discount Rule Type Types
+// ==========================================
+export interface DiscountRuleTypeDto {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface DiscountRuleTypeCreateRequest {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface DiscountRuleTypeUpdateRequest {
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+// ==========================================
+// Discount Rule Types
+// ==========================================
+export interface DiscountRuleDto {
+  id: number
+  hotelRoomTypeId: number
+  roomTypeName?: string
+  hotelId?: number
+  hotelName?: string
+  ruleTypeCode: string
+  ruleTypeName?: string
+  campaignId?: number
+  campaignName?: string
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface DiscountRuleCreateRequest {
+  hotelRoomTypeId: number
+  ruleTypeCode: string
+  campaignId?: number
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface DiscountRuleUpdateRequest {
+  campaignId?: number
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface DiscountRuleSearchDto extends BaseSearchDto {
+  hotelId?: number
+  hotelRoomTypeId?: number
+  campaignId?: number
+  ruleTypeCode?: string
+  activeOnDate?: string
+  status?: string
+}
+
