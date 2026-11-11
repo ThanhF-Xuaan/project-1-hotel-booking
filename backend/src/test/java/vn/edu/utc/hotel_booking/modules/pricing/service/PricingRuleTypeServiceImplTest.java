@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleTypeCreateRequest;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleTypeUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PricingRuleTypeResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.PricingRuleType;
 import vn.edu.utc.hotel_booking.modules.pricing.mapper.PricingRuleTypeMapper;
@@ -55,6 +56,7 @@ class PricingRuleTypeServiceImplTest {
         PricingRuleTypeCreateRequest request = PricingRuleTypeCreateRequest.builder()
                 .code("PEAK_SEASON")
                 .displayName("Mùa cao điểm")
+                .description("  Phụ thu mùa du lịch  ")
                 .priority((short) 80)
                 .status("ACTIVE")
                 .build();
@@ -62,6 +64,7 @@ class PricingRuleTypeServiceImplTest {
         PricingRuleTypeResponse response = PricingRuleTypeResponse.builder()
                 .code("PEAK_SEASON")
                 .displayName("Mùa cao điểm")
+                .description("Phụ thu mùa du lịch")
                 .priority((short) 80)
                 .status("ACTIVE")
                 .build();
@@ -75,7 +78,9 @@ class PricingRuleTypeServiceImplTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getCode()).isEqualTo("PEAK_SEASON");
-        verify(pricingRuleTypeRepository).save(any());
+        assertThat(sampleType.getDescription()).isEqualTo("Phụ thu mùa du lịch");
+        assertThat(result.getDescription()).isEqualTo("Phụ thu mùa du lịch");
+        verify(pricingRuleTypeRepository).save(sampleType);
     }
 
     @Test
@@ -92,6 +97,44 @@ class PricingRuleTypeServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> pricingRuleTypeService.create(request));
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_REQUEST_DATA);
         verify(pricingRuleTypeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật và xóa trắng mô tả loại quy tắc giá thành công")
+    void update_UpdatesAndClearsDescription() {
+        sampleType.setDescription("Mô tả cũ");
+        PricingRuleTypeUpdateRequest updateWithDesc = PricingRuleTypeUpdateRequest.builder()
+                .displayName("Mùa cao điểm mới")
+                .description("  Mô tả mới  ")
+                .priority((short) 85)
+                .status("ACTIVE")
+                .build();
+
+        when(pricingRuleTypeRepository.findByCodeAndIsDeletedFalse("PEAK_SEASON")).thenReturn(java.util.Optional.of(sampleType));
+        when(pricingRuleTypeRepository.save(sampleType)).thenReturn(sampleType);
+        when(pricingRuleTypeMapper.toResponse(sampleType)).thenAnswer(invocation -> {
+            PricingRuleType entity = invocation.getArgument(0);
+            return PricingRuleTypeResponse.builder()
+                    .code(entity.getCode())
+                    .displayName(entity.getDisplayName())
+                    .description(entity.getDescription())
+                    .priority(entity.getPriority())
+                    .status(entity.getStatus())
+                    .build();
+        });
+
+        PricingRuleTypeResponse updated = pricingRuleTypeService.update("PEAK_SEASON", updateWithDesc);
+        assertThat(updated.getDescription()).isEqualTo("Mô tả mới");
+
+        PricingRuleTypeUpdateRequest clearDesc = PricingRuleTypeUpdateRequest.builder()
+                .displayName("Mùa cao điểm mới")
+                .description("   ")
+                .priority((short) 85)
+                .status("ACTIVE")
+                .build();
+
+        PricingRuleTypeResponse cleared = pricingRuleTypeService.update("PEAK_SEASON", clearDesc);
+        assertThat(cleared.getDescription()).isNull();
     }
 
     @Test

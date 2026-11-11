@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261111-191000-add-description-to-rule-types" author="utc-hotel-team" context="master-data">
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Add description column and default master-data descriptions to pricing_rule_types and discount_rule_types</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261111-191000-add-description-to-rule-types.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+</databaseChangeLog>
+

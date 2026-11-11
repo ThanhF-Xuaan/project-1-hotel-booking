@@ -56,10 +56,12 @@ export const DiscountRuleTypeListPage: React.FC = () => {
   }, [loadData])
 
   const filteredList = ruleTypes.filter((item) => {
+    const keyword = searchTerm.toLowerCase().trim()
     const matchKeyword =
-      !searchTerm.trim() ||
-      item.code.toLowerCase().includes(searchTerm.toLowerCase().trim()) ||
-      item.displayName.toLowerCase().includes(searchTerm.toLowerCase().trim())
+      !keyword ||
+      item.code.toLowerCase().includes(keyword) ||
+      item.displayName.toLowerCase().includes(keyword) ||
+      (item.description?.toLowerCase().includes(keyword) ?? false)
     const matchStatus = !statusFilter || item.status === statusFilter
     return matchKeyword && matchStatus
   })
@@ -104,7 +106,7 @@ export const DiscountRuleTypeListPage: React.FC = () => {
       if (editingType) {
         const updatePayload: DiscountRuleTypeUpdateRequest = {
           displayName: formDisplayName.trim(),
-          description: formDescription.trim() || undefined,
+          description: formDescription.trim(),
           priority: Number(formPriority),
           status: formStatus,
         }
@@ -280,23 +282,26 @@ export const DiscountRuleTypeListPage: React.FC = () => {
               ) : (
                 filteredList.map((item) => (
                   <tr key={item.code} className="hover:bg-neutral-50/60 transition-colors">
-                    <td className="py-3 px-4 font-mono font-semibold text-neutral-900">
+                    <td className="py-3 px-4 font-mono font-semibold text-neutral-900 whitespace-nowrap">
                       {item.code}
                     </td>
-                    <td className="py-3 px-4 font-medium text-neutral-900">
+                    <td className="py-3 px-4 font-medium text-neutral-900 min-w-[200px] max-w-xs whitespace-normal break-words leading-snug">
                       {item.displayName}
                     </td>
-                    <td className="py-3 px-4 text-neutral-500 text-xs max-w-xs truncate">
+                    <td
+                      className="py-3 px-4 text-neutral-600 text-xs min-w-[260px] max-w-md whitespace-normal break-words leading-relaxed"
+                      title={item.description || undefined}
+                    >
                       {item.description || '—'}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-4 text-center whitespace-nowrap">
                       <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-800">
                         {item.priority}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-full text-xs font-semibold ${
                           item.status === 'ACTIVE'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
@@ -305,7 +310,7 @@ export const DiscountRuleTypeListPage: React.FC = () => {
                         {item.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <Button
                           variant="ghost"
@@ -410,14 +415,20 @@ export const DiscountRuleTypeListPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
+            <label
+              htmlFor="discount-rule-type-description"
+              className="block text-sm font-medium text-neutral-700 mb-1"
+            >
               Mô Tả
             </label>
-            <Input
-              type="text"
+            <textarea
+              id="discount-rule-type-description"
+              rows={2}
+              maxLength={500}
               placeholder="Ghi chú thêm về loại quy tắc giảm giá này..."
               value={formDescription}
               onChange={(e) => setFormDescription(e.target.value)}
+              className="w-full px-4 py-2.5 text-sm md:text-base text-neutral-900 bg-white border border-neutral-300 rounded-xl transition-all duration-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 resize-y"
             />
           </div>
 
