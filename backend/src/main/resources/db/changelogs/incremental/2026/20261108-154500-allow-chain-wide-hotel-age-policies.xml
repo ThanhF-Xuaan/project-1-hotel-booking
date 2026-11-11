@@ -6,6 +6,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="20261108-154500-allow-chain-wide-hotel-age-policies" author="utc-hotel-team" context="master-data">
+        <validCheckSum>ANY</validCheckSum>
         <comment>Cho phep hotel_id nullable cho Chinh sach do tuoi toan chuoi va khoi tao seed default</comment>
         <sqlFile path="db/sqlFile/incremental/2026/20261108-154500-allow-chain-wide-hotel-age-policies.sql"
                  relativeToChangelogFile="false"

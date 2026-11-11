@@ -15,6 +15,7 @@ import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomMaintenanceBlockService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.RoomStatusUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.RoomHousekeepingStatusResponse;
@@ -37,6 +38,7 @@ class HousekeepingServiceTest {
     @Mock RoomInstanceService roomInstanceService;
     @Mock RoomSlotService roomSlotService;
     @Mock BookingLookupService bookingLookupService;
+    @Mock RoomMaintenanceBlockService roomMaintenanceBlockService;
 
     @InjectMocks
     HousekeepingServiceImpl housekeepingService;

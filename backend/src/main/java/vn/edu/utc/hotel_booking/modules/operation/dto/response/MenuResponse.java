@@ -29,6 +29,7 @@ public class MenuResponse {
     Integer masterItemId;
     String masterItemCode;
     String customName;
+    String unit;
 
     // Riêng cho PRODUCT
     Integer stockQuantity;

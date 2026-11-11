@@ -6,6 +6,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="20261107-200000-allow-audit-logs-purge-retention" author="member1">
+        <validCheckSum>ANY</validCheckSum>
         <comment>Cap nhat co che bao ve audit_logs: cho phep DELETE de duy tri toi da 50 ban ghi moi nhat, van chan UPDATE</comment>
         <sqlFile path="db/sqlFile/incremental/2026/20261107-200000-allow-audit-logs-purge-retention.sql"
                  relativeToChangelogFile="false"

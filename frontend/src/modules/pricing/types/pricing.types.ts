@@ -252,3 +252,205 @@ export interface HolidayCalendarSearchDto extends BaseSearchDto {
   month?: number
   status?: string
 }
+
+// ==========================================
+// Pricing Rule Type Types
+// ==========================================
+export interface PricingRuleTypeDto {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface PricingRuleTypeCreateRequest {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface PricingRuleTypeUpdateRequest {
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+// ==========================================
+// Discount Rule Type Types
+// ==========================================
+export interface DiscountRuleTypeDto {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface DiscountRuleTypeCreateRequest {
+  code: string
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface DiscountRuleTypeUpdateRequest {
+  displayName: string
+  description?: string
+  priority: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+// ==========================================
+// Discount Rule Types
+// ==========================================
+export interface DiscountTierItem {
+  minNights: number
+  maxNights?: number | null
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+}
+
+export interface DiscountConditions {
+  minNights?: number
+  maxNights?: number
+  minAdvanceDays?: number
+  maxAdvanceDays?: number
+  tiers?: DiscountTierItem[]
+}
+
+export interface DiscountRuleDto {
+  id: number
+  hotelRoomTypeId: number
+  roomTypeName?: string
+  hotelId?: number
+  hotelName?: string
+  ruleTypeCode: string
+  ruleTypeName?: string
+  campaignId?: number
+  campaignName?: string
+  conditions?: string
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface DiscountRuleCreateRequest {
+  hotelRoomTypeId: number
+  ruleTypeCode: string
+  campaignId?: number
+  conditions?: string
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface DiscountRuleUpdateRequest {
+  campaignId?: number
+  conditions?: string
+  discountType: 'PERCENT' | 'FIXED'
+  discountValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+}
+
+export interface DiscountRuleSearchDto extends BaseSearchDto {
+  hotelId?: number
+  hotelRoomTypeId?: number
+  campaignId?: number
+  ruleTypeCode?: string
+  activeOnDate?: string
+  status?: string
+}
+
+// ==========================================
+// 8. Surcharge Rule Interfaces (Phụ thu)
+// ==========================================
+
+export interface SurchargeTierItem {
+  from_time: string
+  to_time: string
+  adjustment_type: 'PERCENT' | 'FIXED'
+  adjustment_value: number
+  description?: string
+}
+
+export interface SurchargeConditions {
+  standard_time?: string
+  tiers?: SurchargeTierItem[]
+}
+
+export interface SurchargeRuleDto {
+  id: number
+  hotelRoomTypeId: number
+  roomTypeName?: string
+  hotelId?: number
+  hotelName?: string
+  hotelCheckInTime?: string
+  hotelCheckOutTime?: string
+  agePolicyId?: number
+  agePolicyGuestType?: string
+  agePolicyMinAge?: number
+  agePolicyMaxAge?: number
+  ruleType: 'EXTRA_PERSON' | 'EXTRA_BED' | 'EARLY_CHECKIN' | 'LATE_CHECKOUT'
+  pricingType: 'PER_NIGHT' | 'PER_STAY'
+  conditions: string
+  adjustmentType: 'PERCENT' | 'FIXED'
+  adjustmentValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface SurchargeRuleCreateRequest {
+  hotelRoomTypeId: number
+  agePolicyId?: number
+  ruleType: 'EXTRA_PERSON' | 'EXTRA_BED' | 'EARLY_CHECKIN' | 'LATE_CHECKOUT'
+  pricingType: 'PER_NIGHT' | 'PER_STAY'
+  adjustmentType: 'PERCENT' | 'FIXED'
+  adjustmentValue: number
+  startDate: string
+  endDate: string
+  conditions?: string
+  status?: string
+}
+
+export interface SurchargeRuleUpdateRequest {
+  hotelRoomTypeId: number
+  agePolicyId?: number
+  ruleType: 'EXTRA_PERSON' | 'EXTRA_BED' | 'EARLY_CHECKIN' | 'LATE_CHECKOUT'
+  pricingType: 'PER_NIGHT' | 'PER_STAY'
+  adjustmentType: 'PERCENT' | 'FIXED'
+  adjustmentValue: number
+  startDate: string
+  endDate: string
+  conditions?: string
+  status?: string
+}
+
+export interface SurchargeRuleSearchDto extends BaseSearchDto {
+  hotelId?: number
+  hotelRoomTypeId?: number
+  agePolicyId?: number
+  ruleType?: string
+  pricingType?: string
+  status?: string
+  activeOnDate?: string
+}

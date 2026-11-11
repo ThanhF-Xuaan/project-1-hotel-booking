@@ -5,8 +5,11 @@
         xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
-    <changeSet id="20261104-222500-dev-seed-sample-bookings" author="member-1" context="dev-seed">
-        <comment>Khoi tao 4 bo du lieu booking mau phuc vu Member 1 (T05 Lodging Queue, U13 OCR, U14 Personalization)</comment>
+    <changeSet id="20261104-222500-dev-seed-sample-bookings" author="member-1" context="dev-seed-deprecated">
+        <validCheckSum>9:b6f0b586d9fb9c25dcc85c31cedcdf93</validCheckSum>
+        <validCheckSum>9:be5fa0bb82cf9ad8bdfad33d118e1944</validCheckSum>
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Deprecated: Thay the boi 20261107-201500-dev-seed-sample-bookings do lech so phong trigger m1_active_stay_key</comment>
         <sqlFile path="db/sqlFile/incremental/2026/20261104-222500-dev-seed-sample-bookings.sql"
                  relativeToChangelogFile="false"
                  splitStatements="false"

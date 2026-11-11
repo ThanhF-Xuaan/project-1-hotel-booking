@@ -34,12 +34,13 @@ public interface VatRuleRepository extends JpaRepository<VatRule, Integer> {
     boolean existsByTaxCategoryIdAndIsDeletedFalse(Integer taxCategoryId);
 
     @Query("SELECT vr FROM VatRule vr JOIN FETCH vr.taxCategory tc WHERE vr.isDeleted = false " +
-            "AND (:taxCategoryId IS NULL OR tc.id = :taxCategoryId) " +
-            "AND (:keyword IS NULL OR :keyword = '' " +
-            "     OR LOWER(vr.vatCode) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
-            "     OR LOWER(vr.vatName) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:status IS NULL OR :status = '' OR vr.status = :status) " +
-            "AND (:activeOnDate IS NULL OR (vr.startDate <= :activeOnDate AND (vr.endDate IS NULL OR vr.endDate >= :activeOnDate)))")
+            "AND (CAST(:taxCategoryId AS integer) IS NULL OR tc.id = :taxCategoryId) " +
+            "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' " +
+            "     OR LOWER(vr.vatCode) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "     OR LOWER(vr.vatName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+            "AND (CAST(:status AS string) IS NULL OR CAST(:status AS string) = '' OR vr.status = :status) " +
+            "AND (CAST(:activeOnDate AS java.time.LocalDate) IS NULL " +
+            "     OR (vr.startDate <= :activeOnDate AND (vr.endDate IS NULL OR vr.endDate >= :activeOnDate)))")
     Page<VatRule> filter(
             @Param("taxCategoryId") Integer taxCategoryId,
             @Param("keyword") String keyword,
@@ -50,8 +51,8 @@ public interface VatRuleRepository extends JpaRepository<VatRule, Integer> {
 
     @Query("SELECT vr FROM VatRule vr WHERE vr.taxCategory.id = :taxCategoryId " +
             "AND vr.isDeleted = false AND vr.status = 'ACTIVE' " +
-            "AND (:excludeId IS NULL OR vr.id != :excludeId) " +
-            "AND (vr.startDate <= :endDate OR :endDate IS NULL) " +
+            "AND (CAST(:excludeId AS integer) IS NULL OR vr.id != :excludeId) " +
+            "AND (CAST(:endDate AS java.time.LocalDate) IS NULL OR vr.startDate <= :endDate) " +
             "AND (vr.endDate IS NULL OR vr.endDate >= :startDate)")
     List<VatRule> findOverlappingActiveRules(
             @Param("taxCategoryId") Integer taxCategoryId,

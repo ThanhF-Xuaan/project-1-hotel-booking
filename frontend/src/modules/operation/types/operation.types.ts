@@ -1,11 +1,67 @@
 export type MenuType = 'PRODUCT' | 'SERVICE';
 
-export type ServicePricingType = 'PER_STAY' | 'PER_NIGHT' | 'PER_PERSON' | 'PER_UNIT';
+export type ServicePricingType =
+  | 'PER_STAY'
+  | 'PER_NIGHT'
+  | 'PER_PERSON'
+  | 'PER_PERSON_PER_NIGHT'
+  | 'PER_UNIT'
+  | 'PER_USE';
 
 export type ServiceOrderStatus = 'PENDING' | 'PREPARING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
 
+export interface MasterItemCreateRequest {
+  code: string;
+  name: string;
+  description?: string;
+  itemType: MenuType;
+  defaultBasePrice: number;
+  taxCategoryId: number;
+  pricingType?: ServicePricingType;
+  unit?: string;
+  status?: string;
+}
+
+export interface MasterItemUpdateRequest {
+  name?: string;
+  description?: string;
+  defaultBasePrice?: number;
+  taxCategoryId?: number;
+  pricingType?: ServicePricingType;
+  unit?: string;
+  status?: string;
+}
+
+export interface MasterItemSearchDto {
+  code?: string;
+  name?: string;
+  itemType?: MenuType;
+  taxCategoryId?: number;
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface MasterItemResponse {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+  itemType: MenuType;
+  defaultBasePrice: number;
+  taxCategoryId: number;
+  taxCategoryName?: string;
+  pricingType?: ServicePricingType;
+  unit?: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface MenuCreateRequest {
-  hotelId?: number;
+  hotelId: number;
+  masterItemId: number;
+  customName?: string;
   taxCategoryId: number;
   menuType: MenuType;
   name: string;
@@ -17,6 +73,8 @@ export interface MenuCreateRequest {
 
 export interface MenuUpdateRequest {
   taxCategoryId?: number;
+  masterItemId?: number;
+  customName?: string;
   name?: string;
   description?: string;
   basePrice?: number;
@@ -45,8 +103,14 @@ export interface MenuResponse {
   description?: string;
   basePrice: number;
   status: string;
+  masterItemId?: number;
+  masterItemCode?: string;
+  customName?: string;
+  unit?: string;
   stockQuantity?: number;
   pricingType?: ServicePricingType;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type ServiceOrderPaymentMethod = 'POST_TO_ROOM' | 'CASH' | 'VNPAY';

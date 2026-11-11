@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.modules.pricing.service;
 
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
+import vn.edu.utc.hotel_booking.modules.pricing.entity.Campaign;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.CampaignCreateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.CampaignSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.CampaignUpdateRequest;
@@ -15,6 +16,8 @@ public interface CampaignService {
     CampaignResponse updateCampaign(Integer id, CampaignUpdateRequest request);
 
     CampaignResponse getCampaignById(Integer id);
+
+    Campaign getEntityById(Integer id);
 
     PageResponse<CampaignResponse> filterCampaigns(CampaignSearchDto searchDto);
 

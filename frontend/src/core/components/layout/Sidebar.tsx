@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { hasAnyRole } from '../../../modules/auth/utils/token.utils'
-import { LODGING_ROLES } from '../../../modules/operation/types/lodging.types'
-import { PAYROLL_IMPORT_ROLES } from '../../../modules/finance/services/payroll.service'
-import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
+import { LODGING_ROLES } from '../../../modules/operation/types/lodging.types'
+import { PAYROLL_IMPORT_ROLES } from '../../../modules/finance/services/payroll.service'
+import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
 import {
   Globe,
   Building,
@@ -31,6 +31,12 @@ import {
   Gauge,
   Percent,
   Calendar,
+  Clock,
+  Image as ImageIcon,
+  Sliders,
+  Tag,
+  Coins,
+  Layers,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -146,6 +152,12 @@ const navGroups: NavGroup[] = [
     icon: <UtensilsCrossed className="w-4 h-4" />,
     items: [
       {
+        label: 'Danh mục gốc chuỗi',
+        to: '/operation/master-items',
+        icon: <Layers className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'F_AND_B'],
+      },
+      {
         label: 'Thực đơn & Dịch vụ',
         to: '/operation/menus',
         icon: <UtensilsCrossed className="w-4 h-4" />,
@@ -164,22 +176,34 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'],
       },
       {
-        label: 'Khai báo lưu trú',
-        to: '/operation/lodging-queue',
-        icon: <UserSquare2 className="w-4 h-4" />,
-        roles: LODGING_ROLES,
-      },
-      {
-        label: 'Điện/Nước',
-        to: '/operation/utility',
-        icon: <Gauge className="w-4 h-4" />,
-        roles: UTILITY_READ_ROLES,
+        label: 'Khai báo lưu trú',
+        to: '/operation/lodging-queue',
+        icon: <UserSquare2 className="w-4 h-4" />,
+        roles: LODGING_ROLES,
+      },
+      {
+        label: 'Điện/Nước',
+        to: '/operation/utility',
+        icon: <Gauge className="w-4 h-4" />,
+        roles: UTILITY_READ_ROLES,
       },
       {
         label: 'Đóng ngày (Night Audit)',
         to: '/operation/night-audit',
         icon: <Moon className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'FINANCE'],
+      },
+      {
+        label: 'Tác vụ Lập lịch & Nền',
+        to: '/operation/schedulers',
+        icon: <Clock className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Kho Đa phương tiện',
+        to: '/operation/media',
+        icon: <ImageIcon className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
     ],
   },
@@ -343,9 +367,33 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
+        label: 'Loại Quy tắc Giá',
+        to: '/pricing/rule-types',
+        icon: <Sliders className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
         label: 'Chiến dịch Khuyến mại',
         to: '/pricing/campaigns',
         icon: <Megaphone className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Quy tắc Giảm giá',
+        to: '/pricing/discount-rules',
+        icon: <Percent className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Loại Quy tắc Giảm giá',
+        to: '/pricing/discount-rule-types',
+        icon: <Tag className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Quy tắc Phụ thu',
+        to: '/pricing/surcharge-rules',
+        icon: <Coins className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {

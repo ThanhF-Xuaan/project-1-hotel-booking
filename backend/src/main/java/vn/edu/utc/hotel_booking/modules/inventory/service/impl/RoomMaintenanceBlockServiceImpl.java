@@ -65,6 +65,8 @@ public class RoomMaintenanceBlockServiceImpl implements RoomMaintenanceBlockServ
                     "Phòng " + room.getRoomNumber() + " đang có khách lưu trú, không thể tạo lệnh khóa phòng");
         }
 
+        autoExpireOverdueBlocks();
+
         List<RoomMaintenanceBlock> overlapBlocks = repository.findActiveOverlap(
                 room.getId(), request.getStartDate(), request.getEndDate());
         if (!overlapBlocks.isEmpty()) {
@@ -91,11 +93,13 @@ public class RoomMaintenanceBlockServiceImpl implements RoomMaintenanceBlockServ
         block.setCreatedByStaffId(staffId);
         block = repository.save(block);
 
-        room.setCurrentStatus("MAINTENANCE");
-        roomInstanceRepository.save(room);
+        LocalDate today = LocalDate.now();
+        if (!request.getStartDate().isAfter(today) && !request.getEndDate().isBefore(today)) {
+            room.setCurrentStatus("MAINTENANCE");
+            roomInstanceRepository.save(room);
+        }
 
         if ("OOO".equalsIgnoreCase(request.getBlockType())) {
-            LocalDate today = LocalDate.now();
             LocalDate slotStart = request.getStartDate().isBefore(today) ? today : request.getStartDate();
             LocalDate cur = slotStart;
             while (!cur.isAfter(request.getEndDate())) {
@@ -269,7 +273,10 @@ public class RoomMaintenanceBlockServiceImpl implements RoomMaintenanceBlockServ
     }
 
     @Override
+    @Transactional
     public PageResponse<RoomMaintenanceBlockResponse> filter(RoomMaintenanceBlockSearchDto searchDto) {
+        autoExpireOverdueBlocks();
+
         int page = searchDto.getPage() != null && searchDto.getPage() >= 0 ? searchDto.getPage() : 0;
         int pageSize = searchDto.getPageSize() != null && searchDto.getPageSize() > 0 ? searchDto.getPageSize() : 10;
         Pageable pageable = PageRequest.of(page, pageSize, Sort.by("id").descending());
@@ -288,6 +295,7 @@ public class RoomMaintenanceBlockServiceImpl implements RoomMaintenanceBlockServ
     }
 
     @Override
+    @Transactional
     public RoomMaintenanceBlockResponse getById(Long id) {
         RoomMaintenanceBlock block = repository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.MAINTENANCE_BLOCK_NOT_FOUND, "Không tìm thấy thông tin khóa phòng"));
@@ -295,9 +303,44 @@ public class RoomMaintenanceBlockServiceImpl implements RoomMaintenanceBlockServ
     }
 
     @Override
+    @Transactional
     public List<RoomMaintenanceBlockResponse> getByRoomInstanceId(Integer roomInstanceId) {
+        autoExpireOverdueBlocks();
         List<RoomMaintenanceBlock> list = repository.findByRoomInstanceIdOrderByCreatedAtDesc(roomInstanceId);
         return mapper.toResponseList(list);
+    }
+
+    @Override
+    @Transactional
+    public void completeActiveBlocksForRoom(Integer roomInstanceId) {
+        if (roomInstanceId == null) {
+            return;
+        }
+        List<RoomMaintenanceBlock> activeBlocks = repository.findByRoomInstanceIdAndStatus(roomInstanceId, "ACTIVE");
+        for (RoomMaintenanceBlock block : activeBlocks) {
+            log.info("Tự động hoàn tất lệnh khóa phòng id={} do phòng {} được chuyển sang READY",
+                    block.getId(), roomInstanceId);
+            releaseBlock(block.getId(), "COMPLETED");
+        }
+    }
+
+    @Override
+    @Transactional
+    public int autoExpireOverdueBlocks() {
+        LocalDate today = LocalDate.now();
+        List<RoomMaintenanceBlock> overdueBlocks = repository.findActiveBlocksEndingBefore(today);
+        if (overdueBlocks.isEmpty()) {
+            return 0;
+        }
+        log.info("Tự động hoàn tất {} lệnh khóa phòng đã hết hạn trước ngày {}", overdueBlocks.size(), today);
+        for (RoomMaintenanceBlock block : overdueBlocks) {
+            try {
+                releaseBlock(block.getId(), "COMPLETED");
+            } catch (Exception e) {
+                log.error("Lỗi khi tự động giải phóng lệnh khóa phòng id={}: {}", block.getId(), e.getMessage());
+            }
+        }
+        return overdueBlocks.size();
     }
 
     private Integer resolveCurrentStaffId() {

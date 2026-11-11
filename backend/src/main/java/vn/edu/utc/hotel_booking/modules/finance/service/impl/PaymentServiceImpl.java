@@ -387,6 +387,10 @@ public class PaymentServiceImpl implements PaymentService {
         if (payment.getStatus() == PaymentStatus.SUCCESS) {
             throw new AppException(ErrorCode.PAYMENT_ALREADY_COMPLETED, "Thanh toán này đã hoàn tất");
         }
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new AppException(ErrorCode.PAYMENT_NOT_PENDING,
+                    "Chỉ xác nhận hoàn tất được giao dịch đang chờ (PENDING) — trạng thái hiện tại: " + payment.getStatus());
+        }
 
         payment.setStatus(PaymentStatus.SUCCESS);
         payment.setPaidAt(OffsetDateTime.now());
@@ -403,7 +407,10 @@ public class PaymentServiceImpl implements PaymentService {
                 .issuedAt(OffsetDateTime.now())
                 .build();
         transactionRepository.save(transaction);
-        updateInvoiceStatusIfSettled(saved.getBooking());
+        if (saved.getBooking() != null) {
+            updateInvoiceStatusIfSettled(saved.getBooking());
+            releaseLock(saved.getBooking().getId());
+        }
 
         return financeMapper.toResponse(saved);
     }
@@ -459,6 +466,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .issuedAt(OffsetDateTime.now())
                 .build();
         transactionRepository.save(transaction);
+        if (saved.getBooking() != null) {
+            syncInvoiceAfterRefund(saved.getBooking());
+        }
 
         return financeMapper.toResponse(saved);
     }
@@ -493,6 +503,9 @@ public class PaymentServiceImpl implements PaymentService {
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
                     if (totalPaid.compareTo(inv.getGrandTotal()) >= 0) {
                         inv.setStatus(InvoiceStatus.PAID);
+                        if (inv.getIssuedAt() == null) {
+                            inv.setIssuedAt(OffsetDateTime.now());
+                        }
                         invoiceRepository.save(inv);
                         log.info("Hóa đơn {} của booking {} đã được tự động chuyển sang PAID", inv.getInvoiceNumber(), booking.getId());
                     }
@@ -500,6 +513,30 @@ public class PaymentServiceImpl implements PaymentService {
             }
         } catch (Exception e) {
             log.warn("Không thể cập nhật trạng thái hóa đơn cho booking {}: {}", booking.getId(), e.getMessage());
+        }
+    }
+
+    private void syncInvoiceAfterRefund(Booking booking) {
+        try {
+            List<Invoice> invoices = invoiceRepository.findByBookingId(booking.getId());
+            if (invoices != null && !invoices.isEmpty()) {
+                Invoice inv = invoices.get(0);
+                if (inv.getStatus() == InvoiceStatus.PAID) {
+                    List<Payment> existingPayments = paymentRepository.findByBookingId(booking.getId());
+                    BigDecimal totalPaid = existingPayments.stream()
+                            .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                            .map(Payment::getTotalAmount)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    if (totalPaid.compareTo(inv.getGrandTotal()) < 0) {
+                        inv.setStatus(inv.getIssuedAt() != null ? InvoiceStatus.ISSUED : InvoiceStatus.DRAFT);
+                        invoiceRepository.save(inv);
+                        log.info("Hóa đơn {} của booking {} chuyển lại trạng thái {} sau hoàn tiền",
+                                inv.getInvoiceNumber(), booking.getId(), inv.getStatus());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể đồng bộ trạng thái hóa đơn sau hoàn tiền cho booking {}: {}", booking.getId(), e.getMessage());
         }
     }
 

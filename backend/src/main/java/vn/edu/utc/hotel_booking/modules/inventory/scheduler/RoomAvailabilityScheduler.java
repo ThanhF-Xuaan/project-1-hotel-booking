@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityGenerationService;
+import vn.edu.utc.hotel_booking.modules.inventory.service.RoomMaintenanceBlockService;
 
 @Slf4j
 @Component
@@ -18,6 +19,24 @@ import vn.edu.utc.hotel_booking.modules.inventory.service.RoomAvailabilityGenera
 public class RoomAvailabilityScheduler {
 
     RoomAvailabilityGenerationService generationService;
+    RoomMaintenanceBlockService roomMaintenanceBlockService;
+
+    /**
+     * Chạy định kỳ mỗi phút:
+     * Tự động quét và giải phóng các lệnh khóa phòng bảo trì (OOO/OOS) đã quá hạn (endDate < hôm nay),
+     * hoàn tất lệnh khóa và chuyển trạng thái buồng phòng về READY.
+     */
+    @Scheduled(fixedRate = 60000, initialDelay = 10000)
+    public void scheduleAutoExpireMaintenanceBlocks() {
+        try {
+            int expiredCount = roomMaintenanceBlockService.autoExpireOverdueBlocks();
+            if (expiredCount > 0) {
+                log.info("Scheduler: Đã tự động giải phóng {} lệnh khóa phòng quá hạn.", expiredCount);
+            }
+        } catch (Exception ex) {
+            log.error("Scheduler: Lỗi tự động giải phóng lệnh khóa phòng quá hạn: {}", ex.getMessage(), ex);
+        }
+    }
 
     /**
      * Chạy định kỳ lúc 00:05 mỗi ngày theo múi giờ Việt Nam (Asia/Ho_Chi_Minh):

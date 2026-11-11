@@ -13,4 +13,10 @@ public interface MasterItemRepository extends JpaRepository<MasterItem, Integer>
     Optional<MasterItem> findByIdAndIsDeletedFalse(Integer id);
 
     Optional<MasterItem> findByCodeAndIsDeletedFalse(String code);
+
+    boolean existsByCodeAndIsDeletedFalse(String code);
+
+    boolean existsByCodeAndIdNotAndIsDeletedFalse(String code, Integer id);
+
+    java.util.List<MasterItem> findAllByStatusAndIsDeletedFalse(String status);
 }

@@ -1,6 +1,10 @@
 import { apiClient } from '../../../core/api/client';
 import type { PageResponse } from '../../../core/api/types';
 import type {
+  MasterItemCreateRequest,
+  MasterItemResponse,
+  MasterItemSearchDto,
+  MasterItemUpdateRequest,
   MenuCreateRequest,
   MenuResponse,
   MenuSearchDto,
@@ -20,6 +24,36 @@ import type {
 } from '../types/operation.types';
 
 export const operationService = {
+  // MasterItem APIs (Chain Catalog)
+  getMasterItems: async (searchDto: MasterItemSearchDto): Promise<PageResponse<MasterItemResponse>> => {
+    const res = await apiClient.post<PageResponse<MasterItemResponse>>('/api/v1/master-items/filter', searchDto);
+    return res.result;
+  },
+
+  getMasterItemById: async (id: number): Promise<MasterItemResponse> => {
+    const res = await apiClient.get<MasterItemResponse>(`/api/v1/master-items/${id}`);
+    return res.result;
+  },
+
+  createMasterItem: async (request: MasterItemCreateRequest): Promise<MasterItemResponse> => {
+    const res = await apiClient.post<MasterItemResponse>('/api/v1/master-items/create', request);
+    return res.result;
+  },
+
+  updateMasterItem: async (id: number, request: MasterItemUpdateRequest): Promise<MasterItemResponse> => {
+    const res = await apiClient.put<MasterItemResponse>(`/api/v1/master-items/update/${id}`, request);
+    return res.result;
+  },
+
+  deleteMasterItems: async (ids: number[]): Promise<void> => {
+    await apiClient.delete<void>('/api/v1/master-items/delete', { data: ids });
+  },
+
+  getAllActiveMasterItems: async (): Promise<MasterItemResponse[]> => {
+    const res = await apiClient.get<MasterItemResponse[]>('/api/v1/master-items/active');
+    return res.result || [];
+  },
+
   // Menu APIs
   getMenus: async (searchDto: MenuSearchDto): Promise<PageResponse<MenuResponse>> => {
     const res = await apiClient.post<PageResponse<MenuResponse>>('/api/v1/menus/filter', searchDto);

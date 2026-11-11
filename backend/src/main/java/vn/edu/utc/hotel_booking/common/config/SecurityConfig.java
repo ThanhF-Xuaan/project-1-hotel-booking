@@ -47,6 +47,9 @@ public class SecurityConfig {
                         // Mở các API công khai không cần đăng nhập (vd: xem phòng trống, danh mục)
                         .requestMatchers("/api/public/**", "/api/v1/public/**").permitAll()
 
+                        // Mở các tài nguyên tệp tĩnh, ảnh public và trang lỗi hệ thống
+                        .requestMatchers("/error", "/uploads/**").permitAll()
+
                         // Mở các API xác thực công khai
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh").permitAll()
 

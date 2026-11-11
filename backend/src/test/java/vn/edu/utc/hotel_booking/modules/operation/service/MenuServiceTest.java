@@ -80,6 +80,7 @@ class MenuServiceTest {
     void createProduct_Success() {
         MenuCreateRequest request = MenuCreateRequest.builder()
                 .hotelId((short) 1)
+                .masterItemId(2)
                 .taxCategoryId(1)
                 .menuType(MenuType.PRODUCT)
                 .name("Bia Heineken lon")
@@ -89,6 +90,7 @@ class MenuServiceTest {
 
         when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
         when(taxCategoryService.getEntityById(1)).thenReturn(testTaxCategory);
+        when(masterItemService.getEntityById(2)).thenReturn(MasterItem.builder().id(2).code("HEINEKEN").name("Bia Heineken").build());
         when(menuRepository.save(any(Menu.class))).thenReturn(testProductMenu);
         when(operationMapper.toResponse(any(Menu.class))).thenReturn(MenuResponse.builder()
                 .id(10)

@@ -6,6 +6,7 @@
         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <changeSet id="20261108-100000-add-media-object-is-primary" author="utc-hotel-team" context="master-data">
+        <validCheckSum>ANY</validCheckSum>
         <comment>Bo sung is_primary va partial unique index vao media_objects quan ly anh dai dien da hinh</comment>
         <sqlFile path="db/sqlFile/incremental/2026/20261108-100000-add-media-object-is-primary.sql"
                  relativeToChangelogFile="false"

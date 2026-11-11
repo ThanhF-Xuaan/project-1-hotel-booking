@@ -152,4 +152,162 @@ class PromotionHandlerTest {
         assertThat(night.getTotalDiscountAmount()).isEqualByComparingTo(new BigDecimal("194000.00"));
         assertThat(night.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("1246000.00"));
     }
+
+    private DiscountRule buildTieredLongStayRule() {
+        String conditionsJson = """
+                {
+                  "tiers": [
+                    {"minNights": 3, "maxNights": 6, "discountType": "PERCENT", "discountValue": 10},
+                    {"minNights": 7, "maxNights": 13, "discountType": "PERCENT", "discountValue": 15},
+                    {"minNights": 14, "maxNights": null, "discountType": "PERCENT", "discountValue": 20}
+                  ]
+                }
+                """;
+
+        DiscountRuleType ruleType = DiscountRuleType.builder()
+                .code("LONG_STAY")
+                .displayName("Lưu trú dài ngày")
+                .priority((short) 100)
+                .build();
+
+        return DiscountRule.builder()
+                .id(99)
+                .ruleType(ruleType)
+                .discountType("PERCENT")
+                .discountValue(new BigDecimal("10.00"))
+                .conditions(conditionsJson)
+                .startDate(LocalDate.of(2026, 12, 1))
+                .endDate(LocalDate.of(2026, 12, 31))
+                .status("ACTIVE")
+                .build();
+    }
+
+    @Test
+    @DisplayName("Khách ở 2 đêm (< 3 đêm) -> Không thỏa mãn điều kiện tối thiểu của LONG_STAY -> Không giảm giá")
+    void shouldNotApplyLongStayWhenNightsBelowMinimum() {
+        HotelRoomType roomType = new HotelRoomType();
+        roomType.setId(1);
+
+        DiscountRule rule = buildTieredLongStayRule();
+        when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(List.of(rule));
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 12, 1))
+                .checkOutDate(LocalDate.of(2026, 12, 3)) // 2 đêm
+                .build();
+
+        DailyRateContext night1 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 12, 1))
+                .adjustedRate(new BigDecimal("1000000.00"))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(roomType)
+                .dailyRates(List.of(night1))
+                .build();
+
+        promotionHandler.handle(context);
+
+        assertThat(night1.getAutoDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(night1.getTotalDiscountAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(night1.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("1000000.00"));
+    }
+
+    @Test
+    @DisplayName("Khách ở 4 đêm -> Rơi vào Bậc 1 (3-6 đêm: -10%) -> Giảm 10%")
+    void shouldApplyTier1WhenNightsInRange() {
+        HotelRoomType roomType = new HotelRoomType();
+        roomType.setId(1);
+
+        DiscountRule rule = buildTieredLongStayRule();
+        when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(List.of(rule));
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 12, 1))
+                .checkOutDate(LocalDate.of(2026, 12, 5)) // 4 đêm
+                .build();
+
+        DailyRateContext night1 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 12, 1))
+                .adjustedRate(new BigDecimal("1000000.00"))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(roomType)
+                .dailyRates(List.of(night1))
+                .build();
+
+        promotionHandler.handle(context);
+
+        assertThat(night1.getAutoDiscountAmount()).isEqualByComparingTo(new BigDecimal("100000.00"));
+        assertThat(night1.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("900000.00"));
+    }
+
+    @Test
+    @DisplayName("Khách ở 8 đêm -> Rơi vào Bậc 2 (7-13 đêm: -15%) -> Giảm 15%")
+    void shouldApplyTier2WhenNightsInRange() {
+        HotelRoomType roomType = new HotelRoomType();
+        roomType.setId(1);
+
+        DiscountRule rule = buildTieredLongStayRule();
+        when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(List.of(rule));
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 12, 1))
+                .checkOutDate(LocalDate.of(2026, 12, 9)) // 8 đêm
+                .build();
+
+        DailyRateContext night1 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 12, 1))
+                .adjustedRate(new BigDecimal("1000000.00"))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(roomType)
+                .dailyRates(List.of(night1))
+                .build();
+
+        promotionHandler.handle(context);
+
+        assertThat(night1.getAutoDiscountAmount()).isEqualByComparingTo(new BigDecimal("150000.00"));
+        assertThat(night1.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("850000.00"));
+    }
+
+    @Test
+    @DisplayName("Khách ở 20 đêm -> Rơi vào Bậc 3 (>=14 đêm: -20%) -> Giảm 20%")
+    void shouldApplyTier3WhenNightsAbove14() {
+        HotelRoomType roomType = new HotelRoomType();
+        roomType.setId(1);
+
+        DiscountRule rule = buildTieredLongStayRule();
+        when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(List.of(rule));
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 12, 1))
+                .checkOutDate(LocalDate.of(2026, 12, 21)) // 20 đêm
+                .build();
+
+        DailyRateContext night1 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 12, 1))
+                .adjustedRate(new BigDecimal("1000000.00"))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(roomType)
+                .dailyRates(List.of(night1))
+                .build();
+
+        promotionHandler.handle(context);
+
+        assertThat(night1.getAutoDiscountAmount()).isEqualByComparingTo(new BigDecimal("200000.00"));
+        assertThat(night1.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("800000.00"));
+    }
 }

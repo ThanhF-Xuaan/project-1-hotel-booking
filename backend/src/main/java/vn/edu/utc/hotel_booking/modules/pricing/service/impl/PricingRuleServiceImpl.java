@@ -15,7 +15,7 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
-import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleCreateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleUpdateRequest;
@@ -38,7 +38,7 @@ import java.util.List;
 public class PricingRuleServiceImpl implements PricingRuleService {
 
     PricingRuleRepository pricingRuleRepository;
-    HotelRoomTypeRepository hotelRoomTypeRepository;
+    HotelRoomTypeService hotelRoomTypeService;
     PricingRuleTypeRepository pricingRuleTypeRepository;
     HolidayCalendarRepository holidayCalendarRepository;
     PricingRuleMapper pricingRuleMapper;
@@ -47,9 +47,15 @@ public class PricingRuleServiceImpl implements PricingRuleService {
     @Transactional
     @CacheEvict(value = "ratePlans", allEntries = true)
     public PricingRuleResponse createPricingRule(PricingRuleCreateRequest request) {
-        HotelRoomType hotelRoomType = hotelRoomTypeRepository.findByIdAndIsDeletedFalse(request.getHotelRoomTypeId())
-                .orElseThrow(() -> new AppException(ErrorCode.HOTEL_ROOM_TYPE_NOT_FOUND,
-                        "Không tìm thấy cấu hình loại phòng id: " + request.getHotelRoomTypeId()));
+        if (request.getEndDate().isBefore(request.getStartDate())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ngày kết thúc quy tắc giá phải sau hoặc bằng ngày bắt đầu");
+        }
+        if ("PERCENT".equalsIgnoreCase(request.getAdjustmentType()) && request.getAdjustmentValue() != null
+                && request.getAdjustmentValue().compareTo(java.math.BigDecimal.valueOf(100)) > 0) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Giá trị điều chỉnh phần trăm không được vượt quá 100%");
+        }
+
+        HotelRoomType hotelRoomType = hotelRoomTypeService.getEntityById(request.getHotelRoomTypeId());
 
         PricingRuleType ruleType = pricingRuleTypeRepository.findByCode(request.getRuleTypeCode())
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST_DATA,
@@ -77,6 +83,14 @@ public class PricingRuleServiceImpl implements PricingRuleService {
         PricingRule pricingRule = pricingRuleRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new AppException(ErrorCode.PRICING_RULE_NOT_FOUND,
                         "Không tìm thấy quy tắc giá id: " + id));
+
+        if (request.getEndDate() != null && request.getStartDate() != null && request.getEndDate().isBefore(request.getStartDate())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Ngày kết thúc quy tắc giá phải sau hoặc bằng ngày bắt đầu");
+        }
+        if ("PERCENT".equalsIgnoreCase(request.getAdjustmentType()) && request.getAdjustmentValue() != null
+                && request.getAdjustmentValue().compareTo(java.math.BigDecimal.valueOf(100)) > 0) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Giá trị điều chỉnh phần trăm không được vượt quá 100%");
+        }
 
         pricingRuleMapper.updateEntity(pricingRule, request);
 

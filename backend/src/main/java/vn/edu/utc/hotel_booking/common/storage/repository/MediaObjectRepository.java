@@ -1,6 +1,7 @@
 package vn.edu.utc.hotel_booking.common.storage.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 import vn.edu.utc.hotel_booking.common.storage.domain.MediaLifecycleStatus;
 import vn.edu.utc.hotel_booking.common.storage.domain.StorageCategory;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface MediaObjectRepository extends JpaRepository<MediaObject, Long> {
+public interface MediaObjectRepository extends JpaRepository<MediaObject, Long>, JpaSpecificationExecutor<MediaObject> {
 
     Optional<MediaObject> findByStorageKeyAndIsDeletedFalse(String storageKey);
 

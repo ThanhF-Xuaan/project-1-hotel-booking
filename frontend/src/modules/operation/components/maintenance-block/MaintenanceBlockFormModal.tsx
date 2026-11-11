@@ -133,12 +133,12 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
       isOpen={isOpen}
       onClose={onClose}
       title="Khóa phòng bảo trì (OOO / OOS)"
-      description="Tạo lệnh tạm dừng khai thác phòng để phục vụ sửa chữa kỹ thuật hoặc vệ sinh chuyên sâu"
-      maxWidth="lg"
+      description="Tạo lệnh tạm dừng khai thác phòng để phục vụ sửa chữa kỹ thuật hoặc bảo dưỡng"
+      maxWidth="2xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3.5">
         {formError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
+          <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
             <span>{formError}</span>
           </div>
@@ -160,135 +160,146 @@ export const MaintenanceBlockFormModal: React.FC<MaintenanceBlockFormModalProps>
                 label: `Phòng ${r.roomNumber} - ${r.roomTypeName || 'Tiêu chuẩn'} (${r.currentStatus})`,
               })),
             ]}
-            size="md"
+            size="sm"
           />
         </div>
 
         {/* Warning if room is occupied */}
         {isOccupied && (
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2.5">
+          <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold">Cảnh báo: Phòng đang có khách lưu trú!</p>
-              <p className="mt-0.5 text-neutral-600">
-                Khách {selectedRoom?.guestName ? `"${selectedRoom.guestName}"` : ''} đang ở phòng này. Nếu bạn khóa OOO trong thời gian khách ở, hệ thống sẽ từ chối để tránh tranh chấp slot.
+              <p className="font-semibold text-xs">Cảnh báo: Phòng đang có khách lưu trú!</p>
+              <p className="mt-0.5 text-neutral-600 text-[11px]">
+                Khách {selectedRoom?.guestName ? `"${selectedRoom.guestName}"` : ''} đang ở phòng này. Nếu bạn khóa OOO trong thời gian khách ở, hệ thống sẽ từ chối để tránh xung đột lịch.
               </p>
             </div>
           </div>
         )}
 
-        {/* Block Type Selection */}
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
-            Loại khóa bảo trì <span className="text-red-500">*</span>
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div
-              onClick={() => setBlockType('OOO')}
-              className={`cursor-pointer p-3.5 rounded-xl border transition-all ${blockType === 'OOO'
-                  ? 'border-red-600 bg-red-50/50 shadow-xs ring-1 ring-red-600'
-                  : 'border-neutral-200 bg-white hover:border-neutral-300'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                <span className="text-sm font-bold text-neutral-900">OOO (Out of Order)</span>
+        {/* Bố cục 2 cột cân đối trên 1 khung hình */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          {/* CỘT TRÁI: Loại khóa & Thời gian */}
+          <div className="space-y-3">
+            {/* Block Type Selection */}
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                Loại khóa bảo trì <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBlockType('OOO')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    blockType === 'OOO'
+                      ? 'border-red-600 bg-red-50/60 ring-1 ring-red-600 text-red-900 shadow-xs'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <span className="w-2 h-2 rounded-full bg-red-600 shrink-0" />
+                    OOO (Khóa bán)
+                  </div>
+                  <p className="text-[10px] text-neutral-500 mt-1 line-clamp-1">
+                    Trừ khỏi quỹ phòng bán
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBlockType('OOS')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    blockType === 'OOS'
+                      ? 'border-amber-600 bg-amber-50/60 ring-1 ring-amber-600 text-amber-900 shadow-xs'
+                      : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <span className="w-2 h-2 rounded-full bg-amber-600 shrink-0" />
+                    OOS (Nội bộ)
+                  </div>
+                  <p className="text-[10px] text-neutral-500 mt-1 line-clamp-1">
+                    Giữ nguyên quỹ phòng bán
+                  </p>
+                </button>
               </div>
-              <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
-                Trừ phòng khỏi quỹ bán online. Chặn gán phòng và chuyển slot sang BLOCKED. Dành cho sửa chữa lớn.
-              </p>
             </div>
 
-            <div
-              onClick={() => setBlockType('OOS')}
-              className={`cursor-pointer p-3.5 rounded-xl border transition-all ${blockType === 'OOS'
-                  ? 'border-amber-600 bg-amber-50/50 shadow-xs ring-1 ring-amber-600'
-                  : 'border-neutral-200 bg-white hover:border-neutral-300'
-                }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-600" />
-                <span className="text-sm font-bold text-neutral-900">OOS (Out of Service)</span>
+            {/* Date Range */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-neutral-400" />
+                  Bắt đầu <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full h-9 px-2.5 border border-neutral-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white text-neutral-900"
+                  disabled={isLoading}
+                  required
+                />
               </div>
-              <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
-                Giữ nguyên quỹ phòng bán. Chỉ chặn gán phòng và check-in vật lý. Dành cho bảo dưỡng nhỏ, xử lý nhanh.
-              </p>
+              <div>
+                <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-neutral-400" />
+                  Kết thúc <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate}
+                  className="w-full h-9 px-2.5 border border-neutral-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white text-neutral-900"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Date Range */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-neutral-500" />
-              Ngày bắt đầu <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-              disabled={isLoading}
-              required
-            />
+          {/* CỘT PHẢI: Lý do & Ghi chú */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
+                <Wrench className="w-3.5 h-3.5 text-neutral-400" />
+                Lý do khóa phòng <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Ví dụ: Hỏng điều hòa nhiệt độ, rò rỉ nước..."
+                className="w-full h-9 px-2.5 border border-neutral-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white text-neutral-900"
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
+                <FileText className="w-3.5 h-3.5 text-neutral-400" />
+                Ghi chú kỹ thuật bổ sung
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Ghi chú thêm về đơn vị phụ trách, linh kiện thay thế..."
+                rows={3}
+                className="w-full p-2.5 border border-neutral-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-red-600 bg-white resize-none text-neutral-900"
+                disabled={isLoading}
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-neutral-500" />
-              Ngày kết thúc <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              min={startDate}
-              className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-              disabled={isLoading}
-              required
-            />
-          </div>
-        </div>
-
-        {/* Reason */}
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
-            <Wrench className="w-3.5 h-3.5 text-neutral-500" />
-            Lý do khóa phòng <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Ví dụ: Hỏng điều hòa nhiệt độ, rò rỉ nước phòng tắm..."
-            className="w-full h-11 px-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white"
-            disabled={isLoading}
-            required
-          />
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className="block text-xs font-semibold text-neutral-700 mb-1 flex items-center gap-1">
-            <FileText className="w-3.5 h-3.5 text-neutral-500" />
-            Ghi chú kỹ thuật bổ sung
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Ghi chú thêm về đơn vị phụ trách, linh kiện thay thế (nếu có)..."
-            rows={2}
-            className="w-full p-3 border border-neutral-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 bg-white resize-none"
-            disabled={isLoading}
-          />
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100">
-          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading}>
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-neutral-100">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={isLoading} className="text-xs h-9 px-4">
             Hủy bỏ
           </Button>
-          <Button type="submit" variant="primary" isLoading={isLoading} className="bg-red-600 hover:bg-red-700">
+          <Button type="submit" variant="primary" isLoading={isLoading} className="bg-red-600 hover:bg-red-700 text-white font-semibold text-xs h-9 px-5 shadow-sm">
             Xác nhận khóa phòng
           </Button>
         </div>

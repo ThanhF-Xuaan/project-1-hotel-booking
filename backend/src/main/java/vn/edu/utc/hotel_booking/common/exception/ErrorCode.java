@@ -90,6 +90,11 @@ public enum ErrorCode {
     HOLIDAY_CALENDAR_ALREADY_EXISTS(6052, "Ngày lễ này đã được khai báo trên hệ thống", HttpStatus.CONFLICT),
     HOLIDAY_CALENDAR_IN_USE(6053, "Ngày lễ đang được sử dụng trong quy tắc giá, không thể xóa", HttpStatus.BAD_REQUEST),
 
+    // Surcharge Rule Errors
+    SURCHARGE_RULE_NOT_FOUND(6061, "Không tìm thấy quy tắc phụ thu", HttpStatus.NOT_FOUND),
+    SURCHARGE_RULE_OVERLAP(6062, "Quy tắc phụ thu bị trùng lặp thời gian hiệu lực cho cùng hạng phòng và loại phụ phí", HttpStatus.CONFLICT),
+    INVALID_SURCHARGE_CONFIG(6063, "Cấu hình quy tắc phụ thu không hợp lệ", HttpStatus.BAD_REQUEST),
+
     // Booking Module Errors (7000s)
     BOOKING_NOT_FOUND(7001, "Không tìm thấy thông tin đơn đặt phòng", HttpStatus.NOT_FOUND),
     BOOKING_NUMBER_ALREADY_EXISTS(7002, "Mã đặt phòng đã tồn tại", HttpStatus.CONFLICT),
@@ -135,6 +140,8 @@ public enum ErrorCode {
     // Operation & Housekeeping & POS Module Errors (9000s)
     MENU_ITEM_NOT_FOUND(9001, "Không tìm thấy món ăn / dịch vụ trong thực đơn", HttpStatus.NOT_FOUND),
     OUT_OF_STOCK(9002, "Mặt hàng này đã hết tồn kho", HttpStatus.CONFLICT),
+    MASTER_ITEM_NOT_FOUND(9003, "Không tìm thấy danh mục gốc chuỗi MasterItem", HttpStatus.NOT_FOUND),
+    MASTER_ITEM_CODE_ALREADY_EXISTS(9004, "Mã danh mục gốc chuỗi đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
     SERVICE_ORDER_NOT_FOUND(9011, "Không tìm thấy đơn dịch vụ", HttpStatus.NOT_FOUND),
     INVALID_SERVICE_ORDER_STATUS(9012, "Trạng thái đơn dịch vụ không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
     ROOM_NOT_OCCUPIED(9021, "Phòng này hiện chưa có khách lưu trú để gọi dịch vụ", HttpStatus.BAD_REQUEST),

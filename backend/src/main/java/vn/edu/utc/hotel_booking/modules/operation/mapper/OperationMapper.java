@@ -2,15 +2,21 @@ package vn.edu.utc.hotel_booking.modules.operation.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import vn.edu.utc.hotel_booking.modules.operation.dto.response.MasterItemResponse;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.MenuResponse;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
+import vn.edu.utc.hotel_booking.modules.operation.entity.MasterItem;
 import vn.edu.utc.hotel_booking.modules.operation.entity.Menu;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderDetail;
 
 @Mapper(componentModel = "spring", builder = @org.mapstruct.Builder(disableBuilder = true))
 public interface OperationMapper {
+
+    @Mapping(target = "taxCategoryId", source = "taxCategory.id")
+    @Mapping(target = "taxCategoryName", source = "taxCategory.categoryName")
+    MasterItemResponse toResponse(MasterItem entity);
 
     @Mapping(target = "hotelId", source = "hotel.id")
     @Mapping(target = "hotelName", source = "hotel.name")
@@ -21,6 +27,7 @@ public interface OperationMapper {
     @Mapping(target = "customName", source = "customName")
     @Mapping(target = "stockQuantity", source = "stockQuantity")
     @Mapping(target = "pricingType", source = "masterItem.pricingType")
+    @Mapping(target = "unit", source = "masterItem.unit")
     MenuResponse toResponse(Menu entity);
 
     @Mapping(target = "hotelId", source = "hotel.id")

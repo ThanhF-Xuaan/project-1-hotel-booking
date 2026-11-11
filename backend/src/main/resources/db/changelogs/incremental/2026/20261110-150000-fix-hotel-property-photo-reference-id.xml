@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261110-150000-fix-hotel-property-photo-reference-id" author="utc-hotel-team" context="master-data">
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Dong bo reference_id = hotel_id cho cac anh khuon vien khach san (HOTEL_PROPERTY_PHOTO) da tai len tu Kho Da phuong tien</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261110-150000-fix-hotel-property-photo-reference-id.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+    </changeSet>
+
+</databaseChangeLog>

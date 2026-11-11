@@ -153,7 +153,7 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public PageResponse<MenuResponse> filter(MenuSearchDto searchDto) {
-        int page = searchDto.getPage() != null && searchDto.getPage() > 0 ? searchDto.getPage() - 1 : 0;
+        int page = searchDto.getPage() != null && searchDto.getPage() >= 0 ? searchDto.getPage() : 0;
         int size = searchDto.getPageSize() != null && searchDto.getPageSize() > 0 ? searchDto.getPageSize() : 10;
 
         Specification<Menu> spec = (root, query, cb) -> {

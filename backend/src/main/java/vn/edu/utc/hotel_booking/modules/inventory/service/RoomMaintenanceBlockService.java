@@ -23,4 +23,8 @@ public interface RoomMaintenanceBlockService {
     RoomMaintenanceBlockResponse getById(Long id);
 
     List<RoomMaintenanceBlockResponse> getByRoomInstanceId(Integer roomInstanceId);
+
+    void completeActiveBlocksForRoom(Integer roomInstanceId);
+
+    int autoExpireOverdueBlocks();
 }
