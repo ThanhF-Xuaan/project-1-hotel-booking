@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RotateCcw } from 'lucide-react';
 import Select from '../../../core/components/ui/Select';
 import Input from '../../../core/components/ui/Input';
 import type { MenuType } from '../types/operation.types';
@@ -66,39 +67,55 @@ export const UnitSelectInput: React.FC<UnitSelectInputProps> = ({
     onChange(upperText);
   };
 
+  const handleBackToPresets = () => {
+    setUserForcedCustom(false);
+    onChange('');
+  };
+
   const options = [
     { value: '', label: '-- Chọn đơn vị chuẩn hóa --' },
     ...presets,
   ];
 
-  return (
-    <div className="space-y-2">
-      <Select<string>
-        value={selectedMode}
-        onChange={handleSelectMode}
-        disabled={disabled}
-        options={options}
-        placeholder="-- Chọn đơn vị chuẩn hóa --"
-        size="md"
-        error={error}
-      />
+  // Khi ở chế độ nhập riêng (CUSTOM): Render duy nhất 1 ô input h-11 chuẩn để đảm bảo
+  // chiều cao 2 cột luôn bằng nhau tuyệt đối, tích hợp nút "Gợi ý" để quay lại danh sách
+  if (isCustomMode) {
+    return (
+      <div className="relative w-full">
+        <Input
+          value={value || ''}
+          onChange={handleCustomTextChange}
+          placeholder="NHẬP ĐƠN VỊ TÍNH (IN HOA: THÙNG, CÂY...)"
+          disabled={disabled}
+          className="h-11 uppercase font-semibold text-neutral-900 tracking-wide pr-20"
+          maxLength={50}
+          autoFocus
+          error={error}
+        />
+        <button
+          type="button"
+          onClick={handleBackToPresets}
+          className="absolute right-1.5 top-1.5 bottom-1.5 px-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+          title="Chọn lại từ danh sách gợi ý"
+        >
+          <RotateCcw className="w-3.5 h-3.5 text-neutral-500" />
+          <span>Gợi ý</span>
+        </button>
+      </div>
+    );
+  }
 
-      {isCustomMode && (
-        <div className="animate-in fade-in duration-200">
-          <Input
-            value={value || ''}
-            onChange={handleCustomTextChange}
-            placeholder="NHẬP ĐƠN VỊ TÍNH (IN HOA: THÙNG, THỐ, CÂY...)"
-            disabled={disabled}
-            className="h-11 uppercase font-semibold text-neutral-900 tracking-wide"
-            maxLength={50}
-          />
-          <span className="text-[11px] text-neutral-400 mt-1 block">
-            Hệ thống tự động chuyển in hoa toàn bộ ký tự đơn vị tính riêng
-          </span>
-        </div>
-      )}
-    </div>
+  return (
+    <Select<string>
+      value={selectedMode}
+      onChange={handleSelectMode}
+      disabled={disabled}
+      options={options}
+      placeholder="-- Chọn đơn vị chuẩn hóa --"
+      size="md"
+      direction="up"
+      error={error}
+    />
   );
 };
 
