@@ -46,3 +46,4 @@ public class MasterItemCreateRequest {
     @Builder.Default
     String status = "ACTIVE";
 }
+

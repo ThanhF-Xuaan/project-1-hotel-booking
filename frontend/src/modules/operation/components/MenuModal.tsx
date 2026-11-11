@@ -38,6 +38,7 @@ interface MenuFormState {
   taxCategoryId: number;
   stockQuantity: number;
   pricingType: ServicePricingType;
+  unit: string;
   status: string;
 }
 
@@ -52,6 +53,7 @@ const DEFAULT_FORM: MenuFormState = {
   taxCategoryId: 0,
   stockQuantity: 0,
   pricingType: 'PER_UNIT',
+  unit: '',
   status: 'ACTIVE',
 };
 
@@ -99,6 +101,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
               taxCategoryId: item.taxCategoryId,
               stockQuantity: item.stockQuantity || 0,
               pricingType: item.pricingType || 'PER_UNIT',
+              unit: item.unit || '',
               status: item.status,
             });
           } else {
@@ -135,6 +138,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
       basePrice: selected.defaultBasePrice,
       taxCategoryId: selected.taxCategoryId || prev.taxCategoryId,
       pricingType: selected.pricingType || prev.pricingType,
+      unit: selected.unit || '',
     }));
   };
 
@@ -145,7 +149,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
       return;
     }
     if (!item && !formData.masterItemId) {
-      setErrorMessage('Vui lòng chọn danh mục gốc toàn chuỗi (Master Item)');
+      setErrorMessage('Vui lòng chọn mục gốc toàn chuỗi (Master Item)');
       return;
     }
     if (!formData.name.trim()) {
@@ -220,7 +224,7 @@ export const MenuModal: React.FC<MenuModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={item ? 'Cập nhật món / dịch vụ cơ sở' : 'Thêm mới món / dịch vụ vào thực đơn'}
-      maxWidth="lg"
+      maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {errorMessage && (
@@ -229,117 +233,116 @@ export const MenuModal: React.FC<MenuModalProps> = ({
           </div>
         )}
 
+        {/* Hàng 1: Khách sạn cơ sở + Mục gốc chuỗi */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Khách sạn cơ sở áp dụng <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Cơ sở khách sạn <span className="text-red-500 ml-1">*</span>
             </label>
             <Select<number>
               value={formData.hotelId}
               onChange={(val) => setFormData({ ...formData, hotelId: val })}
               disabled={!!item}
               options={hotelOptions}
-              placeholder="-- Chọn khách sạn cơ sở --"
-              size="lg"
+              placeholder="-- Chọn cơ sở áp dụng --"
+              size="md"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Chọn từ Danh mục chuỗi (Master Item) <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Mục gốc chuỗi <span className="text-red-500 ml-1">*</span>
             </label>
             <Select<number>
               value={formData.masterItemId}
               onChange={handleSelectMasterItem}
               disabled={!!item}
               options={masterItemOptions}
-              placeholder="-- Chọn mục gốc chuỗi --"
-              size="lg"
+              placeholder="-- Chọn từ danh mục chuỗi --"
+              size="md"
             />
-            {item && (
-              <span className="text-[11px] text-neutral-400 mt-1 block">
-                Mục gốc chuỗi: {item.masterItemCode || `ID ${item.masterItemId}`}
-              </span>
-            )}
           </div>
         </div>
 
+        {/* Hàng 2: Tên chuẩn danh mục + Tên tùy biến cơ sở */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Tên chuẩn danh mục <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Tên danh mục chuẩn <span className="text-red-500 ml-1">*</span>
             </label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Tên theo danh mục chuẩn"
+              className="h-11 text-sm"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Tên tùy biến tại cơ sở (Tùy chọn)
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Tên tùy biến cơ sở
             </label>
             <Input
               value={formData.customName}
               onChange={(e) => setFormData({ ...formData, customName: e.target.value })}
-              placeholder="VD: Bia Heineken ướp lạnh, Giặt ủi nhanh..."
+              placeholder="VD: Bia Heineken ướp lạnh..."
+              className="h-11 text-sm"
             />
           </div>
         </div>
 
+        {/* Hàng 3: Loại thực đơn + Đơn giá cơ sở + Nhóm thuế */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Loại thực đơn <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Loại thực đơn <span className="text-red-500 ml-1">*</span>
             </label>
             <Select<MenuType>
               value={formData.menuType}
               onChange={(val) => setFormData({ ...formData, menuType: val })}
               disabled={true}
               options={[
-                { value: 'PRODUCT', label: 'Sản phẩm vật lý (F&B / Minibar)' },
+                { value: 'PRODUCT', label: 'Sản phẩm vật lý' },
                 { value: 'SERVICE', label: 'Dịch vụ' },
               ]}
-              size="lg"
+              size="md"
             />
-            <span className="text-[11px] text-neutral-400 mt-1 block">
-              Kế thừa từ danh mục gốc
-            </span>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Đơn giá cơ sở (VNĐ) <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Đơn giá cơ sở (VNĐ) <span className="text-red-500 ml-1">*</span>
             </label>
             <CurrencyInput
               value={formData.basePrice}
               onChangeValue={(val) => setFormData({ ...formData, basePrice: val })}
               placeholder="0"
               suffix="VNĐ"
+              className="h-11 text-sm font-semibold"
               required
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Nhóm thuế VAT <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Nhóm thuế VAT <span className="text-red-500 ml-1">*</span>
             </label>
             <Select<number>
               value={formData.taxCategoryId}
               onChange={(val) => setFormData({ ...formData, taxCategoryId: val })}
               options={taxOptions}
               placeholder="-- Chọn nhóm thuế --"
-              size="lg"
+              size="md"
             />
           </div>
         </div>
 
+        {/* Hàng 4: Tồn kho (nếu PRODUCT) hoặc Cách tính giá (nếu SERVICE) */}
         {formData.menuType === 'PRODUCT' ? (
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Số lượng tồn kho tại cơ sở <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Số lượng tồn kho tại cơ sở {formData.unit && `(${formData.unit})`} <span className="text-red-500 ml-1">*</span>
             </label>
             <Input
               type="number"
@@ -348,13 +351,15 @@ export const MenuModal: React.FC<MenuModalProps> = ({
               onChange={(e) =>
                 setFormData({ ...formData, stockQuantity: parseInt(e.target.value) || 0 })
               }
+              className="h-11 text-sm font-semibold"
+              placeholder={`Số lượng tồn kho ban đầu (${formData.unit || 'món'})`}
               required
             />
           </div>
         ) : (
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Hình thức tính giá dịch vụ <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Cách tính giá dịch vụ <span className="text-red-500 ml-1">*</span>
             </label>
             <Select<ServicePricingType>
               value={formData.pricingType}
@@ -367,27 +372,29 @@ export const MenuModal: React.FC<MenuModalProps> = ({
                 { value: 'PER_PERSON_PER_NIGHT', label: 'Khách / Đêm (PER_PERSON_PER_NIGHT)' },
                 { value: 'PER_USE', label: 'Theo lần sử dụng thực tế (PER_USE)' },
               ]}
-              size="lg"
+              size="md"
             />
           </div>
         )}
 
+        {/* Hàng 5: Mô tả */}
         <div>
-          <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
             Mô tả phục vụ tại cơ sở
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={3}
-            className="w-full p-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 transition-colors"
+            className="w-full p-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 transition-colors placeholder:text-neutral-400"
             placeholder="Lưu ý phục vụ, thời gian giao món, điều kiện áp dụng tại khách sạn..."
           />
         </div>
 
+        {/* Hàng 6: Trạng thái nếu chỉnh sửa */}
         {item && (
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
               Trạng thái phục vụ
             </label>
             <Select<string>
@@ -397,16 +404,17 @@ export const MenuModal: React.FC<MenuModalProps> = ({
                 { value: 'ACTIVE', label: 'Sẵn sàng phục vụ' },
                 { value: 'INACTIVE', label: 'Tạm dừng phục vụ' },
               ]}
-              size="lg"
+              size="md"
             />
           </div>
         )}
 
+        {/* Footer Buttons */}
         <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
-          <Button variant="secondary" type="button" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={onClose} className="h-11 px-5">
             Hủy
           </Button>
-          <Button type="submit" disabled={isSubmitting} className="flex items-center gap-2">
+          <Button type="submit" disabled={isSubmitting} className="h-11 px-6 flex items-center gap-2">
             {formData.menuType === 'PRODUCT' ? (
               <Package className="w-4 h-4" />
             ) : (

@@ -27,6 +27,7 @@ public interface OperationMapper {
     @Mapping(target = "customName", source = "customName")
     @Mapping(target = "stockQuantity", source = "stockQuantity")
     @Mapping(target = "pricingType", source = "masterItem.pricingType")
+    @Mapping(target = "unit", source = "masterItem.unit")
     MenuResponse toResponse(Menu entity);
 
     @Mapping(target = "hotelId", source = "hotel.id")

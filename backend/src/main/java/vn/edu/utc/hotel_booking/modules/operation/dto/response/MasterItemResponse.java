@@ -30,3 +30,4 @@ public class MasterItemResponse {
     OffsetDateTime createdAt;
     OffsetDateTime updatedAt;
 }
+

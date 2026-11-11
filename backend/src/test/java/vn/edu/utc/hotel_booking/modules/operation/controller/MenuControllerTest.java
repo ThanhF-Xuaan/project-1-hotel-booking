@@ -67,6 +67,7 @@ class MenuControllerTest {
                 .taxCategoryId(1)
                 .taxCategoryName("VAT 8%")
                 .stockQuantity(50)
+                .unit("LON")
                 .status("ACTIVE")
                 .build();
     }
@@ -190,3 +191,4 @@ class MenuControllerTest {
         verify(menuService).deleteBatch(eq(ids));
     }
 }
+

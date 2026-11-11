@@ -106,6 +106,7 @@ export interface MenuResponse {
   masterItemId?: number;
   masterItemCode?: string;
   customName?: string;
+  unit?: string;
   stockQuantity?: number;
   pricingType?: ServicePricingType;
   createdAt?: string;

@@ -23,3 +23,4 @@ public class MasterItemSearchDto {
     @Builder.Default
     Integer pageSize = 10;
 }
+

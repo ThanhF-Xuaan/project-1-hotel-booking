@@ -364,7 +364,7 @@ export const MenuListPage: React.FC = () => {
                               : 'bg-rose-50 text-rose-700'
                           }`}
                         >
-                          Còn {item.stockQuantity ?? 0} món
+                          Còn {item.stockQuantity ?? 0} {item.unit || 'món'}
                         </span>
                       ) : (
                         <span className="text-xs text-neutral-600 font-medium">

@@ -32,3 +32,4 @@ public class MasterItemUpdateRequest {
 
     String status;
 }
+

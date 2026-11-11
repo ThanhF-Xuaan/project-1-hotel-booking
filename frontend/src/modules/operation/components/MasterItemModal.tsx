@@ -5,6 +5,7 @@ import Input from '../../../core/components/ui/Input';
 import CurrencyInput from '../../../core/components/ui/CurrencyInput';
 import Select from '../../../core/components/ui/Select';
 import Modal from '../../../core/components/ui/Modal';
+import UnitSelectInput from './UnitSelectInput';
 import { operationService } from '../services/operation.service';
 import taxCategoryService from '../../pricing/services/taxCategory.service';
 import type {
@@ -121,7 +122,7 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
           defaultBasePrice: formData.defaultBasePrice,
           taxCategoryId: formData.taxCategoryId,
           pricingType: formData.itemType === 'SERVICE' ? formData.pricingType : undefined,
-          unit: formData.unit.trim() || undefined,
+          unit: formData.unit.trim().toUpperCase() || undefined,
           status: formData.status,
         };
         await operationService.updateMasterItem(item.id, updateReq);
@@ -134,7 +135,7 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
           defaultBasePrice: formData.defaultBasePrice,
           taxCategoryId: formData.taxCategoryId,
           pricingType: formData.itemType === 'SERVICE' ? formData.pricingType : undefined,
-          unit: formData.unit.trim() || undefined,
+          unit: formData.unit.trim().toUpperCase() || undefined,
           status: formData.status,
         };
         await operationService.createMasterItem(createReq);
@@ -161,7 +162,7 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={item ? 'Cập nhật danh mục gốc chuỗi (Master Item)' : 'Thêm mới danh mục gốc chuỗi (Master Item)'}
-      maxWidth="lg"
+      maxWidth="2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {errorMessage && (
@@ -170,28 +171,25 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
           </div>
         )}
 
+        {/* Hàng 1: Mã danh mục + Loại danh mục */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Mã danh mục gốc <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Mã danh mục gốc <span className="text-red-500 ml-1">*</span>
             </label>
             <Input
               value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
               placeholder="VD: COFFEE_DEN, LAUNDRY_SHIRT"
               disabled={!!item}
+              className="h-11 font-mono uppercase text-sm"
               required
             />
-            {item && (
-              <span className="text-[11px] text-neutral-400 mt-1 block">
-                Mã danh mục cố định, không thể chỉnh sửa
-              </span>
-            )}
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Loại danh mục <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Loại danh mục <span className="text-red-500 ml-1">*</span>
             </label>
             <Select<MenuType>
               value={formData.itemType}
@@ -199,72 +197,74 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
               disabled={!!item}
               options={[
                 { value: 'PRODUCT', label: 'Sản phẩm vật lý (F&B / Minibar)' },
-                { value: 'SERVICE', label: 'Dịch vụ (Giặt là, Spa, Xe đưa đón)' },
+                { value: 'SERVICE', label: 'Dịch vụ (Giặt là, Spa, Xe...)' },
               ]}
-              size="lg"
+              size="md"
             />
           </div>
         </div>
 
+        {/* Hàng 2: Tên sản phẩm / dịch vụ */}
         <div>
-          <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-            Tên danh mục sản phẩm / dịch vụ <span className="text-red-500">*</span>
+          <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+            Tên sản phẩm / dịch vụ <span className="text-red-500 ml-1">*</span>
           </label>
           <Input
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             placeholder="VD: Cà phê đen Sài Gòn, Giặt ủi áo sơ mi cao cấp..."
+            className="h-11 text-sm"
             required
           />
         </div>
 
+        {/* Hàng 3: Đơn giá đề xuất + Nhóm thuế VAT */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Đơn giá đề xuất toàn chuỗi (VNĐ) <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Giá đề xuất chuỗi (VNĐ) <span className="text-red-500 ml-1">*</span>
             </label>
             <CurrencyInput
               value={formData.defaultBasePrice}
               onChangeValue={(val) => setFormData({ ...formData, defaultBasePrice: val })}
               placeholder="0"
               suffix="VNĐ"
+              className="h-11 text-sm font-semibold"
               required
             />
-            <span className="text-[11px] text-neutral-400 mt-1 block">
-              Cơ sở có thể tùy biến giá này trên thực đơn riêng
-            </span>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Nhóm thuế VAT áp dụng <span className="text-red-500">*</span>
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Nhóm thuế VAT <span className="text-red-500 ml-1">*</span>
             </label>
             <Select<number>
               value={formData.taxCategoryId}
               onChange={(val) => setFormData({ ...formData, taxCategoryId: val })}
               options={taxOptions}
               placeholder="-- Chọn nhóm thuế --"
-              size="lg"
+              size="md"
             />
           </div>
         </div>
 
+        {/* Hàng 4: Đơn vị tính + Trạng thái hoặc Hình thức tính giá */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-              Đơn vị tính (Unit)
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+              Đơn vị tính chuẩn hóa
             </label>
-            <Input
+            <UnitSelectInput
               value={formData.unit}
-              onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-              placeholder="VD: Lon, Chai, Ly, Lượt, Bộ, Giờ..."
+              onChange={(val) => setFormData({ ...formData, unit: val })}
+              itemType={formData.itemType}
             />
           </div>
 
           {formData.itemType === 'SERVICE' ? (
             <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
-                Hình thức tính giá dịch vụ <span className="text-red-500">*</span>
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
+                Cách tính giá dịch vụ <span className="text-red-500 ml-1">*</span>
               </label>
               <Select<ServicePricingType>
                 value={formData.pricingType}
@@ -277,12 +277,12 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
                   { value: 'PER_PERSON_PER_NIGHT', label: 'Khách / Đêm (PER_PERSON_PER_NIGHT)' },
                   { value: 'PER_USE', label: 'Theo lần sử dụng thực tế (PER_USE)' },
                 ]}
-                size="lg"
+                size="md"
               />
             </div>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
                 Trạng thái danh mục
               </label>
               <Select<string>
@@ -292,15 +292,16 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
                   { value: 'ACTIVE', label: 'Đang hoạt động (ACTIVE)' },
                   { value: 'INACTIVE', label: 'Tạm ngưng (INACTIVE)' },
                 ]}
-                size="lg"
+                size="md"
               />
             </div>
           )}
         </div>
 
+        {/* Trạng thái nếu là SERVICE */}
         {formData.itemType === 'SERVICE' && (
           <div>
-            <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
               Trạng thái danh mục
             </label>
             <Select<string>
@@ -310,29 +311,31 @@ export const MasterItemModal: React.FC<MasterItemModalProps> = ({
                 { value: 'ACTIVE', label: 'Đang hoạt động (ACTIVE)' },
                 { value: 'INACTIVE', label: 'Tạm ngưng (INACTIVE)' },
               ]}
-              size="lg"
+              size="md"
             />
           </div>
         )}
 
+        {/* Mô tả */}
         <div>
-          <label className="block text-xs font-semibold text-neutral-700 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
             Mô tả tiêu chuẩn danh mục
           </label>
           <textarea
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             rows={3}
-            className="w-full p-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 transition-colors"
+            className="w-full p-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 transition-colors placeholder:text-neutral-400"
             placeholder="Mô tả công thức, quy chuẩn phục vụ, thành phần áp dụng chung toàn chuỗi..."
           />
         </div>
 
+        {/* Footer Buttons */}
         <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
-          <Button variant="secondary" type="button" onClick={onClose}>
+          <Button variant="secondary" type="button" onClick={onClose} className="h-11 px-5">
             Hủy
           </Button>
-          <Button type="submit" disabled={isSubmitting} className="flex items-center gap-2">
+          <Button type="submit" disabled={isSubmitting} className="h-11 px-6 flex items-center gap-2">
             {formData.itemType === 'PRODUCT' ? (
               <Package className="w-4 h-4" />
             ) : (
