@@ -7,5 +7,7 @@ public enum UnifiedIntent {
     SEARCH_ONLY,
     POLICY_ONLY,
     SEARCH_AND_POLICY,
+    ROOM_COMPARISON,
+    SEARCH_AND_COMPARISON,
     OUT_OF_SCOPE
 }

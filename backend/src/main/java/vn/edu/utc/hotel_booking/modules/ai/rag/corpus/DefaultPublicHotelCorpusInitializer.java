@@ -134,6 +134,55 @@ public class DefaultPublicHotelCorpusInitializer {
                 1
         );
 
+        // 8. ROOM-DESC-HN01 (HN-01, hotelId = 1)
+        ingestAndActivate(
+                "ROOM-DESC-HN01",
+                RagScopeType.HOTEL_SCOPED,
+                1,
+                RagDocumentCategory.STATIC_ROOM_DESCRIPTION,
+                "Mô tả diện tích và bố cục các hạng phòng cơ sở HN-01",
+                "[STD] Standard: Diện tích 26m², bố cục gọn gàng yên tĩnh phù hợp khách công tác ngắn ngày.\n" +
+                        "[SUP] Superior: Diện tích 32m², cửa sổ lớn thoáng đãng với bàn làm việc.\n" +
+                        "[DLX] Deluxe: Diện tích 38m², không gian rộng rãi có sofa thư giãn và khu vực bàn trà.\n" +
+                        "[STE] Suite: Diện tích 48m², bố cục phòng ngủ và khu tiếp khách tiện nghi, có ban công thoáng mát và bồn tắm nằm cao cấp.\n" +
+                        "[FAM] Family Room: Diện tích 50m², bố cục 2 giường đôi lớn tối ưu cho gia đình có trẻ nhỏ.\n" +
+                        "[EXE] Executive Suite: Diện tích 58m², có phòng khách tách biệt, bồn tắm nằm và không gian sinh hoạt rộng rãi cho gia đình.",
+                LocalDate.of(2026, 1, 1),
+                1
+        );
+
+        // 9. ROOM-DESC-DN01 (DN-01, hotelId = 2)
+        ingestAndActivate(
+                "ROOM-DESC-DN01",
+                RagScopeType.HOTEL_SCOPED,
+                2,
+                RagDocumentCategory.STATIC_ROOM_DESCRIPTION,
+                "Mô tả diện tích và bố cục các hạng phòng cơ sở DN-01",
+                "[STD] Standard: Diện tích 28m², bố cục hiện đại gọn gàng.\n" +
+                        "[SUP] Superior: Diện tích 32m², có ban công thoáng mát.\n" +
+                        "[DLX] Deluxe: Diện tích 40m², ban công hướng biển, bố cục cân đối cho cặp đôi hoặc gia đình nhỏ.\n" +
+                        "[STE] Suite: Diện tích 50m², ban công hướng biển trực diện, có bồn tắm nằm và khu vực thư giãn sang trọng.\n" +
+                        "[FAM] Family Room: Diện tích 54m², không gian sàn rộng thoáng phù hợp cho gia đình có bé nhỏ.\n" +
+                        "[EXE] Executive Suite: Diện tích 62m², phòng khách riêng biệt, bồn tắm nằm và tầm nhìn toàn cảnh biển.",
+                LocalDate.of(2026, 1, 1),
+                1
+        );
+
+        // 10. ROOM-DESC-SP01 (SP-01, hotelId = 3)
+        ingestAndActivate(
+                "ROOM-DESC-SP01",
+                RagScopeType.HOTEL_SCOPED,
+                3,
+                RagDocumentCategory.STATIC_ROOM_DESCRIPTION,
+                "Mô tả diện tích và bố cục các hạng phòng cơ sở SP-01",
+                "[STD] Standard: Diện tích 24m², thiết kế ấm cúng đậm nét vùng cao, yên tĩnh và tiện nghi gọn gàng.\n" +
+                        "[SUP] Superior: Diện tích 30m², cửa sổ nhìn ra thung lũng mây mù Sapa, thoáng đãng và ấm áp.\n" +
+                        "[DLX] Deluxe: Diện tích 36m², ban công view núi lãng mạn, không gian thư giãn tiện nghi.\n" +
+                        "[FAM] Family Room: Diện tích 45m², bố cục 2 giường lớn cho gia đình ngắm cảnh Tây Bắc.",
+                LocalDate.of(2026, 1, 1),
+                1
+        );
+
         seeded.set(true);
         log.info("Default public hotel corpus seeded successfully.");
     }

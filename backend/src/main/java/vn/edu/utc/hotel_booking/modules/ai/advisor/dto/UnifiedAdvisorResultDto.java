@@ -29,4 +29,6 @@ public class UnifiedAdvisorResultDto {
     AdvisorResultDto advisor;
 
     KnowledgeAnswerDto knowledge;
+
+    RoomComparisonMatrixDto comparison;
 }

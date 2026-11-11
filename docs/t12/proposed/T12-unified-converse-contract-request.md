@@ -44,13 +44,15 @@ This contract request proposes an **additive** conversational endpoint allowing 
   "message": "Tìm phòng đôi ở Đà Nẵng cuối tuần này cho 2 người lớn và 1 bé 4 tuổi, bé có được miễn phí buffet sáng không?",
   "sessionId": "4b68e715-6db5-48d6-9533-5b8cb46f483c",
   "expectedSessionVersion": 1,
-  "policyHotelId": 2
+  "policyHotelId": 2,
+  "compareRoomTypeIds": [101, 102]
 }
 ```
 - `message`: String, required, 1..500 characters.
 - `sessionId`: UUID, optional.
 - `expectedSessionVersion`: Long, optional.
 - `policyHotelId`: Integer, optional (1..32767). Used when clicking hotel choice chips to explicitly bind policy scope.
+- `compareRoomTypeIds`: Array of Integer, optional (min 2, max 3 items, positive values). Used when comparing specific room types directly.
 
 ### Response Body (`ApiResponse<UnifiedAdvisorResultDto>`)
 ```json
@@ -79,21 +81,51 @@ This contract request proposes an **additive** conversational endpoint allowing 
       "result": {
         "status": "GROUNDED_ANSWER",
         "answer": "Trẻ em dưới 6 tuổi đi cùng bố mẹ được miễn phí buffet sáng tiêu chuẩn tại nhà hàng khách sạn.",
-        "citations": [
-          {
-            "sourceId": "POLICY-CHILD-BREAKFAST",
-            "version": 1,
-            "chunkId": "POLICY-CHILD-BREAKFAST#chunk-0",
-            "category": "POLICY",
-            "hotelId": 2,
-            "effectiveFrom": "2026-01-01",
-            "snippet": "Trẻ em dưới 6 tuổi đi cùng bố mẹ được miễn phí buffet sáng...",
-            "similarityScore": 0.95
-          }
-        ]
+        "citations": [ ... ]
       },
       "hotelChoices": null,
       "retryAfterSeconds": null
+    },
+    "comparison": {
+      "status": "READY",
+      "focus": "FAMILY_KIDS",
+      "items": [
+        {
+          "recommendationId": "rec-1",
+          "hotelRoomTypeId": 101,
+          "hotelId": 2,
+          "hotelName": "Viettel Grand Đà Nẵng",
+          "roomTypeCode": "DLX",
+          "roomTypeName": "Deluxe Room",
+          "quoteId": "quote-rec-1",
+          "observedAt": "2026-11-11T12:00:00Z",
+          "finalTotalAmount": "3200000",
+          "perNightAverageAmount": "1600000",
+          "currency": "VND",
+          "totalNights": 2,
+          "chargeCoverage": "ALL_MANDATORY_CHARGES",
+          "serviceFeeStatus": "INCLUDED",
+          "budgetCheck": "PASS",
+          "priceDeltaFromCheapest": "0",
+          "priceDiffPercentFromCheapest": 0.0,
+          "maxAdults": 2,
+          "maxChildren": 1,
+          "maxTotalGuests": 3,
+          "extraBedsAllowed": 1,
+          "staticAreaAndLayout": "Diện tích 40m², ban công hướng biển",
+          "uniqueFeatureNames": ["Ban công hướng biển"],
+          "bestForBullets": ["Phương án tối ưu chi phí nhất trong nhóm đang so sánh"],
+          "action": {
+            "type": "VIEW_ROOM_DETAILS",
+            "path": "/hotels/2/rooms/101"
+          }
+        }
+      ],
+      "sharedFeatureNames": ["Wi-Fi tốc độ cao", "Smart TV"],
+      "maxSavingsAmount": "1800000",
+      "maxSavingsPercent": 36.0,
+      "tradeOffSummary": "Nếu gia đình có con nhỏ và ưu tiên sự thoải mái...",
+      "staticDescriptionCitations": [ ... ]
     }
   }
 }

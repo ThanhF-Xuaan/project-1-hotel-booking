@@ -75,6 +75,9 @@ class UnifiedAdvisorFlowIntegrationTest {
         when(core.resolveDestination(any(), any(), any())).thenReturn(DestinationResolutionResult.builder().regionId((short) 2).build());
         when(core.discoverAndQuoteCandidates(any(), any(), anyInt())).thenAnswer(inv -> {
             RoomSearchCriteriaDto criteria = inv.getArgument(0);
+            if (criteria == null || criteria.getCheckInDate() == null || criteria.getCheckOutDate() == null) {
+                return null;
+            }
             var candidate = RoomCandidate.builder().hotelId(2).hotelName("Synthetic Hotel 2")
                     .hotelRoomTypeId(201).roomTypeId(1).roomTypeCode("DOUBLE").roomTypeName("Synthetic Double")
                     .maxAdults(2).maxChildren(1).maxTotalGuests(4).extraBedsAllowed(1).status("ACTIVE")
@@ -157,5 +160,63 @@ class UnifiedAdvisorFlowIntegrationTest {
         assertThat(result.at("/advisor/status").asText()).isEqualTo("RESULTS");
         assertThat(result.at("/advisor/recommendations").size()).isEqualTo(1);
         assertThat(result.at("/knowledge/state").asText()).isEqualTo("UNAVAILABLE");
+    }
+
+    @Test void multiTurnSearchFollowedByRoomComparisonReusesSessionReadOnly() throws Exception {
+        var candidate1 = RoomCandidate.builder().hotelId(2).hotelName("Synthetic Hotel 2")
+                .hotelRoomTypeId(201).roomTypeId(1).roomTypeCode("DOUBLE").roomTypeName("Synthetic Double")
+                .maxAdults(2).maxChildren(1).maxTotalGuests(4).extraBedsAllowed(1).status("ACTIVE")
+                .features(List.of(new RoomFeatureDto("BREAKFAST", "Synthetic breakfast"))).build();
+        var candidate2 = RoomCandidate.builder().hotelId(2).hotelName("Synthetic Hotel 2")
+                .hotelRoomTypeId(202).roomTypeId(2).roomTypeCode("DELUXE").roomTypeName("Synthetic Deluxe")
+                .maxAdults(2).maxChildren(2).maxTotalGuests(4).extraBedsAllowed(1).status("ACTIVE")
+                .features(List.of(new RoomFeatureDto("BREAKFAST", "Synthetic breakfast"), new RoomFeatureDto("BALCONY", "Ban công"))).build();
+        doAnswer(inv -> {
+            RoomSearchCriteriaDto criteria = inv.getArgument(0);
+            if (criteria == null || criteria.getCheckInDate() == null || criteria.getCheckOutDate() == null) {
+                return null;
+            }
+            var avail1 = criteria.getCheckInDate().datesUntil(criteria.getCheckOutDate())
+                    .map(day -> CandidateAvailability.builder().hotelRoomTypeId(201).availabilityDate(day).availableCount(2).build()).toList();
+            var avail2 = criteria.getCheckInDate().datesUntil(criteria.getCheckOutDate())
+                    .map(day -> CandidateAvailability.builder().hotelRoomTypeId(202).availabilityDate(day).availableCount(2).build()).toList();
+            var quote1 = PriceQuoteDto.builder().hotelRoomTypeId(201).source("SYNTHETIC_CORE")
+                    .totalNights(2).currency("VND").finalTotalAmount("1200000")
+                    .chargeCoverage(BudgetCoverage.BACKEND_QUOTED_TOTAL).serviceFeeStatus(ServiceFeeStatus.UNKNOWN).build();
+            var quote2 = PriceQuoteDto.builder().hotelRoomTypeId(202).source("SYNTHETIC_CORE")
+                    .totalNights(2).currency("VND").finalTotalAmount("2000000")
+                    .chargeCoverage(BudgetCoverage.BACKEND_QUOTED_TOTAL).serviceFeeStatus(ServiceFeeStatus.UNKNOWN).build();
+            return CoreCandidateDiscoveryResult.builder().candidates(List.of(candidate1, candidate2))
+                    .availabilityByRoomTypeId(Map.of(201, avail1, 202, avail2))
+                    .quoteByRoomTypeId(Map.of(201, quote1, 202, quote2)).build();
+        }).when(core).discoverAndQuoteCandidates(any(), any(), anyInt());
+
+        var start = LocalDate.now().plusDays(4);
+        String searchMsg = "Tìm phòng ở Đà Nẵng từ " + start + " đến " + start.plusDays(2) + " cho 2 người lớn";
+        var firstTurn = converse(Map.of("message", searchMsg));
+
+        assertThat(firstTurn.path("intent").asText()).isEqualTo("SEARCH_ONLY");
+        assertThat(firstTurn.at("/advisor/recommendations").size()).isEqualTo(2);
+        String sessionId = firstTurn.path("sessionId").asText();
+        long sessionVersion = firstTurn.path("sessionVersion").asLong();
+
+        clearInvocations(core);
+
+        // Turn 2: Follow-up room comparison
+        var secondTurn = converse(Map.of(
+                "message", "So sánh giúp tôi hai phòng này, phòng nào tiết kiệm hơn?",
+                "sessionId", sessionId,
+                "expectedSessionVersion", sessionVersion
+        ));
+
+        assertThat(secondTurn.path("intent").asText()).isEqualTo("ROOM_COMPARISON");
+        assertThat(secondTurn.path("sessionId").asText()).isEqualTo(sessionId);
+        assertThat(secondTurn.path("sessionVersion").asLong()).isEqualTo(sessionVersion);
+        assertThat(secondTurn.at("/comparison/status").asText()).isEqualTo("READY");
+        assertThat(secondTurn.at("/comparison/items").size()).isEqualTo(2);
+        assertThat(secondTurn.at("/comparison/maxSavingsAmount").asText()).isEqualTo("800000");
+        assertThat(secondTurn.at("/comparison/tradeOffSummary").asText()).contains("Synthetic Double");
+
+        verifyNoInteractions(core);
     }
 }

@@ -1,10 +1,11 @@
 package vn.edu.utc.hotel_booking.modules.ai.advisor.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.*;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.AdvisorStatus;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.ComparisonFocus;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.KnowledgeState;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.UnifiedIntent;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSession;
@@ -21,18 +22,42 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Orchestrator for the unified conversational flow, combining authoritative room recommendations
- * and grounded RAG knowledge in a single conversational turn.
+ * Orchestrator for the unified conversational flow, combining authoritative room recommendations,
+ * multi-criteria room comparisons, and grounded RAG knowledge in a single conversational turn.
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class UnifiedAdvisorService {
 
     private final PolicyIntentClassifier intentClassifier;
     private final RoomAdvisorOrchestrationService roomAdvisorService;
     private final RagPublicQueryFacade ragFacade;
     private final RoomAdvisorSessionStore sessionStore;
+    private final RoomComparisonService roomComparisonService;
+
+    public UnifiedAdvisorService(
+            PolicyIntentClassifier intentClassifier,
+            RoomAdvisorOrchestrationService roomAdvisorService,
+            RagPublicQueryFacade ragFacade,
+            RoomAdvisorSessionStore sessionStore
+    ) {
+        this(intentClassifier, roomAdvisorService, ragFacade, sessionStore, new RoomComparisonService(ragFacade));
+    }
+
+    @Autowired
+    public UnifiedAdvisorService(
+            PolicyIntentClassifier intentClassifier,
+            RoomAdvisorOrchestrationService roomAdvisorService,
+            RagPublicQueryFacade ragFacade,
+            RoomAdvisorSessionStore sessionStore,
+            RoomComparisonService roomComparisonService
+    ) {
+        this.intentClassifier = intentClassifier;
+        this.roomAdvisorService = roomAdvisorService;
+        this.ragFacade = ragFacade;
+        this.sessionStore = sessionStore;
+        this.roomComparisonService = roomComparisonService;
+    }
 
     public UnifiedAdvisorResultDto converse(UnifiedAdvisorRequestDto request, String ownerKey) {
         Objects.requireNonNull(request, "request must not be null");
@@ -61,14 +86,87 @@ public class UnifiedAdvisorService {
         AdvisorResultDto advisorResult = null;
         boolean coreFailed = false;
         RoomAdvisorSession existingSession = null;
+        boolean reusedSessionResultForComparison = false;
 
-        // 2. Validate session if POLICY_ONLY
-        if (classification.getIntent() == UnifiedIntent.POLICY_ONLY) {
+        UnifiedIntent effectiveIntent = classification.getIntent();
+        String effectivePolicyQuestion = classification.getPolicyQuestion();
+
+        boolean hasExplicitCompareIds = request.getCompareRoomTypeIds() != null
+                && !request.getCompareRoomTypeIds().isEmpty();
+        if (hasExplicitCompareIds && !classification.isWriteIntent()) {
+            if (effectiveIntent == UnifiedIntent.SEARCH_ONLY) {
+                effectiveIntent = UnifiedIntent.ROOM_COMPARISON;
+            } else if (effectiveIntent == UnifiedIntent.POLICY_ONLY) {
+                if (!intentClassifier.hasExplicitPolicyMarker(request.getMessage())) {
+                    // Question was asking about the rooms to compare (e.g. "Gia đình có con nhỏ nên chọn cái nào?"),
+                    // not a hotel policy inquiry.
+                    effectiveIntent = UnifiedIntent.ROOM_COMPARISON;
+                    effectivePolicyQuestion = null;
+                } else {
+                    effectiveIntent = UnifiedIntent.SEARCH_AND_COMPARISON;
+                }
+            } else if (effectiveIntent == UnifiedIntent.SEARCH_AND_POLICY) {
+                effectiveIntent = UnifiedIntent.SEARCH_AND_COMPARISON;
+            }
+        }
+        ComparisonFocus comparisonFocus = classification.getComparisonFocus() != null
+                && classification.getComparisonFocus() != ComparisonFocus.GENERAL
+                ? classification.getComparisonFocus()
+                : intentClassifier.detectComparisonFocus(request.getMessage());
+
+        // 2. Execute session/search flow depending on intent
+        if (effectiveIntent == UnifiedIntent.POLICY_ONLY) {
             if (request.getSessionId() != null) {
                 existingSession = validateSession(request, ownerKey);
             }
+        } else if (effectiveIntent == UnifiedIntent.ROOM_COMPARISON) {
+            if (request.getSessionId() != null) {
+                existingSession = validateSession(request, ownerKey);
+            }
+            if (existingSession != null && existingSession.getLastResult() != null
+                    && existingSession.getLastResult().getRecommendations() != null
+                    && !existingSession.getLastResult().getRecommendations().isEmpty()) {
+                // Read-only reuse of verified recommendations from active session (no sessionVersion bump).
+                // If recommendations.size() < 2, RoomComparisonService will cleanly return INSUFFICIENT_CANDIDATES.
+                advisorResult = existingSession.getLastResult();
+                reusedSessionResultForComparison = true;
+            } else {
+                AdvisorChatRequestDto chatReq = AdvisorChatRequestDto.builder()
+                        .message(classification.getSearchText())
+                        .sessionId(request.getSessionId())
+                        .expectedSessionVersion(request.getExpectedSessionVersion())
+                        .build();
+                try {
+                    advisorResult = roomAdvisorService.chat(chatReq, ownerKey);
+                } catch (AdvisorDependencyUnavailableException unavailable) {
+                    coreFailed = true;
+                    if (effectivePolicyQuestion == null) throw unavailable;
+                    RoomAdvisorSession validated = request.getSessionId() != null ? validateSession(request, ownerKey) : null;
+                    advisorResult = AdvisorResultDto.builder()
+                            .requestId(requestId)
+                            .sessionId(request.getSessionId())
+                            .sessionVersion(validated != null ? validated.getSessionVersion() : 0L)
+                            .status(AdvisorStatus.TEMP_UNAVAILABLE)
+                            .reply("Tìm phòng tạm thời không khả dụng. Tôi vẫn có thể tra cứu chính sách khi xác định được khách sạn.")
+                            .build();
+                    if (validated != null) {
+                        existingSession = sessionStore.updateSession(validated.getSessionId(), ownerKey,
+                                validated.getSessionVersion(), null, null, advisorResult);
+                        advisorResult.setSessionVersion(existingSession.getSessionVersion());
+                    }
+                }
+                if (advisorResult.getStatus() == AdvisorStatus.OUT_OF_SCOPE) {
+                    return UnifiedAdvisorResultDto.builder()
+                            .contractVersion("2.1-proposed")
+                            .requestId(requestId)
+                            .intent(UnifiedIntent.OUT_OF_SCOPE)
+                            .advisor(advisorResult)
+                            .knowledge(null)
+                            .build();
+                }
+            }
         } else {
-            // SEARCH_ONLY or SEARCH_AND_POLICY
+            // SEARCH_ONLY, SEARCH_AND_POLICY, or SEARCH_AND_COMPARISON
             AdvisorChatRequestDto chatReq = AdvisorChatRequestDto.builder()
                     .message(classification.getSearchText())
                     .sessionId(request.getSessionId())
@@ -78,7 +176,7 @@ public class UnifiedAdvisorService {
                 advisorResult = roomAdvisorService.chat(chatReq, ownerKey);
             } catch (AdvisorDependencyUnavailableException unavailable) {
                 coreFailed = true;
-                if (classification.getPolicyQuestion() == null) throw unavailable;
+                if (effectivePolicyQuestion == null) throw unavailable;
                 // Do not infer scope from an older search after a failed new search.
                 // Session and authorization failures deliberately do not enter this catch.
                 RoomAdvisorSession validated = request.getSessionId() != null ? validateSession(request, ownerKey) : null;
@@ -109,7 +207,7 @@ public class UnifiedAdvisorService {
         // A successful search commits criteria first; its store clears a previous policy choice
         // on material criteria changes. Never reuse stale context after a Core failure.
         if (advisorResult != null && advisorResult.getSessionId() != null
-                && !coreFailed) {
+                && !coreFailed && !reusedSessionResultForComparison) {
             existingSession = sessionStore.getSession(advisorResult.getSessionId(), ownerKey)
                     .orElseThrow(() -> new SessionNotFoundException("Session not found or expired"));
             if (existingSession.getSessionVersion() != advisorResult.getSessionVersion()) {
@@ -117,11 +215,23 @@ public class UnifiedAdvisorService {
             }
         }
 
-        // 3. Resolve Scope & Execute Knowledge Query
+        // 3. Build Multi-Criteria Room Comparison Matrix when requested
+        RoomComparisonMatrixDto comparisonMatrix = null;
+        if (effectiveIntent == UnifiedIntent.ROOM_COMPARISON
+                || (effectiveIntent == UnifiedIntent.SEARCH_AND_COMPARISON && !coreFailed)) {
+            comparisonMatrix = roomComparisonService.compareRooms(
+                    advisorResult,
+                    classification.getTargetRoomHints(),
+                    comparisonFocus,
+                    request.getCompareRoomTypeIds()
+            );
+        }
+
+        // 4. Resolve Scope & Execute Knowledge Query
         KnowledgeAnswerDto knowledgeAnswer = null;
-        if (classification.getPolicyQuestion() != null) {
+        if (effectivePolicyQuestion != null) {
             knowledgeAnswer = resolveAndQueryKnowledge(
-                    classification.getPolicyQuestion(),
+                    effectivePolicyQuestion,
                     request.getPolicyHotelId(),
                     advisorResult,
                     coreFailed ? null : existingSession
@@ -157,9 +267,10 @@ public class UnifiedAdvisorService {
                 .requestId(requestId)
                 .sessionId(responseSessionId)
                 .sessionVersion(responseVersion)
-                .intent(classification.getIntent())
+                .intent(effectiveIntent)
                 .advisor(advisorResult)
                 .knowledge(knowledgeAnswer)
+                .comparison(comparisonMatrix)
                 .build();
     }
 

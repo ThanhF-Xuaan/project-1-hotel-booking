@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.ai.advisor.eval;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.controller.PublicUnifiedAdvisorController;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.service.RoomComparisonService;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.service.UnifiedAdvisorService;
 
 import java.lang.reflect.Field;
@@ -42,6 +43,20 @@ class T12UnifiedAdvisorZeroWriteArchitectureTest {
             for (String forbidden : FORBIDDEN_WORDS) {
                 assertThat(typeName)
                         .as("UnifiedAdvisorService should not depend on " + forbidden)
+                        .doesNotContain(forbidden);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("RoomComparisonService has no write, payment, or repository dependencies")
+    void comparisonServiceHasNoWriteDependencies() {
+        Field[] fields = RoomComparisonService.class.getDeclaredFields();
+        for (Field f : fields) {
+            String typeName = f.getType().getSimpleName();
+            for (String forbidden : FORBIDDEN_WORDS) {
+                assertThat(typeName)
+                        .as("RoomComparisonService should not depend on " + forbidden)
                         .doesNotContain(forbidden);
             }
         }

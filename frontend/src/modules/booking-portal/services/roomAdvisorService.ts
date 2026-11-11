@@ -221,6 +221,24 @@ export async function sendUnifiedChat(
       }
     }
 
+    const comparison = result?.comparison;
+    if (comparison?.staticDescriptionCitations && comparison.staticDescriptionCitations.length > 0) {
+      const allowedHotelIds = new Set(comparison.items.map((item) => item.hotelId));
+      const invalidComparisonCitation = comparison.staticDescriptionCitations.some(
+        (c) => c.hotelId == null || !allowedHotelIds.has(c.hotelId)
+      );
+      if (invalidComparisonCitation) {
+        result.comparison = {
+          ...comparison,
+          staticDescriptionCitations: [],
+          items: comparison.items.map((item) => ({
+            ...item,
+            staticAreaAndLayout: undefined,
+          })),
+        };
+      }
+    }
+
     return result;
   } catch (err) {
     return handleAdvisorError(err);

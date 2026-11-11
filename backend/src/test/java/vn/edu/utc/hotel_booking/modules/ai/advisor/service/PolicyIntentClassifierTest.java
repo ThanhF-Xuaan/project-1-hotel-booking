@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.ai.advisor.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.ComparisonFocus;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.UnifiedIntent;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -208,5 +209,110 @@ class PolicyIntentClassifierTest {
         var result = classifier.classifyAndSplit("Tôi muốn tìm hiểu chính sách hủy phòng như thế nào?");
         assertThat(result.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
         assertThat(result.getPolicyQuestion()).contains("chính sách hủy phòng");
+    }
+
+    @Test
+    @DisplayName("Follow-up room comparison with family context classifies as ROOM_COMPARISON (not SEARCH_AND_COMPARISON)")
+    void followUpComparisonClassifiesAsRoomComparison() {
+        String input = "So sánh giúp tôi phòng Deluxe và Executive Suite, gia đình tôi có con nhỏ thì nên ở phòng nào?";
+        var result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.isWriteIntent()).isFalse();
+        assertThat(result.getComparisonFocus()).isEqualTo(ComparisonFocus.FAMILY_KIDS);
+        assertThat(result.getTargetRoomHints()).containsExactly("deluxe", "executive");
+    }
+
+    @Test
+    @DisplayName("Comparison question ending with '?' routes to ROOM_COMPARISON instead of POLICY_ONLY")
+    void comparisonQuestionWithQuestionMarkRoutesToRoomComparison() {
+        var result = classifier.classifyAndSplit("Phòng Superior và Deluxe khác gì nhau để tiết kiệm chi phí?");
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.getComparisonFocus()).isEqualTo(ComparisonFocus.BUDGET_SAVER);
+        assertThat(result.getTargetRoomHints()).contains("superior", "deluxe");
+    }
+
+    @Test
+    @DisplayName("Comparison combined with new location and dates routes to SEARCH_AND_COMPARISON")
+    void comparisonWithNewSearchCriteriaRoutesToSearchAndComparison() {
+        var result = classifier.classifyAndSplit(
+                "Tìm phòng ở Đà Nẵng từ 10/12 đến 12/12 cho 2 người lớn rồi so sánh giúp tôi"
+        );
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.SEARCH_AND_COMPARISON);
+        assertThat(result.isWriteIntent()).isFalse();
+    }
+
+    @Test
+    @DisplayName("stripComparisonRoomCount converts 'so sánh 2 phòng' so roomsCount regex is not falsely triggered")
+    void stripComparisonRoomCountPreventsRoomsCountFalsePositive() {
+        String input = "Tìm phòng ở Đà Nẵng từ 2026-11-13 đến 2026-11-15 cho 2 người lớn rồi so sánh 2 phòng giúp tôi";
+        String stripped = PolicyIntentClassifier.stripComparisonRoomCount(input);
+        assertThat(stripped).contains("so sánh các phòng");
+
+        var nlu = new vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmService();
+        var patchRaw = nlu.extractCriteriaPatch(input, null);
+        assertThat(patchRaw.getRoomsCount()).isEqualTo(2);
+
+        var patchStripped = nlu.extractCriteriaPatch(stripped, null);
+        assertThat(patchStripped.getRoomsCount()).isNull();
+    }
+
+    @Test
+    @DisplayName("Comparison combined with cancellation question cleanly separates policy and does not trigger OUT_OF_SCOPE")
+    void comparisonWithCancellationQuestionSeparatesPolicySafely() {
+        String input = "Tìm phòng ở Đà Nẵng từ 2026-11-13 đến 2026-11-15 cho 2 người lớn rồi so sánh 2 phòng giúp tôi, hủy phòng trước mấy ngày thì được hoàn tiền?";
+        var result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.SEARCH_AND_COMPARISON);
+        assertThat(result.isWriteIntent()).isFalse();
+        assertThat(result.getSearchText()).contains("Đà Nẵng").contains("2 người lớn");
+        assertThat(result.getSearchText()).doesNotContain("hủy phòng");
+        assertThat(result.getPolicyQuestion()).contains("hủy phòng");
+    }
+
+    @Test
+    @DisplayName("Check-in and check-out difference question routes to POLICY_ONLY, not ROOM_COMPARISON")
+    void checkInCheckOutDifferenceRoutesToPolicyOnly() {
+        String input = "Quy định nhận phòng và trả phòng khác nhau thế nào?";
+        var result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
+        assertThat(result.isWriteIntent()).isFalse();
+        assertThat(result.getPolicyQuestion()).contains("nhận phòng");
+    }
+
+    @Test
+    @DisplayName("'Phòng bé quá' triggers SPACE_COMFORT, not FAMILY_KIDS")
+    void smallRoomPhraseDoesNotTriggerKidsFocus() {
+        String input = "So sánh phòng Deluxe và Suite, phòng Standard bé quá thì nên đổi phòng nào rộng hơn?";
+        var result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.getComparisonFocus()).isEqualTo(ComparisonFocus.SPACE_COMFORT);
+    }
+
+    @Test
+    @DisplayName("English query with 'would be better for business' triggers WORK_TRIP")
+    void englishBusinessQueryTriggersWorkTrip() {
+        String input = "Compare Deluxe and Executive Suite, which room would be better for business travel?";
+        var result = classifier.classifyAndSplit(input);
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.getComparisonFocus()).isEqualTo(ComparisonFocus.WORK_TRIP);
+        assertThat(result.getTargetRoomHints()).containsExactly("deluxe", "executive");
+    }
+
+    @Test
+    @DisplayName("hasExplicitPolicyMarker distinguishes genuine policy questions from comparison selection questions")
+    void hasExplicitPolicyMarkerIdentifiesPolicyMarkersVsGeneralQuestions() {
+        assertThat(classifier.hasExplicitPolicyMarker("Khách sạn có cho mang thú cưng không?")).isTrue();
+        assertThat(classifier.hasExplicitPolicyMarker("Mấy giờ nhận phòng và trả phòng?")).isTrue();
+        assertThat(classifier.hasExplicitPolicyMarker("Chính sách hủy phòng thế nào?")).isTrue();
+        assertThat(classifier.hasExplicitPolicyMarker("Gia đình có con nhỏ nên chọn cái nào?")).isFalse();
+        assertThat(classifier.hasExplicitPolicyMarker("Cái nào phù hợp hơn cho 2 người?")).isFalse();
+        assertThat(classifier.hasExplicitPolicyMarker("")).isFalse();
+        assertThat(classifier.hasExplicitPolicyMarker(null)).isFalse();
     }
 }

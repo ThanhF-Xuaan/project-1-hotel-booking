@@ -8,6 +8,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.*;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.AdvisorStatus;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.ComparisonFocus;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.ComparisonStatus;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.KnowledgeState;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.UnifiedIntent;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.session.RoomAdvisorSession;
@@ -303,5 +305,225 @@ class UnifiedAdvisorServiceTest {
         assertThat(result.getKnowledge()).isNotNull();
         assertThat(result.getKnowledge().getPolicyQuestion()).doesNotContain("0912345678");
         assertThat(result.getKnowledge().getPolicyQuestion()).contains("[REDACTED_PHONE]");
+    }
+
+    @Test
+    @DisplayName("ROOM_COMPARISON reuses session lastResult read-only without calling roomAdvisorService.chat again")
+    void roomComparisonReusesSessionLastResultReadOnly() {
+        RoomRecommendationDto dlx = RoomRecommendationDto.builder()
+                .recommendationId("r1")
+                .room(RoomSummaryDto.builder()
+                        .hotelId(2).hotelName("Viettel Grand Đà Nẵng")
+                        .hotelRoomTypeId(201).roomTypeCode("DLX").roomTypeName("Deluxe Room")
+                        .maxAdults(2).maxChildren(1).maxTotalGuests(3).extraBedsAllowed(1)
+                        .build())
+                .price(PriceQuoteDto.builder()
+                        .hotelRoomTypeId(201).finalTotalAmount("3200000").currency("VND").totalNights(2)
+                        .build())
+                .build();
+        RoomRecommendationDto exe = RoomRecommendationDto.builder()
+                .recommendationId("r2")
+                .room(RoomSummaryDto.builder()
+                        .hotelId(2).hotelName("Viettel Grand Đà Nẵng")
+                        .hotelRoomTypeId(202).roomTypeCode("EXE").roomTypeName("Executive Suite")
+                        .maxAdults(2).maxChildren(2).maxTotalGuests(4).extraBedsAllowed(2)
+                        .build())
+                .price(PriceQuoteDto.builder()
+                        .hotelRoomTypeId(202).finalTotalAmount("5000000").currency("VND").totalNights(2)
+                        .build())
+                .build();
+
+        AdvisorResultDto cachedResult = AdvisorResultDto.builder()
+                .status(AdvisorStatus.RESULTS)
+                .criteria(RoomSearchCriteriaDto.builder().hotelId(2).locationKeyword("Đà Nẵng").build())
+                .recommendations(List.of(dlx, exe))
+                .build();
+
+        RoomAdvisorSession created = sessionStore.getOrCreateSession(null, "owner-1");
+        UUID sessionId = created.getSessionId();
+        RoomAdvisorSession saved = sessionStore.updateSession(
+                sessionId, "owner-1", created.getSessionVersion(), cachedResult.getCriteria(), List.of(), cachedResult);
+        long initialVersion = saved.getSessionVersion();
+
+        when(ragFacade.ask(anyString(), eq(2))).thenReturn(RagPublicQueryOutcome.unavailable());
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .sessionId(sessionId)
+                .expectedSessionVersion(initialVersion)
+                .message("So sánh giúp tôi phòng Deluxe và Executive Suite, gia đình tôi có con nhỏ nên ở phòng nào?")
+                .build();
+
+        UnifiedAdvisorResultDto result = unifiedService.converse(request, "owner-1");
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.getSessionVersion()).isEqualTo(initialVersion);
+        assertThat(result.getComparison()).isNotNull();
+        assertThat(result.getComparison().getStatus()).isEqualTo(ComparisonStatus.READY);
+        assertThat(result.getComparison().getItems()).hasSize(2);
+        assertThat(result.getComparison().getMaxSavingsAmount()).isEqualTo("1800000");
+
+        verify(roomAdvisorService, never()).chat(any(), any());
+        verify(ragFacade, times(1)).ask(anyString(), eq(2));
+    }
+
+    @Test
+    @DisplayName("SEARCH_AND_COMPARISON calls roomAdvisorService first, then constructs comparison matrix from results")
+    void searchAndComparisonCallsSearchThenCompares() {
+        RoomRecommendationDto dlx = RoomRecommendationDto.builder()
+                .recommendationId("r1")
+                .room(RoomSummaryDto.builder()
+                        .hotelId(2).hotelName("Viettel Grand Đà Nẵng")
+                        .hotelRoomTypeId(201).roomTypeCode("DLX").roomTypeName("Deluxe Room")
+                        .maxAdults(2).maxChildren(1).maxTotalGuests(3).extraBedsAllowed(1)
+                        .build())
+                .price(PriceQuoteDto.builder()
+                        .hotelRoomTypeId(201).finalTotalAmount("3200000").currency("VND").totalNights(2)
+                        .build())
+                .build();
+        RoomRecommendationDto exe = RoomRecommendationDto.builder()
+                .recommendationId("r2")
+                .room(RoomSummaryDto.builder()
+                        .hotelId(2).hotelName("Viettel Grand Đà Nẵng")
+                        .hotelRoomTypeId(202).roomTypeCode("EXE").roomTypeName("Executive Suite")
+                        .maxAdults(2).maxChildren(2).maxTotalGuests(4).extraBedsAllowed(2)
+                        .build())
+                .price(PriceQuoteDto.builder()
+                        .hotelRoomTypeId(202).finalTotalAmount("5000000").currency("VND").totalNights(2)
+                        .build())
+                .build();
+
+        AdvisorResultDto searchResult = AdvisorResultDto.builder()
+                .status(AdvisorStatus.RESULTS)
+                .recommendations(List.of(dlx, exe))
+                .build();
+        when(roomAdvisorService.chat(any(), eq("owner-1"))).thenReturn(searchResult);
+        when(ragFacade.ask(anyString(), eq(2))).thenReturn(RagPublicQueryOutcome.unavailable());
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("Tìm phòng ở Đà Nẵng từ 10/12 đến 12/12 cho 2 người lớn rồi so sánh giúp tôi")
+                .build();
+
+        UnifiedAdvisorResultDto result = unifiedService.converse(request, "owner-1");
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.SEARCH_AND_COMPARISON);
+        assertThat(result.getAdvisor()).isNotNull();
+        assertThat(result.getComparison()).isNotNull();
+        assertThat(result.getComparison().getStatus()).isEqualTo(ComparisonStatus.READY);
+        assertThat(result.getComparison().getItems()).hasSize(2);
+        verify(roomAdvisorService, times(1)).chat(any(), eq("owner-1"));
+    }
+
+    @Test
+    @DisplayName("ROOM_COMPARISON without active session calls chat to clarify criteria and returns NEED_SEARCH_FIRST")
+    void roomComparisonWithoutSessionReturnsNeedSearchFirst() {
+        AdvisorResultDto needInfoResult = AdvisorResultDto.builder()
+                .status(AdvisorStatus.NEED_INFO)
+                .reply("Quý khách muốn tìm phòng ở thành phố nào?")
+                .recommendations(List.of())
+                .build();
+        when(roomAdvisorService.chat(any(), eq("owner-1"))).thenReturn(needInfoResult);
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("So sánh giúp tôi phòng Deluxe và Executive Suite")
+                .build();
+
+        UnifiedAdvisorResultDto result = unifiedService.converse(request, "owner-1");
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.getComparison()).isNotNull();
+        assertThat(result.getComparison().getStatus()).isEqualTo(ComparisonStatus.NEED_SEARCH_FIRST);
+        verify(roomAdvisorService, times(1)).chat(any(), eq("owner-1"));
+        verify(ragFacade, never()).ask(anyString(), any());
+    }
+
+    @Test
+    @DisplayName("compareRoomTypeIds with question mark message promotes to ROOM_COMPARISON and skips RAG knowledge call")
+    void compareRoomTypeIdsWithQuestionMarkPromotesToRoomComparison() {
+        RoomRecommendationDto dlx = RoomRecommendationDto.builder()
+                .recommendationId("r1")
+                .room(RoomSummaryDto.builder()
+                        .hotelId(2).hotelName("Viettel Grand Đà Nẵng")
+                        .hotelRoomTypeId(201).roomTypeCode("DLX").roomTypeName("Deluxe Room")
+                        .maxAdults(2).maxChildren(1).maxTotalGuests(3).extraBedsAllowed(1)
+                        .build())
+                .price(PriceQuoteDto.builder()
+                        .hotelRoomTypeId(201).finalTotalAmount("3200000").currency("VND").totalNights(2)
+                        .build())
+                .build();
+        RoomRecommendationDto exe = RoomRecommendationDto.builder()
+                .recommendationId("r2")
+                .room(RoomSummaryDto.builder()
+                        .hotelId(2).hotelName("Viettel Grand Đà Nẵng")
+                        .hotelRoomTypeId(202).roomTypeCode("EXE").roomTypeName("Executive Suite")
+                        .maxAdults(2).maxChildren(2).maxTotalGuests(4).extraBedsAllowed(2)
+                        .build())
+                .price(PriceQuoteDto.builder()
+                        .hotelRoomTypeId(202).finalTotalAmount("5000000").currency("VND").totalNights(2)
+                        .build())
+                .build();
+
+        UUID sid = UUID.randomUUID();
+        sessionStore.getOrCreateSession(sid, "owner-1");
+        AdvisorResultDto searchResult = AdvisorResultDto.builder()
+                .sessionId(sid)
+                .sessionVersion(1L)
+                .status(AdvisorStatus.RESULTS)
+                .recommendations(List.of(dlx, exe))
+                .build();
+        sessionStore.updateSession(sid, "owner-1", 1L, null, null, searchResult);
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .sessionId(sid)
+                .expectedSessionVersion(2L)
+                .message("Gia đình có con nhỏ nên chọn cái nào?")
+                .compareRoomTypeIds(List.of(201, 202))
+                .build();
+
+        UnifiedAdvisorResultDto result = unifiedService.converse(request, "owner-1");
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.getComparison()).isNotNull();
+        assertThat(result.getComparison().getStatus()).isEqualTo(ComparisonStatus.READY);
+        assertThat(result.getComparison().getFocus()).isEqualTo(ComparisonFocus.FAMILY_KIDS);
+        assertThat(result.getKnowledge()).isNull();
+        verify(roomAdvisorService, never()).chat(any(), eq("owner-1"));
+    }
+
+    @Test
+    @DisplayName("ROOM_COMPARISON on session with single recommendation reuses session read-only and returns INSUFFICIENT_CANDIDATES")
+    void roomComparisonOnSingleRoomSessionReusesSessionReadOnly() {
+        RoomRecommendationDto dlx = RoomRecommendationDto.builder()
+                .recommendationId("r1")
+                .room(RoomSummaryDto.builder()
+                        .hotelId(2).hotelName("Viettel Grand Đà Nẵng")
+                        .hotelRoomTypeId(201).roomTypeCode("DLX").roomTypeName("Deluxe Room")
+                        .build())
+                .price(PriceQuoteDto.builder()
+                        .hotelRoomTypeId(201).finalTotalAmount("3200000").currency("VND").totalNights(2)
+                        .build())
+                .build();
+
+        UUID sid = UUID.randomUUID();
+        sessionStore.getOrCreateSession(sid, "owner-1");
+        AdvisorResultDto searchResult = AdvisorResultDto.builder()
+                .sessionId(sid)
+                .sessionVersion(1L)
+                .status(AdvisorStatus.RESULTS)
+                .recommendations(List.of(dlx))
+                .build();
+        sessionStore.updateSession(sid, "owner-1", 1L, null, null, searchResult);
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .sessionId(sid)
+                .expectedSessionVersion(2L)
+                .message("So sánh phòng này giúp tôi")
+                .build();
+
+        UnifiedAdvisorResultDto result = unifiedService.converse(request, "owner-1");
+
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.ROOM_COMPARISON);
+        assertThat(result.getComparison()).isNotNull();
+        assertThat(result.getComparison().getStatus()).isEqualTo(ComparisonStatus.INSUFFICIENT_CANDIDATES);
+        verify(roomAdvisorService, never()).chat(any(), eq("owner-1"));
     }
 }

@@ -143,6 +143,18 @@ public class HybridRagEmbeddingService implements RagEmbeddingPort {
         if (text.contains("hn-01") || text.contains("hà nội") || text.contains("hanoi")) {
             boostRange(vector, 128, 144, 2.0f);
         }
+
+        // Semantic cluster 10: Static room description / Diện tích & bố cục hạng phòng
+        if (text.contains("diện tích") || text.contains("dien tich") ||
+                text.contains("m2") || text.contains("m²") ||
+                text.contains("mét vuông") || text.contains("met vuong") ||
+                text.contains("bố cục") || text.contains("bo cuc") ||
+                text.contains("hạng phòng") || text.contains("hang phong") ||
+                text.contains("phòng khách") || text.contains("phong khach") ||
+                text.contains("bồn tắm") || text.contains("bon tam") ||
+                text.contains("room size") || text.contains("layout") || text.contains("square meter")) {
+            boostRange(vector, 144, 160, 3.5f);
+        }
     }
 
     private void boostRange(float[] vector, int start, int end, float weight) {

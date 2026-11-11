@@ -4,10 +4,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -29,4 +31,8 @@ public class UnifiedAdvisorRequestDto {
     @Min(value = 1, message = "Hotel ID must be positive")
     @Max(value = 32767, message = "Hotel ID must be a valid short")
     Integer policyHotelId;
+
+    @Size(min = 2, max = 3, message = "compareRoomTypeIds must contain between 2 and 3 room type IDs")
+    List<@NotNull(message = "Room type ID must not be null")
+         @Min(value = 1, message = "Room type ID must be positive") Integer> compareRoomTypeIds;
 }

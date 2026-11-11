@@ -164,4 +164,72 @@ class PublicUnifiedAdvisorControllerTest {
                 .andExpect(header().string("Retry-After", "10"))
                 .andExpect(jsonPath("$.error.reason", is("RATE_LIMITED")));
     }
+
+    @Test
+    @DisplayName("Single compareRoomTypeId is rejected with 400 INVALID_REQUEST")
+    void singleCompareRoomTypeIdIsRejected() throws Exception {
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("So sánh phòng")
+                .compareRoomTypeIds(java.util.List.of(101))
+                .build();
+
+        mockMvc.perform(post("/api/v1/public/ai/room-advisor/converse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.reason", is("INVALID_REQUEST")));
+    }
+
+    @Test
+    @DisplayName("More than 3 compareRoomTypeIds is rejected with 400 INVALID_REQUEST")
+    void moreThanThreeCompareRoomTypeIdsIsRejected() throws Exception {
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("So sánh phòng")
+                .compareRoomTypeIds(java.util.List.of(101, 102, 103, 104))
+                .build();
+
+        mockMvc.perform(post("/api/v1/public/ai/room-advisor/converse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.reason", is("INVALID_REQUEST")));
+    }
+
+    @Test
+    @DisplayName("Non-positive compareRoomTypeId is rejected with 400 INVALID_REQUEST")
+    void nonPositiveCompareRoomTypeIdIsRejected() throws Exception {
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("So sánh phòng")
+                .compareRoomTypeIds(java.util.List.of(101, 0))
+                .build();
+
+        mockMvc.perform(post("/api/v1/public/ai/room-advisor/converse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.reason", is("INVALID_REQUEST")));
+    }
+
+    @Test
+    @DisplayName("Valid compareRoomTypeIds (2 to 3 positive items) is accepted")
+    void validCompareRoomTypeIdsIsAccepted() throws Exception {
+        UnifiedAdvisorResultDto sampleResult = UnifiedAdvisorResultDto.builder()
+                .contractVersion("2.1-proposed")
+                .requestId(UUID.randomUUID())
+                .intent(UnifiedIntent.ROOM_COMPARISON)
+                .build();
+
+        when(unifiedAdvisorService.converse(any(), any())).thenReturn(sampleResult);
+
+        UnifiedAdvisorRequestDto request = UnifiedAdvisorRequestDto.builder()
+                .message("So sánh phòng")
+                .compareRoomTypeIds(java.util.List.of(101, 102))
+                .build();
+
+        mockMvc.perform(post("/api/v1/public/ai/room-advisor/converse")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result.intent", is("ROOM_COMPARISON")));
+    }
 }
