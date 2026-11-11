@@ -21,6 +21,7 @@ const TaxCategoryListPage = lazy(() => import('./modules/pricing/pages/TaxCatego
 const VatRuleListPage = lazy(() => import('./modules/pricing/pages/VatRuleListPage'))
 const HotelAgePolicyListPage = lazy(() => import('./modules/pricing/pages/HotelAgePolicyListPage'))
 const HolidayCalendarListPage = lazy(() => import('./modules/pricing/pages/HolidayCalendarListPage'))
+const SurchargeRuleListPage = lazy(() => import('./modules/pricing/pages/SurchargeRuleListPage'))
 const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPage'))
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
 const RoomingListImportPage = lazy(() => import('./modules/booking/pages/RoomingListImportPage'))
@@ -211,6 +212,7 @@ export function App() {
                 <Route path="/pricing/campaigns" element={<CampaignListPage />} />
                 <Route path="/pricing/discount-rules" element={<DiscountRuleListPage />} />
                 <Route path="/pricing/discount-rule-types" element={<DiscountRuleTypeListPage />} />
+                <Route path="/pricing/surcharge-rules" element={<SurchargeRuleListPage />} />
                 <Route path="/pricing/age-policies" element={<HotelAgePolicyListPage />} />
                 <Route path="/pricing/holiday-calendars" element={<HolidayCalendarListPage />} />
               </Route>
