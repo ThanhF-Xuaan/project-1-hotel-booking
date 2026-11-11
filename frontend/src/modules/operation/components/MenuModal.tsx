@@ -281,16 +281,26 @@ export const MenuModal: React.FC<MenuModalProps> = ({
 
           <div>
             <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider h-5 flex items-center mb-1.5">
-              Tên tùy biến cơ sở
+              Tên tùy biến cơ sở {masterItems.find((m) => m.id === formData.masterItemId)?.code?.startsWith('LOCAL_') && <span className="text-red-500 ml-1">*</span>}
             </label>
             <Input
               value={formData.customName}
               onChange={(e) => setFormData({ ...formData, customName: e.target.value })}
-              placeholder="VD: Bia Heineken ướp lạnh..."
-              className="h-11 text-sm"
+              placeholder="VD: Bia Heineken ướp lạnh, Rượu Táo Mèo Sa Pa..."
+              className="h-11 text-sm font-medium"
             />
           </div>
         </div>
+
+        {/* Hướng dẫn Hướng A: Khi chọn nhóm đặc sản địa phương LOCAL_* */}
+        {masterItems.find((m) => m.id === formData.masterItemId)?.code?.startsWith('LOCAL_') && (
+          <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2.5 animate-in fade-in">
+            <span className="text-base leading-none shrink-0">💡</span>
+            <div>
+              <span className="font-bold">Đặc sản / Dịch vụ địa phương:</span> Bạn đang cấu hình danh mục thuộc nhóm đặc thù địa phương. Vui lòng nhập tên cụ thể của món vào ô <strong>"Tên tùy biến cơ sở"</strong> (VD: <em>Rượu Táo Mèo Sa Pa 500ml</em>, <em>Lẩu Cá Hồi</em>, <em>Tour Trekking Mường Hoa</em>) để hiển thị chính xác cho khách hàng.
+            </div>
+          </div>
+        )}
 
         {/* Hàng 3: Loại thực đơn + Đơn giá cơ sở + Nhóm thuế */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

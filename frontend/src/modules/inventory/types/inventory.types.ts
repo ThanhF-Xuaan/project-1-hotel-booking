@@ -219,3 +219,30 @@ export interface RoomAvailabilityDto {
   lockedUntil?: string
   version: number
 }
+
+// ==================== ROOM INCLUSIONS ====================
+export interface HotelRoomTypeInclusionDto {
+  id: number
+  menuId?: number
+  masterItemId?: number
+  sourceType: 'CHAIN_MASTER' | 'HOTEL_MENU'
+  referenceType?: string
+  referenceId?: number
+  name: string
+  unit?: string
+  quantity: number
+  frequency: 'PER_NIGHT' | 'PER_STAY'
+  targetType: 'PER_ROOM' | 'PER_ADULT' | 'PER_GUEST'
+  description?: string
+}
+
+export interface HotelRoomTypeInclusionRequest {
+  menuId?: number
+  masterItemId?: number
+  quantity: number
+  frequency: 'PER_NIGHT' | 'PER_STAY'
+  targetType: 'PER_ROOM' | 'PER_ADULT' | 'PER_GUEST'
+  customDisplayName?: string
+  description?: string
+}
+

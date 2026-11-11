@@ -9,6 +9,7 @@ import hotelRoomTypeService from '../services/hotelRoomType.service'
 import taxCategoryService from '../../pricing/services/taxCategory.service'
 import { HotelRoomTypeBedEditor } from '../components/HotelRoomTypeBedEditor'
 import { HotelRoomTypeFeatureEditor } from '../components/HotelRoomTypeFeatureEditor'
+import { HotelRoomTypeInclusionEditor } from '../components/HotelRoomTypeInclusionEditor'
 import { RoomTypeMediaGalleryModal } from '../components/RoomTypeMediaGalleryModal'
 import type {
   HotelRoomTypeDto,
@@ -393,7 +394,14 @@ export const HotelRoomTypeDetailPage: React.FC = () => {
         onUpdated={loadData}
       />
 
-      {/* Block 4: Bộ Sưu Tập Hình Ảnh Hạng Phòng (Media Gallery) */}
+      {/* Block 4: Quà tặng & Dịch vụ kèm phòng HotelRoomTypeInclusion */}
+      <HotelRoomTypeInclusionEditor
+        hotelRoomTypeId={Number(id)}
+        hotelId={hotelRoomType.hotelId}
+        onUpdated={loadData}
+      />
+
+      {/* Block 5: Bộ Sưu Tập Hình Ảnh Hạng Phòng (Media Gallery) */}
       <div className="bg-white rounded-2xl border border-neutral-200/80 p-6 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">

@@ -7,6 +7,8 @@ import type {
   HotelRoomTypeUpdateRequest,
   HotelRoomTypeSearchDto,
   HotelRoomTypeBedItemRequest,
+  HotelRoomTypeInclusionDto,
+  HotelRoomTypeInclusionRequest,
 } from '../types/inventory.types'
 
 const BASE_URL = '/api/v1/inventory/hotel-room-types'
@@ -30,6 +32,25 @@ export const hotelRoomTypeService = {
     apiClient.put<HotelRoomTypeDto>(`${BASE_URL}/${id}/features`, featureIds),
 
   deleteBatch: (ids: number[]) => apiClient.delete<void>(`${BASE_URL}/delete`, { data: ids }),
+
+  getInclusions: (hotelRoomTypeId: number) =>
+    apiClient.get<HotelRoomTypeInclusionDto[]>(`${BASE_URL}/${hotelRoomTypeId}/inclusions`),
+
+  createInclusion: (hotelRoomTypeId: number, data: HotelRoomTypeInclusionRequest) =>
+    apiClient.post<HotelRoomTypeInclusionDto>(`${BASE_URL}/${hotelRoomTypeId}/inclusions`, data),
+
+  updateInclusion: (
+    hotelRoomTypeId: number,
+    inclusionId: number,
+    data: HotelRoomTypeInclusionRequest
+  ) =>
+    apiClient.put<HotelRoomTypeInclusionDto>(
+      `${BASE_URL}/${hotelRoomTypeId}/inclusions/${inclusionId}`,
+      data
+    ),
+
+  deleteInclusion: (hotelRoomTypeId: number, inclusionId: number) =>
+    apiClient.delete<void>(`${BASE_URL}/${hotelRoomTypeId}/inclusions/${inclusionId}`),
 
   getImages: (hotelRoomTypeId: number) =>
     apiClient.get<HotelImageDto[]>(`${BASE_URL}/${hotelRoomTypeId}/images`),

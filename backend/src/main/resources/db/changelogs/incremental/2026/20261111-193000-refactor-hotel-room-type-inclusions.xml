@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261111-193000-refactor-hotel-room-type-inclusions" author="utc-hotel-team" context="master-data">
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Refactor hotel_room_type_inclusions ho tro menu_id va master_item_id, frequency, target_type va seed master items nhom dac thu dia phuong (Huong A)</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261111-193000-refactor-hotel-room-type-inclusions.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+        <rollback>
+            <sql>
+                ALTER TABLE hotel_room_type_inclusions DROP CONSTRAINT IF EXISTS chk_hrt_inclusions_ref;
+                ALTER TABLE hotel_room_type_inclusions DROP CONSTRAINT IF EXISTS chk_hrt_inclusions_freq;
+                ALTER TABLE hotel_room_type_inclusions DROP CONSTRAINT IF EXISTS chk_hrt_inclusions_target;
+                DROP INDEX IF EXISTS idx_hrt_inclusions_menu;
+                DROP INDEX IF EXISTS idx_hrt_inclusions_master_item;
+                DROP INDEX IF EXISTS idx_hrt_inclusions_active_lookup;
+                ALTER TABLE hotel_room_type_inclusions DROP COLUMN IF EXISTS menu_id;
+                ALTER TABLE hotel_room_type_inclusions DROP COLUMN IF EXISTS master_item_id;
+                ALTER TABLE hotel_room_type_inclusions DROP COLUMN IF EXISTS frequency;
+                ALTER TABLE hotel_room_type_inclusions DROP COLUMN IF EXISTS target_type;
+                ALTER TABLE hotel_room_type_inclusions DROP COLUMN IF EXISTS custom_display_name;
+                ALTER TABLE hotel_room_type_inclusions DROP COLUMN IF EXISTS description;
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
+
