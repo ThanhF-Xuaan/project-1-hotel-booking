@@ -18,6 +18,8 @@ public interface SurchargeRuleMapper {
     @Mapping(target = "roomTypeName", source = "hotelRoomType.roomType.name")
     @Mapping(target = "hotelId", source = "hotelRoomType.hotel.id")
     @Mapping(target = "hotelName", source = "hotelRoomType.hotel.name")
+    @Mapping(target = "hotelCheckInTime", source = "hotelRoomType.hotel.checkInTime")
+    @Mapping(target = "hotelCheckOutTime", source = "hotelRoomType.hotel.checkOutTime")
     @Mapping(target = "agePolicyId", source = "agePolicy.id")
     @Mapping(target = "agePolicyGuestType", source = "agePolicy.guestType")
     @Mapping(target = "agePolicyMinAge", source = "agePolicy.minAge")

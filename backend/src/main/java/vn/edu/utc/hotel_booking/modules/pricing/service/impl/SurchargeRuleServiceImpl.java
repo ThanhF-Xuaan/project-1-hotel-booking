@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.pricing.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -17,6 +18,7 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomSurchargePolicyDto;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.condition.SurchargeConditionsDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.SurchargeRuleCreateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.SurchargeRuleSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.SurchargeRuleUpdateRequest;
@@ -27,9 +29,11 @@ import vn.edu.utc.hotel_booking.modules.pricing.mapper.SurchargeRuleMapper;
 import vn.edu.utc.hotel_booking.modules.pricing.repository.SurchargeRuleRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.service.HotelAgePolicyService;
 import vn.edu.utc.hotel_booking.modules.pricing.service.SurchargeRuleService;
+import vn.edu.utc.hotel_booking.modules.pricing.validator.SurchargeConditionsValidator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -43,6 +47,8 @@ public class SurchargeRuleServiceImpl implements SurchargeRuleService {
     HotelRoomTypeService hotelRoomTypeService;
     HotelAgePolicyService hotelAgePolicyService;
     SurchargeRuleMapper surchargeRuleMapper;
+    ObjectMapper objectMapper;
+    SurchargeConditionsValidator surchargeConditionsValidator;
 
     @Override
     public SurchargeRuleResponse getById(Integer id) {
@@ -88,9 +94,12 @@ public class SurchargeRuleServiceImpl implements SurchargeRuleService {
             throw new AppException(ErrorCode.SURCHARGE_RULE_OVERLAP, "Khoảng thời gian hiệu lực bị trùng lặp với quy tắc phụ thu cùng loại đã có");
         }
 
+        String validatedConditions = processAndValidateConditions(request.getRuleType(), request.getConditions(), hotelRoomType);
+
         SurchargeRule entity = surchargeRuleMapper.toEntity(request);
         entity.setHotelRoomType(hotelRoomType);
         entity.setAgePolicy(agePolicy);
+        entity.setConditions(validatedConditions);
 
         SurchargeRule saved = surchargeRuleRepository.save(entity);
         return surchargeRuleMapper.toResponse(saved);
@@ -132,9 +141,12 @@ public class SurchargeRuleServiceImpl implements SurchargeRuleService {
             throw new AppException(ErrorCode.SURCHARGE_RULE_OVERLAP, "Khoảng thời gian hiệu lực bị trùng lặp với quy tắc phụ thu cùng loại khác");
         }
 
+        String validatedConditions = processAndValidateConditions(request.getRuleType(), request.getConditions(), hotelRoomType);
+
         surchargeRuleMapper.updateEntity(rule, request);
         rule.setHotelRoomType(hotelRoomType);
         rule.setAgePolicy(agePolicy);
+        rule.setConditions(validatedConditions);
 
         SurchargeRule updated = surchargeRuleRepository.save(rule);
         return surchargeRuleMapper.toResponse(updated);
@@ -237,5 +249,44 @@ public class SurchargeRuleServiceImpl implements SurchargeRuleService {
             BigDecimal val = rule.getAdjustmentValue() != null ? rule.getAdjustmentValue() : BigDecimal.ZERO;
             return subject + String.format("%,.0f", val) + " VND" + suffix;
         }
+    }
+
+    private String processAndValidateConditions(String ruleType, String conditionsJson, HotelRoomType hotelRoomType) {
+        LocalTime hotelStandardTime = null;
+        if (hotelRoomType != null && hotelRoomType.getHotel() != null) {
+            if ("EARLY_CHECKIN".equalsIgnoreCase(ruleType)) {
+                hotelStandardTime = hotelRoomType.getHotel().getCheckInTime() != null
+                        ? hotelRoomType.getHotel().getCheckInTime() : LocalTime.of(14, 0);
+            } else if ("LATE_CHECKOUT".equalsIgnoreCase(ruleType)) {
+                hotelStandardTime = hotelRoomType.getHotel().getCheckOutTime() != null
+                        ? hotelRoomType.getHotel().getCheckOutTime() : LocalTime.of(12, 0);
+            }
+        }
+
+        if (StringUtils.hasText(conditionsJson) && !"{}".equals(conditionsJson.trim())) {
+            try {
+                SurchargeConditionsDto conditionsDto = objectMapper.readValue(conditionsJson, SurchargeConditionsDto.class);
+                if (hotelStandardTime != null) {
+                    // Cưỡng chế standard_time theo giờ của cơ sở (Hạng phòng tuyệt đối không được phép override)
+                    conditionsDto.setStandardTime(hotelStandardTime.toString());
+                }
+                surchargeConditionsValidator.validate(ruleType, conditionsDto, hotelStandardTime);
+                return objectMapper.writeValueAsString(conditionsDto);
+            } catch (AppException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Định dạng JSON điều kiện phụ thu không hợp lệ: " + e.getMessage());
+            }
+        } else if (hotelStandardTime != null && ("EARLY_CHECKIN".equalsIgnoreCase(ruleType) || "LATE_CHECKOUT".equalsIgnoreCase(ruleType))) {
+            try {
+                SurchargeConditionsDto conditionsDto = SurchargeConditionsDto.builder()
+                        .standardTime(hotelStandardTime.toString())
+                        .build();
+                return objectMapper.writeValueAsString(conditionsDto);
+            } catch (Exception ignored) {
+                return "{}";
+            }
+        }
+        return StringUtils.hasText(conditionsJson) ? conditionsJson : "{}";
     }
 }

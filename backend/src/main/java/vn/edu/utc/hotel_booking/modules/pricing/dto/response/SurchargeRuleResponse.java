@@ -5,6 +5,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 
 @Data
@@ -21,6 +22,8 @@ public class SurchargeRuleResponse {
     String roomTypeName;
     Short hotelId;
     String hotelName;
+    LocalTime hotelCheckInTime;
+    LocalTime hotelCheckOutTime;
 
     // Age Policy Info
     Short agePolicyId;

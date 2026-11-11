@@ -1,11 +1,13 @@
 package vn.edu.utc.hotel_booking.modules.pricing.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +17,7 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.RoomSurchargePolicyDto;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
+import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.SurchargeRuleCreateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.SurchargeRuleSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.SurchargeRuleUpdateRequest;
@@ -24,9 +27,11 @@ import vn.edu.utc.hotel_booking.modules.pricing.entity.SurchargeRule;
 import vn.edu.utc.hotel_booking.modules.pricing.mapper.SurchargeRuleMapper;
 import vn.edu.utc.hotel_booking.modules.pricing.repository.SurchargeRuleRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.service.impl.SurchargeRuleServiceImpl;
+import vn.edu.utc.hotel_booking.modules.pricing.validator.SurchargeConditionsValidator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,16 +55,30 @@ class SurchargeRuleServiceImplTest {
     @Mock
     private SurchargeRuleMapper surchargeRuleMapper;
 
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
+
+    @Spy
+    private SurchargeConditionsValidator surchargeConditionsValidator = new SurchargeConditionsValidator();
+
     @InjectMocks
     private SurchargeRuleServiceImpl surchargeRuleService;
 
     private SurchargeRuleCreateRequest createRequest;
     private HotelRoomType mockRoomType;
+    private Hotel mockHotel;
     private SurchargeRule mockEntity;
     private SurchargeRuleResponse mockResponse;
 
     @BeforeEach
     void setUp() {
+        mockHotel = Hotel.builder()
+                .id((short) 1)
+                .name("Grand Hotel")
+                .checkInTime(LocalTime.of(14, 0))
+                .checkOutTime(LocalTime.of(12, 0))
+                .build();
+
         createRequest = SurchargeRuleCreateRequest.builder()
                 .hotelRoomTypeId(1)
                 .agePolicyId((short) 1)
@@ -74,6 +93,7 @@ class SurchargeRuleServiceImplTest {
 
         mockRoomType = new HotelRoomType();
         mockRoomType.setId(1);
+        mockRoomType.setHotel(mockHotel);
         mockRoomType.setExtraBeds((short) 2);
 
         mockEntity = SurchargeRule.builder()
@@ -273,5 +293,60 @@ class SurchargeRuleServiceImplTest {
     void getActiveSurchargePolicies_NullParameters_ReturnsEmptyList() {
         List<RoomSurchargePolicyDto> result = surchargeRuleService.getActiveSurchargePolicies(null, null, null);
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Tạo phụ thu EARLY_CHECKIN theo bậc: Tự động khóa standard_time theo giờ check-in của Hotel (14:00)")
+    void create_whenEarlyCheckinWithValidTiers_shouldLockStandardTimeAndSave() {
+        String clientJson = "{\"standard_time\":\"16:00\",\"tiers\":[{\"from_time\":\"06:00\",\"to_time\":\"10:00\",\"adjustment_type\":\"PERCENT\",\"adjustment_value\":50.0},{\"from_time\":\"10:00\",\"to_time\":\"14:00\",\"adjustment_type\":\"PERCENT\",\"adjustment_value\":30.0}]}";
+
+        SurchargeRuleCreateRequest request = SurchargeRuleCreateRequest.builder()
+                .hotelRoomTypeId(1)
+                .ruleType("EARLY_CHECKIN")
+                .pricingType("PER_STAY")
+                .adjustmentType("PERCENT")
+                .adjustmentValue(new BigDecimal("30.0"))
+                .startDate(LocalDate.of(2026, 6, 1))
+                .endDate(LocalDate.of(2026, 6, 30))
+                .conditions(clientJson)
+                .status("ACTIVE")
+                .build();
+
+        when(hotelRoomTypeService.getEntityById(1)).thenReturn(mockRoomType);
+        when(surchargeRuleRepository.existsOverlappingRule(any(), any(), any(), any(), any(), any())).thenReturn(false);
+        when(surchargeRuleMapper.toEntity(request)).thenReturn(mockEntity);
+        when(surchargeRuleRepository.save(any(SurchargeRule.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(surchargeRuleMapper.toResponse(any(SurchargeRule.class))).thenReturn(mockResponse);
+
+        SurchargeRuleResponse result = surchargeRuleService.create(request);
+
+        assertThat(result).isNotNull();
+        // Kiểm tra xem entity được lưu có standard_time bị cưỡng chế thành 14:00 của cơ sở không
+        assertThat(mockEntity.getConditions()).contains("\"standard_time\":\"14:00\"");
+        assertThat(mockEntity.getConditions()).doesNotContain("\"standard_time\":\"16:00\"");
+    }
+
+    @Test
+    @DisplayName("Báo lỗi khi bậc EARLY_CHECKIN vượt quá giờ check-in của cơ sở (14:00)")
+    void create_whenEarlyCheckinExceedsHotelCheckInTime_shouldThrowException() {
+        String invalidTiersJson = "{\"tiers\":[{\"from_time\":\"10:00\",\"to_time\":\"14:30\",\"adjustment_type\":\"PERCENT\",\"adjustment_value\":30.0}]}";
+
+        SurchargeRuleCreateRequest request = SurchargeRuleCreateRequest.builder()
+                .hotelRoomTypeId(1)
+                .ruleType("EARLY_CHECKIN")
+                .pricingType("PER_STAY")
+                .adjustmentType("PERCENT")
+                .adjustmentValue(new BigDecimal("30.0"))
+                .startDate(LocalDate.of(2026, 6, 1))
+                .endDate(LocalDate.of(2026, 6, 30))
+                .conditions(invalidTiersJson)
+                .status("ACTIVE")
+                .build();
+
+        when(hotelRoomTypeService.getEntityById(1)).thenReturn(mockRoomType);
+
+        assertThatThrownBy(() -> surchargeRuleService.create(request))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("Phụ thu nhận sớm không thể kết thúc sau giờ check-in chuẩn của cơ sở (14:00)");
     }
 }

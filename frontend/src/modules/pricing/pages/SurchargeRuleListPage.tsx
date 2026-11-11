@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, RefreshCw, Search, Edit2 } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Edit2, Clock } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Select from '../../../core/components/ui/Select'
@@ -334,13 +334,72 @@ export const SurchargeRuleListPage: React.FC = () => {
                           <span className="text-xs text-neutral-400">Tất cả độ tuổi</span>
                         )}
                       </td>
-                      <td className="p-4 font-semibold text-neutral-900">
-                        {rule.adjustmentType === 'FIXED'
-                          ? `${Number(rule.adjustmentValue).toLocaleString('vi-VN')} đ`
-                          : `${rule.adjustmentValue}% giá phòng`}
-                        <span className="text-xs font-normal text-neutral-500 ml-1">
-                          ({rule.pricingType === 'PER_NIGHT' ? '/ đêm' : '/ kỳ'})
-                        </span>
+                      <td className="p-4">
+                        {(() => {
+                          let parsedTiers: any[] = []
+                          let standardTime: string | null = null
+                          try {
+                            if (rule.conditions) {
+                              const parsed = JSON.parse(rule.conditions)
+                              if (Array.isArray(parsed.tiers) && parsed.tiers.length > 0) {
+                                parsedTiers = parsed.tiers
+                                standardTime = parsed.standard_time || null
+                              }
+                            }
+                          } catch {
+                            // ignore JSON parse error
+                          }
+
+                          if (parsedTiers.length > 0) {
+                            return (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    <Clock className="w-3 h-3" />
+                                    Theo bậc ({parsedTiers.length} khung giờ)
+                                  </span>
+                                  {standardTime && (
+                                    <span className="text-[11px] text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded font-mono">
+                                      Chuẩn: {standardTime}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-neutral-600 space-y-0.5">
+                                  {parsedTiers.slice(0, 3).map((tier: any, i: number) => (
+                                    <div key={i} className="flex items-center gap-1">
+                                      <span className="font-mono text-neutral-700 font-medium">
+                                        {tier.from_time} - {tier.to_time}:
+                                      </span>
+                                      <span className="font-semibold text-neutral-900">
+                                        {tier.adjustment_type === 'PERCENT'
+                                          ? `${tier.adjustment_value}%`
+                                          : `${Number(tier.adjustment_value).toLocaleString('vi-VN')} đ`}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  {parsedTiers.length > 3 && (
+                                    <div className="text-[11px] text-neutral-400 italic">
+                                      + {parsedTiers.length - 3} bậc khác...
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div>
+                              <span className="font-semibold text-neutral-900">
+                                {rule.adjustmentType === 'FIXED'
+                                  ? `${Number(rule.adjustmentValue).toLocaleString('vi-VN')} đ`
+                                  : `${rule.adjustmentValue}% giá phòng`}
+                              </span>
+                              <span className="text-xs font-normal text-neutral-500 ml-1">
+                                ({rule.pricingType === 'PER_NIGHT' ? '/ đêm' : '/ kỳ'})
+                              </span>
+                            </div>
+                          )
+                        })()}
                       </td>
                       <td className="p-4 text-neutral-600 text-xs">
                         <div>{rule.startDate}</div>

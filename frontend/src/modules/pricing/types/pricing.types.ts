@@ -382,12 +382,27 @@ export interface DiscountRuleSearchDto extends BaseSearchDto {
 // 8. Surcharge Rule Interfaces (Phụ thu)
 // ==========================================
 
+export interface SurchargeTierItem {
+  from_time: string
+  to_time: string
+  adjustment_type: 'PERCENT' | 'FIXED'
+  adjustment_value: number
+  description?: string
+}
+
+export interface SurchargeConditions {
+  standard_time?: string
+  tiers?: SurchargeTierItem[]
+}
+
 export interface SurchargeRuleDto {
   id: number
   hotelRoomTypeId: number
   roomTypeName?: string
   hotelId?: number
   hotelName?: string
+  hotelCheckInTime?: string
+  hotelCheckOutTime?: string
   agePolicyId?: number
   agePolicyGuestType?: string
   agePolicyMinAge?: number
