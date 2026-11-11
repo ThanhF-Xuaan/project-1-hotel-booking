@@ -366,7 +366,7 @@ INSERT INTO hotel_room_type_inclusions (hotel_room_type_id, reference_type, refe
 SELECT hrt.id, 'POS_PRODUCT', m.id, 1
 FROM hotel_room_types hrt
 JOIN hotels h ON hrt.hotel_id = h.id
-CROSS JOIN menus m
+JOIN menus m ON m.hotel_id = h.id
 WHERE h.name IN ('Viettel Luxury Hà Nội', 'Viettel Grand Đà Nẵng')
   AND m.name IN ('Buffet Sáng Tiêu Chuẩn', 'Nước Suối Lavie 500ml')
   AND NOT EXISTS (

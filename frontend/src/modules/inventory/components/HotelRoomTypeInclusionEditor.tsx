@@ -221,6 +221,7 @@ export const HotelRoomTypeInclusionEditor: React.FC<HotelRoomTypeInclusionEditor
           hotelRoomTypeId={hotelRoomTypeId}
           hotelId={hotelId}
           item={editingItem}
+          existingInclusions={inclusions}
           onSuccess={handleSuccess}
         />
       )}

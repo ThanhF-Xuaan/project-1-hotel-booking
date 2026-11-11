@@ -62,6 +62,19 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
             throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION);
         }
 
+        // Chống trùng lặp quà tặng trên cùng một hạng phòng (CREATE)
+        if (request.getMenuId() != null) {
+            if (inclusionRepository.existsByRoomTypeAndMenu(hotelRoomTypeId, request.getMenuId(), null)) {
+                throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION,
+                        "Món này đã tồn tại trong danh sách quà tặng kèm của hạng phòng.");
+            }
+        } else if (request.getMasterItemId() != null) {
+            if (inclusionRepository.existsByRoomTypeAndMasterItem(hotelRoomTypeId, request.getMasterItemId(), null)) {
+                throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION,
+                        "Quyền lợi này đã tồn tại trong danh sách quà tặng kèm của hạng phòng.");
+            }
+        }
+
         Menu menu = null;
         if (request.getMenuId() != null) {
             MenuResponse menuDto = menuService.getById(request.getMenuId());
@@ -114,6 +127,20 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
 
         if (request.getMenuId() == null && request.getMasterItemId() == null) {
             throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION);
+        }
+
+        // Chống trùng lặp quà tặng trên cùng một hạng phòng (UPDATE)
+        Integer rTypeId = inclusion.getHotelRoomType().getId();
+        if (request.getMenuId() != null) {
+            if (inclusionRepository.existsByRoomTypeAndMenu(rTypeId, request.getMenuId(), inclusionId)) {
+                throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION,
+                        "Món này đã tồn tại trong danh sách quà tặng kèm của hạng phòng.");
+            }
+        } else if (request.getMasterItemId() != null) {
+            if (inclusionRepository.existsByRoomTypeAndMasterItem(rTypeId, request.getMasterItemId(), inclusionId)) {
+                throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION,
+                        "Quyền lợi này đã tồn tại trong danh sách quà tặng kèm của hạng phòng.");
+            }
         }
 
         if (request.getMenuId() != null) {

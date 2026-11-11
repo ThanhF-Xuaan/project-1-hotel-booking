@@ -18,6 +18,7 @@ interface HotelRoomTypeInclusionModalProps {
   hotelRoomTypeId: number
   hotelId: number
   item?: HotelRoomTypeInclusionDto | null
+  existingInclusions?: HotelRoomTypeInclusionDto[]
   onSuccess: () => void
 }
 
@@ -27,6 +28,7 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
   hotelRoomTypeId,
   hotelId,
   item,
+  existingInclusions = [],
   onSuccess,
 }) => {
   const [sourceType, setSourceType] = useState<'CHAIN_MASTER' | 'HOTEL_MENU'>('CHAIN_MASTER')
@@ -146,10 +148,39 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
     )
   }, [menus])
 
+  // Tập hợp các món Menu đã được gán vào hạng phòng này
+  const alreadyAddedMenuIds = useMemo(() => {
+    return new Set(
+      existingInclusions
+        .filter((inc) => (!item || inc.id !== item.id) && inc.menuId)
+        .map((inc) => inc.menuId)
+    )
+  }, [existingInclusions, item])
+
+  // Tập hợp các Master Item đã được gán vào hạng phòng này (dù trực tiếp hay qua Menu cơ sở)
+  const alreadyAddedMasterItemIds = useMemo(() => {
+    const set = new Set<number>()
+    existingInclusions.forEach((inc) => {
+      if (!item || inc.id !== item.id) {
+        if (inc.masterItemId) {
+          set.add(inc.masterItemId)
+        }
+        if (inc.menuId) {
+          const foundMenu = menus.find((m) => m.id === inc.menuId)
+          if (foundMenu?.masterItemId) {
+            set.add(foundMenu.masterItemId)
+          }
+        }
+      }
+    })
+    return set
+  }, [existingInclusions, menus, item])
+
   // Danh sách Tiêu chuẩn Chuỗi:
   // 1. Loại bỏ các mã category template LOCAL_*
   // 2. Loại bỏ các master item mà cơ sở đã override trong Menu (chỉ hiển thị bản ghi của cơ sở)
-  // 3. Nếu đang edit và item hiện tại là masterItem này thì vẫn giữ lại để không bị mất giá trị
+  // 3. Loại bỏ các master item đã có trong danh sách quà tặng của phòng (chống trùng lặp)
+  // 4. Nếu đang edit và item hiện tại là masterItem này thì vẫn giữ lại để không bị mất giá trị
   const masterItemOptions = useMemo(() => {
     return masterItems
       .filter((m) => {
@@ -159,6 +190,9 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
         if (overriddenMasterItemIds.has(m.id) && (!item || item.masterItemId !== m.id)) {
           return false
         }
+        if (alreadyAddedMasterItemIds.has(m.id) && (!item || item.masterItemId !== m.id)) {
+          return false
+        }
         return true
       })
       .map((m) => ({
@@ -166,15 +200,17 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
         label: `${m.name} [${m.code}] (${m.unit || 'phần'})`,
         description: m.description,
       }))
-  }, [masterItems, overriddenMasterItemIds, item])
+  }, [masterItems, overriddenMasterItemIds, alreadyAddedMasterItemIds, item])
 
   // Danh sách Thực đơn Cơ sở:
-  // Gắn nhãn rõ ràng để phân biệt:
-  // - [Tùy biến từ Chuỗi] nếu override một MasterItem của chuỗi
-  // - [Đặc sản Cơ sở] nếu tạo từ nhóm LOCAL_*
+  // 1. Loại bỏ các món Menu đã được thêm vào hạng phòng này (chống trùng lặp)
+  // 2. Gắn nhãn rõ ràng để phân biệt:
+  //    - [Tùy biến Chuỗi] nếu override một MasterItem của chuỗi
+  //    - [Đặc sản Cơ sở] nếu tạo từ nhóm LOCAL_*
   const menuOptions = useMemo(() => {
     return menus
       .filter((m) => m.status === 'ACTIVE')
+      .filter((m) => !alreadyAddedMenuIds.has(m.id) || (item && item.menuId === m.id))
       .map((m) => {
         const isLocal = m.masterItemCode && m.masterItemCode.startsWith('LOCAL_')
         const isOverriddenFromChain = m.masterItemId && !isLocal
@@ -195,7 +231,7 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
           description: m.description || `Đơn vị: ${m.unit || 'phần'} | Quản lý tồn kho tại cơ sở`,
         }
       })
-  }, [menus])
+  }, [menus, alreadyAddedMenuIds, item])
 
   return (
     <Modal

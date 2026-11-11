@@ -20,4 +20,14 @@ public interface HotelRoomTypeInclusionRepository extends JpaRepository<HotelRoo
            "LEFT JOIN FETCH i.masterItem mi " +
            "WHERE i.hotelRoomType.id = :hotelRoomTypeId AND i.isDeleted = false")
     List<HotelRoomTypeInclusion> findActiveWithDetailsByHotelRoomTypeId(@Param("hotelRoomTypeId") Integer hotelRoomTypeId);
+
+    @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM HotelRoomTypeInclusion i " +
+           "WHERE i.hotelRoomType.id = :hotelRoomTypeId AND i.menu.id = :menuId AND i.isDeleted = false " +
+           "AND (:excludeId IS NULL OR i.id <> :excludeId)")
+    boolean existsByRoomTypeAndMenu(@Param("hotelRoomTypeId") Integer hotelRoomTypeId, @Param("menuId") Integer menuId, @Param("excludeId") Long excludeId);
+
+    @Query("SELECT CASE WHEN COUNT(i) > 0 THEN true ELSE false END FROM HotelRoomTypeInclusion i " +
+           "WHERE i.hotelRoomType.id = :hotelRoomTypeId AND i.masterItem.id = :masterItemId AND i.isDeleted = false " +
+           "AND (:excludeId IS NULL OR i.id <> :excludeId)")
+    boolean existsByRoomTypeAndMasterItem(@Param("hotelRoomTypeId") Integer hotelRoomTypeId, @Param("masterItemId") Integer masterItemId, @Param("excludeId") Long excludeId);
 }

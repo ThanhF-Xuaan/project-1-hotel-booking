@@ -259,6 +259,42 @@ class HotelRoomTypeInclusionServiceImplTest {
     }
 
     @Test
+    @DisplayName("Ném ngoại lệ khi tạo inclusion trùng lặp Menu trên cùng hạng phòng")
+    void createInclusion_ThrowsException_WhenMenuAlreadyExistsOnRoomType() {
+        Hotel hotel = Hotel.builder().id((short) 1).build();
+        HotelRoomType roomType = HotelRoomType.builder().id(101).hotel(hotel).build();
+        when(hotelRoomTypeRepository.findById(101)).thenReturn(Optional.of(roomType));
+        when(inclusionRepository.existsByRoomTypeAndMenu(101, 5, null)).thenReturn(true);
+
+        HotelRoomTypeInclusionRequest req = HotelRoomTypeInclusionRequest.builder()
+                .menuId(5)
+                .quantity(1)
+                .build();
+
+        assertThatThrownBy(() -> inclusionService.createInclusion(101, req))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("đã tồn tại");
+    }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi tạo inclusion trùng lặp MasterItem trên cùng hạng phòng")
+    void createInclusion_ThrowsException_WhenMasterItemAlreadyExistsOnRoomType() {
+        Hotel hotel = Hotel.builder().id((short) 1).build();
+        HotelRoomType roomType = HotelRoomType.builder().id(101).hotel(hotel).build();
+        when(hotelRoomTypeRepository.findById(101)).thenReturn(Optional.of(roomType));
+        when(inclusionRepository.existsByRoomTypeAndMasterItem(101, 3, null)).thenReturn(true);
+
+        HotelRoomTypeInclusionRequest req = HotelRoomTypeInclusionRequest.builder()
+                .masterItemId(3)
+                .quantity(1)
+                .build();
+
+        assertThatThrownBy(() -> inclusionService.createInclusion(101, req))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("đã tồn tại");
+    }
+
+    @Test
     @DisplayName("Xóa mềm quà tặng kèm phòng thành công")
     void deleteInclusion_Success() {
         HotelRoomTypeInclusion inc = HotelRoomTypeInclusion.builder().id(15L).build();
