@@ -140,6 +140,8 @@ public enum ErrorCode {
     // Operation & Housekeeping & POS Module Errors (9000s)
     MENU_ITEM_NOT_FOUND(9001, "Không tìm thấy món ăn / dịch vụ trong thực đơn", HttpStatus.NOT_FOUND),
     OUT_OF_STOCK(9002, "Mặt hàng này đã hết tồn kho", HttpStatus.CONFLICT),
+    MASTER_ITEM_NOT_FOUND(9003, "Không tìm thấy danh mục gốc chuỗi MasterItem", HttpStatus.NOT_FOUND),
+    MASTER_ITEM_CODE_ALREADY_EXISTS(9004, "Mã danh mục gốc chuỗi đã tồn tại trên hệ thống", HttpStatus.CONFLICT),
     SERVICE_ORDER_NOT_FOUND(9011, "Không tìm thấy đơn dịch vụ", HttpStatus.NOT_FOUND),
     INVALID_SERVICE_ORDER_STATUS(9012, "Trạng thái đơn dịch vụ không hợp lệ cho thao tác này", HttpStatus.BAD_REQUEST),
     ROOM_NOT_OCCUPIED(9021, "Phòng này hiện chưa có khách lưu trú để gọi dịch vụ", HttpStatus.BAD_REQUEST),

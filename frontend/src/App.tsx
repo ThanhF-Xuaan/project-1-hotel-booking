@@ -31,6 +31,8 @@ const LodgingQueuePage = lazy(() => import('./modules/operation/pages/LodgingQue
 const PayrollImportPage = lazy(() => import('./modules/finance/pages/PayrollImportPage'))
 const FolioPaymentPage = lazy(() => import('./modules/finance/pages/FolioPaymentPage'))
 const PaymentResultPage = lazy(() => import('./modules/finance/pages/PaymentResultPage'))
+const MasterItemListPage = lazy(() => import('./modules/operation/pages/MasterItemListPage')
+  .then((module) => ({ default: module.MasterItemListPage })))
 const MenuListPage = lazy(() => import('./modules/operation/pages/MenuListPage')
   .then((module) => ({ default: module.MenuListPage })))
 const RoomServiceOrderPage = lazy(() => import('./modules/operation/pages/RoomServiceOrderPage')
@@ -123,7 +125,8 @@ export function App() {
               </Route>
 
               {/* Phân hệ Vận hành & Nhà hàng */}
-              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B', 'RECEPTIONIST']} />}>
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'F_AND_B', 'RECEPTIONIST']} />}>
+                <Route path="/operation/master-items" element={<MasterItemListPage />} />
                 <Route path="/operation/menus" element={<MenuListPage />} />
                 <Route path="/operation/room-service" element={<RoomServiceOrderPage />} />
               </Route>
