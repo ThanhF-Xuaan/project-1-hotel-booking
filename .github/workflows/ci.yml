@@ -49,7 +49,8 @@ jobs:
           cache: maven
       - name: Install local OCR engine
         run: |
-          sudo apt-get update
+          sudo resolvectl dns eth0 8.8.8.8 1.1.1.1 2>/dev/null || echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
+          sudo apt-get update -o Acquire::Retries=3
           sudo apt-get install --no-install-recommends -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-vie
           tesseract --version
           tesseract --list-langs
@@ -97,7 +98,7 @@ jobs:
 
   frontend-verification:
     name: Frontend Lint & Typecheck (Node 22 / Vite)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:
@@ -127,7 +128,9 @@ jobs:
 
       - name: Install browser for isolated U22 UI checks
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: |
+          sudo resolvectl dns eth0 8.8.8.8 1.1.1.1 2>/dev/null || echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
+          npx playwright install --with-deps chromium
       - name: U22 synthetic UI states, authorization and request races
         working-directory: frontend
         run: |
