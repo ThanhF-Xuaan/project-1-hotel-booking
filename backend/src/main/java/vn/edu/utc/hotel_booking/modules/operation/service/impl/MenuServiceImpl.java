@@ -188,4 +188,16 @@ public class MenuServiceImpl implements MenuService {
         menus.forEach(m -> m.setIsDeleted(true));
         menuRepository.saveAll(menus);
     }
+
+    @Override
+    public boolean isMasterItemOverriddenByHotel(Short hotelId, Integer masterItemId) {
+        if (hotelId == null || masterItemId == null) return false;
+        return menuRepository.existsActiveOverrideByHotelAndMasterItem(hotelId, masterItemId);
+    }
+
+    @Override
+    public List<Integer> getOverriddenMasterItemIds(Short hotelId) {
+        if (hotelId == null) return List.of();
+        return menuRepository.findOverriddenMasterItemIdsByHotelId(hotelId);
+    }
 }

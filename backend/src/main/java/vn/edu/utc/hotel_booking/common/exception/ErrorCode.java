@@ -62,6 +62,7 @@ public enum ErrorCode {
     HOTEL_ROOM_TYPE_ALREADY_EXISTS(5012, "Loại phòng này đã được cấu hình cho khách sạn", HttpStatus.CONFLICT),
     HOTEL_ROOM_TYPE_INCLUSION_NOT_FOUND(5013, "Không tìm thấy quà tặng kèm hạng phòng", HttpStatus.NOT_FOUND),
     INVALID_INCLUSION_CONFIGURATION(5014, "Cấu hình quà tặng kèm phòng không hợp lệ", HttpStatus.BAD_REQUEST),
+    MASTER_ITEM_OVERRIDDEN_BY_HOTEL(5015, "Dịch vụ/sản phẩm này đã được tùy biến tại thực đơn của khách sạn. Vui lòng chọn bản ghi tương ứng từ Thực đơn cơ sở.", HttpStatus.BAD_REQUEST),
     ROOM_INSTANCE_NOT_FOUND(5021, "Không tìm thấy phòng vật lý", HttpStatus.NOT_FOUND),
     ROOM_NUMBER_ALREADY_EXISTS(5022, "Số phòng đã tồn tại trong khách sạn", HttpStatus.CONFLICT),
     ROOM_NOT_AVAILABLE(5031, "Không đủ phòng trống trong khoảng thời gian yêu cầu", HttpStatus.CONFLICT),

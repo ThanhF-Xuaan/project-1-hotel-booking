@@ -80,6 +80,14 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
             if (masterItemDto == null) {
                 throw new AppException(ErrorCode.MASTER_ITEM_NOT_FOUND);
             }
+            if (masterItemDto.getCode() != null && masterItemDto.getCode().startsWith("LOCAL_")) {
+                throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION,
+                        "Danh mục đặc sản/dịch vụ địa phương phải được khai báo cụ thể trong Thực đơn cơ sở trước khi thêm vào phòng.");
+            }
+            Short hotelId = roomType.getHotel().getId();
+            if (menuService.isMasterItemOverriddenByHotel(hotelId, request.getMasterItemId())) {
+                throw new AppException(ErrorCode.MASTER_ITEM_OVERRIDDEN_BY_HOTEL);
+            }
             masterItem = entityManager.getReference(MasterItem.class, request.getMasterItemId());
         }
 
@@ -122,6 +130,14 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
             MasterItemResponse masterItemDto = masterItemService.getById(request.getMasterItemId());
             if (masterItemDto == null) {
                 throw new AppException(ErrorCode.MASTER_ITEM_NOT_FOUND);
+            }
+            if (masterItemDto.getCode() != null && masterItemDto.getCode().startsWith("LOCAL_")) {
+                throw new AppException(ErrorCode.INVALID_INCLUSION_CONFIGURATION,
+                        "Danh mục đặc sản/dịch vụ địa phương phải được khai báo cụ thể trong Thực đơn cơ sở trước khi thêm vào phòng.");
+            }
+            Short hotelId = inclusion.getHotelRoomType().getHotel().getId();
+            if (menuService.isMasterItemOverriddenByHotel(hotelId, request.getMasterItemId())) {
+                throw new AppException(ErrorCode.MASTER_ITEM_OVERRIDDEN_BY_HOTEL);
             }
             inclusion.setMasterItem(entityManager.getReference(MasterItem.class, request.getMasterItemId()));
             inclusion.setMenu(null);

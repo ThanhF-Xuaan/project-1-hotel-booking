@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Modal from '../../../core/components/ui/Modal'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
@@ -137,17 +137,65 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
     }
   }
 
-  const masterItemOptions = masterItems.map((m) => ({
-    value: m.id,
-    label: `${m.name} [${m.code}] (${m.unit || 'phần'})`,
-    description: m.description,
-  }))
+  // Tập hợp các master_item_id mà cơ sở này đã tạo món trong Thực đơn (Menu)
+  const overriddenMasterItemIds = useMemo(() => {
+    return new Set(
+      menus
+        .filter((m) => m.status === 'ACTIVE' && m.masterItemId)
+        .map((m) => m.masterItemId)
+    )
+  }, [menus])
 
-  const menuOptions = menus.map((m) => ({
-    value: m.id,
-    label: `${m.customName ? `${m.customName} (${m.name})` : m.name} — ${new Intl.NumberFormat('vi-VN').format(m.basePrice)} đ`,
-    description: m.description,
-  }))
+  // Danh sách Tiêu chuẩn Chuỗi:
+  // 1. Loại bỏ các mã category template LOCAL_*
+  // 2. Loại bỏ các master item mà cơ sở đã override trong Menu (chỉ hiển thị bản ghi của cơ sở)
+  // 3. Nếu đang edit và item hiện tại là masterItem này thì vẫn giữ lại để không bị mất giá trị
+  const masterItemOptions = useMemo(() => {
+    return masterItems
+      .filter((m) => {
+        if (m.code && m.code.startsWith('LOCAL_')) {
+          return false
+        }
+        if (overriddenMasterItemIds.has(m.id) && (!item || item.masterItemId !== m.id)) {
+          return false
+        }
+        return true
+      })
+      .map((m) => ({
+        value: m.id,
+        label: `${m.name} [${m.code}] (${m.unit || 'phần'})`,
+        description: m.description,
+      }))
+  }, [masterItems, overriddenMasterItemIds, item])
+
+  // Danh sách Thực đơn Cơ sở:
+  // Gắn nhãn rõ ràng để phân biệt:
+  // - [Tùy biến từ Chuỗi] nếu override một MasterItem của chuỗi
+  // - [Đặc sản Cơ sở] nếu tạo từ nhóm LOCAL_*
+  const menuOptions = useMemo(() => {
+    return menus
+      .filter((m) => m.status === 'ACTIVE')
+      .map((m) => {
+        const isLocal = m.masterItemCode && m.masterItemCode.startsWith('LOCAL_')
+        const isOverriddenFromChain = m.masterItemId && !isLocal
+
+        let badge = ''
+        if (isOverriddenFromChain) {
+          badge = '[Tùy biến Chuỗi] '
+        } else if (isLocal) {
+          badge = '[Đặc sản Cơ sở] '
+        }
+
+        const displayName = m.customName ? `${m.customName} (${m.name})` : m.name
+        const formattedPrice = new Intl.NumberFormat('vi-VN').format(m.basePrice)
+
+        return {
+          value: m.id,
+          label: `${badge}${displayName} — ${formattedPrice} đ`,
+          description: m.description || `Đơn vị: ${m.unit || 'phần'} | Quản lý tồn kho tại cơ sở`,
+        }
+      })
+  }, [menus])
 
   return (
     <Modal
@@ -195,11 +243,30 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
               <span>Thực đơn Cơ sở (Menu)</span>
             </button>
           </div>
-          <p className="text-[11px] text-neutral-500 mt-1">
-            {sourceType === 'CHAIN_MASTER'
-              ? 'Áp dụng cho các quyền lợi chuỗi chuẩn hóa: Buffet sáng, Voucher Spa, Đưa đón sân bay...'
-              : 'Áp dụng cho món ăn, đồ uống hoặc đặc sản có quản lý tồn kho tại khách sạn cơ sở này.'}
+          <p className="text-[11px] text-neutral-500 mt-1.5 flex items-center gap-1.5">
+            <span className="shrink-0">💡</span>
+            <span>
+              {sourceType === 'CHAIN_MASTER'
+                ? 'Chỉ hiển thị các dịch vụ tiêu chuẩn toàn chuỗi (Buffet sáng, Đón sân bay...) mà khách sạn chưa tùy biến riêng.'
+                : 'Bao gồm các món ăn, đồ uống, đặc sản địa phương hoặc dịch vụ chuẩn chuỗi đã được khách sạn tùy biến riêng.'}
+            </span>
           </p>
+
+          {/* Thông báo nếu có mục chuỗi đã bị override */}
+          {sourceType === 'CHAIN_MASTER' && overriddenMasterItemIds.size > 0 && (
+            <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+              <span className="shrink-0 leading-none text-sm">ℹ️</span>
+              <div>
+                Khách sạn này đã tùy biến <strong>{overriddenMasterItemIds.size} mục</strong> từ danh mục chuỗi (như Buffet sáng, Trị liệu...). Để chọn các mục này, vui lòng chuyển sang tab <strong>"Thực đơn Cơ sở (Menu)"</strong>.
+              </div>
+            </div>
+          )}
+
+          {sourceType === 'CHAIN_MASTER' && masterItemOptions.length === 0 && (
+            <div className="mt-2 p-2.5 bg-neutral-100 border border-neutral-200 rounded-xl text-xs text-neutral-600 text-center">
+              Tất cả các dịch vụ chuỗi hiện tại đã được khách sạn tùy biến trong Thực đơn cơ sở. Vui lòng chuyển sang tab <strong>"Thực đơn Cơ sở (Menu)"</strong>.
+            </div>
+          )}
         </div>
 
         {/* Chọn món / Master Item */}

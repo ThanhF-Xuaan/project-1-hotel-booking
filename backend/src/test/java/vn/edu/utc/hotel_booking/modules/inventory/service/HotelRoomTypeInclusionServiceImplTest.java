@@ -180,6 +180,85 @@ class HotelRoomTypeInclusionServiceImplTest {
     }
 
     @Test
+    @DisplayName("Ném ngoại lệ khi tạo inclusion với MasterItem đã bị khách sạn cơ sở override trong Menu")
+    void createInclusion_ThrowsException_WhenMasterItemOverriddenByHotel() {
+        Hotel hotel = Hotel.builder().id((short) 1).build();
+        HotelRoomType roomType = HotelRoomType.builder().id(101).hotel(hotel).build();
+        when(hotelRoomTypeRepository.findById(101)).thenReturn(Optional.of(roomType));
+
+        MasterItemResponse miDto = MasterItemResponse.builder().id(2).code("BUFFET").name("Buffet Sáng").build();
+        when(masterItemService.getById(2)).thenReturn(miDto);
+        when(menuService.isMasterItemOverriddenByHotel((short) 1, 2)).thenReturn(true);
+
+        HotelRoomTypeInclusionRequest req = HotelRoomTypeInclusionRequest.builder()
+                .masterItemId(2)
+                .quantity(1)
+                .build();
+
+        assertThatThrownBy(() -> inclusionService.createInclusion(101, req))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("đã được tùy biến");
+    }
+
+    @Test
+    @DisplayName("Ném ngoại lệ khi tạo inclusion trực tiếp với MasterItem nhóm đặc thù địa phương LOCAL_*")
+    void createInclusion_ThrowsException_WhenMasterItemIsLocalCategory() {
+        Hotel hotel = Hotel.builder().id((short) 1).build();
+        HotelRoomType roomType = HotelRoomType.builder().id(101).hotel(hotel).build();
+        when(hotelRoomTypeRepository.findById(101)).thenReturn(Optional.of(roomType));
+
+        MasterItemResponse miDto = MasterItemResponse.builder()
+                .id(9)
+                .code("LOCAL_FOOD_SPECIALTY")
+                .name("Đặc sản ẩm thực địa phương")
+                .build();
+        when(masterItemService.getById(9)).thenReturn(miDto);
+
+        HotelRoomTypeInclusionRequest req = HotelRoomTypeInclusionRequest.builder()
+                .masterItemId(9)
+                .quantity(1)
+                .build();
+
+        assertThatThrownBy(() -> inclusionService.createInclusion(101, req))
+                .isInstanceOf(AppException.class)
+                .hasMessageContaining("Thực đơn cơ sở");
+    }
+
+    @Test
+    @DisplayName("Tạo quà tặng kèm phòng thành công với MasterItem chuỗi khi chưa bị override")
+    void createInclusion_Success_WithMasterItem_WhenNotOverridden() {
+        Hotel hotel = Hotel.builder().id((short) 1).build();
+        HotelRoomType roomType = HotelRoomType.builder().id(101).hotel(hotel).build();
+        when(hotelRoomTypeRepository.findById(101)).thenReturn(Optional.of(roomType));
+
+        MasterItemResponse miDto = MasterItemResponse.builder().id(3).code("AIRPORT_SHUTTLE").name("Đưa đón sân bay").build();
+        when(masterItemService.getById(3)).thenReturn(miDto);
+        when(menuService.isMasterItemOverriddenByHotel((short) 1, 3)).thenReturn(false);
+
+        MasterItem proxyItem = MasterItem.builder().id(3).name("Đưa đón sân bay").build();
+        when(entityManager.getReference(MasterItem.class, 3)).thenReturn(proxyItem);
+
+        when(inclusionRepository.save(any(HotelRoomTypeInclusion.class))).thenAnswer(inv -> {
+            HotelRoomTypeInclusion saved = inv.getArgument(0);
+            saved.setId(20L);
+            return saved;
+        });
+
+        HotelRoomTypeInclusionRequest req = HotelRoomTypeInclusionRequest.builder()
+                .masterItemId(3)
+                .quantity(1)
+                .frequency(InclusionFrequency.PER_STAY)
+                .targetType(InclusionTargetType.PER_ROOM)
+                .build();
+
+        RoomInclusionDto result = inclusionService.createInclusion(101, req);
+
+        assertThat(result.getId()).isEqualTo(20L);
+        assertThat(result.getMasterItemId()).isEqualTo(3);
+        assertThat(result.getSourceType()).isEqualTo("CHAIN_MASTER");
+    }
+
+    @Test
     @DisplayName("Xóa mềm quà tặng kèm phòng thành công")
     void deleteInclusion_Success() {
         HotelRoomTypeInclusion inc = HotelRoomTypeInclusion.builder().id(15L).build();
