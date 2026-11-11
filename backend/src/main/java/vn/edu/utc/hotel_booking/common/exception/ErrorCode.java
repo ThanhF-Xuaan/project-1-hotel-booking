@@ -90,6 +90,11 @@ public enum ErrorCode {
     HOLIDAY_CALENDAR_ALREADY_EXISTS(6052, "Ngày lễ này đã được khai báo trên hệ thống", HttpStatus.CONFLICT),
     HOLIDAY_CALENDAR_IN_USE(6053, "Ngày lễ đang được sử dụng trong quy tắc giá, không thể xóa", HttpStatus.BAD_REQUEST),
 
+    // Surcharge Rule Errors
+    SURCHARGE_RULE_NOT_FOUND(6061, "Không tìm thấy quy tắc phụ thu", HttpStatus.NOT_FOUND),
+    SURCHARGE_RULE_OVERLAP(6062, "Quy tắc phụ thu bị trùng lặp thời gian hiệu lực cho cùng hạng phòng và loại phụ phí", HttpStatus.CONFLICT),
+    INVALID_SURCHARGE_CONFIG(6063, "Cấu hình quy tắc phụ thu không hợp lệ", HttpStatus.BAD_REQUEST),
+
     // Booking Module Errors (7000s)
     BOOKING_NOT_FOUND(7001, "Không tìm thấy thông tin đơn đặt phòng", HttpStatus.NOT_FOUND),
     BOOKING_NUMBER_ALREADY_EXISTS(7002, "Mã đặt phòng đã tồn tại", HttpStatus.CONFLICT),

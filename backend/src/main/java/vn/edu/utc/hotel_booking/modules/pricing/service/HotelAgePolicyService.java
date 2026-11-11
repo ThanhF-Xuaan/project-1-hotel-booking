@@ -5,10 +5,13 @@ import vn.edu.utc.hotel_booking.modules.pricing.dto.request.HotelAgePolicyCreate
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.HotelAgePolicySearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.HotelAgePolicyUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.HotelAgePolicyResponse;
+import vn.edu.utc.hotel_booking.modules.pricing.entity.HotelAgePolicy;
 
 import java.util.List;
 
 public interface HotelAgePolicyService {
+
+    HotelAgePolicy getEntityById(Short id);
 
     HotelAgePolicyResponse getById(Short id);
 

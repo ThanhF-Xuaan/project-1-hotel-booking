@@ -38,6 +38,15 @@ public class HotelAgePolicyServiceImpl implements HotelAgePolicyService {
     HotelAgePolicyMapper hotelAgePolicyMapper;
 
     @Override
+    public HotelAgePolicy getEntityById(Short id) {
+        if (id == null) {
+            return null;
+        }
+        return hotelAgePolicyRepository.findByIdAndIsDeletedFalse(id)
+                .orElseThrow(() -> new AppException(ErrorCode.HOTEL_AGE_POLICY_NOT_FOUND, "Không tìm thấy chính sách độ tuổi ID: " + id));
+    }
+
+    @Override
     public HotelAgePolicyResponse getById(Short id) {
         if (id == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID chính sách độ tuổi không được để trống");

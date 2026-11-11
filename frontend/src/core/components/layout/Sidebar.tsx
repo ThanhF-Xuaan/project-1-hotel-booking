@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { hasAnyRole } from '../../../modules/auth/utils/token.utils'
-import { LODGING_ROLES } from '../../../modules/operation/types/lodging.types'
-import { PAYROLL_IMPORT_ROLES } from '../../../modules/finance/services/payroll.service'
-import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
+import { LODGING_ROLES } from '../../../modules/operation/types/lodging.types'
+import { PAYROLL_IMPORT_ROLES } from '../../../modules/finance/services/payroll.service'
+import { UTILITY_READ_ROLES } from '../../../modules/operation/types/utility.types'
 import {
   Globe,
   Building,
@@ -35,6 +35,7 @@ import {
   Image as ImageIcon,
   Sliders,
   Tag,
+  Coins,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -168,16 +169,16 @@ const navGroups: NavGroup[] = [
         roles: ['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'HOUSEKEEPING'],
       },
       {
-        label: 'Khai báo lưu trú',
-        to: '/operation/lodging-queue',
-        icon: <UserSquare2 className="w-4 h-4" />,
-        roles: LODGING_ROLES,
-      },
-      {
-        label: 'Điện/Nước',
-        to: '/operation/utility',
-        icon: <Gauge className="w-4 h-4" />,
-        roles: UTILITY_READ_ROLES,
+        label: 'Khai báo lưu trú',
+        to: '/operation/lodging-queue',
+        icon: <UserSquare2 className="w-4 h-4" />,
+        roles: LODGING_ROLES,
+      },
+      {
+        label: 'Điện/Nước',
+        to: '/operation/utility',
+        icon: <Gauge className="w-4 h-4" />,
+        roles: UTILITY_READ_ROLES,
       },
       {
         label: 'Đóng ngày (Night Audit)',
@@ -380,6 +381,12 @@ const navGroups: NavGroup[] = [
         label: 'Loại Quy tắc Giảm giá',
         to: '/pricing/discount-rule-types',
         icon: <Tag className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Quy tắc Phụ thu',
+        to: '/pricing/surcharge-rules',
+        icon: <Coins className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {

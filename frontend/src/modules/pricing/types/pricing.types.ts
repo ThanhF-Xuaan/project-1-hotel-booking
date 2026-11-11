@@ -378,3 +378,79 @@ export interface DiscountRuleSearchDto extends BaseSearchDto {
   status?: string
 }
 
+// ==========================================
+// 8. Surcharge Rule Interfaces (Phụ thu)
+// ==========================================
+
+export interface SurchargeTierItem {
+  from_time: string
+  to_time: string
+  adjustment_type: 'PERCENT' | 'FIXED'
+  adjustment_value: number
+  description?: string
+}
+
+export interface SurchargeConditions {
+  standard_time?: string
+  tiers?: SurchargeTierItem[]
+}
+
+export interface SurchargeRuleDto {
+  id: number
+  hotelRoomTypeId: number
+  roomTypeName?: string
+  hotelId?: number
+  hotelName?: string
+  hotelCheckInTime?: string
+  hotelCheckOutTime?: string
+  agePolicyId?: number
+  agePolicyGuestType?: string
+  agePolicyMinAge?: number
+  agePolicyMaxAge?: number
+  ruleType: 'EXTRA_PERSON' | 'EXTRA_BED' | 'EARLY_CHECKIN' | 'LATE_CHECKOUT'
+  pricingType: 'PER_NIGHT' | 'PER_STAY'
+  conditions: string
+  adjustmentType: 'PERCENT' | 'FIXED'
+  adjustmentValue: number
+  startDate: string
+  endDate: string
+  status: 'ACTIVE' | 'INACTIVE'
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface SurchargeRuleCreateRequest {
+  hotelRoomTypeId: number
+  agePolicyId?: number
+  ruleType: 'EXTRA_PERSON' | 'EXTRA_BED' | 'EARLY_CHECKIN' | 'LATE_CHECKOUT'
+  pricingType: 'PER_NIGHT' | 'PER_STAY'
+  adjustmentType: 'PERCENT' | 'FIXED'
+  adjustmentValue: number
+  startDate: string
+  endDate: string
+  conditions?: string
+  status?: string
+}
+
+export interface SurchargeRuleUpdateRequest {
+  hotelRoomTypeId: number
+  agePolicyId?: number
+  ruleType: 'EXTRA_PERSON' | 'EXTRA_BED' | 'EARLY_CHECKIN' | 'LATE_CHECKOUT'
+  pricingType: 'PER_NIGHT' | 'PER_STAY'
+  adjustmentType: 'PERCENT' | 'FIXED'
+  adjustmentValue: number
+  startDate: string
+  endDate: string
+  conditions?: string
+  status?: string
+}
+
+export interface SurchargeRuleSearchDto extends BaseSearchDto {
+  hotelId?: number
+  hotelRoomTypeId?: number
+  agePolicyId?: number
+  ruleType?: string
+  pricingType?: string
+  status?: string
+  activeOnDate?: string
+}
