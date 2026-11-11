@@ -27,6 +27,25 @@ interface SurchargeRuleModalProps {
   editingRule?: SurchargeRuleDto | null
 }
 
+/**
+ * Component bọc nhãn đồng nhất cho toàn bộ các control trong Form
+ * Đảm bảo 100% các ô (Input, Select, CurrencyInput, Date) có cùng font chữ, cùng cỡ chữ và thẳng hàng
+ */
+const FormField: React.FC<{
+  label: string
+  required?: boolean
+  children: React.ReactNode
+}> = ({ label, required, children }) => (
+  <div className="w-full flex flex-col">
+    <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+      {label} {required && <span className="text-red-600">*</span>}
+    </label>
+    {children}
+  </div>
+)
+
+const INPUT_CONTROL_CLASS = '!h-11 text-sm bg-neutral-50 hover:bg-white focus:bg-white rounded-xl'
+
 export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
   isOpen,
   onClose,
@@ -245,7 +264,7 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
       newErrors.endDate = 'Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu'
     }
     if (adjustmentValue <= 0) {
-      newErrors.adjustmentValue = 'Giá trị phụ thu cơ sở phải lớn hơn 0'
+      newErrors.adjustmentValue = 'Giá trị phụ thu phải lớn hơn 0'
     }
     if (adjustmentType === 'PERCENT' && adjustmentValue > 100) {
       newErrors.adjustmentValue = 'Tỷ lệ phụ thu phần trăm không được vượt quá 100%'
@@ -312,7 +331,7 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
     setServerError(null)
 
     try {
-      // Đóng gói conditions với standard_time và tiers
+      // Tự động đóng gói conditions ở backend/frontend ngầm, người dùng không cần nhập JSON thô
       let finalConditions = conditions
       if (ruleType === 'EARLY_CHECKIN' || ruleType === 'LATE_CHECKOUT') {
         const conditionsObj: SurchargeConditions = {
@@ -326,6 +345,8 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
           })),
         }
         finalConditions = JSON.stringify(conditionsObj)
+      } else {
+        finalConditions = '{}'
       }
 
       const payload: SurchargeRuleCreateRequest = {
@@ -373,33 +394,38 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
           </div>
         )}
 
+        {/* ROW 1: Cơ sở & Hạng phòng */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Khách sạn Cơ sở"
-            value={selectedHotelId}
-            onChange={(val) => {
-              setSelectedHotelId(val)
-              setHotelRoomTypeId('')
-            }}
-            options={[
-              { label: '-- Chọn cơ sở --', value: '' },
-              ...hotels.map((h) => ({ label: h.name, value: h.id })),
-            ]}
-          />
+          <FormField label="Khách sạn Cơ sở">
+            <Select
+              value={selectedHotelId}
+              onChange={(val) => {
+                setSelectedHotelId(val)
+                setHotelRoomTypeId('')
+              }}
+              options={[
+                { label: '-- Chọn cơ sở --', value: '' },
+                ...hotels.map((h) => ({ label: h.name, value: h.id })),
+              ]}
+              size="md"
+            />
+          </FormField>
 
-          <Select
-            label="Hạng phòng áp dụng *"
-            value={hotelRoomTypeId}
-            onChange={(val) => setHotelRoomTypeId(val)}
-            options={[
-              { label: '-- Chọn loại phòng --', value: '' },
-              ...roomTypes.map((rt) => ({
-                label: `${rt.roomTypeName || 'Loại phòng ' + rt.id} (Tối đa ${rt.maxTotalGuests} khách)`,
-                value: rt.id,
-              })),
-            ]}
-            error={errors.hotelRoomTypeId}
-          />
+          <FormField label="Hạng phòng áp dụng" required>
+            <Select
+              value={hotelRoomTypeId}
+              onChange={(val) => setHotelRoomTypeId(val)}
+              options={[
+                { label: '-- Chọn loại phòng --', value: '' },
+                ...roomTypes.map((rt) => ({
+                  label: `${rt.roomTypeName || 'Loại phòng ' + rt.id} (Tối đa ${rt.maxTotalGuests} khách)`,
+                  value: rt.id,
+                })),
+              ]}
+              error={errors.hotelRoomTypeId}
+              size="md"
+            />
+          </FormField>
         </div>
 
         {/* Khóa giờ chuẩn cấp Cơ sở (Read-only Policy Banner) */}
@@ -421,44 +447,80 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
           </div>
         )}
 
+        {/* ROW 2: Loại phụ thu & (Chính sách độ tuổi hoặc Hình thức tính giá) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Loại phụ thu *"
-            value={ruleType}
-            onChange={(val) => setRuleType(String(val))}
-            options={[
-              { label: 'Thêm người (EXTRA_PERSON)', value: 'EXTRA_PERSON' },
-              { label: 'Kê thêm giường (EXTRA_BED)', value: 'EXTRA_BED' },
-              { label: 'Nhận phòng sớm (EARLY_CHECKIN)', value: 'EARLY_CHECKIN' },
-              { label: 'Trả phòng muộn (LATE_CHECKOUT)', value: 'LATE_CHECKOUT' },
-            ]}
-          />
+          <FormField label="Loại phụ thu" required>
+            <Select
+              value={ruleType}
+              onChange={(val) => setRuleType(String(val))}
+              options={[
+                { label: 'Thêm người (EXTRA_PERSON)', value: 'EXTRA_PERSON' },
+                { label: 'Kê thêm giường (EXTRA_BED)', value: 'EXTRA_BED' },
+                { label: 'Nhận phòng sớm (EARLY_CHECKIN)', value: 'EARLY_CHECKIN' },
+                { label: 'Trả phòng muộn (LATE_CHECKOUT)', value: 'LATE_CHECKOUT' },
+              ]}
+              size="md"
+            />
+          </FormField>
 
           {ruleType === 'EXTRA_PERSON' ? (
-            <Select
-              label="Chính sách Độ tuổi (Tùy chọn)"
-              value={agePolicyId}
-              onChange={(val) => setAgePolicyId(val)}
-              options={[
-                { label: '-- Áp dụng chung cho mọi độ tuổi --', value: '' },
-                ...agePolicies.map((ap) => ({
-                  label: `${ap.guestType} (${ap.minAge} - ${ap.maxAge} tuổi)`,
-                  value: ap.id,
-                })),
-              ]}
-            />
+            <FormField label="Chính sách Độ tuổi (Tùy chọn)">
+              <Select
+                value={agePolicyId}
+                onChange={(val) => setAgePolicyId(val)}
+                options={[
+                  { label: '-- Áp dụng chung cho mọi độ tuổi --', value: '' },
+                  ...agePolicies.map((ap) => ({
+                    label: `${ap.guestType} (${ap.minAge} - ${ap.maxAge} tuổi)`,
+                    value: ap.id,
+                  })),
+                ]}
+                size="md"
+              />
+            </FormField>
           ) : (
-            <Select
-              label="Hình thức tính giá *"
-              value={pricingType}
-              onChange={(val) => setPricingType(String(val))}
-              options={[
-                { label: 'Theo kỳ lưu trú (PER_STAY)', value: 'PER_STAY' },
-                { label: 'Theo đêm (PER_NIGHT)', value: 'PER_NIGHT' },
-              ]}
-            />
+            <FormField label="Hình thức tính giá" required>
+              <Select
+                value={pricingType}
+                onChange={(val) => setPricingType(String(val))}
+                options={[
+                  { label: 'Theo kỳ lưu trú (PER_STAY)', value: 'PER_STAY' },
+                  { label: 'Theo đêm (PER_NIGHT)', value: 'PER_NIGHT' },
+                ]}
+                size="md"
+              />
+            </FormField>
           )}
         </div>
+
+        {/* Trường hợp EXTRA_PERSON: thêm hàng cấu hình Hình thức tính giá & Trạng thái để các hàng luôn cân đối */}
+        {ruleType === 'EXTRA_PERSON' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Hình thức tính giá" required>
+              <Select
+                value={pricingType}
+                onChange={(val) => setPricingType(String(val))}
+                options={[
+                  { label: 'Theo đêm (PER_NIGHT)', value: 'PER_NIGHT' },
+                  { label: 'Theo kỳ lưu trú (PER_STAY)', value: 'PER_STAY' },
+                ]}
+                size="md"
+              />
+            </FormField>
+
+            <FormField label="Trạng thái">
+              <Select
+                value={status}
+                onChange={(val) => setStatus(String(val))}
+                options={[
+                  { label: 'Hoạt động (ACTIVE)', value: 'ACTIVE' },
+                  { label: 'Tạm ngừng (INACTIVE)', value: 'INACTIVE' },
+                ]}
+                size="md"
+              />
+            </FormField>
+          </div>
+        )}
 
         {/* Cấu hình các bậc thời gian (Tiers) cho EARLY_CHECKIN / LATE_CHECKOUT */}
         {isTierApplicable && (
@@ -511,72 +573,91 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
                 <strong className="text-neutral-700">"+ Thêm bậc"</strong> để bắt đầu.
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {tiers.map((tier, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-white rounded-xl border border-neutral-200 shadow-2xs space-y-2 hover:border-neutral-300 transition-colors"
+                    className="p-3.5 bg-white rounded-xl border border-neutral-200 shadow-2xs space-y-3 hover:border-neutral-300 transition-colors"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded-md">
-                        Bậc #{idx + 1}
+                    <div className="flex items-center justify-between border-b border-neutral-100 pb-2">
+                      <span className="text-xs font-bold text-neutral-800 bg-neutral-100 px-2.5 py-0.5 rounded-md">
+                        BẬC KHUNG GIỜ #{idx + 1}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleRemoveTier(idx)}
-                        className="text-neutral-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
+                        className="text-neutral-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
                         title="Xóa bậc này"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                      <Input
-                        label="Từ giờ *"
-                        type="time"
-                        value={tier.from_time}
-                        onChange={(e) => handleTierChange(idx, 'from_time', e.target.value)}
-                      />
-                      <Input
-                        label="Đến giờ *"
-                        type="time"
-                        value={tier.to_time}
-                        onChange={(e) => handleTierChange(idx, 'to_time', e.target.value)}
-                      />
-                      <Select
-                        label="Kiểu tính *"
-                        value={tier.adjustment_type}
-                        onChange={(val) => handleTierChange(idx, 'adjustment_type', val)}
-                        options={[
-                          { label: 'Phần trăm (%)', value: 'PERCENT' },
-                          { label: 'Cố định (VNĐ)', value: 'FIXED' },
-                        ]}
-                      />
-                      {tier.adjustment_type === 'FIXED' ? (
-                        <CurrencyInput
-                          label="Số tiền (VNĐ) *"
-                          value={tier.adjustment_value}
-                          onChangeValue={(val) => handleTierChange(idx, 'adjustment_value', val)}
-                        />
-                      ) : (
+                    {/* 4 ô nhập trong bậc - Đồng bộ chiều cao và nhãn */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-start">
+                      <FormField label="Từ giờ" required>
                         <Input
-                          label="Tỷ lệ (%) *"
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={tier.adjustment_value}
-                          onChange={(e) => handleTierChange(idx, 'adjustment_value', Number(e.target.value))}
+                          type="time"
+                          value={tier.from_time}
+                          onChange={(e) => handleTierChange(idx, 'from_time', e.target.value)}
+                          className={INPUT_CONTROL_CLASS}
                         />
-                      )}
+                      </FormField>
+
+                      <FormField label="Đến giờ" required>
+                        <Input
+                          type="time"
+                          value={tier.to_time}
+                          onChange={(e) => handleTierChange(idx, 'to_time', e.target.value)}
+                          className={INPUT_CONTROL_CLASS}
+                        />
+                      </FormField>
+
+                      <FormField label="Kiểu tính" required>
+                        <Select
+                          value={tier.adjustment_type}
+                          onChange={(val) => handleTierChange(idx, 'adjustment_type', val)}
+                          options={[
+                            { label: 'Phần trăm (%)', value: 'PERCENT' },
+                            { label: 'Cố định (VNĐ)', value: 'FIXED' },
+                          ]}
+                          size="md"
+                        />
+                      </FormField>
+
+                      <FormField
+                        label={tier.adjustment_type === 'PERCENT' ? 'Tỷ lệ (%)' : 'Số tiền (VNĐ)'}
+                        required
+                      >
+                        {tier.adjustment_type === 'FIXED' ? (
+                          <CurrencyInput
+                            value={tier.adjustment_value}
+                            onChangeValue={(val) => handleTierChange(idx, 'adjustment_value', val)}
+                            className={INPUT_CONTROL_CLASS}
+                          />
+                        ) : (
+                          <Input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={tier.adjustment_value}
+                            onChange={(e) =>
+                              handleTierChange(idx, 'adjustment_value', Number(e.target.value))
+                            }
+                            className={INPUT_CONTROL_CLASS}
+                          />
+                        )}
+                      </FormField>
                     </div>
 
-                    <Input
-                      label="Mô tả bậc (Hiển thị trên hóa đơn / Folio)"
-                      placeholder="Ví dụ: Nhận phòng từ 06:00 đến 10:00 (Phụ thu 50% giá phòng)"
-                      value={tier.description || ''}
-                      onChange={(e) => handleTierChange(idx, 'description', e.target.value)}
-                    />
+                    <FormField label="Mô tả bậc (Hiển thị trên hóa đơn / Folio)">
+                      <Input
+                        placeholder="Ví dụ: Nhận phòng từ 06:00 đến 10:00 (Phụ thu 50% giá phòng)"
+                        value={tier.description || ''}
+                        onChange={(e) => handleTierChange(idx, 'description', e.target.value)}
+                        className={INPUT_CONTROL_CLASS}
+                      />
+                    </FormField>
                   </div>
                 ))}
               </div>
@@ -586,74 +667,93 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
 
         {/* Mức phụ thu mặc định / dự phòng */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label={isTierApplicable ? 'Kiểu điều chỉnh mặc định (Dự phòng) *' : 'Kiểu điều chỉnh *'}
-            value={adjustmentType}
-            onChange={(val) => setAdjustmentType(String(val))}
-            options={[
-              { label: 'Số tiền cố định (VNĐ)', value: 'FIXED' },
-              { label: 'Phần trăm (%) giá phòng', value: 'PERCENT' },
-            ]}
-          />
+          <FormField
+            label={isTierApplicable ? 'Kiểu điều chỉnh mặc định (Dự phòng)' : 'Kiểu điều chỉnh'}
+            required
+          >
+            <Select
+              value={adjustmentType}
+              onChange={(val) => setAdjustmentType(String(val))}
+              options={[
+                { label: 'Số tiền cố định (VNĐ)', value: 'FIXED' },
+                { label: 'Phần trăm (%) giá phòng', value: 'PERCENT' },
+              ]}
+              size="md"
+            />
+          </FormField>
 
-          {adjustmentType === 'FIXED' ? (
-            <CurrencyInput
-              label={isTierApplicable ? 'Mức thu mặc định (VNĐ) *' : 'Giá trị phụ thu (VNĐ) *'}
-              value={adjustmentValue}
-              onChangeValue={(val) => setAdjustmentValue(val)}
-              error={errors.adjustmentValue}
-            />
-          ) : (
-            <Input
-              label={isTierApplicable ? 'Tỷ lệ mặc định (%) *' : 'Tỷ lệ phụ thu (%) *'}
-              type="number"
-              min={1}
-              max={100}
-              value={adjustmentValue}
-              onChange={(e) => setAdjustmentValue(Number(e.target.value))}
-              error={errors.adjustmentValue}
-            />
-          )}
+          <FormField
+            label={
+              isTierApplicable
+                ? adjustmentType === 'FIXED'
+                  ? 'Mức thu mặc định (VNĐ)'
+                  : 'Tỷ lệ mặc định (%)'
+                : adjustmentType === 'FIXED'
+                ? 'Giá trị phụ thu (VNĐ)'
+                : 'Tỷ lệ phụ thu (%)'
+            }
+            required
+          >
+            {adjustmentType === 'FIXED' ? (
+              <CurrencyInput
+                value={adjustmentValue}
+                onChangeValue={(val) => setAdjustmentValue(val)}
+                error={errors.adjustmentValue}
+                className={INPUT_CONTROL_CLASS}
+              />
+            ) : (
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={adjustmentValue}
+                onChange={(e) => setAdjustmentValue(Number(e.target.value))}
+                error={errors.adjustmentValue}
+                className={INPUT_CONTROL_CLASS}
+              />
+            )}
+          </FormField>
         </div>
 
+        {/* Ngày bắt đầu & Ngày kết thúc */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Ngày bắt đầu *"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            error={errors.startDate}
-          />
-
-          <Input
-            label="Ngày kết thúc *"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            error={errors.endDate}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Trạng thái"
-            value={status}
-            onChange={(val) => setStatus(String(val))}
-            options={[
-              { label: 'Hoạt động (ACTIVE)', value: 'ACTIVE' },
-              { label: 'Tạm ngừng (INACTIVE)', value: 'INACTIVE' },
-            ]}
-          />
-
-          {!isTierApplicable && (
+          <FormField label="Ngày bắt đầu" required>
             <Input
-              label="Điều kiện bổ sung (JSON)"
-              value={conditions}
-              onChange={(e) => setConditions(e.target.value)}
-              placeholder='{"checkInBefore": "12:00"}'
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              error={errors.startDate}
+              className={INPUT_CONTROL_CLASS}
             />
-          )}
+          </FormField>
+
+          <FormField label="Ngày kết thúc" required>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              error={errors.endDate}
+              className={INPUT_CONTROL_CLASS}
+            />
+          </FormField>
         </div>
+
+        {/* Trạng thái (đối với các loại phụ thu không phải EXTRA_PERSON - do EXTRA_PERSON đã ghép ở trên) */}
+        {ruleType !== 'EXTRA_PERSON' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="Trạng thái">
+              <Select
+                value={status}
+                onChange={(val) => setStatus(String(val))}
+                options={[
+                  { label: 'Hoạt động (ACTIVE)', value: 'ACTIVE' },
+                  { label: 'Tạm ngừng (INACTIVE)', value: 'INACTIVE' },
+                ]}
+                size="md"
+              />
+            </FormField>
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
           <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
