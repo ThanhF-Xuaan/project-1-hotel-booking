@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PricingRuleTypeCreateRequest;
@@ -61,6 +62,7 @@ public class PricingRuleTypeServiceImpl implements PricingRuleTypeService {
 
         PricingRuleType entity = pricingRuleTypeMapper.toEntity(request);
         entity.setCode(cleanCode);
+        entity.setDescription(normalizeDescription(request.getDescription()));
         PricingRuleType saved = pricingRuleTypeRepository.save(entity);
         return pricingRuleTypeMapper.toResponse(saved);
     }
@@ -71,8 +73,13 @@ public class PricingRuleTypeServiceImpl implements PricingRuleTypeService {
     public PricingRuleTypeResponse update(String code, PricingRuleTypeUpdateRequest request) {
         PricingRuleType entity = getEntityByCode(code);
         pricingRuleTypeMapper.updateEntityFromRequest(entity, request);
+        entity.setDescription(normalizeDescription(request.getDescription()));
         PricingRuleType updated = pricingRuleTypeRepository.save(entity);
         return pricingRuleTypeMapper.toResponse(updated);
+    }
+
+    private String normalizeDescription(String description) {
+        return StringUtils.hasText(description) ? description.trim() : null;
     }
 
     @Override

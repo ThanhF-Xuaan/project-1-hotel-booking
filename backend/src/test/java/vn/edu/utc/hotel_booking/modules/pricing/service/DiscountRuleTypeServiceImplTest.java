@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.DiscountRuleTypeCreateRequest;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.request.DiscountRuleTypeUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.DiscountRuleTypeResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.DiscountRuleType;
 import vn.edu.utc.hotel_booking.modules.pricing.mapper.DiscountRuleTypeMapper;
@@ -55,6 +56,7 @@ class DiscountRuleTypeServiceImplTest {
         DiscountRuleTypeCreateRequest request = DiscountRuleTypeCreateRequest.builder()
                 .code("SPECIAL_CAMPAIGN")
                 .displayName("Chiến dịch đặc biệt (Flash Sale)")
+                .description("  Ưu đãi giờ vàng  ")
                 .priority((short) 90)
                 .status("ACTIVE")
                 .build();
@@ -62,6 +64,7 @@ class DiscountRuleTypeServiceImplTest {
         DiscountRuleTypeResponse response = DiscountRuleTypeResponse.builder()
                 .code("SPECIAL_CAMPAIGN")
                 .displayName("Chiến dịch đặc biệt (Flash Sale)")
+                .description("Ưu đãi giờ vàng")
                 .priority((short) 90)
                 .status("ACTIVE")
                 .build();
@@ -75,7 +78,9 @@ class DiscountRuleTypeServiceImplTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getCode()).isEqualTo("SPECIAL_CAMPAIGN");
-        verify(discountRuleTypeRepository).save(any());
+        assertThat(sampleType.getDescription()).isEqualTo("Ưu đãi giờ vàng");
+        assertThat(result.getDescription()).isEqualTo("Ưu đãi giờ vàng");
+        verify(discountRuleTypeRepository).save(sampleType);
     }
 
     @Test
@@ -92,6 +97,44 @@ class DiscountRuleTypeServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> discountRuleTypeService.create(request));
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_REQUEST_DATA);
         verify(discountRuleTypeRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật và xóa trắng mô tả loại quy tắc giảm giá thành công")
+    void update_UpdatesAndClearsDescription() {
+        sampleType.setDescription("Mô tả cũ");
+        DiscountRuleTypeUpdateRequest updateWithDesc = DiscountRuleTypeUpdateRequest.builder()
+                .displayName("Chiến dịch mới")
+                .description("  Mô tả khuyến mãi mới  ")
+                .priority((short) 95)
+                .status("ACTIVE")
+                .build();
+
+        when(discountRuleTypeRepository.findByCodeAndIsDeletedFalse("SPECIAL_CAMPAIGN")).thenReturn(java.util.Optional.of(sampleType));
+        when(discountRuleTypeRepository.save(sampleType)).thenReturn(sampleType);
+        when(discountRuleTypeMapper.toResponse(sampleType)).thenAnswer(invocation -> {
+            DiscountRuleType entity = invocation.getArgument(0);
+            return DiscountRuleTypeResponse.builder()
+                    .code(entity.getCode())
+                    .displayName(entity.getDisplayName())
+                    .description(entity.getDescription())
+                    .priority(entity.getPriority())
+                    .status(entity.getStatus())
+                    .build();
+        });
+
+        DiscountRuleTypeResponse updated = discountRuleTypeService.update("SPECIAL_CAMPAIGN", updateWithDesc);
+        assertThat(updated.getDescription()).isEqualTo("Mô tả khuyến mãi mới");
+
+        DiscountRuleTypeUpdateRequest clearDesc = DiscountRuleTypeUpdateRequest.builder()
+                .displayName("Chiến dịch mới")
+                .description("   ")
+                .priority((short) 95)
+                .status("ACTIVE")
+                .build();
+
+        DiscountRuleTypeResponse cleared = discountRuleTypeService.update("SPECIAL_CAMPAIGN", clearDesc);
+        assertThat(cleared.getDescription()).isNull();
     }
 
     @Test
