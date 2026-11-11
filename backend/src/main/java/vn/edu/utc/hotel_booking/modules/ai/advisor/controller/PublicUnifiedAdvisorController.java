@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -38,10 +39,11 @@ import java.util.Objects;
  * <p>Isolated from {@link PublicRoomAdvisorController} to preserve the frozen R1 reflection contract.
  * Activated conditionally via property {@code hotel.ai.advisor.unified.enabled=true}.</p>
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/public/ai/room-advisor")
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "hotel.ai.advisor.unified.enabled", havingValue = "true")
+@ConditionalOnProperty(name = "hotel.ai.advisor.unified.enabled", havingValue = "true", matchIfMissing = true)
 public class PublicUnifiedAdvisorController {
 
     private static final String RETRY_AFTER_HEADER = "Retry-After";
@@ -90,7 +92,8 @@ public class PublicUnifiedAdvisorController {
 
     @ExceptionHandler({IllegalArgumentException.class, MethodArgumentNotValidException.class,
             HttpMessageNotReadableException.class})
-    public ResponseEntity<RoomAdvisorErrorResponse> handleInvalidRequest() {
+    public ResponseEntity<RoomAdvisorErrorResponse> handleInvalidRequest(Exception ex) {
+        log.warn("Invalid advisor request: {}", ex.getMessage(), ex);
         return error(HttpStatus.BAD_REQUEST, RoomAdvisorErrorResponse.Reason.INVALID_REQUEST);
     }
 

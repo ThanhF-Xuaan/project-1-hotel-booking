@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.ai.advisor.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,7 +19,10 @@ import java.util.UUID;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class UnifiedAdvisorRequestDto {
+
+    String contractVersion;
 
     @NotBlank(message = "Message cannot be blank")
     @Size(max = 500, message = "Message must not exceed 500 characters")
