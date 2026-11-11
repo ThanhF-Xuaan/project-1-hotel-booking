@@ -181,4 +181,29 @@ class VatRuleServiceImplTest {
         assertThat(result).isNotNull();
         assertThat(result.getContent()).hasSize(1);
     }
+
+    @Test
+    @DisplayName("update - Cập nhật quy tắc VAT có ngày kết thúc thành công khi không trùng dải ngày")
+    void update_WithEndDate_Success() {
+        VatRuleUpdateRequest request = VatRuleUpdateRequest.builder()
+                .vatName("Thuế phòng 8% gia hạn")
+                .vatPercent(new BigDecimal("8.00"))
+                .startDate(LocalDate.of(2026, 1, 1))
+                .endDate(LocalDate.of(2026, 12, 31))
+                .status("ACTIVE")
+                .build();
+
+        when(vatRuleRepository.findByIdAndIsDeletedFalse(100)).thenReturn(Optional.of(sampleVatRule));
+        when(vatRuleRepository.findOverlappingActiveRules(1, request.getStartDate(), request.getEndDate(), 100))
+                .thenReturn(Collections.emptyList());
+        when(vatRuleRepository.save(any(VatRule.class))).thenReturn(sampleVatRule);
+        when(vatRuleMapper.toResponse(sampleVatRule)).thenReturn(sampleResponse);
+
+        VatRuleResponse result = vatRuleService.update(100, request);
+
+        assertThat(result).isNotNull();
+        verify(vatRuleRepository).findOverlappingActiveRules(1, request.getStartDate(), request.getEndDate(), 100);
+        verify(vatRuleMapper).updateEntityFromRequest(sampleVatRule, request);
+        verify(vatRuleRepository).save(sampleVatRule);
+    }
 }
