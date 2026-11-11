@@ -166,4 +166,47 @@ class PolicyIntentClassifierTest {
         assertThat(result.isWriteIntent()).isFalse();
         assertThat(result.getPolicyQuestion()).contains("hủy phòng");
     }
+
+    @Test
+    void requestedAmenitiesAndExtraBedStayInCoreCriteria() {
+        for (String message : new String[] {
+                "Tìm phòng ở Đà Nẵng cuối tuần này cho 2 người lớn có ăn sáng",
+                "Tìm phòng ở Đà Nẵng cho 2 người lớn và 1 giường phụ",
+                "Tìm phòng ở Đà Nẵng cho 2 người lớn và có hồ bơi" }) {
+            var result = classifier.classifyAndSplit(message);
+            assertThat(result.getIntent()).isEqualTo(UnifiedIntent.SEARCH_ONLY);
+            assertThat(result.getSearchText()).isEqualTo(message);
+            assertThat(result.getPolicyQuestion()).isNull();
+        }
+    }
+
+    @Test
+    void combinedQuestionPreservesNumericMoneyAndDatesBeforeExtraction() {
+        String search = "Tìm phòng ở Đà Nẵng cho 2 người lớn từ 14.11.2026 đến 16.11.2026, "
+                + "ngân sách tối đa 1.500.000 VND cả kỳ theo báo giá hệ thống";
+        var result = classifier.classifyAndSplit(search + ", hồ bơi mở cửa mấy giờ?");
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.SEARCH_AND_POLICY);
+        assertThat(result.getSearchText()).isEqualTo(search);
+        var nlu = new vn.edu.utc.hotel_booking.modules.ai.advisor.llm.HybridRoomAdvisorLlmService();
+        assertThat(nlu.extractCriteriaPatch(result.getSearchText(), null).getBudget().getAmount())
+                .isEqualTo("1500000");
+        var decimal = classifier.classifyAndSplit("Tìm phòng ngân sách 1,5 triệu, hồ bơi mở cửa mấy giờ?");
+        assertThat(decimal.getSearchText()).contains("1,5 triệu");
+    }
+
+    @Test
+    void mixedQuestionKeepsExtraBedAndBreakfastCriteria() {
+        var result = classifier.classifyAndSplit("Tìm phòng có bữa sáng và cần 1 giường phụ tại Đà Nẵng từ 2026-11-13 đến 2026-11-15 cho 2 người lớn và 1 bé 4 tuổi. Bé có được miễn phí buffet sáng không?");
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.SEARCH_AND_POLICY);
+        assertThat(result.getSearchText()).contains("có bữa sáng").contains("cần 1 giường phụ")
+                .contains("2 người lớn").contains("1 bé 4 tuổi");
+        assertThat(result.getPolicyQuestion()).contains("miễn phí buffet sáng");
+    }
+
+    @Test
+    void lookingUpPolicyIsNotARequestToFindARoom() {
+        var result = classifier.classifyAndSplit("Tôi muốn tìm hiểu chính sách hủy phòng như thế nào?");
+        assertThat(result.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
+        assertThat(result.getPolicyQuestion()).contains("chính sách hủy phòng");
+    }
 }

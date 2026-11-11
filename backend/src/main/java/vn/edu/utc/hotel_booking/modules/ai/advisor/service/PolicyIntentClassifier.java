@@ -48,6 +48,11 @@ public class PolicyIntentClassifier {
             "(?iu)\\b(giá\\s*phòng\\s*bao\\s*nhiêu|gia\\s*phong\\s*bao\\s*nhieu|còn\\s*phòng\\s*(?:không|ko)|con\\s*phong\\s*(?:khong|ko))\\b"
     );
 
+    private static final Pattern SEARCH_REQUEST_PATTERN = Pattern.compile(
+            "(?iu)\\b(?:tìm(?:\\s+kiếm)?|tim(?:\\s+kiem)?|cần|can|search|find)\\s+"
+                    + "(?:(?:giúp|giup|cho|tôi|toi|for|me|một|mot|a|1)\\s+){0,4}"
+                    + "(?:phòng|phong|khách\\s*sạn|khach\\s*san|rooms?|hotels?|deluxe|suite)\\b");
+
     private static final Pattern SEARCH_CRITERIA_PATTERN = Pattern.compile(
             "(?iu)\\b(tìm|tim|phòng|phong|khách\\s*sạn|khach\\s*san|đà\\s*nẵng|da\\s*nang|hà\\s*nội|ha\\s*noi|" +
                     "người\\s*lớn|nguoi\\s*lon|trẻ\\s*em|tre\\s*em|bé|be|cuối\\s*tuần|cuoi\\s*tuan|" +
@@ -149,6 +154,11 @@ public class PolicyIntentClassifier {
     }
 
     private boolean isPolicyClause(String clause) {
+        // A requested room feature is a Core criterion, even when its name is also a policy topic.
+        if (SEARCH_REQUEST_PATTERN.matcher(clause).find()
+                || isSubordinateGuestOrAmenityClause(clause)) {
+            return false;
+        }
         if (POLICY_INQUIRY_MARKERS.matcher(clause).find()) {
             return true;
         }
@@ -166,7 +176,7 @@ public class PolicyIntentClassifier {
     private List<String> splitClausesSafely(String text) {
         List<String> result = new ArrayList<>();
         // Split by question marks or periods or semicolons first while keeping '?' on the preceding clause
-        String[] majorSentences = text.split("(?<=[?;])(?![?;])\\s*|\\.+\\s*");
+        String[] majorSentences = text.split("(?<=[?;])(?![?;])\\s*|(?<!\\d)\\.+\\s*|\\.(?!\\d)\\s*");
 
         for (String sentence : majorSentences) {
             String s = sentence.trim();
@@ -175,7 +185,7 @@ public class PolicyIntentClassifier {
             }
 
             // Look for comma or " và " or " cho tôi hỏi " boundaries
-            String[] tokens = s.split("(?iu)(?:,\\s*|\\s+và\\s+|\\s+cho\\s+tôi\\s+hỏi\\s+)");
+            String[] tokens = s.split("(?iu)(?:(?<!\\d),\\s*|,(?!\\d)\\s*|\\s+và\\s+|\\s+cho\\s+tôi\\s+hỏi\\s+)");
             if (tokens.length <= 1) {
                 result.add(s);
                 continue;
@@ -209,14 +219,25 @@ public class PolicyIntentClassifier {
     }
 
     private boolean isSubordinateGuestOrAmenityClause(String clause) {
-        if (isPolicyClause(clause)) {
+        // Questions about a feature remain knowledge inquiries; bare requested features do not.
+        if (clause.contains("?") || clause.matches("(?iu).*(?:mấy\\s*giờ|may\\s*gio|bao\\s*nhiêu|bao\\s*nhieu|"
+                + "khi\\s*nào|khi\\s*nao|thế\\s*nào|the\\s*nao|chính\\s*sách|chinh\\s*sach|"
+                + "quy\\s*định|quy\\s*dinh|phụ\\s*thu|phu\\s*thu|mở\\s*cửa|mo\\s*cua|"
+                + "đóng\\s*cửa|dong\\s*cua|phục\\s*vụ|phuc\\s*vu|không$|khong$).*$")) {
             return false;
         }
         String lower = clause.toLowerCase(Locale.ROOT);
-        // Matches "1 bé 4 tuổi", "2 người lớn", "1 trẻ em", "có wifi", "hồ bơi", "view biển"
-        if (lower.matches("^\\d+\\s*(?:bé|be|trẻ\\s*em|tre\\s*em|người|nguoi|khách|khach|em|lớn|lon).*")) {
+        // Continuation fragments after "và" often start with a request verb rather than the
+        // amenity noun itself: "cần 1 giường phụ", "thêm 1 giường phụ", "có ăn sáng".
+        if (lower.matches("^(?:cần|can|thêm|them|có|co|kèm|kem)\\s+(?:\\d+\\s+)?"
+                + "(?:giường\\s*phụ|giuong\\s*phu|extra\\s*beds?|ăn\\s*sáng|an\\s*sang|"
+                + "bữa\\s*sáng|buffet|wifi|hồ\\s*bơi|ho\\s*boi|bể\\s*bơi|be\\s*boi).*")) {
             return true;
         }
-        return lower.matches("^(?:có\\s+)?(?:wifi|ban\\s*công|ban\\s*cong|view\\s*biển|view\\s*bien|hướng\\s*biển|huong\\s*bien|hồ\\s*bơi|ho\\s*boi).*");
+        // Matches "1 bé 4 tuổi", "2 người lớn", "1 trẻ em", "có wifi", "hồ bơi", "view biển"
+        if (lower.matches("^\\d+\\s*(?:bé|be|trẻ\\s*em|tre\\s*em|người|nguoi|khách|khach|em|lớn|lon|giường\\s*phụ|giuong\\s*phu|extra\\s*beds?).*")) {
+            return true;
+        }
+        return lower.matches("^(?:có\\s+|kèm\\s+)?(?:wifi|ban\\s*công|ban\\s*cong|view\\s*biển|view\\s*bien|hướng\\s*biển|huong\\s*bien|hồ\\s*bơi|ho\\s*boi|bể\\s*bơi|be\\s*boi|ăn\\s*sáng|an\\s*sang|bữa\\s*sáng|buffet|giường\\s*phụ|giuong\\s*phu).*");
     }
 }

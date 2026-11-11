@@ -22,6 +22,10 @@ public class UnifiedAdvisorResultDto {
 
     UnifiedIntent intent;
 
+    UUID sessionId;
+
+    Long sessionVersion;
+
     AdvisorResultDto advisor;
 
     KnowledgeAnswerDto knowledge;

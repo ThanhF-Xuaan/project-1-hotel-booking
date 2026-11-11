@@ -2,40 +2,41 @@ package vn.edu.utc.hotel_booking.modules.ai.rag.service;
 
 import lombok.Builder;
 import lombok.Value;
-import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.KnowledgeState;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto;
 
 @Value
 @Builder
 public class RagPublicQueryOutcome {
-    KnowledgeState state;
+    public enum State { ANSWERED, SCOPE_REQUIRED, RATE_LIMITED, UNAVAILABLE }
+
+    State state;
     RagQueryResultDto result;
     Long retryAfterSeconds;
 
     public static RagPublicQueryOutcome answer(RagQueryResultDto result) {
         return RagPublicQueryOutcome.builder()
-                .state(KnowledgeState.ANSWERED)
+                .state(State.ANSWERED)
                 .result(result)
                 .build();
     }
 
     public static RagPublicQueryOutcome scopeRequired(RagQueryResultDto result) {
         return RagPublicQueryOutcome.builder()
-                .state(KnowledgeState.SCOPE_REQUIRED)
+                .state(State.SCOPE_REQUIRED)
                 .result(result)
                 .build();
     }
 
     public static RagPublicQueryOutcome rateLimited(long retryAfterSeconds) {
         return RagPublicQueryOutcome.builder()
-                .state(KnowledgeState.RATE_LIMITED)
+                .state(State.RATE_LIMITED)
                 .retryAfterSeconds(retryAfterSeconds)
                 .build();
     }
 
     public static RagPublicQueryOutcome unavailable() {
         return RagPublicQueryOutcome.builder()
-                .state(KnowledgeState.UNAVAILABLE)
+                .state(State.UNAVAILABLE)
                 .build();
     }
 }

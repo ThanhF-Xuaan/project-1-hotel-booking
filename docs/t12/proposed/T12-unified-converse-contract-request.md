@@ -106,3 +106,12 @@ This contract request proposes an **additive** conversational endpoint allowing 
 - Default configuration: `hotel.ai.advisor.unified.enabled: false`. When disabled, Spring Boot does not register `PublicUnifiedAdvisorController`, returning standard `404 Not Found`.
 - Frontend feature flag: `VITE_ADVISOR_UNIFIED=false`. When disabled, the frontend retains the separate two-tab experience.
 - Rollback requires zero database migration and zero schema modification.
+
+
+## Review fixes: session context (PROPOSED, additive to /converse only)
+
+- Unified responses include optional top-level `sessionId` and `sessionVersion`, including policy-only turns. Clients prefer these over nested advisor metadata.
+- Explicit public hotel selection stores only a normalized `policyHotelId` in the existing owner-bound session under its existing TTL and optimistic lock. No raw question is added to backend session storage. Every RAG call rechecks public hotel eligibility.
+- Policy-only followups reuse the selected hotel or the unique hotel in the last verified cards; multiple hotels still require selection. Material search-criteria changes clear the selection.
+- A Core dependency exception in a combined turn produces advisor `TEMP_UNAVAILABLE` without cards; RAG can still answer an explicitly scoped policy. Authorization, session ownership and version errors retain their existing HTTP errors.
+- R1 endpoints, DB schema and feature-flag defaults are unchanged. Owner review for the additive unified contract remains required before merge.

@@ -113,6 +113,16 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   onCloseExternal,
   onOpenExternal,
 }) => {
+  const [isUnified] = useState(() => {
+    if (import.meta.env.VITE_ADVISOR_UNIFIED === 'true') return true;
+    if (typeof window === 'undefined') return false;
+    if ((window as Window & { __VITE_ADVISOR_UNIFIED?: boolean }).__VITE_ADVISOR_UNIFIED === true) return true;
+    try {
+      return sessionStorage.getItem('VITE_ADVISOR_UNIFIED') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [mode, setMode] = useState<'rooms' | 'knowledge'>('rooms');
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = typeof isOpenExternal === 'boolean' ? isOpenExternal : internalIsOpen;
@@ -224,12 +234,6 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     setIsLoading(true);
 
     try {
-      const isUnified =
-        import.meta.env.VITE_ADVISOR_UNIFIED === 'true' ||
-        (typeof window !== 'undefined' &&
-          ((window as unknown as { __VITE_ADVISOR_UNIFIED?: boolean }).__VITE_ADVISOR_UNIFIED === true ||
-            sessionStorage.getItem('VITE_ADVISOR_UNIFIED') === 'true'));
-
       if (isUnified) {
         const unifiedResult = await sendUnifiedChat({
           message: text,
@@ -239,16 +243,13 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
         }, { signal: request.controller.signal });
         if (!request.isCurrent()) return;
 
-        if (unifiedResult.advisor?.sessionId) {
-          setSessionId(unifiedResult.advisor.sessionId);
-        }
-        if (typeof unifiedResult.advisor?.sessionVersion === 'number') {
-          setSessionVersion(unifiedResult.advisor.sessionVersion);
-        }
+        const nextSessionId = unifiedResult.sessionId ?? unifiedResult.advisor?.sessionId;
+        const nextVersion = unifiedResult.sessionVersion ?? unifiedResult.advisor?.sessionVersion;
+        if (nextSessionId) setSessionId(nextSessionId);
+        if (typeof nextVersion === 'number') setSessionVersion(nextVersion);
 
         const replyText = unifiedResult.advisor?.reply
-          || unifiedResult.knowledge?.result?.answer
-          || 'Dưới đây là thông tin tôi tìm được cho bạn:';
+          || (unifiedResult.knowledge ? '' : 'Dưới đây là thông tin tôi tìm được cho bạn:');
 
         const botMessage: ChatMessage = {
           id: createMessageId('bot'),
@@ -453,7 +454,9 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                     T12 R1
                   </span>
                 </div>
-                <p className="text-xs text-neutral-400">Tư vấn thông minh & giá trực tiếp</p>
+                <p className="text-xs text-neutral-400">
+                  {isUnified ? 'Tìm phòng và tra cứu chính sách' : 'Tư vấn thông minh & giá trực tiếp'}
+                </p>
               </div>
             </div>
 
@@ -478,12 +481,16 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             </div>
           </div>
 
-          <div className="flex gap-2 p-2 border-b">
-            <button type="button" aria-pressed={mode === 'rooms'} onClick={() => setMode('rooms')} className="rounded border px-3 py-2 text-sm">Tìm phòng</button>
-            <button type="button" aria-pressed={mode === 'knowledge'} onClick={() => setMode('knowledge')} className="rounded border px-3 py-2 text-sm">Chính sách &amp; tiện ích</button>
-          </div>
-          {mode === 'knowledge' && <HotelKnowledgePanel />}
-          <div className={mode === 'rooms' ? 'contents' : 'hidden'}>
+          {!isUnified && (
+            <>
+              <div className="flex gap-2 p-2 border-b">
+                <button type="button" aria-pressed={mode === 'rooms'} onClick={() => setMode('rooms')} className="rounded border px-3 py-2 text-sm">Tìm phòng</button>
+                <button type="button" aria-pressed={mode === 'knowledge'} onClick={() => setMode('knowledge')} className="rounded border px-3 py-2 text-sm">Chính sách &amp; tiện ích</button>
+              </div>
+              {mode === 'knowledge' && <HotelKnowledgePanel />}
+            </>
+          )}
+          <div className={isUnified || mode === 'rooms' ? 'contents' : 'hidden'}>
           {/* Chat Messages Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-neutral-50">
             {messages.map((msg) => (

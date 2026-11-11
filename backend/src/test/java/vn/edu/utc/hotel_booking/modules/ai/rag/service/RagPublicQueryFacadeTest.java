@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.KnowledgeState;
+import vn.edu.utc.hotel_booking.modules.ai.rag.service.RagPublicQueryOutcome.State;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagAnswerStatus;
@@ -53,7 +53,7 @@ class RagPublicQueryFacadeTest {
 
         RagPublicQueryOutcome outcome = facade.ask("Bé có được miễn phí buffet sáng không?", 2);
 
-        assertThat(outcome.getState()).isEqualTo(KnowledgeState.ANSWERED);
+        assertThat(outcome.getState()).isEqualTo(State.ANSWERED);
         assertThat(outcome.getResult().getAnswer()).contains("miễn phí");
     }
 
@@ -61,21 +61,21 @@ class RagPublicQueryFacadeTest {
     @DisplayName("Blank or over-length question returns SCOPE_REQUIRED without touching budget")
     void invalidQuestionLengthReturnsScopeRequired() {
         RagPublicQueryOutcome blank = facade.ask("   ", 1);
-        assertThat(blank.getState()).isEqualTo(KnowledgeState.SCOPE_REQUIRED);
+        assertThat(blank.getState()).isEqualTo(State.SCOPE_REQUIRED);
 
         String tooLong = "a".repeat(501);
         RagPublicQueryOutcome over = facade.ask(tooLong, 1);
-        assertThat(over.getState()).isEqualTo(KnowledgeState.SCOPE_REQUIRED);
+        assertThat(over.getState()).isEqualTo(State.SCOPE_REQUIRED);
     }
 
     @Test
     @DisplayName("Invalid hotelId bounds returns SCOPE_REQUIRED")
     void invalidHotelIdBoundsReturnsScopeRequired() {
         RagPublicQueryOutcome negative = facade.ask("Hồ bơi mở mấy giờ?", -1);
-        assertThat(negative.getState()).isEqualTo(KnowledgeState.SCOPE_REQUIRED);
+        assertThat(negative.getState()).isEqualTo(State.SCOPE_REQUIRED);
 
         RagPublicQueryOutcome tooLarge = facade.ask("Hồ bơi mở mấy giờ?", 40000);
-        assertThat(tooLarge.getState()).isEqualTo(KnowledgeState.SCOPE_REQUIRED);
+        assertThat(tooLarge.getState()).isEqualTo(State.SCOPE_REQUIRED);
     }
 
     @Test
@@ -89,7 +89,7 @@ class RagPublicQueryFacadeTest {
 
         RagPublicQueryOutcome outcome = facade.ask("Hồ bơi mở mấy giờ?", 99);
 
-        assertThat(outcome.getState()).isEqualTo(KnowledgeState.SCOPE_REQUIRED);
+        assertThat(outcome.getState()).isEqualTo(State.SCOPE_REQUIRED);
         assertThat(outcome.getResult().getAnswer()).contains("công khai");
     }
 
@@ -100,7 +100,7 @@ class RagPublicQueryFacadeTest {
 
         RagPublicQueryOutcome outcome = facade.ask("Hồ bơi mở mấy giờ?", 1);
 
-        assertThat(outcome.getState()).isEqualTo(KnowledgeState.RATE_LIMITED);
+        assertThat(outcome.getState()).isEqualTo(State.RATE_LIMITED);
         assertThat(outcome.getRetryAfterSeconds()).isEqualTo(15L);
     }
 
@@ -111,6 +111,6 @@ class RagPublicQueryFacadeTest {
 
         RagPublicQueryOutcome outcome = facade.ask("Hồ bơi mở mấy giờ?", 1);
 
-        assertThat(outcome.getState()).isEqualTo(KnowledgeState.UNAVAILABLE);
+        assertThat(outcome.getState()).isEqualTo(State.UNAVAILABLE);
     }
 }

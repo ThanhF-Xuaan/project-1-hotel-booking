@@ -38,8 +38,8 @@ class UnifiedAdvisorServiceTest {
     @Mock
     private RagPublicQueryFacade ragFacade;
 
-    @Mock
-    private RoomAdvisorSessionStore sessionStore;
+    @org.mockito.Spy
+    private RoomAdvisorSessionStore sessionStore = new vn.edu.utc.hotel_booking.modules.ai.advisor.session.InMemoryRoomAdvisorSessionStore();
 
     private UnifiedAdvisorService unifiedService;
 

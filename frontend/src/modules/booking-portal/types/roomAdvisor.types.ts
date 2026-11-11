@@ -178,6 +178,8 @@ export interface UnifiedAdvisorResult {
   contractVersion: string;
   requestId: string;
   intent: 'SEARCH_ONLY' | 'POLICY_ONLY' | 'SEARCH_AND_POLICY' | 'OUT_OF_SCOPE';
+  sessionId?: string;
+  sessionVersion?: number;
   advisor?: AdvisorResultDto;
   knowledge?: KnowledgeAnswer;
 }

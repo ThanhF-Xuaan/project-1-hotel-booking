@@ -59,18 +59,13 @@ public class UnifiedAdvisorService {
         }
 
         AdvisorResultDto advisorResult = null;
+        boolean coreFailed = false;
         RoomAdvisorSession existingSession = null;
 
         // 2. Validate session if POLICY_ONLY
         if (classification.getIntent() == UnifiedIntent.POLICY_ONLY) {
             if (request.getSessionId() != null) {
-                existingSession = sessionStore.getSession(request.getSessionId(), ownerKey)
-                        .orElseThrow(() -> new SessionNotFoundException("Session not found or expired"));
-                if (request.getExpectedSessionVersion() != null
-                        && !request.getExpectedSessionVersion().equals(existingSession.getSessionVersion())) {
-                    throw new SessionVersionConflictException("Session version conflict: expected "
-                            + request.getExpectedSessionVersion() + " but was " + existingSession.getSessionVersion());
-                }
+                existingSession = validateSession(request, ownerKey);
             }
         } else {
             // SEARCH_ONLY or SEARCH_AND_POLICY
@@ -79,7 +74,27 @@ public class UnifiedAdvisorService {
                     .sessionId(request.getSessionId())
                     .expectedSessionVersion(request.getExpectedSessionVersion())
                     .build();
-            advisorResult = roomAdvisorService.chat(chatReq, ownerKey);
+            try {
+                advisorResult = roomAdvisorService.chat(chatReq, ownerKey);
+            } catch (AdvisorDependencyUnavailableException unavailable) {
+                coreFailed = true;
+                if (classification.getPolicyQuestion() == null) throw unavailable;
+                // Do not infer scope from an older search after a failed new search.
+                // Session and authorization failures deliberately do not enter this catch.
+                RoomAdvisorSession validated = request.getSessionId() != null ? validateSession(request, ownerKey) : null;
+                advisorResult = AdvisorResultDto.builder()
+                        .requestId(requestId)
+                        .sessionId(request.getSessionId())
+                        .sessionVersion(validated != null ? validated.getSessionVersion() : 0L)
+                        .status(AdvisorStatus.TEMP_UNAVAILABLE)
+                        .reply("Tìm phòng tạm thời không khả dụng. Tôi vẫn có thể tra cứu chính sách khi xác định được khách sạn.")
+                        .build();
+                if (validated != null) {
+                    existingSession = sessionStore.updateSession(validated.getSessionId(), ownerKey,
+                            validated.getSessionVersion(), null, null, advisorResult);
+                    advisorResult.setSessionVersion(existingSession.getSessionVersion());
+                }
+            }
             if (advisorResult.getStatus() == AdvisorStatus.OUT_OF_SCOPE) {
                 return UnifiedAdvisorResultDto.builder()
                         .contractVersion("2.1-proposed")
@@ -91,6 +106,17 @@ public class UnifiedAdvisorService {
             }
         }
 
+        // A successful search commits criteria first; its store clears a previous policy choice
+        // on material criteria changes. Never reuse stale context after a Core failure.
+        if (advisorResult != null && advisorResult.getSessionId() != null
+                && !coreFailed) {
+            existingSession = sessionStore.getSession(advisorResult.getSessionId(), ownerKey)
+                    .orElseThrow(() -> new SessionNotFoundException("Session not found or expired"));
+            if (existingSession.getSessionVersion() != advisorResult.getSessionVersion()) {
+                throw new SessionVersionConflictException("Session changed after search");
+            }
+        }
+
         // 3. Resolve Scope & Execute Knowledge Query
         KnowledgeAnswerDto knowledgeAnswer = null;
         if (classification.getPolicyQuestion() != null) {
@@ -98,17 +124,54 @@ public class UnifiedAdvisorService {
                     classification.getPolicyQuestion(),
                     request.getPolicyHotelId(),
                     advisorResult,
-                    existingSession
+                    coreFailed ? null : existingSession
             );
         }
 
+        // Persist only an explicitly selected, publicly verified hotel. No raw question is stored.
+        RoomAdvisorSession responseSession = existingSession;
+        if (request.getPolicyHotelId() != null && knowledgeAnswer != null
+                && knowledgeAnswer.getState() == KnowledgeState.ANSWERED) {
+            if (responseSession == null) {
+                responseSession = sessionStore.getOrCreateSession(request.getSessionId(), ownerKey);
+            }
+            responseSession = sessionStore.updatePolicyScope(responseSession.getSessionId(), ownerKey,
+                    responseSession.getSessionVersion(), request.getPolicyHotelId());
+            if (advisorResult != null) {
+                advisorResult.setSessionId(responseSession.getSessionId());
+                advisorResult.setSessionVersion(responseSession.getSessionVersion());
+            }
+        }
+
+        UUID responseSessionId = null;
+        Long responseVersion = null;
+        if (responseSession != null) {
+            responseSessionId = responseSession.getSessionId();
+            responseVersion = responseSession.getSessionVersion();
+        } else if (advisorResult != null && advisorResult.getSessionId() != null) {
+            responseSessionId = advisorResult.getSessionId();
+            responseVersion = advisorResult.getSessionVersion();
+        }
         return UnifiedAdvisorResultDto.builder()
                 .contractVersion("2.1-proposed")
                 .requestId(requestId)
+                .sessionId(responseSessionId)
+                .sessionVersion(responseVersion)
                 .intent(classification.getIntent())
                 .advisor(advisorResult)
                 .knowledge(knowledgeAnswer)
                 .build();
+    }
+
+
+    private RoomAdvisorSession validateSession(UnifiedAdvisorRequestDto request, String ownerKey) {
+        RoomAdvisorSession session = sessionStore.getSession(request.getSessionId(), ownerKey)
+                .orElseThrow(() -> new SessionNotFoundException("Session not found or expired"));
+        if (request.getExpectedSessionVersion() != null
+                && !request.getExpectedSessionVersion().equals(session.getSessionVersion())) {
+            throw new SessionVersionConflictException("Session version conflict");
+        }
+        return session;
     }
 
     private KnowledgeAnswerDto resolveAndQueryKnowledge(
@@ -119,13 +182,18 @@ public class UnifiedAdvisorService {
     ) {
         String safePolicyQuestion = RagRequestBudget.redactQuestion(policyQuestion);
         Integer targetHotelId = explicitPolicyHotelId;
+        if (targetHotelId == null && existingSession != null) {
+            targetHotelId = existingSession.getPolicyHotelId();
+        }
+        AdvisorResultDto scopeResult = advisorResult != null ? advisorResult
+                : existingSession != null ? existingSession.getLastResult() : null;
         String targetHotelName = null;
         List<HotelChoiceDto> choices = null;
 
         // Check recommendations if targetHotelId not explicitly provided
-        if (targetHotelId == null && advisorResult != null && advisorResult.getRecommendations() != null
-                && !advisorResult.getRecommendations().isEmpty()) {
-            Map<Integer, String> hotelsFound = advisorResult.getRecommendations().stream()
+        if (targetHotelId == null && scopeResult != null && scopeResult.getRecommendations() != null
+                && !scopeResult.getRecommendations().isEmpty()) {
+            Map<Integer, String> hotelsFound = scopeResult.getRecommendations().stream()
                     .filter(c -> c.getRoom() != null && c.getRoom().getHotelId() != null)
                     .collect(Collectors.toMap(
                             c -> c.getRoom().getHotelId(),
@@ -164,6 +232,8 @@ public class UnifiedAdvisorService {
 
         // Fallback to session criteria if available
         if (targetHotelId == null && existingSession != null && existingSession.getCriteria() != null
+                && (existingSession.getLastResult() == null
+                    || existingSession.getLastResult().getStatus() != AdvisorStatus.TEMP_UNAVAILABLE)
                 && existingSession.getCriteria().getHotelId() != null) {
             targetHotelId = existingSession.getCriteria().getHotelId();
         }
@@ -172,7 +242,7 @@ public class UnifiedAdvisorService {
         RagPublicQueryOutcome outcome = ragFacade.ask(safePolicyQuestion, targetHotelId);
 
         return KnowledgeAnswerDto.builder()
-                .state(outcome.getState())
+                .state(KnowledgeState.valueOf(outcome.getState().name()))
                 .hotelId(targetHotelId)
                 .hotelName(targetHotelName)
                 .policyQuestion(safePolicyQuestion)

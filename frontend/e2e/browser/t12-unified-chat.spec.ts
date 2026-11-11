@@ -32,7 +32,7 @@ const sampleUnifiedResponse = {
           source: 'CORE_PRICING',
           totalNights: 2,
           currency: 'VND',
-          finalTotalAmount: '3.000.000',
+          finalTotalAmount: '3000000',
           serviceFeeStatus: 'INCLUDED',
           chargeCoverage: 'ALL_MANDATORY_CHARGES',
           budgetCheck: 'PASS',
@@ -175,4 +175,92 @@ test('handles RAG temporary unavailability gracefully without breaking room sear
 
   // Soft warning for knowledge
   await expect(page.getByText('Tra cứu chính sách tạm thời không khả dụng')).toBeVisible();
+});
+
+
+test('unified flag renders one conversation without the legacy policy panel', async ({ page }) => {
+  await openWidget(page);
+  await expect(page.getByRole('button', { name: 'Tìm phòng', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Chính sách & tiện ích', exact: true })).toHaveCount(0);
+  await expect(page.getByLabel('Khách sạn tra cứu')).toHaveCount(0);
+  await expect(page.getByPlaceholder(/Nhập nhu cầu/)).toBeVisible();
+});
+
+test('policy-only response updates session version and reset removes it', async ({ page }) => {
+  const requests: Array<Record<string, unknown>> = [];
+  await page.route('**/room-advisor/converse', route => {
+    requests.push(route.request().postDataJSON());
+    return route.fulfill({ json: { result: {
+      contractVersion: '2.1-proposed', requestId: 'synthetic-policy-turn', intent: 'POLICY_ONLY',
+      sessionId: sampleUnifiedResponse.advisor.sessionId, sessionVersion: requests.length + 1,
+      knowledge: { ...sampleUnifiedResponse.knowledge, result: {
+        ...sampleUnifiedResponse.knowledge.result, answer: `Synthetic policy answer ${requests.length}`,
+      } },
+    } } });
+  });
+  await openWidget(page);
+  const input = page.getByPlaceholder(/Nhập nhu cầu/);
+  await input.fill('Bữa sáng phục vụ mấy giờ?');
+  await page.getByLabel('Gửi tin nhắn').click();
+  await expect(page.getByText('Synthetic policy answer 1', { exact: true })).toHaveCount(1);
+  await input.fill('Hồ bơi đóng cửa mấy giờ?');
+  await page.getByLabel('Gửi tin nhắn').click();
+  await expect(page.getByText('Synthetic policy answer 2', { exact: true })).toBeVisible();
+  expect(requests[1].sessionId).toBe(sampleUnifiedResponse.advisor.sessionId);
+  expect(requests[1].expectedSessionVersion).toBe(2);
+  await page.getByRole('button', { name: 'Làm mới phiên', exact: true }).click();
+  await input.fill('Bữa sáng phục vụ mấy giờ?');
+  await page.getByLabel('Gửi tin nhắn').click();
+  await expect(page.getByText('Synthetic policy answer 3', { exact: true })).toBeVisible();
+  expect(requests[2].sessionId).toBeUndefined();
+  expect(requests[2].expectedSessionVersion).toBeUndefined();
+});
+
+test('Core outage still displays policy without showing room cards', async ({ page }) => {
+  await page.route('**/room-advisor/converse', route => route.fulfill({ json: { result: {
+    ...sampleUnifiedResponse,
+    advisor: { ...sampleUnifiedResponse.advisor, status: 'TEMP_UNAVAILABLE',
+      reply: 'Tìm phòng tạm thời không khả dụng.', recommendations: [] },
+  } } }));
+  await openWidget(page);
+  await page.getByPlaceholder(/Nhập nhu cầu/).fill('Tìm phòng, bữa sáng phục vụ mấy giờ?');
+  await page.getByLabel('Gửi tin nhắn').click();
+  await expect(page.getByText('Tìm phòng tạm thời không khả dụng.', { exact: true })).toBeVisible();
+  await expect(page.getByText(sampleUnifiedResponse.knowledge.result.answer, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Xem chi tiết phòng/ })).toHaveCount(0);
+});
+
+
+test('policy-first chat can select a public hotel inline without a search result', async ({ page }) => {
+  await page.route('**/api/v1/public/hotels/filter', route => route.fulfill({ json: { result: { content: [
+    { id: 2, name: 'Synthetic Hotel 2', status: 'ACTIVE' },
+    { id: 3, name: 'Inactive hotel', status: 'INACTIVE' },
+  ] } } }));
+  const requests: Array<Record<string, unknown>> = [];
+  await page.route('**/room-advisor/converse', route => {
+    const body = route.request().postDataJSON();
+    requests.push(body);
+    if (!body.policyHotelId) {
+      return route.fulfill({ json: { result: {
+        contractVersion: '2.1-proposed', intent: 'POLICY_ONLY',
+        knowledge: { state: 'SCOPE_REQUIRED', policyQuestion: 'Bữa sáng phục vụ mấy giờ?',
+          result: { status: 'SCOPE_REQUIRED', answer: 'Vui lòng chọn khách sạn.' } },
+      } } });
+    }
+    return route.fulfill({ json: { result: {
+      contractVersion: '2.1-proposed', intent: 'POLICY_ONLY',
+      sessionId: sampleUnifiedResponse.advisor.sessionId, sessionVersion: 2,
+      knowledge: sampleUnifiedResponse.knowledge,
+    } } });
+  });
+  await openWidget(page);
+  await page.getByPlaceholder(/Nhập nhu cầu/).fill('Bữa sáng phục vụ mấy giờ?');
+  await page.getByLabel('Gửi tin nhắn').click();
+  await page.getByRole('button', { name: 'Chọn khách sạn', exact: true }).click();
+  const hotels = page.getByLabel('Khách sạn tra cứu');
+  await expect(hotels.locator('option')).toHaveCount(2);
+  await hotels.selectOption('2');
+  await page.getByRole('button', { name: 'Tra cứu chính sách', exact: true }).click();
+  await expect(page.getByText(sampleUnifiedResponse.knowledge.result.answer, { exact: true })).toBeVisible();
+  expect(requests[1]).toMatchObject({ message: 'Bữa sáng phục vụ mấy giờ?', policyHotelId: 2 });
 });
