@@ -21,6 +21,13 @@ public interface MenuRepository extends JpaRepository<Menu, Integer>, JpaSpecifi
            "WHERE m.hotel.id = :hotelId AND m.masterItem.id = :masterItemId AND m.isDeleted = false")
     boolean existsActiveOverrideByHotelAndMasterItem(@Param("hotelId") Short hotelId, @Param("masterItemId") Integer masterItemId);
 
+    @Query("SELECT CASE WHEN COUNT(m) > 0 THEN true ELSE false END FROM Menu m " +
+           "WHERE m.hotel.id = :hotelId AND m.isDeleted = false " +
+           "AND (m.masterItem.id = :masterItemId OR LOWER(m.name) = LOWER(:masterItemName))")
+    boolean existsActiveOverrideByHotelAndMasterItemOrName(@Param("hotelId") Short hotelId,
+                                                          @Param("masterItemId") Integer masterItemId,
+                                                          @Param("masterItemName") String masterItemName);
+
     @Query("SELECT DISTINCT m.masterItem.id FROM Menu m " +
            "WHERE m.hotel.id = :hotelId AND m.masterItem IS NOT NULL AND m.isDeleted = false")
     List<Integer> findOverriddenMasterItemIdsByHotelId(@Param("hotelId") Short hotelId);

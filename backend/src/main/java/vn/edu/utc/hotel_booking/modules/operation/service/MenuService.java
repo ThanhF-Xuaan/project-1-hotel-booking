@@ -29,5 +29,7 @@ public interface MenuService {
 
     boolean isMasterItemOverriddenByHotel(Short hotelId, Integer masterItemId);
 
+    boolean isMasterItemOverriddenByHotel(Short hotelId, Integer masterItemId, String masterItemName);
+
     List<Integer> getOverriddenMasterItemIds(Short hotelId);
 }

@@ -4,6 +4,12 @@ import Button from '../../../core/components/ui/Button'
 import hotelRoomTypeService from '../services/hotelRoomType.service'
 import { HotelRoomTypeInclusionModal } from './HotelRoomTypeInclusionModal'
 import type { HotelRoomTypeInclusionDto } from '../types/inventory.types'
+import {
+  formatInclusionUnit,
+  formatInclusionFrequency,
+  formatInclusionTarget,
+  formatInclusionSource,
+} from '../utils/inclusionDisplay.util'
 
 interface HotelRoomTypeInclusionEditorProps {
   hotelRoomTypeId: number
@@ -139,14 +145,14 @@ export const HotelRoomTypeInclusionEditor: React.FC<HotelRoomTypeInclusionEditor
                   {/* Nguồn */}
                   <td className="py-3 px-3 whitespace-nowrap">
                     {inc.sourceType === 'CHAIN_MASTER' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase">
                         <Sparkles className="w-3 h-3" />
-                        Chuẩn Chuỗi
+                        {formatInclusionSource('CHAIN_MASTER')}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200 uppercase">
                         <UtensilsCrossed className="w-3 h-3" />
-                        Thực Đơn Cơ Sở
+                        {formatInclusionSource('HOTEL_MENU')}
                       </span>
                     )}
                   </td>
@@ -163,7 +169,7 @@ export const HotelRoomTypeInclusionEditor: React.FC<HotelRoomTypeInclusionEditor
                   <td className="py-3 px-3 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1 text-neutral-700 font-medium">
                       <Calendar className="w-3 h-3 text-neutral-400" />
-                      {inc.frequency === 'PER_NIGHT' ? 'Hàng ngày' : '1 lần / Kỳ nghỉ'}
+                      {formatInclusionFrequency(inc.frequency)}
                     </span>
                   </td>
 
@@ -171,17 +177,13 @@ export const HotelRoomTypeInclusionEditor: React.FC<HotelRoomTypeInclusionEditor
                   <td className="py-3 px-3 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1 text-neutral-700 font-medium">
                       <Users className="w-3 h-3 text-neutral-400" />
-                      {inc.targetType === 'PER_ROOM'
-                        ? 'Theo phòng'
-                        : inc.targetType === 'PER_ADULT'
-                        ? 'Mỗi người lớn'
-                        : 'Tất cả khách'}
+                      {formatInclusionTarget(inc.targetType)}
                     </span>
                   </td>
 
                   {/* Số lượng */}
                   <td className="py-3 px-3 text-center whitespace-nowrap font-bold text-neutral-900">
-                    {inc.quantity} {inc.unit || 'phần'}
+                    {inc.quantity} {formatInclusionUnit(inc.unit)}
                   </td>
 
                   {/* Thao tác */}

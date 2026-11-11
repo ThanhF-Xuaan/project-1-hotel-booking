@@ -111,7 +111,7 @@ class HotelRoomTypeInclusionServiceImplTest {
         assertThat(item.getMasterItemId()).isEqualTo(2);
         assertThat(item.getSourceType()).isEqualTo("CHAIN_MASTER");
         assertThat(item.getName()).isEqualTo("Buffet Sáng Tiêu Chuẩn Chuỗi");
-        assertThat(item.getUnit()).isEqualTo("PHAN");
+        assertThat(item.getUnit()).isEqualTo("PHẦN");
         assertThat(item.getTargetType()).isEqualTo("PER_ADULT");
     }
 
@@ -188,7 +188,7 @@ class HotelRoomTypeInclusionServiceImplTest {
 
         MasterItemResponse miDto = MasterItemResponse.builder().id(2).code("BUFFET").name("Buffet Sáng").build();
         when(masterItemService.getById(2)).thenReturn(miDto);
-        when(menuService.isMasterItemOverriddenByHotel((short) 1, 2)).thenReturn(true);
+        when(menuService.isMasterItemOverriddenByHotel((short) 1, 2, "Buffet Sáng")).thenReturn(true);
 
         HotelRoomTypeInclusionRequest req = HotelRoomTypeInclusionRequest.builder()
                 .masterItemId(2)
@@ -233,7 +233,7 @@ class HotelRoomTypeInclusionServiceImplTest {
 
         MasterItemResponse miDto = MasterItemResponse.builder().id(3).code("AIRPORT_SHUTTLE").name("Đưa đón sân bay").build();
         when(masterItemService.getById(3)).thenReturn(miDto);
-        when(menuService.isMasterItemOverriddenByHotel((short) 1, 3)).thenReturn(false);
+        when(menuService.isMasterItemOverriddenByHotel((short) 1, 3, "Đưa đón sân bay")).thenReturn(false);
 
         MasterItem proxyItem = MasterItem.builder().id(3).name("Đưa đón sân bay").build();
         when(entityManager.getReference(MasterItem.class, 3)).thenReturn(proxyItem);
@@ -304,5 +304,21 @@ class HotelRoomTypeInclusionServiceImplTest {
 
         assertThat(inc.getIsDeleted()).isTrue();
         verify(inclusionRepository).save(inc);
+    }
+
+    @Test
+    @DisplayName("Chuẩn hóa đơn vị tính formatUnit trả về tiếng Việt in hoa có dấu chuẩn xác")
+    void formatUnit_StandardizesToUppercaseVietnamese() {
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit(null)).isEqualTo("PHẦN");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("")).isEqualTo("PHẦN");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("PHAN")).isEqualTo("PHẦN");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("chai")).isEqualTo("CHAI");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("can")).isEqualTo("LON");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("kg")).isEqualTo("KG");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("luot")).isEqualTo("LƯỢT");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("chuyen")).isEqualTo("CHUYẾN");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("ngay")).isEqualTo("NGÀY");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("goi")).isEqualTo("GÓI");
+        assertThat(HotelRoomTypeInclusionServiceImpl.formatUnit("hop")).isEqualTo("HỘP");
     }
 }

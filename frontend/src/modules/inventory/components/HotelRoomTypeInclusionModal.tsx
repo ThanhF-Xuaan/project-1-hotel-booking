@@ -10,6 +10,11 @@ import type {
   HotelRoomTypeInclusionRequest,
 } from '../types/inventory.types'
 import type { MasterItemResponse, MenuResponse } from '../../operation/types/operation.types'
+import {
+  formatInclusionUnit,
+  formatInclusionFrequency,
+  formatInclusionTarget,
+} from '../utils/inclusionDisplay.util'
 import { Gift, Sparkles, UtensilsCrossed } from 'lucide-react'
 
 interface HotelRoomTypeInclusionModalProps {
@@ -178,35 +183,61 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
 
   // Danh sách Tiêu chuẩn Chuỗi:
   // 1. Loại bỏ các mã category template LOCAL_*
-  // 2. Loại bỏ các master item mà cơ sở đã override trong Menu (chỉ hiển thị bản ghi của cơ sở)
+  // 2. Loại bỏ các master item mà cơ sở đã override trong Menu (theo cả ID và Tên - Multi-Tier Override Guard)
   // 3. Loại bỏ các master item đã có trong danh sách quà tặng của phòng (chống trùng lặp)
   // 4. Nếu đang edit và item hiện tại là masterItem này thì vẫn giữ lại để không bị mất giá trị
   const masterItemOptions = useMemo(() => {
     return masterItems
       .filter((m) => {
+        // Loại bỏ danh mục nhóm LOCAL_*
         if (m.code && m.code.startsWith('LOCAL_')) {
           return false
         }
-        if (overriddenMasterItemIds.has(m.id) && (!item || item.masterItemId !== m.id)) {
+
+        const normalizedMasterName = m.name?.trim().toLowerCase()
+
+        // Kiểm tra cơ sở đã override món này chưa (theo cả master_item_id lẫn tên món)
+        const isOverriddenByHotel =
+          overriddenMasterItemIds.has(m.id) ||
+          menus.some(
+            (menu) =>
+              menu.status === 'ACTIVE' &&
+              ((menu.masterItemId && menu.masterItemId === m.id) ||
+                (menu.name && menu.name.trim().toLowerCase() === normalizedMasterName))
+          )
+
+        if (isOverriddenByHotel && (!item || item.masterItemId !== m.id)) {
           return false
         }
-        if (alreadyAddedMasterItemIds.has(m.id) && (!item || item.masterItemId !== m.id)) {
+
+        // Chống thêm trùng lặp vào phòng (theo ID hoặc theo tên quà tặng)
+        const isAlreadyAdded =
+          alreadyAddedMasterItemIds.has(m.id) ||
+          existingInclusions.some(
+            (inc) =>
+              (!item || inc.id !== item.id) &&
+              inc.name &&
+              inc.name.trim().toLowerCase() === normalizedMasterName
+          )
+
+        if (isAlreadyAdded && (!item || item.masterItemId !== m.id)) {
           return false
         }
+
         return true
       })
       .map((m) => ({
         value: m.id,
-        label: `${m.name} [${m.code}] (${m.unit || 'phần'})`,
+        label: `${m.name} [${m.code}] (${formatInclusionUnit(m.unit)})`,
         description: m.description,
       }))
-  }, [masterItems, overriddenMasterItemIds, alreadyAddedMasterItemIds, item])
+  }, [masterItems, overriddenMasterItemIds, alreadyAddedMasterItemIds, menus, existingInclusions, item])
 
   // Danh sách Thực đơn Cơ sở:
   // 1. Loại bỏ các món Menu đã được thêm vào hạng phòng này (chống trùng lặp)
   // 2. Gắn nhãn rõ ràng để phân biệt:
-  //    - [Tùy biến Chuỗi] nếu override một MasterItem của chuỗi
-  //    - [Đặc sản Cơ sở] nếu tạo từ nhóm LOCAL_*
+  //    - [TÙY BIẾN CHUỖI] nếu override một MasterItem của chuỗi
+  //    - [ĐẶC SẢN CƠ SỞ] nếu tạo từ nhóm LOCAL_*
   const menuOptions = useMemo(() => {
     return menus
       .filter((m) => m.status === 'ACTIVE')
@@ -217,18 +248,19 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
 
         let badge = ''
         if (isOverriddenFromChain) {
-          badge = '[Tùy biến Chuỗi] '
+          badge = '[TÙY BIẾN CHUỖI] '
         } else if (isLocal) {
-          badge = '[Đặc sản Cơ sở] '
+          badge = '[ĐẶC SẢN CƠ SỞ] '
         }
 
         const displayName = m.customName ? `${m.customName} (${m.name})` : m.name
         const formattedPrice = new Intl.NumberFormat('vi-VN').format(m.basePrice)
+        const unit = formatInclusionUnit(m.unit)
 
         return {
           value: m.id,
-          label: `${badge}${displayName} — ${formattedPrice} đ`,
-          description: m.description || `Đơn vị: ${m.unit || 'phần'} | Quản lý tồn kho tại cơ sở`,
+          label: `${badge}${displayName} — ${formattedPrice} đ (${unit})`,
+          description: m.description || `Đơn vị: ${unit} | Quản lý tồn kho tại cơ sở`,
         }
       })
   }, [menus, alreadyAddedMenuIds, item])
@@ -257,26 +289,26 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
             <button
               type="button"
               onClick={() => setSourceType('CHAIN_MASTER')}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer uppercase ${
                 sourceType === 'CHAIN_MASTER'
                   ? 'bg-white text-red-600 shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               <Sparkles className="w-4 h-4" />
-              <span>Tiêu chuẩn Chuỗi (Master Item)</span>
+              <span>Tiêu Chuẩn Chuỗi (Master Item)</span>
             </button>
             <button
               type="button"
               onClick={() => setSourceType('HOTEL_MENU')}
-              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer uppercase ${
                 sourceType === 'HOTEL_MENU'
                   ? 'bg-white text-red-600 shadow-xs'
                   : 'text-neutral-600 hover:text-neutral-900'
               }`}
             >
               <UtensilsCrossed className="w-4 h-4" />
-              <span>Thực đơn Cơ sở (Menu)</span>
+              <span>Thực Đơn Cơ Sở (Menu)</span>
             </button>
           </div>
           <p className="text-[11px] text-neutral-500 mt-1.5 flex items-center gap-1.5">
@@ -342,12 +374,12 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
               options={[
                 {
                   value: 'PER_NIGHT',
-                  label: 'Hàng ngày / Mỗi đêm nghỉ (PER_NIGHT)',
+                  label: formatInclusionFrequency('PER_NIGHT'),
                   description: 'Vd: Buffet sáng, 2 chai nước suối minibar/ngày',
                 },
                 {
                   value: 'PER_STAY',
-                  label: 'Một lần cho cả kỳ nghỉ (PER_STAY)',
+                  label: formatInclusionFrequency('PER_STAY'),
                   description: 'Vd: 1 chai rượu vang chào mừng, 1 voucher spa',
                 },
               ]}
@@ -365,17 +397,17 @@ export const HotelRoomTypeInclusionModal: React.FC<HotelRoomTypeInclusionModalPr
               options={[
                 {
                   value: 'PER_ROOM',
-                  label: 'Theo phòng (PER_ROOM)',
+                  label: formatInclusionTarget('PER_ROOM'),
                   description: '1 phần cho cả phòng (Vd: 1 đĩa hoa quả)',
                 },
                 {
                   value: 'PER_ADULT',
-                  label: 'Mỗi người lớn (PER_ADULT)',
+                  label: formatInclusionTarget('PER_ADULT'),
                   description: 'Theo số lượng người lớn (Vd: Buffet sáng)',
                 },
                 {
                   value: 'PER_GUEST',
-                  label: 'Tất cả khách (PER_GUEST)',
+                  label: formatInclusionTarget('PER_GUEST'),
                   description: 'Cho mọi khách lưu trú kể cả trẻ em',
                 },
               ]}

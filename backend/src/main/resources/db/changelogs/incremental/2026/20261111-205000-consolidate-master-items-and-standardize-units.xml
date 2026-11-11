@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261111-205000-consolidate-master-items-and-standardize-units" author="antigravity" runOnChange="true">
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Hop nhat Master Items toan chuoi, xoa ban ghi nhan ban va chuan hoa don vi tinh</comment>
+        <sqlFile dbms="postgresql"
+                 encoding="utf-8"
+                 path="db/sqlFile/incremental/2026/20261111-205000-consolidate-master-items-and-standardize-units.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>

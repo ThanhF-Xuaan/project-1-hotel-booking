@@ -98,7 +98,7 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
                         "Danh mục đặc sản/dịch vụ địa phương phải được khai báo cụ thể trong Thực đơn cơ sở trước khi thêm vào phòng.");
             }
             Short hotelId = roomType.getHotel().getId();
-            if (menuService.isMasterItemOverriddenByHotel(hotelId, request.getMasterItemId())) {
+            if (menuService.isMasterItemOverriddenByHotel(hotelId, request.getMasterItemId(), masterItemDto.getName())) {
                 throw new AppException(ErrorCode.MASTER_ITEM_OVERRIDDEN_BY_HOTEL);
             }
             masterItem = entityManager.getReference(MasterItem.class, request.getMasterItemId());
@@ -163,7 +163,7 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
                         "Danh mục đặc sản/dịch vụ địa phương phải được khai báo cụ thể trong Thực đơn cơ sở trước khi thêm vào phòng.");
             }
             Short hotelId = inclusion.getHotelRoomType().getHotel().getId();
-            if (menuService.isMasterItemOverriddenByHotel(hotelId, request.getMasterItemId())) {
+            if (menuService.isMasterItemOverriddenByHotel(hotelId, request.getMasterItemId(), masterItemDto.getName())) {
                 throw new AppException(ErrorCode.MASTER_ITEM_OVERRIDDEN_BY_HOTEL);
             }
             inclusion.setMasterItem(entityManager.getReference(MasterItem.class, request.getMasterItemId()));
@@ -189,9 +189,34 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
         inclusionRepository.save(inclusion);
     }
 
+    public static String formatUnit(String rawUnit) {
+        if (rawUnit == null || rawUnit.isBlank()) {
+            return "PHẦN";
+        }
+        String normalized = rawUnit.trim().toUpperCase();
+        return switch (normalized) {
+            case "PHAN", "PHẦN", "PORTION", "SET", "SUAT", "SUẤT" -> "PHẦN";
+            case "CHAI", "BOTTLE" -> "CHAI";
+            case "LON", "CAN" -> "LON";
+            case "KG", "KILOGRAM" -> "KG";
+            case "LUOT", "LƯỢT", "TURN" -> "LƯỢT";
+            case "CHUYEN", "CHUYẾN", "TRIP" -> "CHUYẾN";
+            case "NGAY", "NGÀY", "DAY" -> "NGÀY";
+            case "GOI", "GÓI", "PACKAGE" -> "GÓI";
+            case "HOP", "HỘP", "BOX" -> "HỘP";
+            case "DIA", "ĐĨA", "PLATE" -> "ĐĨA";
+            case "BO", "BỘ" -> "BỘ";
+            case "LY", "GLASS" -> "LY";
+            case "GIO", "GIỜ", "HOUR" -> "GIỜ";
+            case "VE", "VÉ", "TICKET" -> "VÉ";
+            case "KHACH", "KHÁCH", "PERSON", "PAX" -> "KHÁCH";
+            case "PHONG", "PHÒNG", "ROOM" -> "PHÒNG";
+            default -> normalized;
+        };
+    }
+
     public RoomInclusionDto mapToDto(HotelRoomTypeInclusion inc) {
         String name = "Quà tặng dịch vụ kèm phòng #" + (inc.getId() != null ? inc.getId() : "");
-        String description = "Bao gồm " + inc.getQuantity() + " suất/phần";
         String unit = null;
         String sourceType = "HOTEL_MENU";
         Integer menuId = null;
@@ -200,6 +225,8 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
         if (inc.getCustomDisplayName() != null && !inc.getCustomDisplayName().isBlank()) {
             name = inc.getCustomDisplayName();
         }
+
+        String description = null;
 
         if (inc.getMenu() != null) {
             sourceType = "HOTEL_MENU";
@@ -246,8 +273,12 @@ public class HotelRoomTypeInclusionServiceImpl implements HotelRoomTypeInclusion
             }
         }
 
+        unit = formatUnit(unit);
+
         if (inc.getDescription() != null && !inc.getDescription().isBlank()) {
             description = inc.getDescription();
+        } else if (description == null) {
+            description = "Bao gồm " + inc.getQuantity() + " " + unit;
         }
 
         return RoomInclusionDto.builder()

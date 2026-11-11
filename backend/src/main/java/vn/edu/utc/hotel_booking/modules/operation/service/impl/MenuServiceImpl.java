@@ -191,7 +191,15 @@ public class MenuServiceImpl implements MenuService {
 
     @Override
     public boolean isMasterItemOverriddenByHotel(Short hotelId, Integer masterItemId) {
+        return isMasterItemOverriddenByHotel(hotelId, masterItemId, null);
+    }
+
+    @Override
+    public boolean isMasterItemOverriddenByHotel(Short hotelId, Integer masterItemId, String masterItemName) {
         if (hotelId == null || masterItemId == null) return false;
+        if (masterItemName != null && !masterItemName.isBlank()) {
+            return menuRepository.existsActiveOverrideByHotelAndMasterItemOrName(hotelId, masterItemId, masterItemName.trim());
+        }
         return menuRepository.existsActiveOverrideByHotelAndMasterItem(hotelId, masterItemId);
     }
 
