@@ -27,6 +27,7 @@ export interface SelectProps<T = string | number> {
   loadingText?: string;
   emptyText?: string;
   onOpen?: () => void | Promise<void>;
+  direction?: 'down' | 'up' | 'auto';
 }
 
 export const Select = <T extends string | number>({
@@ -45,8 +46,10 @@ export const Select = <T extends string | number>({
   loadingText = 'Đang tải danh sách...',
   emptyText = 'Không có tùy chọn nào',
   onOpen,
+  direction = 'auto',
 }: SelectProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = options.find((opt) => opt.value === value);
@@ -81,9 +84,45 @@ export const Select = <T extends string | number>({
     lg: 'h-12 px-4 text-sm font-semibold',
   };
 
+  const calculateDirection = () => {
+    if (direction === 'up') return true;
+    if (direction === 'down') return false;
+
+    if (!containerRef.current) return false;
+    const rect = containerRef.current.getBoundingClientRect();
+    const spaceBelowWindow = window.innerHeight - rect.bottom;
+    const spaceAboveWindow = rect.top;
+
+    let scrollParent = containerRef.current.parentElement;
+    let spaceBelowParent = spaceBelowWindow;
+    let spaceAboveParent = spaceAboveWindow;
+
+    while (scrollParent && scrollParent !== document.body) {
+      const style = window.getComputedStyle(scrollParent);
+      if (
+        style.overflowY === 'auto' ||
+        style.overflowY === 'scroll' ||
+        style.overflowY === 'hidden'
+      ) {
+        const parentRect = scrollParent.getBoundingClientRect();
+        spaceBelowParent = parentRect.bottom - rect.bottom;
+        spaceAboveParent = rect.top - parentRect.top;
+        break;
+      }
+      scrollParent = scrollParent.parentElement;
+    }
+
+    const spaceBelow = Math.min(spaceBelowWindow, spaceBelowParent);
+    const spaceAbove = Math.max(spaceAboveWindow, spaceAboveParent);
+
+    // If less than 260px below and more room above, open upward
+    return spaceBelow < 260 && spaceAbove > spaceBelow;
+  };
+
   const handleToggle = () => {
     if (disabled) return;
     if (!isOpen) {
+      setOpenUpward(calculateDirection());
       onOpen?.();
       setIsOpen(true);
     } else {
@@ -159,7 +198,10 @@ export const Select = <T extends string | number>({
       {isOpen && !disabled && (
         <div
           role="listbox"
-          className="absolute z-50 mt-1.5 w-full bg-white rounded-xl border border-neutral-200 shadow-xl p-1.5 max-h-64 overflow-y-auto focus:outline-none animate-in fade-in zoom-in-95 duration-150"
+          className={cn(
+            'absolute z-50 w-full bg-white rounded-xl border border-neutral-200 shadow-xl p-1.5 max-h-60 overflow-y-auto focus:outline-none animate-in fade-in zoom-in-95 duration-150',
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          )}
         >
           {isLoading ? (
             <div className="p-3 text-center text-xs text-neutral-500 font-medium flex items-center justify-center gap-2">

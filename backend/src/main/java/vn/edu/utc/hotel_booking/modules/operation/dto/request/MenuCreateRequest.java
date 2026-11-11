@@ -17,7 +17,10 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class MenuCreateRequest {
 
+    @NotNull(message = "Khách sạn cơ sở không được để trống")
     Short hotelId;
+
+    @NotNull(message = "Danh mục gốc chuỗi không được để trống")
     Integer masterItemId;
     String customName;
 

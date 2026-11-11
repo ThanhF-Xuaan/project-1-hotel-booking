@@ -36,6 +36,7 @@ import {
   Sliders,
   Tag,
   Coins,
+  Layers,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -150,6 +151,12 @@ const navGroups: NavGroup[] = [
     groupName: 'VẬN HÀNH & NHÀ HÀNG',
     icon: <UtensilsCrossed className="w-4 h-4" />,
     items: [
+      {
+        label: 'Danh mục gốc chuỗi',
+        to: '/operation/master-items',
+        icon: <Layers className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'F_AND_B'],
+      },
       {
         label: 'Thực đơn & Dịch vụ',
         to: '/operation/menus',

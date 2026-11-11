@@ -8,23 +8,26 @@ import {
   Package,
   Sparkles,
   RefreshCw,
+  Building2,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
-import CurrencyInput from '../../../core/components/ui/CurrencyInput';
 import Select from '../../../core/components/ui/Select';
-import Modal, { ConfirmModal } from '../../../core/components/ui/Modal';
+import { ConfirmModal } from '../../../core/components/ui/Modal';
 import Pagination from '../../../core/components/ui/Pagination';
+import MenuModal from '../components/MenuModal';
 import { operationService } from '../services/operation.service';
+import { hotelService } from '../../organization/services/hotel.service';
+import { hasAnyRole } from '../../auth/utils/token.utils';
 import type {
   MenuResponse,
   MenuType,
-  ServicePricingType,
-  MenuCreateRequest,
-  MenuUpdateRequest,
 } from '../types/operation.types';
+import type { HotelDto } from '../../organization/types/organization.types';
 
 export const MenuListPage: React.FC = () => {
+  const canManage = hasAnyRole(['CHAIN_ADMIN', 'PROPERTY_MANAGER', 'F_AND_B']);
+
   const [menus, setMenus] = useState<MenuResponse[]>([]);
   const [totalElements, setTotalElements] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -34,48 +37,46 @@ export const MenuListPage: React.FC = () => {
 
   // Filters
   const [searchName, setSearchName] = useState('');
+  const [filterHotelId, setFilterHotelId] = useState<number | 0>(0);
   const [searchType, setSearchType] = useState<MenuType | ''>('');
   const [searchStatus, setSearchStatus] = useState<string>('');
+  const [hotels, setHotels] = useState<HotelDto[]>([]);
 
-  // Selected items for batch delete
+  // Selection
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   // Add/Edit Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuResponse | null>(null);
-  const [formData, setFormData] = useState<{
-    name: string;
-    description: string;
-    menuType: MenuType;
-    basePrice: number;
-    taxCategoryId: number;
-    stockQuantity: number;
-    pricingType: ServicePricingType;
-    status: string;
-  }>({
-    name: '',
-    description: '',
-    menuType: 'PRODUCT',
-    basePrice: 0,
-    taxCategoryId: 1,
-    stockQuantity: 0,
-    pricingType: 'PER_UNIT',
-    status: 'ACTIVE',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Delete Confirm Modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<number | null>(null);
 
+  // Load hotel list for filter
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await hotelService.filter({ pageSize: 100 });
+          setHotels(res.result?.content || []);
+        } catch (err) {
+          console.error('Failed to load hotels for filter:', err);
+        }
+      })();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
   const fetchMenus = useCallback(async () => {
     setIsLoading(true);
     try {
       const res = await operationService.getMenus({
-        name: searchName || undefined,
+        hotelId: filterHotelId || undefined,
+        name: searchName.trim() || undefined,
         menuType: searchType || undefined,
         status: searchStatus || undefined,
-        page: page + 1,
+        page,
         pageSize,
       });
       setMenus(res.content || []);
@@ -86,7 +87,7 @@ export const MenuListPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchName, searchType, searchStatus, page, pageSize]);
+  }, [filterHotelId, searchName, searchType, searchStatus, page, pageSize]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -97,70 +98,12 @@ export const MenuListPage: React.FC = () => {
 
   const handleOpenAddModal = () => {
     setEditingItem(null);
-    setFormData({
-      name: '',
-      description: '',
-      menuType: 'PRODUCT',
-      basePrice: 0,
-      taxCategoryId: 1,
-      stockQuantity: 0,
-      pricingType: 'PER_UNIT',
-      status: 'ACTIVE',
-    });
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (item: MenuResponse) => {
     setEditingItem(item);
-    setFormData({
-      name: item.name,
-      description: item.description || '',
-      menuType: item.menuType,
-      basePrice: item.basePrice,
-      taxCategoryId: item.taxCategoryId,
-      stockQuantity: item.stockQuantity || 0,
-      pricingType: item.pricingType || 'PER_UNIT',
-      status: item.status,
-    });
     setIsModalOpen(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name.trim()) return;
-
-    setIsSubmitting(true);
-    try {
-      if (editingItem) {
-        const updateReq: MenuUpdateRequest = {
-          name: formData.name.trim(),
-          description: formData.description,
-          basePrice: formData.basePrice,
-          taxCategoryId: formData.taxCategoryId,
-          stockQuantity: formData.menuType === 'PRODUCT' ? formData.stockQuantity : undefined,
-          pricingType: formData.menuType === 'SERVICE' ? formData.pricingType : undefined,
-          status: formData.status,
-        };
-        await operationService.updateMenu(editingItem.id, updateReq);
-      } else {
-        const createReq: MenuCreateRequest = {
-          name: formData.name.trim(),
-          description: formData.description,
-          menuType: formData.menuType,
-          basePrice: formData.basePrice,
-          taxCategoryId: formData.taxCategoryId,
-          stockQuantity: formData.menuType === 'PRODUCT' ? formData.stockQuantity : undefined,
-          pricingType: formData.menuType === 'SERVICE' ? formData.pricingType : undefined,
-        };
-        await operationService.createMenu(createReq);
-      }
-      setIsModalOpen(false);
-      fetchMenus();
-    } catch (err) {
-      console.error('Save menu failed:', err);
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleConfirmDelete = async () => {
@@ -173,7 +116,7 @@ export const MenuListPage: React.FC = () => {
       }
       setIsDeleteModalOpen(false);
       setItemToDelete(null);
-      fetchMenus();
+      void fetchMenus();
     } catch (err) {
       console.error('Delete menu failed:', err);
     }
@@ -193,6 +136,14 @@ export const MenuListPage: React.FC = () => {
     );
   };
 
+  const handleResetFilters = () => {
+    setSearchName('');
+    setFilterHotelId(0);
+    setSearchType('');
+    setSearchStatus('');
+    setPage(0);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -200,29 +151,53 @@ export const MenuListPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight flex items-center gap-2">
             <UtensilsCrossed className="w-7 h-7 text-red-600" />
-            Quản lý Thực đơn & Dịch vụ (F&B / POS)
+            Quản lý Thực đơn & Dịch vụ Cơ sở (F&B / POS)
           </h1>
           <p className="text-sm text-neutral-500 mt-1">
-            Danh mục đồ ăn, thức uống minibar, dịch vụ giặt ủi và tiện ích phòng
+            Danh mục đồ ăn, thức uống minibar, dịch vụ phòng theo từng khách sạn cơ sở
           </p>
         </div>
-        <Button onClick={handleOpenAddModal} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Thêm Món / Dịch vụ
-        </Button>
+        {canManage && (
+          <Button onClick={handleOpenAddModal} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Thêm Món / Dịch vụ
+          </Button>
+        )}
       </div>
 
       {/* Row 1: Search & Filter Bar */}
       <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-xs flex flex-wrap items-center gap-4">
-        <div className="flex-1 min-w-[240px]">
+        <div className="flex-1 min-w-[220px]">
           <Input
             placeholder="Tìm theo tên món ăn hoặc dịch vụ..."
             value={searchName}
-            onChange={(e) => setSearchName(e.target.value)}
+            onChange={(e) => {
+              setSearchName(e.target.value);
+              setPage(0);
+            }}
             leftIcon={<Search className="w-4 h-4 text-neutral-400" />}
           />
         </div>
+
         <div className="w-56">
+          <Select<number>
+            value={filterHotelId}
+            onChange={(val) => {
+              setFilterHotelId(val);
+              setPage(0);
+            }}
+            options={[
+              { value: 0, label: 'Tất cả khách sạn cơ sở' },
+              ...hotels.map((h) => ({
+                value: h.id,
+                label: h.name,
+              })),
+            ]}
+            size="lg"
+          />
+        </div>
+
+        <div className="w-52">
           <Select<MenuType | ''>
             value={searchType}
             onChange={(val) => {
@@ -231,13 +206,14 @@ export const MenuListPage: React.FC = () => {
             }}
             options={[
               { value: '', label: 'Tất cả loại danh mục' },
-              { value: 'PRODUCT', label: 'Sản phẩm vật lý (F&B, Minibar)' },
-              { value: 'SERVICE', label: 'Dịch vụ (Giặt là, Spa, Xe...)' },
+              { value: 'PRODUCT', label: 'Sản phẩm vật lý (F&B / Minibar)' },
+              { value: 'SERVICE', label: 'Dịch vụ (Giặt là, Spa...)' },
             ]}
             size="lg"
           />
         </div>
-        <div className="w-52">
+
+        <div className="w-48">
           <Select<string>
             value={searchStatus}
             onChange={(val) => {
@@ -252,14 +228,10 @@ export const MenuListPage: React.FC = () => {
             size="lg"
           />
         </div>
+
         <Button
           variant="secondary"
-          onClick={() => {
-            setSearchName('');
-            setSearchType('');
-            setSearchStatus('');
-            setPage(0);
-          }}
+          onClick={handleResetFilters}
           className="flex items-center gap-1.5"
         >
           <RefreshCw className="w-4 h-4" />
@@ -270,14 +242,14 @@ export const MenuListPage: React.FC = () => {
       {/* Row 2: Action Toolbar */}
       <div className="flex justify-between items-center bg-neutral-50 px-4 py-3 rounded-xl border border-neutral-200">
         <div className="text-sm text-neutral-600">
-          Tổng cộng: <span className="font-semibold text-neutral-900">{totalElements}</span> mục
+          Tổng cộng: <span className="font-semibold text-neutral-900">{totalElements}</span> món / dịch vụ
           {selectedIds.length > 0 && (
             <span className="ml-3 font-medium text-red-600">
               (Đang chọn: {selectedIds.length})
             </span>
           )}
         </div>
-        {selectedIds.length > 0 && (
+        {selectedIds.length > 0 && canManage && (
           <Button
             variant="danger"
             onClick={() => {
@@ -298,51 +270,74 @@ export const MenuListPage: React.FC = () => {
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-neutral-50 border-b border-neutral-200 text-neutral-600 font-semibold text-xs uppercase tracking-wider">
-                <th className="py-3.5 px-4 w-12 text-center">
-                  <input
-                    type="checkbox"
-                    checked={menus.length > 0 && selectedIds.length === menus.length}
-                    onChange={toggleSelectAll}
-                    className="rounded border-neutral-300 text-red-600 focus:ring-red-600"
-                  />
-                </th>
+                {canManage && (
+                  <th className="py-3.5 px-4 w-12 text-center">
+                    <input
+                      type="checkbox"
+                      checked={menus.length > 0 && selectedIds.length === menus.length}
+                      onChange={toggleSelectAll}
+                      className="rounded border-neutral-300 text-red-600 focus:ring-red-600"
+                    />
+                  </th>
+                )}
                 <th className="py-3.5 px-4">Tên Món / Dịch vụ</th>
+                <th className="py-3.5 px-4">Cơ sở khách sạn</th>
                 <th className="py-3.5 px-4">Loại danh mục</th>
-                <th className="py-3.5 px-4">Đơn giá gốc</th>
+                <th className="py-3.5 px-4">Đơn giá cơ sở</th>
                 <th className="py-3.5 px-4">Tồn kho / Tính giá</th>
+                <th className="py-3.5 px-4">Thuế VAT</th>
                 <th className="py-3.5 px-4">Trạng thái</th>
-                <th className="py-3.5 px-4 text-right">Thao tác</th>
+                {canManage && <th className="py-3.5 px-4 text-right">Thao tác</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-neutral-400">
+                  <td colSpan={canManage ? 9 : 8} className="py-12 text-center text-neutral-400">
                     Đang tải dữ liệu thực đơn...
                   </td>
                 </tr>
               ) : menus.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-neutral-400">
+                  <td colSpan={canManage ? 9 : 8} className="py-12 text-center text-neutral-400">
                     Không tìm thấy món ăn hoặc dịch vụ nào phù hợp.
                   </td>
                 </tr>
               ) : (
                 menus.map((item) => (
                   <tr key={item.id} className="hover:bg-neutral-50 transition-colors">
-                    <td className="py-3.5 px-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(item.id)}
-                        onChange={() => toggleSelect(item.id)}
-                        className="rounded border-neutral-300 text-red-600 focus:ring-red-600"
-                      />
-                    </td>
+                    {canManage && (
+                      <td className="py-3.5 px-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(item.id)}
+                          onChange={() => toggleSelect(item.id)}
+                          className="rounded border-neutral-300 text-red-600 focus:ring-red-600"
+                        />
+                      </td>
+                    )}
                     <td className="py-3.5 px-4">
-                      <div className="font-semibold text-neutral-900">{item.name}</div>
+                      <div className="font-semibold text-neutral-900">
+                        {item.customName ? (
+                          <>
+                            {item.customName}
+                            <span className="text-xs text-neutral-400 font-normal ml-2 block sm:inline">
+                              (Gốc: {item.name})
+                            </span>
+                          </>
+                        ) : (
+                          item.name
+                        )}
+                      </div>
                       {item.description && (
                         <div className="text-xs text-neutral-400 line-clamp-1">{item.description}</div>
                       )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center gap-1 text-xs text-neutral-700">
+                        <Building2 className="w-3.5 h-3.5 text-neutral-400" />
+                        {item.hotelName || `Khách sạn #${item.hotelId}`}
+                      </span>
                     </td>
                     <td className="py-3.5 px-4">
                       {item.menuType === 'PRODUCT' ? (
@@ -362,10 +357,14 @@ export const MenuListPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4">
                       {item.menuType === 'PRODUCT' ? (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
-                          (item.stockQuantity ?? 0) > 10 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                        }`}>
-                          Còn {item.stockQuantity ?? 0} món
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
+                            (item.stockQuantity ?? 0) > 10
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-rose-50 text-rose-700'
+                          }`}
+                        >
+                          Còn {item.stockQuantity ?? 0} {item.unit || 'món'}
                         </span>
                       ) : (
                         <span className="text-xs text-neutral-600 font-medium">
@@ -373,8 +372,13 @@ export const MenuListPage: React.FC = () => {
                           {item.pricingType === 'PER_STAY' && 'Theo chuyến lưu trú'}
                           {item.pricingType === 'PER_NIGHT' && 'Theo đêm nghỉ'}
                           {item.pricingType === 'PER_PERSON' && 'Theo số khách'}
+                          {item.pricingType === 'PER_PERSON_PER_NIGHT' && 'Khách / Đêm'}
+                          {item.pricingType === 'PER_USE' && 'Theo lần sử dụng'}
                         </span>
                       )}
+                    </td>
+                    <td className="py-3.5 px-4 text-xs text-neutral-700">
+                      {item.taxCategoryName || '—'}
                     </td>
                     <td className="py-3.5 px-4">
                       <span
@@ -387,27 +391,29 @@ export const MenuListPage: React.FC = () => {
                         {item.status === 'ACTIVE' ? 'Sẵn sàng' : 'Tạm ngưng'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEditModal(item)}
-                          className="p-1.5 text-neutral-500 hover:text-blue-600 hover:bg-neutral-100 rounded-lg transition-colors"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setItemToDelete(item.id);
-                            setIsDeleteModalOpen(true);
-                          }}
-                          className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-neutral-100 rounded-lg transition-colors"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    {canManage && (
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="p-1.5 text-neutral-500 hover:text-blue-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                            title="Chỉnh sửa món"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setItemToDelete(item.id);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="p-1.5 text-neutral-500 hover:text-red-600 hover:bg-neutral-100 rounded-lg transition-colors"
+                            title="Xóa món"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -429,122 +435,13 @@ export const MenuListPage: React.FC = () => {
       </div>
 
       {/* Add / Edit Modal */}
-      <Modal
+      <MenuModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingItem ? 'Cập nhật món / dịch vụ' : 'Thêm mới món / dịch vụ'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-neutral-700 mb-1">
-              Tên món / dịch vụ <span className="text-red-500">*</span>
-            </label>
-            <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="VD: Cà phê sữa đá, Giặt ủi 1 bộ vest..."
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-1">
-                Loại mục <span className="text-red-500">*</span>
-              </label>
-              <Select<MenuType>
-                value={formData.menuType}
-                onChange={(val) => setFormData({ ...formData, menuType: val })}
-                disabled={!!editingItem}
-                options={[
-                  { value: 'PRODUCT', label: 'Sản phẩm vật lý (F&B / Minibar)' },
-                  { value: 'SERVICE', label: 'Dịch vụ (Giặt là, Spa, Massage)' },
-                ]}
-                size="lg"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-1">
-                Đơn giá (VNĐ) <span className="text-red-500">*</span>
-              </label>
-              <CurrencyInput
-                value={formData.basePrice}
-                onChangeValue={(val) => setFormData({ ...formData, basePrice: val })}
-                placeholder="0"
-                suffix="VNĐ"
-                required
-              />
-            </div>
-          </div>
-
-          {formData.menuType === 'PRODUCT' ? (
-            <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-1">
-                Số lượng tồn kho ban đầu <span className="text-red-500">*</span>
-              </label>
-              <Input
-                type="number"
-                min="0"
-                value={formData.stockQuantity}
-                onChange={(e) => setFormData({ ...formData, stockQuantity: parseInt(e.target.value) || 0 })}
-                required
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-1">
-                Hình thức tính giá <span className="text-red-500">*</span>
-              </label>
-              <Select<ServicePricingType>
-                value={formData.pricingType}
-                onChange={(val) => setFormData({ ...formData, pricingType: val })}
-                options={[
-                  { value: 'PER_UNIT', label: 'Theo lượt / từng lần gọi' },
-                  { value: 'PER_STAY', label: 'Theo cả chuyến lưu trú' },
-                  { value: 'PER_NIGHT', label: 'Theo từng đêm nghỉ' },
-                  { value: 'PER_PERSON', label: 'Theo số lượng khách' },
-                ]}
-                size="lg"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-xs font-medium text-neutral-700 mb-1">Mô tả chi tiết</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              rows={3}
-              className="w-full p-3 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
-              placeholder="Thành phần, lưu ý bảo quản hoặc thời gian phục vụ..."
-            />
-          </div>
-
-          {editingItem && (
-            <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-1">Trạng thái phục vụ</label>
-              <Select<string>
-                value={formData.status}
-                onChange={(val) => setFormData({ ...formData, status: val })}
-                options={[
-                  { value: 'ACTIVE', label: 'Sẵn sàng phục vụ' },
-                  { value: 'INACTIVE', label: 'Tạm dừng phục vụ' },
-                ]}
-                size="lg"
-              />
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
-            <Button variant="secondary" type="button" onClick={() => setIsModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Đang lưu...' : editingItem ? 'Lưu thay đổi' : 'Thêm vào thực đơn'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSuccess={fetchMenus}
+        item={editingItem}
+        defaultHotelId={filterHotelId || undefined}
+      />
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal
@@ -561,3 +458,5 @@ export const MenuListPage: React.FC = () => {
     </div>
   );
 };
+
+export default MenuListPage;
