@@ -9,7 +9,7 @@ import surchargeRuleService from '../services/surchargeRule.service'
 import hotelService from '../../organization/services/hotel.service'
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service'
 import SurchargeRuleModal from '../components/SurchargeRuleModal'
-import type { SurchargeRuleDto } from '../types/pricing.types'
+import type { SurchargeRuleDto, SurchargeTierItem, SurchargeConditions } from '../types/pricing.types'
 import type { HotelDto } from '../../organization/types/organization.types'
 import type { HotelRoomTypeDto } from '../../inventory/types/inventory.types'
 
@@ -52,15 +52,13 @@ export const SurchargeRuleListPage: React.FC = () => {
   }, [])
 
   useEffect(() => {
-    setFilterRoomTypeId('')
-    if (filterHotelId) {
-      hotelRoomTypeService
-        .filter({ hotelId: Number(filterHotelId), pageSize: 100 })
-        .then((res) => setRoomTypes(res.result?.content || []))
-        .catch((err) => console.error('Lỗi tải danh mục loại phòng:', err))
-    } else {
-      setRoomTypes([])
+    if (!filterHotelId) {
+      return
     }
+    hotelRoomTypeService
+      .filter({ hotelId: Number(filterHotelId), pageSize: 100 })
+      .then((res) => setRoomTypes(res.result?.content || []))
+      .catch((err) => console.error('Lỗi tải danh mục loại phòng:', err))
   }, [filterHotelId])
 
   const loadData = useCallback(async () => {
@@ -90,7 +88,10 @@ export const SurchargeRuleListPage: React.FC = () => {
   }, [page, pageSize, filterHotelId, filterRoomTypeId, filterRuleType, filterStatus, filterActiveOnDate])
 
   useEffect(() => {
-    void loadData()
+    const timer = setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadData])
 
   const handleSearch = (e?: React.FormEvent) => {
@@ -105,6 +106,7 @@ export const SurchargeRuleListPage: React.FC = () => {
     setFilterRuleType('')
     setFilterStatus('')
     setFilterActiveOnDate('')
+    setRoomTypes([])
     setPage(0)
   }
 
@@ -178,7 +180,11 @@ export const SurchargeRuleListPage: React.FC = () => {
           <Select
             label="Khách sạn"
             value={filterHotelId}
-            onChange={(val) => setFilterHotelId(val)}
+            onChange={(val) => {
+              setFilterHotelId(val)
+              setFilterRoomTypeId('')
+              if (!val) setRoomTypes([])
+            }}
             options={[
               { label: '-- Tất cả khách sạn --', value: '' },
               ...hotels.map((h) => ({ label: h.name, value: h.id })),
@@ -347,11 +353,11 @@ export const SurchargeRuleListPage: React.FC = () => {
                       </td>
                       <td className="p-4">
                         {(() => {
-                          let parsedTiers: any[] = []
+                          let parsedTiers: SurchargeTierItem[] = []
                           let standardTime: string | null = null
                           try {
                             if (rule.conditions) {
-                              const parsed = JSON.parse(rule.conditions)
+                              const parsed: SurchargeConditions = JSON.parse(rule.conditions)
                               if (Array.isArray(parsed.tiers) && parsed.tiers.length > 0) {
                                 parsedTiers = parsed.tiers
                                 standardTime = parsed.standard_time || null
@@ -376,7 +382,7 @@ export const SurchargeRuleListPage: React.FC = () => {
                                   )}
                                 </div>
                                 <div className="text-xs text-neutral-600 space-y-0.5">
-                                  {parsedTiers.slice(0, 3).map((tier: any, i: number) => (
+                                  {parsedTiers.slice(0, 3).map((tier: SurchargeTierItem, i: number) => (
                                     <div key={i} className="flex items-center gap-1">
                                       <span className="font-mono text-neutral-700 font-medium">
                                         {tier.from_time} - {tier.to_time}:

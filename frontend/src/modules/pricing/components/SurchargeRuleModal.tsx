@@ -59,9 +59,9 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
   const [selectedHotelId, setSelectedHotelId] = useState<number | ''>('')
   const [hotelRoomTypeId, setHotelRoomTypeId] = useState<number | ''>('')
   const [agePolicyId, setAgePolicyId] = useState<number | ''>('')
-  const [ruleType, setRuleType] = useState<string>('EXTRA_PERSON')
-  const [pricingType, setPricingType] = useState<string>('PER_NIGHT')
-  const [adjustmentType, setAdjustmentType] = useState<string>('FIXED')
+  const [ruleType, setRuleType] = useState<SurchargeRuleCreateRequest['ruleType']>('EXTRA_PERSON')
+  const [pricingType, setPricingType] = useState<SurchargeRuleCreateRequest['pricingType']>('PER_NIGHT')
+  const [adjustmentType, setAdjustmentType] = useState<SurchargeRuleCreateRequest['adjustmentType']>('FIXED')
   const [adjustmentValue, setAdjustmentValue] = useState<number>(100000)
   const [startDate, setStartDate] = useState<string>('')
   const [endDate, setEndDate] = useState<string>('')
@@ -101,73 +101,69 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
 
   // Khi chọn khách sạn, lọc room types và age policies
   useEffect(() => {
-    if (selectedHotelId) {
-      hotelRoomTypeService
-        .filter({ hotelId: Number(selectedHotelId), pageSize: 100 })
-        .then((res) => setRoomTypes(res.result?.content || []))
-        .catch((err) => console.error('Lỗi tải danh mục loại phòng:', err))
-
-      agePolicyService
-        .getEffective(Number(selectedHotelId))
-        .then((res) => setAgePolicies(res.result || []))
-        .catch((err) => console.error('Lỗi tải chính sách độ tuổi:', err))
-    } else {
-      setRoomTypes([])
-      setAgePolicies([])
+    if (!selectedHotelId) {
+      return
     }
+    hotelRoomTypeService
+      .filter({ hotelId: Number(selectedHotelId), pageSize: 100 })
+      .then((res) => setRoomTypes(res.result?.content || []))
+      .catch((err) => console.error('Lỗi tải danh mục loại phòng:', err))
+
+    agePolicyService
+      .getEffective(Number(selectedHotelId))
+      .then((res) => setAgePolicies(res.result || []))
+      .catch((err) => console.error('Lỗi tải chính sách độ tuổi:', err))
   }, [selectedHotelId])
 
   // Đổ dữ liệu khi Edit hoặc Reset khi Thêm mới
   useEffect(() => {
-    if (editingRule) {
-      setSelectedHotelId(editingRule.hotelId || '')
-      setHotelRoomTypeId(editingRule.hotelRoomTypeId)
-      setAgePolicyId(editingRule.agePolicyId || '')
-      setRuleType(editingRule.ruleType)
-      setPricingType(editingRule.pricingType)
-      setAdjustmentType(editingRule.adjustmentType)
-      setAdjustmentValue(editingRule.adjustmentValue)
-      setStartDate(editingRule.startDate)
-      setEndDate(editingRule.endDate)
-      setConditions(editingRule.conditions || '{}')
-      setStatus(editingRule.status)
+    const timer = setTimeout(() => {
+      if (editingRule) {
+        setSelectedHotelId(editingRule.hotelId || '')
+        setHotelRoomTypeId(editingRule.hotelRoomTypeId)
+        setAgePolicyId(editingRule.agePolicyId || '')
+        setRuleType(editingRule.ruleType)
+        setPricingType(editingRule.pricingType)
+        setAdjustmentType(editingRule.adjustmentType)
+        setAdjustmentValue(editingRule.adjustmentValue)
+        setStartDate(editingRule.startDate)
+        setEndDate(editingRule.endDate)
+        setConditions(editingRule.conditions || '{}')
+        setStatus(editingRule.status)
 
-      // Trích xuất tiers từ conditions nếu có
-      try {
-        const parsed: SurchargeConditions = JSON.parse(editingRule.conditions || '{}')
-        if (Array.isArray(parsed.tiers) && parsed.tiers.length > 0) {
-          setTiers(parsed.tiers)
-        } else {
+        // Trích xuất tiers từ conditions nếu có
+        try {
+          const parsed: SurchargeConditions = JSON.parse(editingRule.conditions || '{}')
+          if (Array.isArray(parsed.tiers) && parsed.tiers.length > 0) {
+            setTiers(parsed.tiers)
+          } else {
+            setTiers([])
+          }
+        } catch {
           setTiers([])
         }
-      } catch {
+      } else {
+        setSelectedHotelId('')
+        setHotelRoomTypeId('')
+        setAgePolicyId('')
+        setRuleType('EXTRA_PERSON')
+        setPricingType('PER_NIGHT')
+        setAdjustmentType('FIXED')
+        setAdjustmentValue(100000)
+        setStartDate(new Date().toISOString().split('T')[0])
+        setEndDate(new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0])
+        setConditions('{}')
+        setStatus('ACTIVE')
         setTiers([])
+        setRoomTypes([])
+        setAgePolicies([])
+        setErrors({})
+        setTierError(null)
+        setServerError(null)
       }
-    } else {
-      setSelectedHotelId('')
-      setHotelRoomTypeId('')
-      setAgePolicyId('')
-      setRuleType('EXTRA_PERSON')
-      setPricingType('PER_NIGHT')
-      setAdjustmentType('FIXED')
-      setAdjustmentValue(100000)
-      setStartDate(new Date().toISOString().split('T')[0])
-      setEndDate(new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0])
-      setConditions('{}')
-      setStatus('ACTIVE')
-      setTiers([])
-      setErrors({})
-      setTierError(null)
-      setServerError(null)
-    }
+    }, 0)
+    return () => clearTimeout(timer)
   }, [editingRule, isOpen])
-
-  // Khi chuyển sang EARLY_CHECKIN hoặc LATE_CHECKOUT, mặc định pricingType là PER_STAY
-  useEffect(() => {
-    if (ruleType === 'EARLY_CHECKIN' || ruleType === 'LATE_CHECKOUT') {
-      setPricingType('PER_STAY')
-    }
-  }, [ruleType])
 
   // Thêm bậc mới
   const handleAddTier = () => {
@@ -194,7 +190,11 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
   }
 
   // Cập nhật giá trị trường trong bậc
-  const handleTierChange = (index: number, field: keyof SurchargeTierItem, value: any) => {
+  const handleTierChange = <K extends keyof SurchargeTierItem>(
+    index: number,
+    field: K,
+    value: SurchargeTierItem[K]
+  ) => {
     const updated = [...tiers]
     updated[index] = { ...updated[index], [field]: value }
     setTiers(updated)
@@ -352,9 +352,9 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
       const payload: SurchargeRuleCreateRequest = {
         hotelRoomTypeId: Number(hotelRoomTypeId),
         agePolicyId: agePolicyId ? Number(agePolicyId) : undefined,
-        ruleType: ruleType as any,
-        pricingType: pricingType as any,
-        adjustmentType: adjustmentType as any,
+        ruleType,
+        pricingType,
+        adjustmentType,
         adjustmentValue,
         startDate,
         endDate,
@@ -369,8 +369,9 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
       }
       onSuccess()
       onClose()
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.message || 'Lưu thất bại. Vui lòng kiểm tra dải ngày hiệu lực.'
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } }; message?: string }
+      const msg = axiosError.response?.data?.message || axiosError.message || 'Lưu thất bại. Vui lòng kiểm tra dải ngày hiệu lực.'
       setServerError(msg)
     } finally {
       setIsSubmitting(false)
@@ -402,6 +403,11 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
               onChange={(val) => {
                 setSelectedHotelId(val)
                 setHotelRoomTypeId('')
+                setAgePolicyId('')
+                if (!val) {
+                  setRoomTypes([])
+                  setAgePolicies([])
+                }
               }}
               options={[
                 { label: '-- Chọn cơ sở --', value: '' },
@@ -452,7 +458,13 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
           <FormField label="Loại phụ thu" required>
             <Select
               value={ruleType}
-              onChange={(val) => setRuleType(String(val))}
+              onChange={(val) => {
+                const newType = String(val) as SurchargeRuleCreateRequest['ruleType']
+                setRuleType(newType)
+                if (newType === 'EARLY_CHECKIN' || newType === 'LATE_CHECKOUT') {
+                  setPricingType('PER_STAY')
+                }
+              }}
               options={[
                 { label: 'Thêm người (EXTRA_PERSON)', value: 'EXTRA_PERSON' },
                 { label: 'Kê thêm giường (EXTRA_BED)', value: 'EXTRA_BED' },
@@ -480,9 +492,9 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
             </FormField>
           ) : (
             <FormField label="Hình thức tính giá" required>
-              <Select
+              <Select<'PER_NIGHT' | 'PER_STAY'>
                 value={pricingType}
-                onChange={(val) => setPricingType(String(val))}
+                onChange={(val) => setPricingType(val)}
                 options={[
                   { label: 'Theo kỳ lưu trú (PER_STAY)', value: 'PER_STAY' },
                   { label: 'Theo đêm (PER_NIGHT)', value: 'PER_NIGHT' },
@@ -497,9 +509,9 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
         {ruleType === 'EXTRA_PERSON' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField label="Hình thức tính giá" required>
-              <Select
+              <Select<'PER_NIGHT' | 'PER_STAY'>
                 value={pricingType}
-                onChange={(val) => setPricingType(String(val))}
+                onChange={(val) => setPricingType(val)}
                 options={[
                   { label: 'Theo đêm (PER_NIGHT)', value: 'PER_NIGHT' },
                   { label: 'Theo kỳ lưu trú (PER_STAY)', value: 'PER_STAY' },
@@ -671,9 +683,9 @@ export const SurchargeRuleModal: React.FC<SurchargeRuleModalProps> = ({
             label={isTierApplicable ? 'Kiểu điều chỉnh mặc định (Dự phòng)' : 'Kiểu điều chỉnh'}
             required
           >
-            <Select
+            <Select<'PERCENT' | 'FIXED'>
               value={adjustmentType}
-              onChange={(val) => setAdjustmentType(String(val))}
+              onChange={(val) => setAdjustmentType(val)}
               options={[
                 { label: 'Số tiền cố định (VNĐ)', value: 'FIXED' },
                 { label: 'Phần trăm (%) giá phòng', value: 'PERCENT' },
