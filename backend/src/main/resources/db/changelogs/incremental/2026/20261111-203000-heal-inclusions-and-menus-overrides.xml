@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261111-203000-heal-inclusions-and-menus-overrides" author="antigravity" runOnChange="true">
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Chuan hoa master_item_id tren menus va don rac trung lap trong hotel_room_type_inclusions</comment>
+        <sqlFile dbms="postgresql"
+                 encoding="utf-8"
+                 path="db/sqlFile/incremental/2026/20261111-203000-heal-inclusions-and-menus-overrides.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>

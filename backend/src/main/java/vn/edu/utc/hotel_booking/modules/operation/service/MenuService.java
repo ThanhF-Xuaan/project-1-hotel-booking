@@ -26,4 +26,10 @@ public interface MenuService {
     PageResponse<MenuResponse> filter(MenuSearchDto searchDto);
 
     void deleteBatch(List<Integer> ids);
+
+    boolean isMasterItemOverriddenByHotel(Short hotelId, Integer masterItemId);
+
+    boolean isMasterItemOverriddenByHotel(Short hotelId, Integer masterItemId, String masterItemName);
+
+    List<Integer> getOverriddenMasterItemIds(Short hotelId);
 }
