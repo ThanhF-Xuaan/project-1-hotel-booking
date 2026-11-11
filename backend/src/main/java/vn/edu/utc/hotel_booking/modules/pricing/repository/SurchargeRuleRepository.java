@@ -26,19 +26,31 @@ public interface SurchargeRuleRepository extends JpaRepository<SurchargeRule, In
 
     Optional<SurchargeRule> findByIdAndIsDeletedFalse(Integer id);
 
-    @Query("SELECT sr FROM SurchargeRule sr " +
+    @Query(value = "SELECT sr FROM SurchargeRule sr " +
             "JOIN FETCH sr.hotelRoomType hrt " +
             "JOIN FETCH hrt.roomType rt " +
             "JOIN FETCH hrt.hotel h " +
             "LEFT JOIN FETCH sr.agePolicy ap " +
             "WHERE sr.isDeleted = false " +
-            "AND (:hotelId IS NULL OR hrt.hotel.id = :hotelId) " +
-            "AND (:hotelRoomTypeId IS NULL OR sr.hotelRoomType.id = :hotelRoomTypeId) " +
-            "AND (:agePolicyId IS NULL OR sr.agePolicy.id = :agePolicyId) " +
+            "AND (:hotelId IS NULL OR h.id = :hotelId) " +
+            "AND (:hotelRoomTypeId IS NULL OR hrt.id = :hotelRoomTypeId) " +
+            "AND (:agePolicyId IS NULL OR (ap IS NOT NULL AND ap.id = :agePolicyId)) " +
             "AND (:ruleType IS NULL OR sr.ruleType = :ruleType) " +
             "AND (:pricingType IS NULL OR sr.pricingType = :pricingType) " +
             "AND (:status IS NULL OR sr.status = :status) " +
-            "AND (:activeOnDate IS NULL OR (sr.startDate <= :activeOnDate AND sr.endDate >= :activeOnDate))")
+            "AND (cast(:activeOnDate as date) IS NULL OR (sr.startDate <= :activeOnDate AND sr.endDate >= :activeOnDate))",
+          countQuery = "SELECT COUNT(sr) FROM SurchargeRule sr " +
+            "JOIN sr.hotelRoomType hrt " +
+            "JOIN hrt.hotel h " +
+            "LEFT JOIN sr.agePolicy ap " +
+            "WHERE sr.isDeleted = false " +
+            "AND (:hotelId IS NULL OR h.id = :hotelId) " +
+            "AND (:hotelRoomTypeId IS NULL OR hrt.id = :hotelRoomTypeId) " +
+            "AND (:agePolicyId IS NULL OR (ap IS NOT NULL AND ap.id = :agePolicyId)) " +
+            "AND (:ruleType IS NULL OR sr.ruleType = :ruleType) " +
+            "AND (:pricingType IS NULL OR sr.pricingType = :pricingType) " +
+            "AND (:status IS NULL OR sr.status = :status) " +
+            "AND (cast(:activeOnDate as date) IS NULL OR (sr.startDate <= :activeOnDate AND sr.endDate >= :activeOnDate))")
     Page<SurchargeRule> filterSurchargeRules(
             @Param("hotelId") Short hotelId,
             @Param("hotelRoomTypeId") Integer hotelRoomTypeId,

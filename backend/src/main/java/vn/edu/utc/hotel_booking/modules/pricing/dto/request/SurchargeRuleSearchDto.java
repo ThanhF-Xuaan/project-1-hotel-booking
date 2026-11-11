@@ -1,8 +1,10 @@
 package vn.edu.utc.hotel_booking.modules.pricing.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 
@@ -40,6 +42,8 @@ public class SurchargeRuleSearchDto {
     String status;
 
     @Schema(description = "Ngày cần kiểm tra hiệu lực", example = "2026-06-15")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    @JsonFormat(pattern = "yyyy-MM-dd")
     LocalDate activeOnDate;
 
     @Schema(description = "Cột sắp xếp", example = "id")

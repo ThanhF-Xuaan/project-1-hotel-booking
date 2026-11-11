@@ -52,6 +52,7 @@ export const SurchargeRuleListPage: React.FC = () => {
   }, [])
 
   useEffect(() => {
+    setFilterRoomTypeId('')
     if (filterHotelId) {
       hotelRoomTypeService
         .filter({ hotelId: Number(filterHotelId), pageSize: 100 })
@@ -59,7 +60,6 @@ export const SurchargeRuleListPage: React.FC = () => {
         .catch((err) => console.error('Lỗi tải danh mục loại phòng:', err))
     } else {
       setRoomTypes([])
-      setFilterRoomTypeId('')
     }
   }, [filterHotelId])
 
@@ -92,6 +92,21 @@ export const SurchargeRuleListPage: React.FC = () => {
   useEffect(() => {
     void loadData()
   }, [loadData])
+
+  const handleSearch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    setPage(0)
+    void loadData()
+  }
+
+  const handleResetFilters = () => {
+    setFilterHotelId('')
+    setFilterRoomTypeId('')
+    setFilterRuleType('')
+    setFilterStatus('')
+    setFilterActiveOnDate('')
+    setPage(0)
+  }
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -158,7 +173,7 @@ export const SurchargeRuleListPage: React.FC = () => {
       </div>
 
       {/* HÀNG 1: SEARCH & FILTER BAR */}
-      <div className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-sm space-y-4">
+      <form onSubmit={handleSearch} className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-sm space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Select
             label="Khách sạn"
@@ -210,30 +225,26 @@ export const SurchargeRuleListPage: React.FC = () => {
             type="date"
             value={filterActiveOnDate}
             onChange={(e) => setFilterActiveOnDate(e.target.value)}
+            className="!h-11 text-xs font-semibold rounded-xl bg-white"
           />
         </div>
 
         <div className="flex justify-end gap-3">
           <Button
+            type="button"
             variant="secondary"
-            onClick={() => {
-              setFilterHotelId('')
-              setFilterRoomTypeId('')
-              setFilterRuleType('')
-              setFilterStatus('')
-              setFilterActiveOnDate('')
-              setPage(0)
-            }}
+            onClick={handleResetFilters}
+            disabled={isLoading}
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             Làm mới bộ lọc
           </Button>
-          <Button variant="primary" onClick={() => setPage(0)}>
+          <Button type="submit" variant="primary" disabled={isLoading}>
             <Search className="w-4 h-4 mr-2" />
             Tìm kiếm
           </Button>
         </div>
-      </div>
+      </form>
 
       {/* HÀNG 2: ACTION TOOLBAR */}
       <div className="flex items-center justify-between">
