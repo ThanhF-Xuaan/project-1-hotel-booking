@@ -169,6 +169,25 @@ class GeminiRagGroundedAnswerTest {
         verify(generator, never()).generate(any()); verify(generator, never()).isEnabled();
     }
 
+    @Test
+    void staticRoomDescriptionQueriesBypassLlmGeneratorToPreserveStructuredLines() {
+        UUID roomDescId = UUID.randomUUID();
+        String structuredLines = "[STD] Standard Room: 28m2, view phố.\n[DLX] Deluxe Room: 35m2, ban công.";
+        KnowledgeChunk roomDescChunk = KnowledgeChunk.builder()
+                .chunkId(roomDescId).documentId(UUID.randomUUID()).sourceId("ROOM-DESC-01").version(1)
+                .scopeType(RagScopeType.HOTEL_SCOPED).hotelId(1)
+                .category(RagDocumentCategory.STATIC_ROOM_DESCRIPTION).status(RagVersionStatus.ACTIVE)
+                .effectiveFrom(LocalDate.of(2026, 1, 1)).chunkIndex(0)
+                .content(structuredLines).sanitizedContent(structuredLines).build();
+        evidence(roomDescChunk);
+
+        var result = ask("Mô tả diện tích m2 và bố cục các hạng phòng", 1);
+
+        assertThat(result.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
+        assertThat(result.getAnswer()).isEqualTo(structuredLines);
+        verify(generator, never()).generate(any());
+    }
+
     @Test void conflictingTimesAreCheckedBeforeBudgetOmissionAndGeneration() {
         evidence(chunk(id, 1, "LARGE-POLICY", "Nhận phòng từ 15:00. " + "X".repeat(10_000)),
                 chunk(UUID.randomUUID(), 1, "CONFLICT", "Nhận phòng từ 17:00."));

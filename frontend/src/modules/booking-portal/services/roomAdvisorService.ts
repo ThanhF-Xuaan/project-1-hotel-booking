@@ -5,6 +5,9 @@ import type {
   AdvisorRefreshRequestDto,
   AdvisorResultDto,
   AdvisorClientError,
+  UnifiedAdvisorRequest,
+  UnifiedAdvisorResult,
+  KnowledgeCitation,
 } from '../types/roomAdvisor.types';
 
 const rawBaseUrl =
@@ -175,6 +178,68 @@ export async function sendAdvisorRefresh(
       { signal: requestOptions?.signal }
     );
     return res.data.result;
+  } catch (err) {
+    return handleAdvisorError(err);
+  }
+}
+
+/**
+ * Gửi tin nhắn đến luồng hội thoại hợp nhất (Unified Conversational Flow - /converse)
+ */
+export async function sendUnifiedChat(
+  request: UnifiedAdvisorRequest,
+  options?: AdvisorRequestOptions
+): Promise<UnifiedAdvisorResult> {
+  try {
+    const res = await advisorClient.post<ApiResponse<UnifiedAdvisorResult>>(
+      '/api/v1/public/ai/room-advisor/converse',
+      request,
+      { signal: options?.signal }
+    );
+
+    const result = res.data.result;
+    const knowledge = result?.knowledge;
+    if (knowledge && (knowledge.state === 'ANSWERED' || (knowledge as unknown as Record<string, unknown>).state === 'GROUNDED_ANSWER')) {
+      const isGrounded = knowledge.result?.status === 'GROUNDED_ANSWER' || (knowledge as unknown as Record<string, unknown>).state === 'GROUNDED_ANSWER';
+      if (isGrounded) {
+        const citations = knowledge.result?.citations ?? (knowledge as unknown as { citations?: KnowledgeCitation[] }).citations;
+        const invalidCitations = !citations || citations.length === 0;
+        const crossHotelLeak =
+          knowledge.hotelId != null &&
+          citations?.some((c) => c.hotelId != null && c.hotelId !== knowledge.hotelId);
+        if (invalidCitations || crossHotelLeak) {
+          result.knowledge = {
+            ...knowledge,
+            state: 'UNAVAILABLE',
+            result: {
+              status: 'RAG_TEMP_UNAVAILABLE',
+              answer: 'Không thể xác thực nguồn trích dẫn cho câu trả lời chính sách.',
+              citations: [],
+            },
+          };
+        }
+      }
+    }
+
+    const comparison = result?.comparison;
+    if (comparison?.staticDescriptionCitations && comparison.staticDescriptionCitations.length > 0) {
+      const allowedHotelIds = new Set(comparison.items.map((item) => item.hotelId));
+      const invalidComparisonCitation = comparison.staticDescriptionCitations.some(
+        (c) => c.hotelId == null || !allowedHotelIds.has(c.hotelId)
+      );
+      if (invalidComparisonCitation) {
+        result.comparison = {
+          ...comparison,
+          staticDescriptionCitations: [],
+          items: comparison.items.map((item) => ({
+            ...item,
+            staticAreaAndLayout: undefined,
+          })),
+        };
+      }
+    }
+
+    return result;
   } catch (err) {
     return handleAdvisorError(err);
   }

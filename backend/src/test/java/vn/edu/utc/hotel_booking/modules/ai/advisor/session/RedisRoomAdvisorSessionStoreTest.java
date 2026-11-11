@@ -409,4 +409,34 @@ class RedisRoomAdvisorSessionStoreTest {
         verify(valueOperations,never()).set(anyString(),anyString(),any(Duration.class));
     }
 
+
+    @Test void policyChoiceIsSerializedAtomicallyWithoutChangingCriteria() throws Exception {
+        var sid = UUID.randomUUID();
+        String key = RedisRoomAdvisorSessionStore.KEY_PREFIX + sid;
+        var criteria = RoomSearchCriteriaDto.builder().locationKeyword("Synthetic City").build();
+        var existing = RoomAdvisorSession.builder().sessionId(sid).ownerKey("owner").sessionVersion(2L)
+                .criteria(criteria).lastResult(AdvisorResultDto.builder().sessionId(sid).sessionVersion(2L).build()).build();
+        var raw = new java.util.concurrent.atomic.AtomicReference<>(objectMapper.writeValueAsString(existing));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.get(key)).thenAnswer(inv -> raw.get());
+        when(redisTemplate.execute(any(SessionCallback.class))).thenAnswer(inv -> {
+            SessionCallback<?> callback = inv.getArgument(0);
+            return callback.execute(redisTemplate);
+        });
+        when(redisTemplate.exec()).thenReturn(List.of("OK"));
+        org.mockito.Mockito.doAnswer(inv -> { raw.set(inv.getArgument(1)); return null; })
+                .when(valueOperations).set(eq(key), anyString(), eq(RedisRoomAdvisorSessionStore.SESSION_TTL));
+        var selected = store.updatePolicyScope(sid, "owner", 2L, 2);
+        assertThat(selected.getPolicyHotelId()).isEqualTo(2);
+        assertThat(selected.getSessionVersion()).isEqualTo(3L);
+        assertThat(selected.getCriteria()).isEqualTo(criteria);
+        assertThat(selected.getLastResult().getSessionVersion()).isEqualTo(3L);
+        assertThat(store.getSession(sid, "owner").orElseThrow().getPolicyHotelId()).isEqualTo(2);
+        assertThat(store.getOrCreateSession(sid, "owner").getPolicyHotelId()).isEqualTo(2);
+        assertThatThrownBy(() -> store.updatePolicyScope(sid, "other", 3L, 1)).isInstanceOf(SessionSecurityException.class);
+        assertThatThrownBy(() -> store.updatePolicyScope(sid, "owner", 2L, 1)).isInstanceOf(SessionVersionConflictException.class);
+        var updated = store.updateSession(sid, "owner", 3L,
+                RoomSearchCriteriaDto.builder().locationKeyword("New City").build(), List.of(), null);
+        assertThat(updated.getPolicyHotelId()).isNull();
+    }
 }

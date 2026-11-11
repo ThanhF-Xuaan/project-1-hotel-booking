@@ -49,6 +49,7 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
                     .criteria(existing.getCriteria())
                     .criteriaProvenance(existing.getCriteriaProvenance() != null ? new ArrayList<>(existing.getCriteriaProvenance()) : new ArrayList<>())
                     .lastResult(existing.getLastResult())
+                    .policyHotelId(existing.getPolicyHotelId())
                     .lastAccessedAt(Instant.now())
                     .build();
         });
@@ -92,6 +93,21 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
             List<CriteriaEvidenceDto> provenance,
             AdvisorResultDto lastResult
     ) {
+        return updateSession(sessionId, ownerKey, expectedSessionVersion, criteria, provenance, lastResult, null, false);
+    }
+
+    @Override
+    public RoomAdvisorSession updatePolicyScope(UUID sessionId, String ownerKey,
+                                                Long expectedSessionVersion, Integer policyHotelId) {
+        return updateSession(sessionId, ownerKey, expectedSessionVersion, null, null, null, policyHotelId, true);
+    }
+
+    private RoomAdvisorSession updateSession(UUID sessionId, String ownerKey, Long expectedSessionVersion,
+            RoomSearchCriteriaDto criteria, List<CriteriaEvidenceDto> provenance, AdvisorResultDto lastResult,
+            Integer policyHotelId, boolean policyOnly) {
+        if (policyHotelId != null && (policyHotelId < 1 || policyHotelId > 32767)) {
+            throw new IllegalArgumentException("Invalid policy hotel");
+        }
         purgeExpired();
 
         if (sessionId == null) {
@@ -127,8 +143,10 @@ public class InMemoryRoomAdvisorSessionStore implements RoomAdvisorSessionStore 
                     .criteriaProvenance(provenance != null ? new ArrayList<>(provenance) :
                             (existing.getCriteriaProvenance() != null ? new ArrayList<>(existing.getCriteriaProvenance()) : new ArrayList<>()))
                     .lastResult(lastResult != null ? lastResult : existing.getLastResult())
+                    .policyHotelId(policyOnly ? policyHotelId
+                                : RoomAdvisorSnapshots.policyHotelAfterSearch(existing, criteria, lastResult))
                     .lastAccessedAt(Instant.now())
-                    .build(), lastResult != null);
+                    .build(), lastResult != null || policyOnly);
         });
 
         if (securityEx.get() != null) {

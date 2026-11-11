@@ -1,6 +1,6 @@
 /**
  * Room Advisor Type Definitions
- * Conforming strictly to frozen T12 R1 contract v2.0.0-draft.1
+ * Conforming strictly to frozen T12 R1 contract v2.0.0-draft.1 and additive v2.1 unified conversation
  */
 
 export interface AdvisorSearchCriteria {
@@ -135,12 +135,120 @@ export interface AdvisorClientError {
   isSessionConflict?: boolean;
 }
 
+export interface HotelChoice {
+  hotelId: number;
+  hotelName: string;
+}
+
+export interface KnowledgeCitation {
+  sourceId: string;
+  version: number;
+  chunkId: string;
+  category: string;
+  hotelId?: number | null;
+  effectiveFrom?: string | null;
+  snippet: string;
+  similarityScore: number;
+}
+
+export interface KnowledgeAnswer {
+  state: 'ANSWERED' | 'SCOPE_REQUIRED' | 'RATE_LIMITED' | 'UNAVAILABLE' | 'NOT_ASKED';
+  hotelId?: number;
+  hotelName?: string;
+  policyQuestion?: string;
+  result?: {
+    status: 'GROUNDED_ANSWER' | 'INSUFFICIENT_EVIDENCE' | 'SCOPE_REQUIRED' | 'CONFLICTING_SOURCES' | 'RAG_TEMP_UNAVAILABLE' | 'OUT_OF_SCOPE';
+    answer?: string;
+    citations?: KnowledgeCitation[];
+    warnings?: string[];
+    disclaimers?: string[];
+  };
+  retryAfterSeconds?: number;
+  hotelChoices?: HotelChoice[];
+}
+
+export type ComparisonFocus =
+  | 'FAMILY_KIDS'
+  | 'BUDGET_SAVER'
+  | 'SPACE_COMFORT'
+  | 'WORK_TRIP'
+  | 'GENERAL';
+
+export type ComparisonStatus = 'READY' | 'INSUFFICIENT_CANDIDATES' | 'NEED_SEARCH_FIRST';
+
+export interface RoomComparisonItem {
+  recommendationId?: string;
+  hotelRoomTypeId: number;
+  hotelId: number;
+  hotelName: string;
+  roomTypeCode: string;
+  roomTypeName: string;
+  quoteId?: string;
+  observedAt?: string;
+  finalTotalAmount: string;
+  perNightAverageAmount?: string;
+  currency: string;
+  totalNights: number;
+  chargeCoverage?: AdvisorPriceQuote['chargeCoverage'];
+  serviceFeeStatus?: AdvisorPriceQuote['serviceFeeStatus'];
+  budgetCheck?: AdvisorPriceQuote['budgetCheck'];
+  priceDeltaFromCheapest?: string;
+  priceDiffPercentFromCheapest?: number;
+  maxAdults: number;
+  maxChildren: number;
+  maxTotalGuests: number;
+  extraBedsAllowed: number;
+  staticAreaAndLayout?: string;
+  uniqueFeatureNames: string[];
+  bestForBullets: string[];
+  action?: AdvisorAction;
+}
+
+export interface RoomComparisonMatrix {
+  status: ComparisonStatus;
+  focus: ComparisonFocus;
+  items: RoomComparisonItem[];
+  sharedFeatureNames: string[];
+  maxSavingsAmount?: string;
+  maxSavingsPercent?: number;
+  tradeOffSummary: string;
+  staticDescriptionCitations?: KnowledgeCitation[];
+}
+
+export interface UnifiedAdvisorRequest {
+  message: string;
+  sessionId?: string;
+  expectedSessionVersion?: number;
+  policyHotelId?: number;
+  compareRoomTypeIds?: number[];
+}
+
+export interface UnifiedAdvisorResult {
+  contractVersion: string;
+  requestId: string;
+  intent:
+    | 'SEARCH_ONLY'
+    | 'POLICY_ONLY'
+    | 'SEARCH_AND_POLICY'
+    | 'ROOM_COMPARISON'
+    | 'SEARCH_AND_COMPARISON'
+    | 'OUT_OF_SCOPE';
+  sessionId?: string;
+  sessionVersion?: number;
+  advisor?: AdvisorResultDto;
+  knowledge?: KnowledgeAnswer;
+  comparison?: RoomComparisonMatrix;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'assistant' | 'system';
   text: string;
   timestamp: Date;
   result?: AdvisorResultDto;
+  knowledge?: KnowledgeAnswer;
+  comparison?: RoomComparisonMatrix;
+  intent?: UnifiedAdvisorResult['intent'];
   isError?: boolean;
   rateLimitCountdown?: number;
 }

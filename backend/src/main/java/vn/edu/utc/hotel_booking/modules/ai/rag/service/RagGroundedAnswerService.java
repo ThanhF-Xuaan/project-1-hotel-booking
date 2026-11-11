@@ -9,6 +9,7 @@ import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagIngestRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryRequestDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.dto.RagQueryResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagAnswerStatus;
+import vn.edu.utc.hotel_booking.modules.ai.rag.enums.RagDocumentCategory;
 import vn.edu.utc.hotel_booking.modules.ai.rag.governance.RagCorpusGovernanceValidator;
 import vn.edu.utc.hotel_booking.modules.ai.rag.llm.RagAnswerGenerationPort;
 import vn.edu.utc.hotel_booking.modules.ai.rag.model.KnowledgeChunk;
@@ -129,21 +130,21 @@ public class RagGroundedAnswerService {
         }
         if (NON_STATIC_REQUEST.matcher(question).find()) {
             return RagQueryResultDto.builder().status(RagAnswerStatus.OUT_OF_SCOPE)
-                    .answer("Trợ lý kiến thức chỉ tra cứu chính sách công khai. Vui lòng dùng chức năng nghiệp vụ tương ứng hoặc liên hệ nhân viên.").build();
+                    .answer("Tôi chỉ tra cứu chính sách công khai. Vui lòng dùng chức năng nghiệp vụ tương ứng hoặc liên hệ nhân viên.").build();
         }
 
         // 1. Guardrail checks: Direct Prompt Injection, Code Gen, Customer PII (T12-015, T12-018, T12-019, T12-021)
         if (CODE_GEN_PATTERN.matcher(question).find()) {
             return RagQueryResultDto.builder()
                     .status(RagAnswerStatus.OUT_OF_SCOPE)
-                    .answer("Trợ lý chỉ hỗ trợ giải đáp các chính sách, dịch vụ và tiện ích của khách sạn. Chúng tôi không hỗ trợ viết mã nguồn hoặc lập trình.")
+                    .answer("Tôi chỉ hỗ trợ giải đáp các chính sách, dịch vụ và tiện ích của khách sạn. Tôi không hỗ trợ viết mã nguồn hoặc lập trình.")
                     .build();
         }
 
         if (DIRECT_INJECTION_PATTERN.matcher(question).find()) {
             return RagQueryResultDto.builder()
                     .status(RagAnswerStatus.OUT_OF_SCOPE)
-                    .answer("Yêu cầu không hợp lệ. Trợ lý tuân thủ các quy chuẩn bảo mật và không tiết lộ cấu hình hệ thống hay dữ liệu nhạy cảm.")
+                    .answer("Yêu cầu không hợp lệ. Tôi tuân thủ các quy chuẩn bảo mật và không tiết lộ cấu hình hệ thống hay dữ liệu nhạy cảm.")
                     .build();
         }
 
@@ -196,46 +197,52 @@ public class RagGroundedAnswerService {
         String finalAnswer;
         boolean aiGenerated = false;
 
-        if (isEnglish) {
-            // Multilingual response (T12-006)
-            finalAnswer = synthesizeEnglishAnswer(question, rawAnswer);
+        if (asksStaticRoomDescription(question)) {
+            // Finding 1: STATIC_ROOM_DESCRIPTION queries return deterministic structured lines
+            // [STD] ..., [DLX] ..., [EXE] ... that must be returned verbatim without LLM paraphrasing
+            finalAnswer = rawAnswer;
         } else {
-            finalAnswer = synthesizeVietnameseAnswer(question, rawAnswer);
-        }
+            if (isEnglish) {
+                // Multilingual response (T12-006)
+                finalAnswer = synthesizeEnglishAnswer(question, rawAnswer);
+            } else {
+                finalAnswer = synthesizeVietnameseAnswer(question, rawAnswer);
+            }
 
-        if (generator != null) {
-            try {
-                if (generator.isEnabled()) {
-                    var input = new RagAnswerGeneratorPort.Request(PiiRedactionUtil.redact(question), isEnglish ? "en" : "vi",
-                            selected.stream().map(EvidenceCandidate::evidence).toList());
-                    var verified = generatedAnswerValidator.validate(generator.generate(input), input.evidence());
-                    Map<UUID, RagCitationDto> trusted = new HashMap<>();
-                    selected.forEach(item -> trusted.put(item.evidence().chunkId(), item.citation()));
-                    citations = verified.chunkIds().stream().map(trusted::get).toList();
-                    finalAnswer = verified.answer();
+            if (generator != null) {
+                try {
+                    if (generator.isEnabled()) {
+                        var input = new RagAnswerGeneratorPort.Request(PiiRedactionUtil.redact(question), isEnglish ? "en" : "vi",
+                                selected.stream().map(EvidenceCandidate::evidence).toList());
+                        var verified = generatedAnswerValidator.validate(generator.generate(input), input.evidence());
+                        Map<UUID, RagCitationDto> trusted = new HashMap<>();
+                        selected.forEach(item -> trusted.put(item.evidence().chunkId(), item.citation()));
+                        citations = verified.chunkIds().stream().map(trusted::get).toList();
+                        finalAnswer = verified.answer();
+                    }
                 }
-            }
-            catch (Exception failure) {
-                // No raw provider/model/parser exception is logged or returned.
-                warnings.add("GENERATION_FALLBACK_EXTRACTIVE");
-            }
-        } else if (answerGenerator != null) {
-            List<RagAnswerGenerationPort.Evidence> numberedEvidence = new ArrayList<>();
-            for (int i = 0; i < selected.size(); i++) {
-                numberedEvidence.add(new RagAnswerGenerationPort.Evidence(i + 1, selected.get(i).evidence().content()));
-            }
-            Optional<RagAnswerGenerationPort.GeneratedAnswer> generated = answerGenerator.generate(
-                    question, isEnglish ? "en" : "vi", List.copyOf(numberedEvidence));
-            if (generated.isPresent()) {
-                var output = generated.get();
-                finalAnswer = output.answer();
-                List<RagCitationDto> availableCitations = List.copyOf(citations);
-                citations = output.evidenceIds().stream()
-                        .filter(id -> id != null && id > 0 && id <= availableCitations.size())
-                        .map(id -> availableCitations.get(id - 1))
-                        .distinct()
-                        .toList();
-                aiGenerated = true;
+                catch (Exception failure) {
+                    // No raw provider/model/parser exception is logged or returned.
+                    warnings.add("GENERATION_FALLBACK_EXTRACTIVE");
+                }
+            } else if (answerGenerator != null) {
+                List<RagAnswerGenerationPort.Evidence> numberedEvidence = new ArrayList<>();
+                for (int i = 0; i < selected.size(); i++) {
+                    numberedEvidence.add(new RagAnswerGenerationPort.Evidence(i + 1, selected.get(i).evidence().content()));
+                }
+                Optional<RagAnswerGenerationPort.GeneratedAnswer> generated = answerGenerator.generate(
+                        question, isEnglish ? "en" : "vi", List.copyOf(numberedEvidence));
+                if (generated.isPresent()) {
+                    var output = generated.get();
+                    finalAnswer = output.answer();
+                    List<RagCitationDto> availableCitations = List.copyOf(citations);
+                    citations = output.evidenceIds().stream()
+                            .filter(id -> id != null && id > 0 && id <= availableCitations.size())
+                            .map(id -> availableCitations.get(id - 1))
+                            .distinct()
+                            .toList();
+                    aiGenerated = true;
+                }
             }
         }
 
@@ -268,8 +275,20 @@ public class RagGroundedAnswerService {
                 .replaceAll("\\p{M}+", "").replace('đ', 'd').replace('Đ', 'D');
     }
 
+    private static final Pattern ROOM_DESC_KEYWORDS = Pattern.compile(
+            "(?iuU)\\b(?:dien\\s*tich|m2|m²|met\\s*vuong|bo\\s*cuc|hang\\s*phong|phong\\s*khach|bon\\s*tam|square\\s*meters?|room\\s*size|layout)\\b"
+    );
+
     private boolean mentionsPets(String text) {
         return PET_TOPIC.matcher(foldAccents(text)).find() || ACCENTED_PET_TOPIC.matcher(text).find();
+    }
+
+    private boolean asksStaticRoomDescription(String text) {
+        if (text == null || text.isBlank()) return false;
+        String normalized = foldAccents(text).toLowerCase(Locale.ROOT);
+        return ROOM_DESC_KEYWORDS.matcher(normalized).find()
+                || text.toLowerCase(Locale.ROOT).contains("m2")
+                || text.toLowerCase(Locale.ROOT).contains("m²");
     }
 
     private record EvidenceCandidate(RagAnswerGeneratorPort.Evidence evidence, RagCitationDto citation,
@@ -279,11 +298,20 @@ public class RagGroundedAnswerService {
                                                      RagQueryRequestDto request, String question) {
         if (retrieved.size() > RagAnswerGeneratorPort.MAX_CHUNKS) throw new IllegalStateException("RAG evidence boundary exceeded");
         var date = request.getAsOfDate() == null ? java.time.LocalDate.now() : request.getAsOfDate();
+        boolean asksRoomDesc = asksStaticRoomDescription(question);
         List<EvidenceCandidate> safe = new ArrayList<>(); Set<UUID> seen = new HashSet<>();
         for (var row : retrieved) {
             if (row == null) continue;
             KnowledgeChunk chunk = row.getChunk();
             if (!ScopedRagRetrievalService.isEligibleEvidence(chunk, request.getHotelId(), date)) continue;
+
+            // Isolate STATIC_ROOM_DESCRIPTION chunks from general POLICY/AMENITY/FAQ inquiries
+            if (chunk.getCategory() == RagDocumentCategory.STATIC_ROOM_DESCRIPTION) {
+                if (!asksRoomDesc) continue;
+            } else if (asksRoomDesc) {
+                continue;
+            }
+
             String content = chunk.getSanitizedContent() != null ? chunk.getSanitizedContent() : chunk.getContent();
             if (content == null || content.length() > 64_000 || !governanceValidator.validateForIngestion(
                     RagIngestRequestDto.builder().scopeType(chunk.getScopeType()).hotelId(chunk.getHotelId())
@@ -372,7 +400,9 @@ public class RagGroundedAnswerService {
         String lower = question.toLowerCase(Locale.ROOT);
         return asksCheckIn(lower) || asksCheckOut(lower) ||
                 lower.contains("hồ bơi") || lower.contains("bể bơi") ||
-                lower.contains("bữa sáng") || lower.contains("ăn sáng");
+                lower.contains("bữa sáng") || lower.contains("ăn sáng") ||
+                lower.contains("buffet") ||
+                asksStaticRoomDescription(question);
     }
 
     private String synthesizeEnglishAnswer(String question, String context) {

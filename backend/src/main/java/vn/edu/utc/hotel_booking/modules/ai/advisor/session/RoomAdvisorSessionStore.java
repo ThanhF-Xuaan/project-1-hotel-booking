@@ -34,6 +34,10 @@ public interface RoomAdvisorSessionStore {
             AdvisorResultDto lastResult
     );
 
+    /** Updates only the selected policy hotel under the same owner, TTL and optimistic lock. */
+    RoomAdvisorSession updatePolicyScope(UUID sessionId, String ownerKey,
+                                         Long expectedSessionVersion, Integer policyHotelId);
+
     /**
      * Explicitly invalidates / removes a session.
      */

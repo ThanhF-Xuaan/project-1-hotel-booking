@@ -28,6 +28,8 @@ import java.time.DateTimeException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -123,20 +125,24 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             "(?i)\\b(" + RELATIVE_DATE_TOKEN + ")\\b"
     );
 
+    private static final Pattern RELATIVE_WEEKEND_PATTERN = Pattern.compile(
+            "(?iU)\\bcuối\\s*tuần\\s*(này|nay|tới|toi|sau)?\\b"
+    );
+
     private static final Pattern DURATION_ONLY_PATTERN = Pattern.compile(
             "(?i)(?:(?:ở|o|trong|khoảng|khoang)\\s+)?(\\d+)\\s*(?:đêm|dem|ngày|ngay)(?:\\s*(?:sau|nữa|nua))?"
     );
 
     private static final Pattern ADULTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:người\\s*lớn|nguoi\\s*lon|adults?)");
-    private static final Pattern CHILDREN_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:trẻ\\s*em|tre\\s*em|children|child)");
-    private static final Pattern NO_CHILDREN_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:trẻ\\s*em|tre\\s*em|children|child)");
+    private static final Pattern CHILDREN_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:trẻ\\s*em|tre\\s*em|children|child|bé|be)(?:\\s+\\d+\\s*(?:tuổi|tuoi))?");
+    private static final Pattern NO_CHILDREN_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:trẻ\\s*em|tre\\s*em|children|child|bé|be)");
     private static final Pattern INFANTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:em\\s*bé|em\\s*be|trẻ\\s*sơ\\s*sinh|infants?|bab(?:y|ies))");
     private static final Pattern NO_INFANTS_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:em\\s*bé|em\\s*be|trẻ\\s*sơ\\s*sinh|infants?|bab(?:y|ies))");
     private static final Pattern EXTRA_BEDS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:giường\\s*phụ|giuong\\s*phu|extra\\s*beds?)");
     private static final Pattern NO_EXTRA_BEDS_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:giường\\s*phụ|giuong\\s*phu|extra\\s*beds?)");
     private static final Pattern ROOMS_COUNT_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:phòng|phong|rooms?)");
 
-    private static final String BUDGET_AMOUNT = "(\\d{1,3}(?:\\.\\d{3}){2,}|\\d+(?:[.,]\\d+)?)(?!\\d|[.,]\\d)";
+    private static final String BUDGET_AMOUNT = "(\\d{1,3}(?:\\.\\d{3})+|\\d+(?:[.,]\\d+)?)(?!\\d|[.,]\\d)";
 
     private static final Pattern BUDGET_PATTERN_1 = Pattern.compile(
             "(?i)(?:ngân\\s*sách|giá|tài\\s*chính|budget)(?:\\s*(?:là|dưới|tối\\s*đa|không\\s*quá|khoảng|tầm|từ|<|<=))?\\s*"
@@ -146,7 +152,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             "(?i)(?:dưới|tối\\s*đa|không\\s*quá|tài\\s*chính)\\s*" + BUDGET_AMOUNT + "\\s*(triệu|tr|k|nghìn|vnd|đồng)?");
 
     private static final Pattern BUDGET_PATTERN_3 = Pattern.compile(
-            "(?i)(?:khoảng|tầm)?\\s*(?<![\\d.,])" + BUDGET_AMOUNT + "\\s*(triệu|tr|k|nghìn|vnd|đồng)");
+            "(?i)(?:khoảng|tầm)?\\s*(?<![\\d.,])" + BUDGET_AMOUNT + "\\s*(triệu|tr|k|nghìn|vnd|đồng)(?![\\p{L}\\p{N}])");
 
     private static final List<String> COMMON_DESTINATIONS = List.of(
             "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hồ Chí Minh",
@@ -181,7 +187,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         AdvisorStatus status = result.getStatus();
         switch (status) {
             case OUT_OF_SCOPE:
-                return "Trợ lý hỗ trợ tìm và xem thông tin phòng. Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường.";
+                return "Tôi hỗ trợ tìm và xem thông tin phòng. Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường.";
 
             case NEED_INFO:
                 if (result.getMissingFields() != null && result.getMissingFields().contains("roomsCount")) {
@@ -210,6 +216,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     }
 
     private CriteriaPatchDto extractDeterministically(String message, RoomSearchCriteriaDto currentCriteria) {
+        message = normalizeVietnameseSearch(message);
         CriteriaPatchDto.CriteriaPatchDtoBuilder builder = CriteriaPatchDto.builder();
         boolean hasPatch = false;
         String lowerMessage = message.toLowerCase(Locale.ROOT);
@@ -285,7 +292,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
         // 3. Location Keyword
         for (String dest : COMMON_DESTINATIONS) {
-            if (lowerMessage.contains(dest.toLowerCase(Locale.ROOT))) {
+            if (foldVietnamese(lowerMessage).contains(foldVietnamese(dest))) {
                 builder.locationKeyword(dest);
                 hasPatch = true;
                 break;
@@ -294,23 +301,22 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
         // 4. Preferred Features
         List<String> preferred = new ArrayList<>();
-        if (lowerMessage.contains("wifi") || lowerMessage.contains("internet")) {
+        if (requestedFeature(lowerMessage, "wifi|wi-fi|internet")) {
             preferred.add("WIFI");
         }
-        if (lowerMessage.contains("ban công") || lowerMessage.contains("balcony")) {
+        if (requestedFeature(lowerMessage, "ban cong|balcony")) {
             preferred.add("BALCONY");
         }
-        if (lowerMessage.contains("view biển") || lowerMessage.contains("hướng biển")
-                || lowerMessage.contains("gần biển") || lowerMessage.contains("sea view")) {
+        if (requestedFeature(lowerMessage, "view bien|huong bien|sea view")) {
             preferred.add("SEA_VIEW");
         }
-        if (lowerMessage.contains("bồn tắm") || lowerMessage.contains("bathtub")) {
+        if (requestedFeature(lowerMessage, "bon tam|bathtub")) {
             preferred.add("BATHTUB");
         }
-        if (lowerMessage.contains("ăn sáng") || lowerMessage.contains("buffet") || lowerMessage.contains("breakfast")) {
+        if (requestedFeature(lowerMessage, "an sang|buffet|breakfast")) {
             preferred.add("BREAKFAST");
         }
-        if (lowerMessage.contains("hồ bơi") || lowerMessage.contains("bể bơi") || lowerMessage.contains("pool")) {
+        if (requestedFeature(lowerMessage, "ho boi|be boi|pool")) {
             preferred.add("POOL");
         }
 
@@ -327,6 +333,47 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         }
 
         return hasPatch ? builder.build() : null;
+    }
+
+    private static String foldVietnamese(String text) {
+        return java.text.Normalizer.normalize(text.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "").replace('đ', 'd');
+    }
+
+    private static boolean requestedFeature(String text, String aliases) {
+        String folded = foldVietnamese(text);
+        Matcher matches = Pattern.compile("\\b(?:" + aliases + ")\\b").matcher(folded);
+        while (matches.find()) {
+            String prefix = folded.substring(Math.max(0, matches.start() - 40), matches.start());
+            if (!prefix.matches("(?s).*(?:\\bkhong|\\bko|\\bno|\\bwithout)(?:\\s+(?:can|co|muon|yeu cau|bat buoc))?\\s*$")) return true;
+        }
+        return false;
+    }
+
+    /** Lexical aliases only: no hotel policies, bed guarantees or live facts are inferred here. */
+    private static String normalizeVietnameseSearch(String text) {
+        String s = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFC);
+        String[] words = {"một|mot", "hai", "ba", "bốn|bon|tư|tu", "năm|nam", "sáu|sau", "bảy|bay", "tám|tam", "chín|chin", "mười|muoi"};
+        for (int i = 0; i < words.length; i++) {
+            s = s.replaceAll("(?iU)\\b(?:" + words[i] + ")\\s+(?=(?:người\\s*lớn|nguoi\\s*lon|bé|be|trẻ\\s*em|tre\\s*em|phòng|phong|đêm|dem|giường\\s*phụ|giuong\\s*phu)\\b)", (i + 1) + " ");
+        }
+        s = s.replaceAll("(?iU)\\b(?:hai|2)\\s+vợ\\s+chồng\\b", "2 người lớn")
+                .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*NL(?!\\p{L})", "$1 người lớn ")
+                .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*TE(?!\\p{L})", "$1 trẻ em ")
+                .replaceAll("(?iU)\\b(\\d+)\\s+lớn\\b", "$1 người lớn")
+                .replaceAll("(?iU)\\b(\\d+)\\s+(?:nhỏ|trẻ\\s*nhỏ|con\\s*nhỏ)\\b", "$1 bé")
+                .replaceAll("(?iU)\\b(?:tối\\s*nay|đêm\\s*nay|bữa\\s*nay|toi\\s*nay|dem\\s*nay)\\b", "hôm nay")
+                .replaceAll("(?iU)\\b(\\d+)\\s*(?:ngày|ngay|n)\\s*(\\d+)\\s*(?:đêm|dem|đ|d)\\b", "$2 đêm")
+                .replaceAll("(?iU)\\bqua\\s+đêm\\b", "1 đêm")
+                .replaceAll("(?iU)\\b(\\d+)\\s*tr(\\d)\\b", "$1.$2 triệu")
+                .replaceAll("(?iU)\\b(?:một|mot|1)\\s+triệu\\s+rưỡi\\b", "1.5 triệu")
+                .replaceAll("(?iU)\\b(?:tp\\.?\\s*hcm|tphcm|sài\\s*gòn|sai\\s*gon)\\b", "Hồ Chí Minh")
+                .replaceAll("(?iU)\\b(?:bữa\\s*sáng|bua\\s*sang|điểm\\s*tâm|diem\\s*tam|an\\s*sang)\\b", "ăn sáng")
+                .replaceAll("(?iU)\\bbể\\s*bơi\\b", "hồ bơi")
+                .replaceAll("(?iU)\\bgiuong\\s*phu\\b", "giường phụ")
+                .replaceAll("(?iU)\\bnguoi\\s*lon\\b", "người lớn")
+                .replaceAll("(?iU)\\bcuoi\\s*tuan\\s*nay\\b", "cuối tuần này");
+        return s;
     }
 
     private List<LocalDate> extractDates(String message) {
@@ -418,6 +465,18 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             return explicitDates;
         }
 
+        // Explicit dates above always win over an incidental weekend phrase.
+        Matcher weekend = RELATIVE_WEEKEND_PATTERN.matcher(message);
+        if (weekend.find()) {
+            LocalDate saturday = today.with(TemporalAdjusters.nextOrSame(DayOfWeek.SATURDAY));
+            String relative = weekend.group(1);
+            if (relative != null && (relative.equalsIgnoreCase("tới") || relative.equalsIgnoreCase("toi")
+                    || relative.equalsIgnoreCase("sau"))) saturday = saturday.plusWeeks(1);
+            Matcher duration = DURATION_ONLY_PATTERN.matcher(message);
+            int nights = duration.find() ? Integer.parseInt(duration.group(1)) : 2;
+            return nights > 0 ? List.of(saturday, saturday.plusDays(nights)) : List.of();
+        }
+
         // 7. Single relative date: "nhận phòng ngày mai"
         Matcher singleRel = SINGLE_RELATIVE_DATE_PATTERN.matcher(message);
         if (singleRel.find()) {
@@ -499,9 +558,10 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         }
 
         String number = matcher.group(1);
-        String numStr = number.indexOf('.') != number.lastIndexOf('.')
-                ? number.replace(".", "") : number.replace(",", ".");
         String unit = matcher.group(2) != null ? matcher.group(2).toLowerCase() : "";
+        boolean scaledUnit = unit.equals("triệu") || unit.equals("tr") || unit.equals("k") || unit.equals("nghìn");
+        String numStr = number.matches("\\d{1,3}(?:\\.\\d{3})+") && !scaledUnit
+                ? number.replace(".", "") : number.replace(",", ".");
 
         BigDecimal raw = new BigDecimal(numStr);
         BigDecimal amount;
@@ -524,8 +584,9 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         boolean ambiguousNightly = explicitBasis == null
                 && (lower.contains("mỗi đêm") || lower.contains("moi dem") || lower.contains("per night"));
         BudgetBasis basis = explicitBasis != null ? explicitBasis : (ambiguousNightly ? null : BudgetBasis.STAY_TOTAL);
-        BudgetCoverage coverage = explicitCoverage != null ? explicitCoverage
-                : (ambiguousNightly ? null : BudgetCoverage.ALL_MANDATORY_CHARGES);
+        // Do not silently interpret an unspecified budget as all-in. Core quotes may exclude
+        // mandatory fees; validation must ask whether the guest means quoted total or all-in.
+        BudgetCoverage coverage = explicitCoverage;
 
         boolean hard = Pattern.compile("(?i)(tối\\s*đa|không\\s*quá|dưới|<|<=)").matcher(message).find();
 

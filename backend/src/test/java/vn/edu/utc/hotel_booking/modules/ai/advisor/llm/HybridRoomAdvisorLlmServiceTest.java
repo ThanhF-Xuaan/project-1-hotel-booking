@@ -18,8 +18,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.CriteriaPatchDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.RoomSearchCriteriaDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.BudgetBasis;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.BudgetCoverage;
 
 import java.time.LocalDate;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -98,6 +102,19 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    void extractsWeekendAsSaturdayToMondayUsingVietnameseClock() {
+        Clock wednesday = Clock.fixed(Instant.parse("2026-11-11T02:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
+        var service = new HybridRoomAdvisorLlmService(wednesday);
+        var patch = service.extractCriteriaPatch(
+                "Tìm phòng đôi ở Đà Nẵng cuối tuần này cho 2 người lớn và 1 bé 4 tuổi", null);
+
+        assertThat(patch.getCheckInDate()).isEqualTo(LocalDate.of(2026, 11, 14));
+        assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 11, 16));
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getChildren()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("Should extract relative range between two relative tokens: từ ngày mai đến ngày kia")
     void shouldExtractRelativeRangeTokens() {
         String msg = "Tìm phòng tại Đà Nẵng từ ngày mai đến ngày kia cho 1 người lớn";
@@ -138,6 +155,23 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    void groupedStayBudgetRequiresExplicitQuoteCoverage() {
+        assertThat(llmService.extractCriteriaPatch("ngân sách 500.000 VND", null).getBudget().getAmount()).isEqualTo("500000");
+        assertThat(llmService.extractCriteriaPatch("ngân sách 500k", null).getBudget().getAmount()).isEqualTo("500000");
+        var unspecifiedCoverage = llmService.extractCriteriaPatch(
+                "Tìm phòng 2026-11-13 đến 2026-11-15 cho 2 người lớn, ngân sách tối đa 4.990.000 VND cả kỳ", null)
+                .getBudget();
+        assertThat(unspecifiedCoverage.getAmount()).isEqualTo("4990000");
+        assertThat(unspecifiedCoverage.getCoverage()).isNull();
+
+        var quotedTotal = llmService.extractCriteriaPatch(
+                "Tìm phòng 2026-11-13 đến 2026-11-15 cho 2 người lớn, ngân sách tối đa 4.990.000 VND cả kỳ theo báo giá hệ thống", null)
+                .getBudget();
+        assertThat(quotedTotal.getAmount()).isEqualTo("4990000");
+        assertThat(quotedTotal.getCoverage()).isEqualTo(BudgetCoverage.BACKEND_QUOTED_TOTAL);
+    }
+
+    @Test
     void treatsSingleDatesAsOneFieldAndRejectsInvalidCalendarDates() {
         var arrival = llmService.extractCriteriaPatch("Nhận phòng 2026-11-20", null);
         assertThat(arrival.getCheckInDate()).isEqualTo(LocalDate.of(2026, 11, 20));
@@ -168,6 +202,52 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     private static final String MESSAGE = "Tìm phòng tại Hà Nội cho 2 người lớn";
+
+    @Test
+    void normalizesSyntheticVietnameseExamples() throws Exception {
+        var method = HybridRoomAdvisorLlmService.class.getDeclaredMethod("normalizeVietnameseSearch", String.class);
+        method.setAccessible(true);
+        assertThat((String) method.invoke(null, "hai người lớn và một bé")).isEqualTo("2 người lớn và 1 bé");
+        assertThat((String) method.invoke(null, "1tr5")).isEqualTo("1.5 triệu");
+        assertThat((String) method.invoke(null, "có điểm tâm")).isEqualTo("có ăn sáng");
+    }
+
+    @Test
+    void understandsVietnameseTravelShorthandWithoutChangingNightCount() {
+        var service = new HybridRoomAdvisorLlmService(Clock.fixed(Instant.parse("2026-11-11T02:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh")));
+        for (String duration : List.of("3 ngày 2 đêm", "3N2Đ", "3n2d")) {
+            var patch = service.extractCriteriaPatch("Tìm phòng Đà Nẵng ngày mai " + duration + " cho hai người lớn và một bé", null);
+            assertThat(patch.getCheckInDate()).isEqualTo(LocalDate.of(2026, 11, 12));
+            assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 11, 14));
+            assertThat(patch.getAdults()).isEqualTo(2);
+            assertThat(patch.getChildren()).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void understandsUnaccentedDestinationGuestAbbreviationsAndCompactMoney() {
+        var patch = llmService.extractCriteriaPatch("Tim phong Da Nang 2026-11-20 den 2026-11-22 cho 2NL1TE ngan sach 1tr5 theo báo giá hệ thống", null);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Đà Nẵng");
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getChildren()).isEqualTo(1);
+        assertThat(patch.getBudget().getAmount()).isEqualTo("1500000");
+    }
+
+    @Test
+    void explicitDatesAndWeekendDurationTakePrecedenceOverDefaultWeekendStay() {
+        var explicit = llmService.extractCriteriaPatch("Cuối tuần này ở Đà Nẵng 2026-11-20 đến 2026-11-21 cho 2 người lớn", null);
+        assertThat(explicit.getCheckInDate()).isEqualTo(LocalDate.of(2026, 11, 20));
+        assertThat(explicit.getCheckOutDate()).isEqualTo(LocalDate.of(2026, 11, 21));
+        var weekend = llmService.extractCriteriaPatch("Cuối tuần này ở Đà Nẵng 1 đêm cho hai vợ chồng", null);
+        assertThat(weekend.getCheckOutDate()).isEqualTo(weekend.getCheckInDate().plusDays(1));
+        assertThat(weekend.getAdults()).isEqualTo(2);
+    }
+
+    @Test
+    void doesNotConfuseNearBeachOrNegatedAmenitiesWithPreferredRoomFeatures() {
+        var patch = llmService.extractCriteriaPatch("Tìm phòng Đà Nẵng gần biển, không cần hồ bơi, có điểm tâm và wi-fi", null);
+        assertThat(patch.getPreferredFeatureCodes()).contains("BREAKFAST", "WIFI").doesNotContain("POOL", "SEA_VIEW");
+    }
     private static final String TEST_KEY = "synthetic-provider-key-never-sent-to-network";
 
     @Test

@@ -13,14 +13,20 @@ import {
 import {
   sendAdvisorChat,
   sendAdvisorRefresh,
+  sendUnifiedChat,
 } from '../../services/roomAdvisorService';
 import { RoomRecommendationCard } from './RoomRecommendationCard';
+import { KnowledgeAnswerBlock } from './KnowledgeAnswerBlock';
+import { RoomComparisonBlock } from './RoomComparisonBlock';
 import type {
   AdvisorResultDto,
   AdvisorRecommendation,
   AdvisorSearchCriteria,
   ChatMessage,
   AdvisorClientError,
+  KnowledgeAnswer,
+  RoomComparisonMatrix,
+  UnifiedAdvisorResult,
 } from '../../types/roomAdvisor.types';
 
 interface RoomAdvisorWidgetProps {
@@ -65,6 +71,9 @@ interface StoredAdvisorSession {
     text: string;
     timestamp: string;
     result?: AdvisorResultDto;
+    knowledge?: KnowledgeAnswer;
+    comparison?: RoomComparisonMatrix;
+    intent?: UnifiedAdvisorResult['intent'];
     isError?: boolean;
     rateLimitCountdown?: number;
   }>;
@@ -111,6 +120,16 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   onCloseExternal,
   onOpenExternal,
 }) => {
+  const [isUnified] = useState(() => {
+    if (import.meta.env.VITE_ADVISOR_UNIFIED === 'true') return true;
+    if (typeof window === 'undefined') return false;
+    if ((window as Window & { __VITE_ADVISOR_UNIFIED?: boolean }).__VITE_ADVISOR_UNIFIED === true) return true;
+    try {
+      return sessionStorage.getItem('VITE_ADVISOR_UNIFIED') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [mode, setMode] = useState<'rooms' | 'knowledge'>('rooms');
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const isOpen = typeof isOpenExternal === 'boolean' ? isOpenExternal : internalIsOpen;
@@ -205,7 +224,11 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     }
   }, [messages, sessionId, sessionVersion]);
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (
+    textToSend?: string,
+    policyHotelId?: number,
+    compareRoomTypeIds?: number[]
+  ) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || activeRequest.current || isLoading || cooldownSeconds > 0) return;
     const request = beginRequest();
@@ -222,30 +245,69 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
     setIsLoading(true);
 
     try {
-      const result: AdvisorResultDto = await sendAdvisorChat({
-        contractVersion: '2.0',
-        message: text,
-        sessionId,
-        expectedSessionVersion: sessionVersion,
-      }, { signal: request.controller.signal });
-      if (!request.isCurrent()) return;
+      if (isUnified) {
+        const unifiedResult = await sendUnifiedChat({
+          message: text,
+          sessionId,
+          expectedSessionVersion: sessionVersion,
+          policyHotelId,
+          ...(compareRoomTypeIds && compareRoomTypeIds.length > 0 ? { compareRoomTypeIds } : {}),
+        }, { signal: request.controller.signal });
+        if (!request.isCurrent()) return;
 
-      if (result.sessionId) {
-        setSessionId(result.sessionId);
+        const nextSessionId = unifiedResult.sessionId ?? unifiedResult.advisor?.sessionId;
+        const nextVersion = unifiedResult.sessionVersion ?? unifiedResult.advisor?.sessionVersion;
+        if (nextSessionId) setSessionId(nextSessionId);
+        if (typeof nextVersion === 'number') setSessionVersion(nextVersion);
+
+        let replyText: string;
+        if (unifiedResult.comparison?.status === 'READY' && unifiedResult.intent === 'ROOM_COMPARISON') {
+          replyText = 'Tôi đã tổng hợp bảng đối chiếu chi tiết và phân tích đánh đổi giữa các hạng phòng phù hợp nhất:';
+        } else if (unifiedResult.intent === 'ROOM_COMPARISON' && unifiedResult.comparison?.tradeOffSummary) {
+          replyText = unifiedResult.comparison.tradeOffSummary;
+        } else {
+          replyText = unifiedResult.advisor?.reply
+            || (unifiedResult.knowledge ? '' : 'Dưới đây là thông tin tôi tìm được cho bạn:');
+        }
+
+        const botMessage: ChatMessage = {
+          id: createMessageId('bot'),
+          sender: 'assistant',
+          text: replyText,
+          timestamp: new Date(),
+          result: unifiedResult.advisor,
+          knowledge: unifiedResult.knowledge,
+          comparison: unifiedResult.comparison,
+          intent: unifiedResult.intent,
+        };
+
+        setMessages((prev) => [...prev, botMessage]);
+      } else {
+        const result: AdvisorResultDto = await sendAdvisorChat({
+          contractVersion: '2.0',
+          message: text,
+          sessionId,
+          expectedSessionVersion: sessionVersion,
+        }, { signal: request.controller.signal });
+        if (!request.isCurrent()) return;
+
+        if (result.sessionId) {
+          setSessionId(result.sessionId);
+        }
+        if (typeof result.sessionVersion === 'number') {
+          setSessionVersion(result.sessionVersion);
+        }
+
+        const botMessage: ChatMessage = {
+          id: createMessageId('bot'),
+          sender: 'assistant',
+          text: result.reply,
+          timestamp: new Date(),
+          result,
+        };
+
+        setMessages((prev) => [...prev, botMessage]);
       }
-      if (typeof result.sessionVersion === 'number') {
-        setSessionVersion(result.sessionVersion);
-      }
-
-      const botMessage: ChatMessage = {
-        id: createMessageId('bot'),
-        sender: 'assistant',
-        text: result.reply,
-        timestamp: new Date(),
-        result,
-      };
-
-      setMessages((prev) => [...prev, botMessage]);
     } catch (err: unknown) {
       if (!request.isCurrent()) return;
       const clientErr = err as AdvisorClientError;
@@ -413,7 +475,9 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                     T12 R1
                   </span>
                 </div>
-                <p className="text-xs text-neutral-400">Tư vấn thông minh & giá trực tiếp</p>
+                <p className="text-xs text-neutral-400">
+                  {isUnified ? 'Tìm phòng và tra cứu chính sách' : 'Tư vấn thông minh & giá trực tiếp'}
+                </p>
               </div>
             </div>
 
@@ -438,12 +502,16 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             </div>
           </div>
 
-          <div className="flex gap-2 p-2 border-b">
-            <button type="button" aria-pressed={mode === 'rooms'} onClick={() => setMode('rooms')} className="rounded border px-3 py-2 text-sm">Tìm phòng</button>
-            <button type="button" aria-pressed={mode === 'knowledge'} onClick={() => setMode('knowledge')} className="rounded border px-3 py-2 text-sm">Chính sách &amp; tiện ích</button>
-          </div>
-          {mode === 'knowledge' && <HotelKnowledgePanel />}
-          <div className={mode === 'rooms' ? 'contents' : 'hidden'}>
+          {!isUnified && (
+            <>
+              <div className="flex gap-2 p-2 border-b">
+                <button type="button" aria-pressed={mode === 'rooms'} onClick={() => setMode('rooms')} className="rounded border px-3 py-2 text-sm">Tìm phòng</button>
+                <button type="button" aria-pressed={mode === 'knowledge'} onClick={() => setMode('knowledge')} className="rounded border px-3 py-2 text-sm">Chính sách &amp; tiện ích</button>
+              </div>
+              {mode === 'knowledge' && <HotelKnowledgePanel />}
+            </>
+          )}
+          <div className={isUnified || mode === 'rooms' ? 'contents' : 'hidden'}>
           {/* Chat Messages Body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-neutral-50">
             {messages.map((msg) => (
@@ -484,8 +552,10 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
 
                   <p className="whitespace-pre-line">{msg.text}</p>
 
-                  {/* Recommendation Cards Section */}
-                  {msg.result?.recommendations && msg.result.recommendations.length > 0 && (
+                  {/* Recommendation Cards Section (hidden on ROOM_COMPARISON intent or when replaced by READY comparison matrix) */}
+                  {msg.result?.recommendations && msg.result.recommendations.length > 0
+                    && msg.intent !== 'ROOM_COMPARISON'
+                    && msg.comparison?.status !== 'READY' && (
                     <div className="mt-3 pt-3 border-t border-neutral-100 space-y-3">
                       <div className="flex items-center justify-between text-xs text-neutral-500 font-medium">
                         <span>
@@ -517,7 +587,57 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                           />
                         ))}
                       </div>
+
+                      {/* Quick Compare Chips when 2+ rooms returned in unified mode */}
+                      {isUnified && msg.result.recommendations.length >= 2 && (
+                        <div className="pt-1 flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            disabled={isLoading || cooldownSeconds > 0}
+                            onClick={() => {
+                              const ids = msg.result?.recommendations
+                                ?.slice(0, 3)
+                                .map((r) => r.room.hotelRoomTypeId);
+                              handleSendMessage('So sánh các phòng này giúp tôi', undefined, ids);
+                            }}
+                            className="rounded-full border border-red-200 bg-red-50/70 hover:bg-red-100 px-3 py-1 text-xs font-medium text-[#EE0000] transition-colors disabled:opacity-50"
+                          >
+                            ⚖️ So sánh các phòng này
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isLoading || cooldownSeconds > 0}
+                            onClick={() => {
+                              const ids = msg.result?.recommendations
+                                ?.slice(0, 3)
+                                .map((r) => r.room.hotelRoomTypeId);
+                              handleSendMessage(
+                                'So sánh giúp tôi, gia đình có con nhỏ nên chọn phòng nào?',
+                                undefined,
+                                ids
+                              );
+                            }}
+                            className="rounded-full border border-neutral-200 bg-neutral-50 hover:bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-800 transition-colors disabled:opacity-50"
+                          >
+                            👨‍👩‍👧 Nhà có con nhỏ nên chọn phòng nào?
+                          </button>
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {/* Multi-Criteria Room Comparison Block */}
+                  {msg.comparison && (msg.comparison.status === 'READY' || msg.result?.status !== 'NEED_INFO') && (
+                    <RoomComparisonBlock
+                      comparison={msg.comparison}
+                      recommendations={msg.result?.recommendations}
+                      onSelectRecommendation={(rec) => {
+                        if (msg.result?.criteria) {
+                          onViewRoomDetails?.(rec, msg.result.criteria);
+                        }
+                        handleClose();
+                      }}
+                    />
                   )}
 
                   {/* Result Warnings */}
@@ -531,6 +651,18 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                       ))}
                     </div>
                   )}
+
+                  {/* Knowledge Answer Block */}
+                  {msg.knowledge && (
+                    <KnowledgeAnswerBlock
+                      knowledge={msg.knowledge}
+                      disabled={isLoading || cooldownSeconds > 0}
+                      onSelectHotelChoice={(hotelId) => {
+                        const question = msg.knowledge?.policyQuestion || 'Chính sách khách sạn';
+                        handleSendMessage(question, hotelId);
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -539,7 +671,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
             {isLoading && (
               <div className="flex items-center gap-2 text-neutral-500 text-xs py-2 px-3 bg-white rounded-xl border border-neutral-200 w-fit">
                 <Sparkles className="w-4 h-4 text-[#EE0000] animate-spin" />
-                <span>Trợ lý AI đang tìm phòng phù hợp nhất...</span>
+                <span>Tôi đang tìm phòng phù hợp nhất...</span>
               </div>
             )}
 

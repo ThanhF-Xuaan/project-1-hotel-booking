@@ -243,4 +243,22 @@ class RoomAdvisorSessionStoreTest {
         assertThat(unexpectedExceptions).isEmpty();
         assertThat(store.getSession(sid, "user-123")).isPresent();
     }
+
+    @Test void policyScopeUsesOwnerAndVersionAndDoesNotChangeSearchCriteria() {
+        var created = store.getOrCreateSession(null, "owner");
+        var criteria = RoomSearchCriteriaDto.builder().locationKeyword("Synthetic City").build();
+        var searched = store.updateSession(created.getSessionId(), "owner", 1L, criteria, List.of(),
+                AdvisorResultDto.builder().build());
+        var selected = store.updatePolicyScope(searched.getSessionId(), "owner", searched.getSessionVersion(), 2);
+        assertThat(selected.getPolicyHotelId()).isEqualTo(2);
+        assertThat(selected.getCriteria()).isEqualTo(criteria);
+        assertThat(selected.getLastResult().getSessionVersion()).isEqualTo(selected.getSessionVersion());
+        assertThat(store.getOrCreateSession(selected.getSessionId(), "owner").getPolicyHotelId()).isEqualTo(2);
+        assertThatThrownBy(() -> store.updatePolicyScope(selected.getSessionId(), "other", selected.getSessionVersion(), 1))
+                .isInstanceOf(SessionSecurityException.class);
+        assertThatThrownBy(() -> store.updatePolicyScope(selected.getSessionId(), "owner", searched.getSessionVersion(), 1))
+                .isInstanceOf(SessionVersionConflictException.class);
+        assertThat(store.updateSession(selected.getSessionId(), "owner", selected.getSessionVersion(),
+                RoomSearchCriteriaDto.builder().locationKeyword("New City").build(), List.of(), null).getPolicyHotelId()).isNull();
+    }
 }

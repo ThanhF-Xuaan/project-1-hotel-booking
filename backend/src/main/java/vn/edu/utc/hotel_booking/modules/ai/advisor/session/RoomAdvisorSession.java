@@ -23,6 +23,8 @@ public class RoomAdvisorSession {
     long sessionVersion;
     String ownerKey;
     RoomSearchCriteriaDto criteria;
+    // Normalized public-hotel hint only; eligibility is rechecked on every knowledge query.
+    Integer policyHotelId;
 
     @Builder.Default
     List<CriteriaEvidenceDto> criteriaProvenance = new ArrayList<>();
