@@ -7,7 +7,8 @@
 INSERT INTO regions (code, name, description, status) VALUES 
     ('NORTH', 'Miền Bắc', 'Khu vực các tỉnh phía Bắc', 'ACTIVE'),
     ('CENTRAL', 'Miền Trung', 'Khu vực các tỉnh miền Trung & Tây Nguyên', 'ACTIVE'),
-    ('SOUTH', 'Miền Nam', 'Khu vực các tỉnh phía Nam', 'ACTIVE');
+    ('SOUTH', 'Miền Nam', 'Khu vực các tỉnh phía Nam', 'ACTIVE')
+ON CONFLICT (code) DO NOTHING;
 
 -- 2. SEED DEPARTMENTS (Phòng Ban Tiêu Chuẩn)
 INSERT INTO departments (code, name, status) VALUES 
@@ -15,20 +16,25 @@ INSERT INTO departments (code, name, status) VALUES
     ('HOUSEKEEPING', 'Buồng phòng', 'ACTIVE'),
     ('FNB', 'Ẩm thực (F&B)', 'ACTIVE'),
     ('MAINTENANCE', 'Bảo trì Kỹ thuật', 'ACTIVE'),
-    ('SALES', 'Kinh doanh & Tiếp thị', 'ACTIVE');
+    ('SALES', 'Kinh doanh & Tiếp thị', 'ACTIVE')
+ON CONFLICT (code) DO NOTHING;
 
 -- 3. SEED HOTELS (Khách sạn Cơ sở)
--- Sử dụng Subquery để lấy ID của Vùng (region_id) gán cho Khách sạn
+-- Sử dụng Subquery để lấy ID của Vùng (region_id) gán cho Khách sạn, có kiểm tra trùng lặp
 INSERT INTO hotels (region_id, name, address, phone, check_in_time, check_out_time, service_fee_percent, status)
-VALUES 
-    -- 1. Hạng 5 Sao ở Miền Bắc (Chỉ bán phòng xịn: Deluxe, Suite, Executive)
-    ((SELECT id FROM regions WHERE code = 'NORTH'), 'Viettel Luxury Hà Nội', 'Tòa nhà Viettel, Nam Từ Liêm, Hà Nội', '02466668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'),
-    
-    -- 2. Hạng 4 Sao ở Miền Trung (Bán phòng tầm trung: Superior, Deluxe)
-    ((SELECT id FROM regions WHERE code = 'CENTRAL'), 'Viettel Grand Đà Nẵng', 'Số 2 Nguyễn Hữu Thọ, Đà Nẵng', '02366668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'),
-    
-    -- 3. Hạng 3 Sao ở Miền Bắc (Chỉ bán phòng cơ bản: Standard, Superior, không có Suite)
-    ((SELECT id FROM regions WHERE code = 'NORTH'), 'Viettel Boutique Sapa', 'Thị trấn Sapa, Lào Cai', '02146668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE');
+SELECT 
+    (SELECT id FROM regions WHERE code = 'NORTH'), 'Viettel Luxury Hà Nội', 'Tòa nhà Viettel, Nam Từ Liêm, Hà Nội', '02466668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM hotels WHERE name = 'Viettel Luxury Hà Nội');
+
+INSERT INTO hotels (region_id, name, address, phone, check_in_time, check_out_time, service_fee_percent, status)
+SELECT 
+    (SELECT id FROM regions WHERE code = 'CENTRAL'), 'Viettel Grand Đà Nẵng', 'Số 2 Nguyễn Hữu Thọ, Đà Nẵng', '02366668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM hotels WHERE name = 'Viettel Grand Đà Nẵng');
+
+INSERT INTO hotels (region_id, name, address, phone, check_in_time, check_out_time, service_fee_percent, status)
+SELECT 
+    (SELECT id FROM regions WHERE code = 'NORTH'), 'Viettel Boutique Sapa', 'Thị trấn Sapa, Lào Cai', '02146668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
+WHERE NOT EXISTS (SELECT 1 FROM hotels WHERE name = 'Viettel Boutique Sapa');
 
 
 
@@ -137,6 +143,9 @@ WITH inserted_menus AS (
             ('Massage Trị Liệu Body (60p)', 'SERVICE', 'SPA', 500000.00),
             ('Trang trí phòng trăng mật', 'SERVICE', 'OTHER', 1000000.00)
     ) AS c(name, menu_type, tax_code, base_price)
+    WHERE NOT EXISTS (
+        SELECT 1 FROM menus m WHERE m.hotel_id = h.id AND m.name = c.name
+    )
     RETURNING id, menu_type
 ),
 inserted_products AS (
