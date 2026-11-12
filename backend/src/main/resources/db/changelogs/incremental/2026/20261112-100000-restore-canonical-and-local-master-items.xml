@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261112-100000-restore-canonical-and-local-master-items" author="utc-hotel-team" runOnChange="true">
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Phuc hoi toan bo 15 Master Items (5 Local dac san va 10 Chuan chuoi), chuan hoa description va dong bo lien ket</comment>
+        <sqlFile dbms="postgresql"
+                 encoding="utf-8"
+                 path="db/sqlFile/incremental/2026/20261112-100000-restore-canonical-and-local-master-items.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>
