@@ -141,6 +141,36 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    @DisplayName("Should extract colloquial Vietnamese couple and date range in current month")
+    void shouldExtractColloquialVietnameseCoupleAndThisMonthDates() {
+        String msg = "Alo shop ơi mình với người yêu đi Đà Nẵng từ 20 đến 22 tháng này có phòng view biển không";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Đà Nẵng");
+        assertThat(patch.getCheckInDate()).isEqualTo(LocalDate.of(today.getYear(), today.getMonthValue(), 20));
+        assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(today.getYear(), today.getMonthValue(), 22));
+        assertThat(patch.getPreferredFeatureCodes()).contains("SEA_VIEW");
+    }
+
+    @Test
+    @DisplayName("Should extract family with young kids and infants in colloquial Vietnamese")
+    void shouldExtractColloquialFamilyWithChildrenAndInfants() {
+        String msg = "Nhà mình 2 vợ chồng với 1 cu con 5 tuổi với 1 bé sơ sinh 6 tháng đi Hạ Long 2 đêm";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getChildren()).isEqualTo(1);
+        assertThat(patch.getInfants()).isEqualTo(1);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Hạ Long");
+    }
+
+    @Test
     void parsesVietnameseGroupedBudgetWithoutAssumingNightlyBasis() {
         String request = "Tìm phòng tại Hà Nội, nhận phòng 2026-11-09, trả phòng 2026-11-11, "
                 + "2 người lớn, ngân sách tối đa 1.500.000 VND";
