@@ -103,6 +103,10 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             "\\b(\\d{1,2})\\s*[-–—]\\s*(\\d{1,2})[/.-](\\d{1,2})[/.-](\\d{4})\\b"
     );
 
+    private static final Pattern DATE_RANGE_THIS_MONTH_PATTERN = Pattern.compile(
+            "(?iu)(?:từ\\s+|tu\\s+)?(?:ngày\\s+)?(\\d{1,2})\\s*(?:đến|den|tới|toi|-)\\s*(?:ngày\\s+)?(\\d{1,2})\\s*(?:tháng\\s*này|thang\\s*nay)\\b"
+    );
+
     private static final String RELATIVE_DATE_TOKEN = "(?:ngày\\s*mai|ngay\\s*mai|mai|hôm\\s*nay|hom\\s*nay|ngày\\s*kia|ngay\\s*kia|ngày\\s*mốt|ngay\\s*mot|mốt|mot)";
 
     private static final Pattern RELATIVE_RANGE_DURATION_PATTERN = Pattern.compile(
@@ -358,6 +362,9 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             s = s.replaceAll("(?iU)\\b(?:" + words[i] + ")\\s+(?=(?:người\\s*lớn|nguoi\\s*lon|bé|be|trẻ\\s*em|tre\\s*em|phòng|phong|đêm|dem|giường\\s*phụ|giuong\\s*phu)\\b)", (i + 1) + " ");
         }
         s = s.replaceAll("(?iU)\\b(?:hai|2)\\s+vợ\\s+chồng\\b", "2 người lớn")
+                .replaceAll("(?iU)\\b(?:mình\\s+với\\s+(?:người\\s*yêu|bạn\\s*gái|bạn\\s*trai|vợ|chồng|bồ|crush)|vợ\\s*chồng\\s*mình|hai\\s*đứa\\s*mình|2\\s*đứa\\s*mình|chúng\\s*mình|hai\\s*người\\s*mình)\\b", "2 người lớn")
+                .replaceAll("(?iU)\\b(?:1\\s*cu\\s*con|cu\\s*con|1\\s*bé\\s*con|bé\\s*con)\\b", "1 bé")
+                .replaceAll("(?iU)\\b(?:1\\s*bé\\s*sơ\\s*sinh|bé\\s*sơ\\s*sinh)\\b", "1 em bé")
                 .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*NL(?!\\p{L})", "$1 người lớn ")
                 .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*TE(?!\\p{L})", "$1 trẻ em ")
                 .replaceAll("(?iU)\\b(\\d+)\\s+lớn\\b", "$1 người lớn")
@@ -367,6 +374,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
                 .replaceAll("(?iU)\\bqua\\s+đêm\\b", "1 đêm")
                 .replaceAll("(?iU)\\b(\\d+)\\s*tr(\\d)\\b", "$1.$2 triệu")
                 .replaceAll("(?iU)\\b(?:một|mot|1)\\s+triệu\\s+rưỡi\\b", "1.5 triệu")
+                .replaceAll("(?iU)\\b(?:giá\\s*mềm|giá\\s*rẻ|bình\\s*dân|hạt\\s*dẻ|giá\\s*hạt\\s*dẻ|tiết\\s*kiệm)\\b", "tiết kiệm")
                 .replaceAll("(?iU)\\b(?:tp\\.?\\s*hcm|tphcm|sài\\s*gòn|sai\\s*gon)\\b", "Hồ Chí Minh")
                 .replaceAll("(?iU)\\b(?:bữa\\s*sáng|bua\\s*sang|điểm\\s*tâm|diem\\s*tam|an\\s*sang)\\b", "ăn sáng")
                 .replaceAll("(?iU)\\bbể\\s*bơi\\b", "hồ bơi")
@@ -390,6 +398,24 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
                 return List.of(LocalDate.of(y, m, d1), LocalDate.of(y, m, d2));
             } catch (DateTimeException invalidDate) {
                 return List.of();
+            }
+        }
+
+        // 1b. Range within this month: "từ 20 đến 22 tháng này"
+        Matcher thisMonthMatcher = DATE_RANGE_THIS_MONTH_PATTERN.matcher(message);
+        if (thisMonthMatcher.find()) {
+            try {
+                int d1 = Integer.parseInt(thisMonthMatcher.group(1));
+                int d2 = Integer.parseInt(thisMonthMatcher.group(2));
+                int m = today.getMonthValue();
+                int y = today.getYear();
+                LocalDate in = LocalDate.of(y, m, d1);
+                LocalDate out = LocalDate.of(y, m, d2);
+                if (out.isAfter(in)) {
+                    return List.of(in, out);
+                }
+            } catch (DateTimeException invalidDate) {
+                // ignore and continue
             }
         }
 
