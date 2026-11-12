@@ -117,6 +117,10 @@ public class RoomAdvisorOrchestrationService {
         );
 
         if (!valResult.isValid()) {
+            String replyMessage = valResult.getReply();
+            if (request != null && criteriaValidationService.isPolicyInquiry(request.getMessage())) {
+                replyMessage = "Dạ, tôi hỗ trợ tìm và gợi ý phòng. Để tra cứu quy định hủy phòng, hoàn tiền cọc hoặc chính sách của khách sạn, bạn có thể chuyển sang tab 'Chính sách & tiện ích' hoặc xem quy định chi tiết của khách sạn nhé!";
+            }
             AdvisorResultDto needInfoResult = buildNeedInfoResult(
                     requestId,
                     session.getSessionId(),
@@ -125,7 +129,7 @@ public class RoomAdvisorOrchestrationService {
                     valResult.getMissingFields(),
                     valResult.getAmbiguities(),
                     valResult.getProvenance(),
-                    valResult.getReply()
+                    replyMessage
             );
 
             RoomAdvisorSession updatedSession = sessionStore.updateSession(
