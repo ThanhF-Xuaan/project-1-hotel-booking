@@ -12,12 +12,17 @@ import {
   Sparkles,
   Copy,
   Check,
+  Ticket,
+  Tag,
+  X,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
 import { isValidVietnamesePhone } from '../../../core/utils/phone';
 import { bookingService } from '../../booking/services/booking.service';
 import { financeService } from '../../finance/services/finance.service';
+import { voucherService } from '../../pricing/services/voucher.service';
+import type { VoucherValidationResponse } from '../../pricing/types/voucher.types';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
 import PaymentErrorModal from '../../finance/components/payment/PaymentErrorModal';
 import { VNPAY_ATM_TEST_CARD } from '../../finance/utils/vnpay.utils';
@@ -54,6 +59,12 @@ export const CheckoutPage: React.FC = () => {
     bookingNumber: string;
     totalAmount: number;
   } | null>(null);
+
+  // Voucher state
+  const [voucherCodeInput, setVoucherCodeInput] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState<VoucherValidationResponse | null>(null);
+  const [voucherError, setVoucherError] = useState<string | null>(null);
+  const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
   // VNPay test account copy state
   const [copiedVnpayCard, setCopiedVnpayCard] = useState(false);
@@ -125,9 +136,50 @@ export const CheckoutPage: React.FC = () => {
     : 2;
 
   const basePriceTotal = (offer?.basePrice ?? 1250000) * nightsCount;
-  const serviceFee = Math.round(basePriceTotal * 0.05);
-  const vat = Math.round((basePriceTotal + serviceFee) * 0.08);
-  const grandTotal = basePriceTotal + serviceFee + vat;
+  const voucherDiscount = appliedVoucher?.discountAmount || 0;
+  const netRoomPrice = Math.max(0, basePriceTotal - voucherDiscount);
+  const serviceFee = Math.round(netRoomPrice * 0.05);
+  const vat = Math.round((netRoomPrice + serviceFee) * 0.08);
+  const grandTotal = netRoomPrice + serviceFee + vat;
+
+  const handleApplyVoucher = async () => {
+    const code = voucherCodeInput.trim().toUpperCase();
+    if (!code) return;
+    setVoucherError(null);
+    setIsValidatingVoucher(true);
+    try {
+      const res = await voucherService.validateVoucher({
+        voucherCode: code,
+        hotelId: criteria?.hotelId || 1,
+        orderAmount: basePriceTotal,
+      });
+
+      if (res && res.result) {
+        if (res.result.valid) {
+          setAppliedVoucher(res.result);
+          setVoucherError(null);
+        } else {
+          setAppliedVoucher(null);
+          setVoucherError(res.result.message || 'Mã giảm giá không hợp lệ');
+        }
+      } else {
+        setAppliedVoucher(null);
+        setVoucherError('Không thể kiểm tra mã giảm giá');
+      }
+    } catch (err: unknown) {
+      setAppliedVoucher(null);
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      setVoucherError(axiosErr.response?.data?.message || axiosErr.message || 'Lỗi khi kiểm tra mã voucher');
+    } finally {
+      setIsValidatingVoucher(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherCodeInput('');
+    setVoucherError(null);
+  };
 
   const handleConfirmBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,6 +196,7 @@ export const CheckoutPage: React.FC = () => {
         guestId: 1, // Default or resolved guest ID
         bookingType: 'FIT',
         serviceFeeRate: 5,
+        voucherCode: appliedVoucher?.voucherCode || undefined,
         rooms: [
           {
             hotelRoomTypeId: offer?.hotelRoomTypeId || 1,
@@ -447,12 +500,78 @@ export const CheckoutPage: React.FC = () => {
                 <div>{offer?.bedDescription || '1 Giường đôi King Size'}</div>
               </div>
 
+              {/* Mã ưu đãi / Voucher */}
+              <div className="space-y-2 pb-4 border-b border-neutral-200">
+                <label className="text-xs font-bold text-neutral-800 uppercase tracking-wide flex items-center gap-1.5">
+                  <Ticket className="w-4 h-4 text-red-600" />
+                  Mã Giảm Giá / Voucher
+                </label>
+
+                {appliedVoucher ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <Tag className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-emerald-900 font-mono tracking-wider">
+                          {appliedVoucher.voucherCode}
+                        </div>
+                        <div className="text-emerald-700 text-[11px] font-medium">
+                          {appliedVoucher.title} (-{formatVND(voucherDiscount)})
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveVoucher}
+                      className="p-1 text-emerald-700 hover:text-red-600 hover:bg-emerald-100 rounded-lg transition-colors"
+                      title="Hủy áp dụng mã"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Nhập mã ưu đãi..."
+                        value={voucherCodeInput}
+                        onChange={(e) => {
+                          setVoucherCodeInput(e.target.value.toUpperCase().replace(/\s+/g, ''))
+                          setVoucherError(null)
+                        }}
+                        className="h-10 text-xs font-mono uppercase font-semibold"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleApplyVoucher}
+                        disabled={!voucherCodeInput.trim() || isValidatingVoucher}
+                        className="h-10 px-3 text-xs shrink-0 border-neutral-300 hover:border-red-500 hover:text-red-600"
+                      >
+                        {isValidatingVoucher ? 'Đang kiểm tra...' : 'Áp dụng'}
+                      </Button>
+                    </div>
+                    {voucherError && (
+                      <p className="text-[11px] text-red-600 font-medium">
+                        {voucherError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Breakdown */}
               <div className="space-y-2 text-xs text-neutral-600">
                 <div className="flex justify-between">
                   <span>Tiền phòng ({nightsCount} đêm):</span>
                   <span>{formatVND(basePriceTotal)}</span>
                 </div>
+                {voucherDiscount > 0 && (
+                  <div className="flex justify-between text-emerald-700 font-medium">
+                    <span>Ưu đãi voucher:</span>
+                    <span>-{formatVND(voucherDiscount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>Phí dịch vụ khách sạn (5%):</span>
                   <span>{formatVND(serviceFee)}</span>

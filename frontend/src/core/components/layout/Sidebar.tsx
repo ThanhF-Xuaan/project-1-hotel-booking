@@ -37,6 +37,7 @@ import {
   Tag,
   Coins,
   Layers,
+  Ticket,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -382,6 +383,12 @@ const navGroups: NavGroup[] = [
         label: 'Quy tắc Giảm giá',
         to: '/pricing/discount-rules',
         icon: <Percent className="w-4 h-4" />,
+        roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
+      },
+      {
+        label: 'Mã Giảm Giá & Voucher',
+        to: '/pricing/vouchers',
+        icon: <Ticket className="w-4 h-4" />,
         roles: ['CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
