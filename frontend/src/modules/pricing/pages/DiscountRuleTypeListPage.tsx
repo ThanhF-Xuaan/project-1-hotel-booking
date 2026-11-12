@@ -22,7 +22,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
   const [editingType, setEditingType] = useState<DiscountRuleTypeDto | null>(null)
   const [formCode, setFormCode] = useState('')
   const [formDisplayName, setFormDisplayName] = useState('')
-  const [formDescription, setFormDescription] = useState('')
   const [formPriority, setFormPriority] = useState<number>(10)
   const [formStatus, setFormStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE')
   const [formError, setFormError] = useState<string | null>(null)
@@ -60,8 +59,7 @@ export const DiscountRuleTypeListPage: React.FC = () => {
     const matchKeyword =
       !keyword ||
       item.code.toLowerCase().includes(keyword) ||
-      item.displayName.toLowerCase().includes(keyword) ||
-      (item.description?.toLowerCase().includes(keyword) ?? false)
+      item.displayName.toLowerCase().includes(keyword)
     const matchStatus = !statusFilter || item.status === statusFilter
     return matchKeyword && matchStatus
   })
@@ -70,7 +68,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
     setEditingType(null)
     setFormCode('')
     setFormDisplayName('')
-    setFormDescription('')
     setFormPriority(10)
     setFormStatus('ACTIVE')
     setFormError(null)
@@ -81,7 +78,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
     setEditingType(item)
     setFormCode(item.code)
     setFormDisplayName(item.displayName)
-    setFormDescription(item.description || '')
     setFormPriority(item.priority)
     setFormStatus(item.status)
     setFormError(null)
@@ -106,7 +102,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
       if (editingType) {
         const updatePayload: DiscountRuleTypeUpdateRequest = {
           displayName: formDisplayName.trim(),
-          description: formDescription.trim(),
           priority: Number(formPriority),
           status: formStatus,
         }
@@ -115,7 +110,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
         const createPayload: DiscountRuleTypeCreateRequest = {
           code: formCode.trim().toUpperCase(),
           displayName: formDisplayName.trim(),
-          description: formDescription.trim() || undefined,
           priority: Number(formPriority),
           status: formStatus,
         }
@@ -257,7 +251,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
               <tr className="border-b border-neutral-200 bg-neutral-50/75 text-neutral-600 font-semibold text-xs uppercase tracking-wider">
                 <th className="py-3 px-4">Mã Loại (Code)</th>
                 <th className="py-3 px-4">Tên Hiển Thị</th>
-                <th className="py-3 px-4">Mô Tả</th>
                 <th className="py-3 px-4 text-center">Độ Ưu Tiên Pipeline</th>
                 <th className="py-3 px-4">Trạng Thái</th>
                 <th className="py-3 px-4 text-right">Thao Tác</th>
@@ -266,7 +259,7 @@ export const DiscountRuleTypeListPage: React.FC = () => {
             <tbody className="divide-y divide-neutral-100">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-neutral-500">
+                  <td colSpan={5} className="py-8 text-center text-neutral-500">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="w-5 h-5 animate-spin text-red-600" />
                       Đang tải danh sách...
@@ -275,7 +268,7 @@ export const DiscountRuleTypeListPage: React.FC = () => {
                 </tr>
               ) : filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-neutral-500">
+                  <td colSpan={5} className="py-8 text-center text-neutral-500">
                     Không tìm thấy loại quy tắc giảm giá nào phù hợp.
                   </td>
                 </tr>
@@ -287,12 +280,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
                     </td>
                     <td className="py-3 px-4 font-medium text-neutral-900 min-w-[200px] max-w-xs whitespace-normal break-words leading-snug">
                       {item.displayName}
-                    </td>
-                    <td
-                      className="py-3 px-4 text-neutral-600 text-xs min-w-[260px] max-w-md whitespace-normal break-words leading-relaxed"
-                      title={item.description || undefined}
-                    >
-                      {item.description || '—'}
                     </td>
                     <td className="py-3 px-4 text-center whitespace-nowrap">
                       <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-800">
@@ -412,24 +399,6 @@ export const DiscountRuleTypeListPage: React.FC = () => {
                 size="md"
               />
             </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="discount-rule-type-description"
-              className="block text-sm font-medium text-neutral-700 mb-1"
-            >
-              Mô Tả
-            </label>
-            <textarea
-              id="discount-rule-type-description"
-              rows={2}
-              maxLength={500}
-              placeholder="Ghi chú thêm về loại quy tắc giảm giá này..."
-              value={formDescription}
-              onChange={(e) => setFormDescription(e.target.value)}
-              className="w-full px-4 py-2.5 text-sm md:text-base text-neutral-900 bg-white border border-neutral-300 rounded-xl transition-all duration-200 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 resize-y"
-            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-neutral-100">

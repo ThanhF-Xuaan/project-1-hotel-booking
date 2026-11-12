@@ -56,7 +56,6 @@ class DiscountRuleTypeServiceImplTest {
         DiscountRuleTypeCreateRequest request = DiscountRuleTypeCreateRequest.builder()
                 .code("SPECIAL_CAMPAIGN")
                 .displayName("Chiến dịch đặc biệt (Flash Sale)")
-                .description("  Ưu đãi giờ vàng  ")
                 .priority((short) 90)
                 .status("ACTIVE")
                 .build();
@@ -64,7 +63,6 @@ class DiscountRuleTypeServiceImplTest {
         DiscountRuleTypeResponse response = DiscountRuleTypeResponse.builder()
                 .code("SPECIAL_CAMPAIGN")
                 .displayName("Chiến dịch đặc biệt (Flash Sale)")
-                .description("Ưu đãi giờ vàng")
                 .priority((short) 90)
                 .status("ACTIVE")
                 .build();
@@ -78,8 +76,6 @@ class DiscountRuleTypeServiceImplTest {
 
         assertThat(result).isNotNull();
         assertThat(result.getCode()).isEqualTo("SPECIAL_CAMPAIGN");
-        assertThat(sampleType.getDescription()).isEqualTo("Ưu đãi giờ vàng");
-        assertThat(result.getDescription()).isEqualTo("Ưu đãi giờ vàng");
         verify(discountRuleTypeRepository).save(sampleType);
     }
 
@@ -100,12 +96,10 @@ class DiscountRuleTypeServiceImplTest {
     }
 
     @Test
-    @DisplayName("Cập nhật và xóa trắng mô tả loại quy tắc giảm giá thành công")
-    void update_UpdatesAndClearsDescription() {
-        sampleType.setDescription("Mô tả cũ");
-        DiscountRuleTypeUpdateRequest updateWithDesc = DiscountRuleTypeUpdateRequest.builder()
+    @DisplayName("Cập nhật loại quy tắc giảm giá thành công")
+    void update_Success() {
+        DiscountRuleTypeUpdateRequest updateReq = DiscountRuleTypeUpdateRequest.builder()
                 .displayName("Chiến dịch mới")
-                .description("  Mô tả khuyến mãi mới  ")
                 .priority((short) 95)
                 .status("ACTIVE")
                 .build();
@@ -117,24 +111,14 @@ class DiscountRuleTypeServiceImplTest {
             return DiscountRuleTypeResponse.builder()
                     .code(entity.getCode())
                     .displayName(entity.getDisplayName())
-                    .description(entity.getDescription())
                     .priority(entity.getPriority())
                     .status(entity.getStatus())
                     .build();
         });
 
-        DiscountRuleTypeResponse updated = discountRuleTypeService.update("SPECIAL_CAMPAIGN", updateWithDesc);
-        assertThat(updated.getDescription()).isEqualTo("Mô tả khuyến mãi mới");
-
-        DiscountRuleTypeUpdateRequest clearDesc = DiscountRuleTypeUpdateRequest.builder()
-                .displayName("Chiến dịch mới")
-                .description("   ")
-                .priority((short) 95)
-                .status("ACTIVE")
-                .build();
-
-        DiscountRuleTypeResponse cleared = discountRuleTypeService.update("SPECIAL_CAMPAIGN", clearDesc);
-        assertThat(cleared.getDescription()).isNull();
+        DiscountRuleTypeResponse updated = discountRuleTypeService.update("SPECIAL_CAMPAIGN", updateReq);
+        assertThat(updated.getDisplayName()).isEqualTo("Chiến dịch đặc biệt (Flash Sale)");
+        verify(discountRuleTypeRepository).save(sampleType);
     }
 
     @Test

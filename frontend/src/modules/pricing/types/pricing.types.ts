@@ -259,7 +259,6 @@ export interface HolidayCalendarSearchDto extends BaseSearchDto {
 export interface PricingRuleTypeDto {
   code: string
   displayName: string
-  description?: string
   priority: number
   status: 'ACTIVE' | 'INACTIVE'
   createdAt?: string
@@ -269,14 +268,12 @@ export interface PricingRuleTypeDto {
 export interface PricingRuleTypeCreateRequest {
   code: string
   displayName: string
-  description?: string
   priority: number
   status: 'ACTIVE' | 'INACTIVE'
 }
 
 export interface PricingRuleTypeUpdateRequest {
   displayName: string
-  description?: string
   priority: number
   status: 'ACTIVE' | 'INACTIVE'
 }
@@ -287,7 +284,6 @@ export interface PricingRuleTypeUpdateRequest {
 export interface DiscountRuleTypeDto {
   code: string
   displayName: string
-  description?: string
   priority: number
   status: 'ACTIVE' | 'INACTIVE'
   createdAt?: string
@@ -297,14 +293,12 @@ export interface DiscountRuleTypeDto {
 export interface DiscountRuleTypeCreateRequest {
   code: string
   displayName: string
-  description?: string
   priority: number
   status: 'ACTIVE' | 'INACTIVE'
 }
 
 export interface DiscountRuleTypeUpdateRequest {
   displayName: string
-  description?: string
   priority: number
   status: 'ACTIVE' | 'INACTIVE'
 }

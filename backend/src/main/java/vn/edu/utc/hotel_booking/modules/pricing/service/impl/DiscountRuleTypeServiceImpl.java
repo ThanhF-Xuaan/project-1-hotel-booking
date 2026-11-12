@@ -6,7 +6,6 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.DiscountRuleTypeCreateRequest;
@@ -62,7 +61,6 @@ public class DiscountRuleTypeServiceImpl implements DiscountRuleTypeService {
 
         DiscountRuleType entity = discountRuleTypeMapper.toEntity(request);
         entity.setCode(cleanCode);
-        entity.setDescription(normalizeDescription(request.getDescription()));
         DiscountRuleType saved = discountRuleTypeRepository.save(entity);
         return discountRuleTypeMapper.toResponse(saved);
     }
@@ -73,13 +71,8 @@ public class DiscountRuleTypeServiceImpl implements DiscountRuleTypeService {
     public DiscountRuleTypeResponse update(String code, DiscountRuleTypeUpdateRequest request) {
         DiscountRuleType entity = getEntityByCode(code);
         discountRuleTypeMapper.updateEntityFromRequest(entity, request);
-        entity.setDescription(normalizeDescription(request.getDescription()));
         DiscountRuleType updated = discountRuleTypeRepository.save(entity);
         return discountRuleTypeMapper.toResponse(updated);
-    }
-
-    private String normalizeDescription(String description) {
-        return StringUtils.hasText(description) ? description.trim() : null;
     }
 
     @Override
