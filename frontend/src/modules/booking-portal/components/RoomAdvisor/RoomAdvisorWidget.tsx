@@ -121,14 +121,18 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   onOpenExternal,
 }) => {
   const [isUnified] = useState(() => {
-    if (import.meta.env.VITE_ADVISOR_UNIFIED === 'true') return true;
-    if (typeof window === 'undefined') return false;
-    if ((window as Window & { __VITE_ADVISOR_UNIFIED?: boolean }).__VITE_ADVISOR_UNIFIED === true) return true;
-    try {
-      return sessionStorage.getItem('VITE_ADVISOR_UNIFIED') === 'true';
-    } catch {
-      return false;
+    if (import.meta.env.VITE_ADVISOR_UNIFIED === 'false') return false;
+    if (typeof window !== 'undefined') {
+      if ((window as Window & { __VITE_ADVISOR_UNIFIED?: boolean }).__VITE_ADVISOR_UNIFIED === false) return false;
+      try {
+        const saved = sessionStorage.getItem('VITE_ADVISOR_UNIFIED');
+        if (saved === 'false') return false;
+        if (saved === 'true') return true;
+      } catch {
+        // ignore storage errors
+      }
     }
+    return true;
   });
   const [mode, setMode] = useState<'rooms' | 'knowledge'>('rooms');
   const [internalIsOpen, setInternalIsOpen] = useState(false);
