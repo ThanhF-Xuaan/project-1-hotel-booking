@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.ai.advisor.adapter;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,101 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
     private final PublicBookingSearchService publicBookingSearchService;
     private final PublicHotelEligibilityReader publicHotelEligibilityReader;
 
+    @Getter
+    @RequiredArgsConstructor
+    private static class DestinationAliasTarget {
+        private final DestinationType type;
+        private final int id;
+        private final String resolvedName;
+    }
+
+    private static final Map<String, DestinationAliasTarget> DESTINATION_ALIASES = buildDestinationAliases();
+
+    private static Map<String, DestinationAliasTarget> buildDestinationAliases() {
+        Map<String, DestinationAliasTarget> map = new HashMap<>();
+
+        DestinationAliasTarget hotel1 = new DestinationAliasTarget(DestinationType.HOTEL, 1, "Viettel Luxury Hà Nội");
+        DestinationAliasTarget hotel2 = new DestinationAliasTarget(DestinationType.HOTEL, 2, "Viettel Grand Đà Nẵng");
+        DestinationAliasTarget hotel3 = new DestinationAliasTarget(DestinationType.HOTEL, 3, "Viettel Boutique Sapa");
+        DestinationAliasTarget hotel4 = new DestinationAliasTarget(DestinationType.HOTEL, 4, "Vinpearl Resort & Spa Hạ Long (pilot, dữ liệu công khai)");
+
+        DestinationAliasTarget region1 = new DestinationAliasTarget(DestinationType.REGION, 1, "Miền Bắc");
+        DestinationAliasTarget region2 = new DestinationAliasTarget(DestinationType.REGION, 2, "Miền Trung");
+        DestinationAliasTarget region3 = new DestinationAliasTarget(DestinationType.REGION, 3, "Miền Nam");
+
+        // Hotel 3 (Sapa / Lào Cai)
+        List.of("sapa", "sa pa", "thi tran sapa", "thị trấn sapa", "lao cai", "lào cai", "fansipan", "phan si pang")
+                .forEach(k -> map.put(fold(k), hotel3));
+
+        // Hotel 2 (Đà Nẵng)
+        List.of("da nang", "đà nẵng", "danang", "tp da nang", "tp đà nẵng", "thanh pho da nang", "thành phố đà nẵng", "son tra", "sơn trà", "ba na", "bà nà")
+                .forEach(k -> map.put(fold(k), hotel2));
+
+        // Hotel 1 (Hà Nội)
+        List.of("ha noi", "hà nội", "hanoi", "thu do", "thủ đô", "thu do ha noi", "thủ đô hà nội", "tp ha noi", "tp hà nội", "thanh pho ha noi", "thành phố hà nội", "nam tu liem", "nam từ liêm")
+                .forEach(k -> map.put(fold(k), hotel1));
+
+        // Hotel 4 (Hạ Long / Quảng Ninh)
+        List.of("ha long", "hạ long", "halong", "vinh ha long", "vịnh hạ long", "quang ninh", "quảng ninh", "bai chay", "bãi cháy")
+                .forEach(k -> map.put(fold(k), hotel4));
+
+        // Region 1 (Miền Bắc)
+        List.of("mien bac", "miền bắc", "bac bo", "bắc bộ", "phia bac", "phía bắc", "north")
+                .forEach(k -> map.put(fold(k), region1));
+
+        // Region 2 (Miền Trung)
+        List.of("mien trung", "miền trung", "trung bo", "trung bộ", "central")
+                .forEach(k -> map.put(fold(k), region2));
+
+        // Region 3 (Miền Nam)
+        List.of("mien nam", "miền nam", "nam bo", "nam bộ", "phia nam", "phía nam", "south",
+                "sai gon", "sài gòn", "ho chi minh", "hồ chí minh", "tphcm", "tp hcm", "tp ho chi minh", "thanh pho ho chi minh", "thành phố hồ chí minh")
+                .forEach(k -> map.put(fold(k), region3));
+
+        return Collections.unmodifiableMap(map);
+    }
+
+    static String fold(String s) {
+        if (s == null) return "";
+        String normalized = java.text.Normalizer.normalize(s.trim().toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{M}", "")
+                .replace("đ", "d")
+                .replace("Đ", "d")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    static String normalizeQueryForAlias(String query) {
+        if (query == null) return "";
+        String clean = query.trim()
+                .replaceAll("^[\\p{Punct}\\s]+|[\\p{Punct}\\s]+$", "")
+                .replaceAll("(?i)^(?:ở|o|tại|tai|khách sạn|khach san|ks|khu vực|khu vuc|thành phố|thanh pho|tp\\.?)\\s+", "");
+        return fold(clean);
+    }
+
+    private DestinationResolutionResult resolveDestinationAlias(String locationQuery) {
+        if (locationQuery == null || locationQuery.isBlank()) return null;
+        String normalizedKey = normalizeQueryForAlias(locationQuery);
+        DestinationAliasTarget target = DESTINATION_ALIASES.get(normalizedKey);
+        if (target == null) return null;
+
+        if (target.getType() == DestinationType.HOTEL) {
+            return DestinationResolutionResult.builder()
+                    .hotelId(target.getId())
+                    .resolvedName(target.getResolvedName())
+                    .ambiguous(false)
+                    .ambiguities(new ArrayList<>())
+                    .build();
+        } else {
+            return DestinationResolutionResult.builder()
+                    .regionId((short) target.getId())
+                    .resolvedName(target.getResolvedName())
+                    .ambiguous(false)
+                    .ambiguities(new ArrayList<>())
+                    .build();
+        }
+    }
+
     @Override
     public DestinationResolutionResult resolveDestination(String locationQuery, Integer hotelId, Short regionId) {
         if (hotelId != null && hotelId > 0) {
@@ -68,6 +164,10 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                 return DestinationResolutionResult.builder().status(DestinationResolutionStatus.UNAVAILABLE).build();
             }
             if (suggestions.isEmpty()) {
+                DestinationResolutionResult aliasResult = resolveDestinationAlias(locationQuery);
+                if (aliasResult != null) {
+                    return aliasResult;
+                }
                 return DestinationResolutionResult.builder()
                         .ambiguous(false)
                         .ambiguities(new ArrayList<>())
@@ -116,6 +216,12 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                             .ambiguities(new ArrayList<>())
                             .build();
                 }
+            }
+
+            // Check if alias matches
+            DestinationResolutionResult aliasMatch = resolveDestinationAlias(locationQuery);
+            if (aliasMatch != null) {
+                return aliasMatch;
             }
 
             // Multiple ambiguous destinations: fail closed with MULTIPLE_LOCATIONS ambiguity
