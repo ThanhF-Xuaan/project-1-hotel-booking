@@ -22,8 +22,6 @@ public class PricingRuleType extends BaseEntity {
     @Column(name = "display_name", nullable = false, length = 150)
     String displayName;
 
-    @Column(columnDefinition = "TEXT")
-    String description;
 
     @Column(nullable = false)
     @Builder.Default

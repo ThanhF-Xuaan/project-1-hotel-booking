@@ -26,9 +26,6 @@ public class PricingRuleTypeCreateRequest {
     @Schema(description = "Tên hiển thị mô tả", example = "Mùa cao điểm hè")
     String displayName;
 
-    @Size(max = 500, message = "Mô tả tối đa 500 ký tự")
-    @Schema(description = "Mô tả chi tiết loại quy tắc giá", example = "Áp dụng phụ thu cho mùa cao điểm du lịch")
-    String description;
 
     @NotNull(message = "Độ ưu tiên không được để trống")
     @Schema(description = "Độ ưu tiên áp dụng (số càng lớn ưu tiên càng cao)", example = "80")

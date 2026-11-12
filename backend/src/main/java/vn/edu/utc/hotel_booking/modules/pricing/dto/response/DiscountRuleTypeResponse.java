@@ -14,7 +14,6 @@ public class DiscountRuleTypeResponse {
 
     String code;
     String displayName;
-    String description;
     Short priority;
     String status;
     OffsetDateTime createdAt;

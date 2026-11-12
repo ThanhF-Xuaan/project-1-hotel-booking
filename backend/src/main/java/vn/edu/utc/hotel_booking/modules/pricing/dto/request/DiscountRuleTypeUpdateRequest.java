@@ -19,9 +19,6 @@ public class DiscountRuleTypeUpdateRequest {
     @Schema(description = "Tên hiển thị mô tả", example = "Chiến dịch đặc biệt (Flash Sale)")
     String displayName;
 
-    @Size(max = 500, message = "Mô tả tối đa 500 ký tự")
-    @Schema(description = "Mô tả chi tiết loại quy tắc giảm giá", example = "Áp dụng giảm giá theo chiến dịch khuyến mãi đặc biệt")
-    String description;
 
     @NotNull(message = "Độ ưu tiên không được để trống")
     @Schema(description = "Độ ưu tiên áp dụng (số càng lớn ưu tiên càng cao)", example = "90")
