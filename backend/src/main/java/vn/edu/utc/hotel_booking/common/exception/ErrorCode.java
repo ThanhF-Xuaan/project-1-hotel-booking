@@ -98,6 +98,17 @@ public enum ErrorCode {
     SURCHARGE_RULE_OVERLAP(6062, "Quy tắc phụ thu bị trùng lặp thời gian hiệu lực cho cùng hạng phòng và loại phụ phí", HttpStatus.CONFLICT),
     INVALID_SURCHARGE_CONFIG(6063, "Cấu hình quy tắc phụ thu không hợp lệ", HttpStatus.BAD_REQUEST),
 
+    // Voucher Errors
+    VOUCHER_NOT_FOUND(6071, "Không tìm thấy mã giảm giá", HttpStatus.NOT_FOUND),
+    VOUCHER_CODE_ALREADY_EXISTS(6072, "Mã voucher đã tồn tại", HttpStatus.CONFLICT),
+    VOUCHER_EXPIRED(6073, "Mã voucher đã hết hạn sử dụng", HttpStatus.BAD_REQUEST),
+    VOUCHER_OUT_OF_STOCK(6074, "Mã voucher đã hết lượt sử dụng", HttpStatus.BAD_REQUEST),
+    VOUCHER_USAGE_LIMIT_EXCEEDED(6075, "Bạn đã sử dụng hết số lượt cho phép của mã voucher này", HttpStatus.BAD_REQUEST),
+    VOUCHER_MIN_ORDER_NOT_MET(6076, "Giá trị đơn hàng chưa đạt mức tối thiểu để áp dụng voucher", HttpStatus.BAD_REQUEST),
+    VOUCHER_HOTEL_MISMATCH(6077, "Mã voucher không áp dụng cho khách sạn này", HttpStatus.BAD_REQUEST),
+    VOUCHER_SCOPE_MISMATCH(6078, "Mã voucher không áp dụng cho phạm vi này", HttpStatus.BAD_REQUEST),
+    INVALID_VOUCHER_DATES(6079, "Thời gian bắt đầu hiệu lực phải trước thời gian kết thúc", HttpStatus.BAD_REQUEST),
+
     // Booking Module Errors (7000s)
     BOOKING_NOT_FOUND(7001, "Không tìm thấy thông tin đơn đặt phòng", HttpStatus.NOT_FOUND),
     BOOKING_NUMBER_ALREADY_EXISTS(7002, "Mã đặt phòng đã tồn tại", HttpStatus.CONFLICT),

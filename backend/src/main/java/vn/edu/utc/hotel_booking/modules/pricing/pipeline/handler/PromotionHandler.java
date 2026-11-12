@@ -13,6 +13,7 @@ import vn.edu.utc.hotel_booking.modules.pricing.pipeline.DailyRateContext;
 import vn.edu.utc.hotel_booking.modules.pricing.pipeline.PricingContext;
 import vn.edu.utc.hotel_booking.modules.pricing.repository.DiscountRuleRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.repository.VoucherRepository;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VoucherService;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -29,20 +30,36 @@ import java.util.Optional;
 public class PromotionHandler extends AbstractPricingHandler {
 
     private final DiscountRuleRepository discountRuleRepository;
+    private final VoucherService voucherService;
     private final VoucherRepository voucherRepository;
     private final ObjectMapper objectMapper;
 
+    @Autowired
+    public PromotionHandler(DiscountRuleRepository discountRuleRepository,
+                            VoucherService voucherService,
+                            ObjectMapper objectMapper) {
+        this.discountRuleRepository = discountRuleRepository;
+        this.voucherService = voucherService;
+        this.voucherRepository = null;
+        this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
+    }
+
+    public PromotionHandler(DiscountRuleRepository discountRuleRepository, VoucherService voucherService) {
+        this(discountRuleRepository, voucherService, new ObjectMapper());
+    }
+
     public PromotionHandler(DiscountRuleRepository discountRuleRepository, VoucherRepository voucherRepository) {
         this.discountRuleRepository = discountRuleRepository;
+        this.voucherService = null;
         this.voucherRepository = voucherRepository;
         this.objectMapper = new ObjectMapper();
     }
 
-    @Autowired
     public PromotionHandler(DiscountRuleRepository discountRuleRepository,
                             VoucherRepository voucherRepository,
                             ObjectMapper objectMapper) {
         this.discountRuleRepository = discountRuleRepository;
+        this.voucherService = null;
         this.voucherRepository = voucherRepository;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }
@@ -65,12 +82,17 @@ public class PromotionHandler extends AbstractPricingHandler {
             );
         }
 
-        // 2. Tra cứu Voucher nếu khách có nhập/chọn mã
+        // 2. Tra cứu Voucher nếu khách có nhập/chọn mã (ưu tiên qua VoucherService tuân thủ aggregate root)
         String voucherCode = context.getRequest().getVoucherCode();
         Optional<Voucher> voucherOpt = Optional.empty();
-        if (voucherRepository != null && voucherCode != null && !voucherCode.trim().isBlank()) {
+        if (voucherCode != null && !voucherCode.trim().isBlank()) {
             Short hotelId = context.getHotel() != null ? context.getHotel().getId() : null;
-            voucherOpt = voucherRepository.findValidVoucher(voucherCode.trim(), hotelId, OffsetDateTime.now());
+            if (voucherService != null) {
+                voucherOpt = voucherService.findValidVoucherForPricing(voucherCode.trim(), hotelId, OffsetDateTime.now());
+            } else if (voucherRepository != null) {
+                voucherOpt = voucherRepository.findValidVoucher(voucherCode.trim().toUpperCase(), hotelId, OffsetDateTime.now());
+            }
+
             voucherOpt.ifPresent(v -> {
                 context.setAppliedVoucher(v);
                 context.setAppliedPromotionName(v.getTitle());
