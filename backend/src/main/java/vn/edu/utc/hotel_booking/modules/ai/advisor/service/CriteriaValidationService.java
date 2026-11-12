@@ -30,8 +30,10 @@ public class CriteriaValidationService {
                     + "có\\s*(?:được|cho\\s*phép|miễn\\s*phí|hoàn|trả)?.*?không|co\\s*(?:duoc|cho\\s*phep|mien\\s*phi)?.*?khong|"
                     + "được\\s*không|duoc\\s*khong|thế\\s*nào|the\\s*nao|ra\\s*sao|như\\s*thế\\s*nào|nhu\\s*the\\s*nao|"
                     + "mất\\s*phí\\s*(?:không|ko)|mat\\s*phi\\s*(?:khong|ko)|tính\\s*phí\\s*(?:không|ko)|tinh\\s*phi\\s*(?:khong|ko)|"
-                    + "phí\\s*hủy|phi\\s*huy|bao\\s*nhiêu\\s*%|bao\\s*nhieu\\s*%|"
+                    + "tính\\s*tiền\\s*(?:thêm|không|ko)|tinh\\s*tien\\s*(?:them|khong|ko)|thêm\\s*tiền|them\\s*tien|"
+                    + "phụ\\s*thu|phu\\s*thu|phí\\s*hủy|phi\\s*huy|bao\\s*nhiêu\\s*%|bao\\s*nhieu\\s*%|"
                     + "lỡ.*?thì\\s*có|nếu.*?thì\\s*có|khi\\s*nào|bao\\s*lâu|trước\\s*(?:mấy|bao\\s*nhiêu)\\s*ngày|"
+                    + "nhận\\s*phòng\\s*sớm|trả\\s*phòng\\s*muộn|thú\\s*cưng|vật\\s*nuôi|poodle|"
                     + "cho\\s*(?:mình|tôi|em)\\s*hỏi|hỏi\\s*về|hỏi\\s*xem|hướng\\s*dẫn|hoàn\\s*cọc|trả\\s*cọc|lấy\\s*lại\\s*cọc|rút\\s*cọc)\\b"
     );
 

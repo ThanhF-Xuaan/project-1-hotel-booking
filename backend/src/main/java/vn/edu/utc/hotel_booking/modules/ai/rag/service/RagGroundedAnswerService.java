@@ -62,14 +62,14 @@ public class RagGroundedAnswerService {
                     + "(?=\\s*(?:[?!.]|$)|\\s+(?:khong|(?:(?:vao|tu|den|cho)\\s+)?"
                     + "(?:hom\\s*nay|toi\\s*nay|ngay\\s*mai|dem\\s*mai|cuoi\\s*tuan|ngay\\s+\\d{1,2}(?:[/.-]\\d{1,2})?))\\b)");
     private static final Pattern PET_TOPIC = Pattern.compile(
-            "(?iuU)\\b(?:thu\\s+cung|vat\\s+nuoi|cho\\s+(?:hoac\\s+)?meo|pets?|dogs?|cats?|animals?)\\b");
-    private static final Pattern ACCENTED_PET_TOPIC = Pattern.compile("(?iuU)\\b(?:chó|mèo)\\b");
+            "(?iuU)\\b(?:thu\\s+cung|vat\\s+nuoi|cho\\s+(?:hoac\\s+)?meo|cun\\b|poodles?|pets?|dogs?|cats?|animals?)\\b");
+    private static final Pattern ACCENTED_PET_TOPIC = Pattern.compile("(?iuU)\\b(?:chó|mèo|cún)\\b");
 
     private static final Pattern ENGLISH_QUESTION_PATTERN = Pattern.compile(
             "(?i)\\b(what\\s*time|when\\s*(can|is|does)|where\\s*is|how\\s*much|is\\s*there|check-?in\\s*time|check-?out\\s*time)\\b"
     );
 
-    private static final Pattern POLICY_LABEL = Pattern.compile("(?iu)(nhận\\s+phòng|check[ -]?in|trả\\s+phòng|check[ -]?out)");
+    private static final Pattern POLICY_LABEL = Pattern.compile("(?iu)(?<!sớm\\s)(nhận\\s+phòng|check[ -]?in|trả\\s+phòng|check[ -]?out)(?!\\s*(?:sớm|muộn))");
     private static final Pattern POLICY_TIME = Pattern.compile("(?iu)(?<![\\p{L}\\p{N}])([01]?\\d|2[0-3])[:h]([0-5]\\d)(?!\\d)");
 
     private final ScopedRagRetrievalService retrievalService;
@@ -320,6 +320,8 @@ public class RagGroundedAnswerService {
             if (content.isBlank() || !hasRequestedTimeEvidence(question, content)) continue;
             // Similarity alone is not evidence of a pet policy. Apply this before generation and fallback.
             if (mentionsPets(question) && !mentionsPets(content)) continue;
+            if (asksEarlyCheckIn(question) && !asksEarlyCheckIn(content)) continue;
+            if (asksLateCheckOut(question) && !asksLateCheckOut(content)) continue;
             if (!seen.add(chunk.getChunkId())) throw new IllegalStateException("RAG duplicate evidence identity");
             RagCitationDto citation = row.toCitation();
             citation.setSnippet(content.length() > 150 ? content.substring(0, 150) + "..." : content);
@@ -350,6 +352,7 @@ public class RagGroundedAnswerService {
 
     private boolean hasRequestedTimeEvidence(String question, String content) {
         String q = question.toLowerCase(Locale.ROOT);
+        if (asksEarlyCheckIn(q) || asksLateCheckOut(q)) return true;
         if (!(q.contains("giờ") || q.contains("time") || q.contains("when"))) return true;
         boolean checkIn = asksCheckIn(q);
         boolean checkOut = asksCheckOut(q);
@@ -382,11 +385,23 @@ public class RagGroundedAnswerService {
         return new PolicyTimes(checkIn, checkOut);
     }
 
+    private boolean asksEarlyCheckIn(String q) {
+        return q.contains("nhận phòng sớm") || q.contains("nhan phong som")
+                || q.contains("early check-in") || q.contains("early check in") || q.contains("early checkin");
+    }
+
+    private boolean asksLateCheckOut(String q) {
+        return q.contains("trả phòng muộn") || q.contains("tra phong muon")
+                || q.contains("late check-out") || q.contains("late check out") || q.contains("late checkout");
+    }
+
     private boolean asksCheckIn(String q) {
+        if (asksEarlyCheckIn(q)) return false;
         return q.contains("nhận phòng") || q.contains("check-in") || q.contains("check in") || q.contains("checkin");
     }
 
     private boolean asksCheckOut(String q) {
+        if (asksLateCheckOut(q)) return false;
         return q.contains("trả phòng") || q.contains("check-out") || q.contains("check out") || q.contains("checkout");
     }
 
@@ -398,7 +413,7 @@ public class RagGroundedAnswerService {
 
     private boolean isHotelSpecificInquiry(String question) {
         String lower = question.toLowerCase(Locale.ROOT);
-        return asksCheckIn(lower) || asksCheckOut(lower) ||
+        return (!asksEarlyCheckIn(lower) && !asksLateCheckOut(lower) && (asksCheckIn(lower) || asksCheckOut(lower))) ||
                 lower.contains("hồ bơi") || lower.contains("bể bơi") ||
                 lower.contains("bữa sáng") || lower.contains("ăn sáng") ||
                 lower.contains("buffet") ||

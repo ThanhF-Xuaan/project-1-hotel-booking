@@ -116,8 +116,8 @@ public class DefaultPublicHotelCorpusInitializer {
                 RagScopeType.CHAIN_PUBLIC,
                 null,
                 RagDocumentCategory.FAQ,
-                "Quy định hủy đặt phòng chung toàn hệ thống",
-                "Khách hàng được hủy phòng miễn phí trước 48 giờ so với giờ nhận phòng. Hủy sau thời gian này sẽ tính phí đêm đầu tiên.",
+                "Quy định hủy đặt phòng và hoàn tiền cọc chung toàn hệ thống",
+                "Khách hàng được hủy phòng miễn phí và hoàn trả 100% tiền đặt cọc nếu thực hiện hủy trước 48 giờ so với giờ nhận phòng tiêu chuẩn. Tiền cọc hoàn trả sẽ được chuyển lại vào tài khoản ngân hàng hoặc phương thức thanh toán ban đầu của quý khách trong vòng 3-7 ngày làm việc. Trường hợp hủy phòng trong vòng 48 giờ trước ngày nhận phòng hoặc khách không đến nhận phòng (no-show), khách sạn sẽ tính phí đêm đầu tiên và không hoàn lại tiền đặt cọc tương ứng để đảm bảo chi phí giữ phòng.",
                 LocalDate.of(2026, 1, 1),
                 1
         );
@@ -179,6 +179,54 @@ public class DefaultPublicHotelCorpusInitializer {
                         "[SUP] Superior: Diện tích 30m², cửa sổ nhìn ra thung lũng mây mù Sapa, thoáng đãng và ấm áp.\n" +
                         "[DLX] Deluxe: Diện tích 36m², ban công view núi lãng mạn, không gian thư giãn tiện nghi.\n" +
                         "[FAM] Family Room: Diện tích 45m², bố cục 2 giường lớn cho gia đình ngắm cảnh Tây Bắc.",
+                LocalDate.of(2026, 1, 1),
+                1
+        );
+
+        // 11. POLICY-PETS (CHAIN_PUBLIC)
+        ingestAndActivate(
+                "POLICY-PETS",
+                RagScopeType.CHAIN_PUBLIC,
+                null,
+                RagDocumentCategory.POLICY,
+                "Quy định mang thú cưng và vật nuôi toàn chuỗi khách sạn",
+                "Khách sạn quy định không cho phép mang theo thú cưng, vật nuôi (bao gồm chó, mèo, cún poodle và các loại động vật cảnh khác) vào khuôn viên phòng nghỉ cũng như các khu vực dịch vụ chung nhằm đảm bảo tiêu chuẩn vệ sinh và không gian yên tĩnh cho toàn bộ khách lưu trú. Trường hợp động vật dẫn đường hoặc hỗ trợ người khuyết tật (service animals) được phép lưu trú nhưng quý khách cần thông báo trước cho ban quản lý khi tiến hành đặt phòng.",
+                LocalDate.of(2026, 1, 1),
+                1
+        );
+
+        // 12. POLICY-EARLY-CHECKIN (CHAIN_PUBLIC)
+        ingestAndActivate(
+                "POLICY-EARLY-CHECKIN",
+                RagScopeType.CHAIN_PUBLIC,
+                null,
+                RagDocumentCategory.POLICY,
+                "Chính sách nhận phòng sớm và trả phòng muộn",
+                "Khách sạn hỗ trợ quý khách nhận phòng sớm hoặc trả phòng muộn tùy thuộc vào tình trạng phòng trống thực tế tại thời điểm yêu cầu.\n" +
+                        "Quy định phụ thu khi đến sớm:\n" +
+                        "- Đến trước 06:00 sáng: Áp dụng phụ thu 100% giá phòng một đêm (kèm dịch vụ phòng đầy đủ).\n" +
+                        "- Đến từ 06:00 sáng đến trước 12:00 trưa: Áp dụng mức phụ thu 50% giá phòng một đêm.\n" +
+                        "- Đến từ 12:00 trưa đến trước 14:00 chiều: Được hỗ trợ nhận phòng sớm miễn phí nếu khách sạn có sẵn phòng sạch.\n" +
+                        "Quy định phụ thu khi rời phòng muộn:\n" +
+                        "- Rời phòng từ sau 12:00 trưa đến 18:00 chiều: Phụ thu 50% giá phòng một đêm.\n" +
+                        "- Rời phòng sau 18:00 tối: Phụ thu 100% giá phòng một đêm.\n" +
+                        "Quý khách vui lòng liên hệ trước với bộ phận lễ tân để được kiểm tra tình trạng phòng và hỗ trợ tốt nhất.",
+                LocalDate.of(2026, 1, 1),
+                1
+        );
+
+        // 13. POLICY-CHILD-SURCHARGE (CHAIN_PUBLIC)
+        ingestAndActivate(
+                "POLICY-CHILD-SURCHARGE",
+                RagScopeType.CHAIN_PUBLIC,
+                null,
+                RagDocumentCategory.POLICY,
+                "Chính sách phụ thu trẻ em và em bé sơ sinh lưu trú",
+                "Chính sách phụ thu trẻ em và em bé tại hệ thống khách sạn:\n" +
+                        "- Trẻ sơ sinh và trẻ nhỏ dưới 6 tuổi (từ 0 đến 5 tuổi, bao gồm bé sơ sinh vài tháng tuổi): Được miễn phí hoàn toàn tiền phòng khi ngủ chung giường có sẵn với bố mẹ (áp dụng tối đa 1 trẻ em dưới 6 tuổi cho mỗi phòng).\n" +
+                        "- Trẻ em từ 6 đến 11 tuổi: Phụ thu theo quy định phòng tiêu chuẩn hoặc phụ thu giường phụ (extra bed) theo bảng giá niêm yết tại từng cơ sở khách sạn.\n" +
+                        "- Trẻ em từ 12 tuổi trở lên: Được tính như người lớn theo sức chứa tiêu chuẩn của hạng phòng.\n" +
+                        "Khách sạn hỗ trợ cung cấp cũi trẻ em (nôi em bé sơ sinh) miễn phí cho gia đình có bé nhỏ tùy thuộc vào số lượng sẵn có tại cơ sở.",
                 LocalDate.of(2026, 1, 1),
                 1
         );
