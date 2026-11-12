@@ -98,6 +98,77 @@ class PublicBookingCoreAdapterTest {
     }
 
     @Test
+    @DisplayName("Should resolve popular hotel destinations using alias matching when suggestions are empty")
+    void shouldResolvePopularHotelsViaAliasMatching() {
+        // Sapa / Sa Pa / Lào Cai -> Hotel 3
+        DestinationResolutionResult sapa = adapter.resolveDestination("Sapa", null, null);
+        assertThat(sapa.isAmbiguous()).isFalse();
+        assertThat(sapa.getHotelId()).isEqualTo(3);
+        assertThat(sapa.getResolvedName()).isEqualTo("Viettel Boutique Sapa");
+
+        DestinationResolutionResult saPa = adapter.resolveDestination("Sa Pa", null, null);
+        assertThat(saPa.isAmbiguous()).isFalse();
+        assertThat(saPa.getHotelId()).isEqualTo(3);
+
+        DestinationResolutionResult oSapa = adapter.resolveDestination("ở Sapa", null, null);
+        assertThat(oSapa.isAmbiguous()).isFalse();
+        assertThat(oSapa.getHotelId()).isEqualTo(3);
+
+        DestinationResolutionResult laoCai = adapter.resolveDestination("Lào Cai", null, null);
+        assertThat(laoCai.isAmbiguous()).isFalse();
+        assertThat(laoCai.getHotelId()).isEqualTo(3);
+
+        // Đà Nẵng / Da Nang -> Hotel 2
+        DestinationResolutionResult daNang = adapter.resolveDestination("Đà Nẵng", null, null);
+        assertThat(daNang.isAmbiguous()).isFalse();
+        assertThat(daNang.getHotelId()).isEqualTo(2);
+        assertThat(daNang.getResolvedName()).isEqualTo("Viettel Grand Đà Nẵng");
+
+        DestinationResolutionResult daNangUnaccented = adapter.resolveDestination("Da Nang", null, null);
+        assertThat(daNangUnaccented.isAmbiguous()).isFalse();
+        assertThat(daNangUnaccented.getHotelId()).isEqualTo(2);
+
+        // Hà Nội / Ha Noi -> Hotel 1
+        DestinationResolutionResult haNoi = adapter.resolveDestination("Hà Nội", null, null);
+        assertThat(haNoi.isAmbiguous()).isFalse();
+        assertThat(haNoi.getHotelId()).isEqualTo(1);
+        assertThat(haNoi.getResolvedName()).isEqualTo("Viettel Luxury Hà Nội");
+
+        DestinationResolutionResult haNoiUnaccented = adapter.resolveDestination("Ha Noi", null, null);
+        assertThat(haNoiUnaccented.isAmbiguous()).isFalse();
+        assertThat(haNoiUnaccented.getHotelId()).isEqualTo(1);
+
+        // Hạ Long / Ha Long -> Hotel 4
+        DestinationResolutionResult haLong = adapter.resolveDestination("Hạ Long", null, null);
+        assertThat(haLong.isAmbiguous()).isFalse();
+        assertThat(haLong.getHotelId()).isEqualTo(4);
+        assertThat(haLong.getResolvedName()).isEqualTo("Vinpearl Resort & Spa Hạ Long (pilot, dữ liệu công khai)");
+    }
+
+    @Test
+    @DisplayName("Should resolve region destinations using alias matching")
+    void shouldResolveRegionsViaAliasMatching() {
+        DestinationResolutionResult mienBac = adapter.resolveDestination("Miền Bắc", null, null);
+        assertThat(mienBac.isAmbiguous()).isFalse();
+        assertThat(mienBac.getRegionId()).isEqualTo((short) 1);
+        assertThat(mienBac.getResolvedName()).isEqualTo("Miền Bắc");
+
+        DestinationResolutionResult mienTrung = adapter.resolveDestination("Miền Trung", null, null);
+        assertThat(mienTrung.isAmbiguous()).isFalse();
+        assertThat(mienTrung.getRegionId()).isEqualTo((short) 2);
+        assertThat(mienTrung.getResolvedName()).isEqualTo("Miền Trung");
+
+        DestinationResolutionResult saiGon = adapter.resolveDestination("Sài Gòn", null, null);
+        assertThat(saiGon.isAmbiguous()).isFalse();
+        assertThat(saiGon.getRegionId()).isEqualTo((short) 3);
+        assertThat(saiGon.getResolvedName()).isEqualTo("Miền Nam");
+
+        DestinationResolutionResult tphcm = adapter.resolveDestination("TPHCM", null, null);
+        assertThat(tphcm.isAmbiguous()).isFalse();
+        assertThat(tphcm.getRegionId()).isEqualTo((short) 3);
+    }
+
+    @Test
     @DisplayName("Should discover and map room candidates and pricing quotes")
     void shouldDiscoverAndQuoteCandidates() {
         PriceBreakdownDto pb = PriceBreakdownDto.builder()
