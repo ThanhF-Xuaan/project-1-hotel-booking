@@ -104,7 +104,23 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     );
 
     private static final Pattern DATE_RANGE_THIS_MONTH_PATTERN = Pattern.compile(
-            "(?iu)(?:từ\\s+|tu\\s+)?(?:ngày\\s+)?(\\d{1,2})\\s*(?:đến|den|tới|toi|-)\\s*(?:ngày\\s+)?(\\d{1,2})\\s*(?:tháng\\s*này|thang\\s*nay)\\b"
+            "(?iu)(?:từ\\s+|tu\\s+)?(?:ngày\\s+)?(\\d{1,2})(?:\\s*(?:tháng\\s*này|thang\\s*nay))?\\s*(?:đến|den|tới|toi|[-–—])\\s*(?:ngày\\s+)?(\\d{1,2})\\s*(?:tháng\\s*này|thang\\s*nay)\\b"
+    );
+
+    private static final Pattern SINGLE_DATE_THIS_MONTH_PATTERN = Pattern.compile(
+            "(?iu)(?:ngày\\s+)?(\\d{1,2})\\s*(?:tháng\\s*này|thang\\s*nay)\\b"
+    );
+
+    private static final Pattern DATE_RANGE_NEXT_MONTH_PATTERN = Pattern.compile(
+            "(?iu)(?:từ\\s+|tu\\s+)?(?:ngày\\s+)?(\\d{1,2})(?:\\s*(?:tháng\\s*(?:sau|tới)|thang\\s*(?:sau|toi)))?\\s*(?:đến|den|tới|toi|[-–—])\\s*(?:ngày\\s+)?(\\d{1,2})\\s*(?:tháng\\s*(?:sau|tới)|thang\\s*(?:sau|toi))\\b"
+    );
+
+    private static final Pattern SINGLE_DATE_NEXT_MONTH_PATTERN = Pattern.compile(
+            "(?iu)(?:ngày\\s+)?(\\d{1,2})\\s*(?:tháng\\s*(?:sau|tới)|thang\\s*(?:sau|toi))\\b"
+    );
+
+    private static final Pattern DATE_RANGE_EXPLICIT_MONTH_PATTERN = Pattern.compile(
+            "(?iu)(?:từ\\s+|tu\\s+)?(?:ngày\\s+)?(\\d{1,2})\\s*(?:đến|den|tới|toi|[-–—])\\s*(?:ngày\\s+)?(\\d{1,2})(?:\\s*(?:tháng|thang)\\s*|[/.-])(\\d{1,2})(?:\\s*(?:năm|nam)\\s*|[/.-])?(\\d{4})?\\b"
     );
 
     private static final String RELATIVE_DATE_TOKEN = "(?:ngày\\s*mai|ngay\\s*mai|mai|hôm\\s*nay|hom\\s*nay|ngày\\s*kia|ngay\\s*kia|ngày\\s*mốt|ngay\\s*mot|mốt|mot)";
@@ -160,7 +176,8 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
     private static final List<String> COMMON_DESTINATIONS = List.of(
             "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hồ Chí Minh",
-            "Sài Gòn", "Synthetic City", "Central", "Hội An", "Đà Lạt", "Vũng Tàu", "Huế", "Hạ Long"
+            "Sài Gòn", "Synthetic City", "Central", "Hội An", "Đà Lạt", "Vũng Tàu", "Huế", "Hạ Long",
+            "Quy Nhơn", "Phan Thiết", "Sa Pa", "Sapa", "Ninh Bình", "Cần Thơ"
     );
 
     @Override
@@ -305,22 +322,22 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
         // 4. Preferred Features
         List<String> preferred = new ArrayList<>();
-        if (requestedFeature(lowerMessage, "wifi|wi-fi|internet")) {
+        if (requestedFeature(lowerMessage, "wifi|wi-fi|internet|wifi manh|wifi cang")) {
             preferred.add("WIFI");
         }
         if (requestedFeature(lowerMessage, "ban cong|balcony")) {
             preferred.add("BALCONY");
         }
-        if (requestedFeature(lowerMessage, "view bien|huong bien|sea view")) {
+        if (requestedFeature(lowerMessage, "view bien|huong bien|sea view|sat bien|ngam bien|view dai duong")) {
             preferred.add("SEA_VIEW");
         }
-        if (requestedFeature(lowerMessage, "bon tam|bathtub")) {
+        if (requestedFeature(lowerMessage, "bon tam|bathtub|bon tam nam")) {
             preferred.add("BATHTUB");
         }
-        if (requestedFeature(lowerMessage, "an sang|buffet|breakfast")) {
+        if (requestedFeature(lowerMessage, "an sang|buffet|breakfast|buffet sang|diem tam|bao an sang")) {
             preferred.add("BREAKFAST");
         }
-        if (requestedFeature(lowerMessage, "ho boi|be boi|pool")) {
+        if (requestedFeature(lowerMessage, "ho boi|be boi|pool|ho boi vo cuc")) {
             preferred.add("POOL");
         }
 
@@ -362,9 +379,11 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             s = s.replaceAll("(?iU)\\b(?:" + words[i] + ")\\s+(?=(?:người\\s*lớn|nguoi\\s*lon|bé|be|trẻ\\s*em|tre\\s*em|phòng|phong|đêm|dem|giường\\s*phụ|giuong\\s*phu)\\b)", (i + 1) + " ");
         }
         s = s.replaceAll("(?iU)\\b(?:hai|2)\\s+vợ\\s+chồng\\b", "2 người lớn")
-                .replaceAll("(?iU)\\b(?:mình\\s+với\\s+(?:người\\s*yêu|bạn\\s*gái|bạn\\s*trai|vợ|chồng|bồ|crush)|vợ\\s*chồng\\s*mình|hai\\s*đứa\\s*mình|2\\s*đứa\\s*mình|chúng\\s*mình|hai\\s*người\\s*mình)\\b", "2 người lớn")
-                .replaceAll("(?iU)\\b(?:1\\s*cu\\s*con|cu\\s*con|1\\s*bé\\s*con|bé\\s*con)\\b", "1 bé")
-                .replaceAll("(?iU)\\b(?:1\\s*bé\\s*sơ\\s*sinh|bé\\s*sơ\\s*sinh)\\b", "1 em bé")
+                .replaceAll("(?iU)\\b(?:mình\\s+với\\s+(?:người\\s*yêu|bạn\\s*gái|bạn\\s*trai|vợ|chồng|bồ|crush|ny)|vợ\\s*chồng\\s*mình|hai\\s*đứa\\s*mình|2\\s*đứa\\s*mình|hai\\s*đứa\\s*tụi\\s*mình|2\\s*đứa\\s*tụi\\s*mình|chúng\\s*mình|tụi\\s*mình|hai\\s*người\\s*mình|2\\s*người\\s*mình|(?:hai|2)\\s*đứa(?!\\s*(?:bé|con|tre|trẻ|nho|nhỏ)\\b)|(?:hai|2)\\s+người(?!\\s*(?:lớn|lon)\\b))\\b", "2 người lớn")
+                .replaceAll("(?iU)\\b(?:đi\\s+(?:một|1)\\s+mình|ở\\s+(?:một|1)\\s+mình|(?:một|1)\\s+mình|đơn\\s+thân)\\b", "1 người lớn")
+                .replaceAll("(?iU)\\b(?:1\\s*cu\\s*con|cu\\s*con|1\\s*bé\\s*con|bé\\s*con|1\\s*nhóc|nhóc|1\\s*con\\s*nhỏ|con\\s*nhỏ|trẻ\\s*nhỏ|con\\s*nít|bé\\s*nhỏ)\\b", "1 bé")
+                .replaceAll("(?iU)\\b(?:1\\s*bé\\s*sơ\\s*sinh|bé\\s*sơ\\s*sinh|em\\s*bé\\s*sơ\\s*sinh|trẻ\\s*sơ\\s*sinh)\\b", "1 em bé")
+                .replaceAll("(?iU)\\b(?:kê\\s*thêm\\s*nệm|thêm\\s*nệm|thêm\\s*đệm|giường\\s*phụ)\\b", "1 giường phụ")
                 .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*NL(?!\\p{L})", "$1 người lớn ")
                 .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*TE(?!\\p{L})", "$1 trẻ em ")
                 .replaceAll("(?iU)\\b(\\d+)\\s+lớn\\b", "$1 người lớn")
@@ -372,12 +391,19 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
                 .replaceAll("(?iU)\\b(?:tối\\s*nay|đêm\\s*nay|bữa\\s*nay|toi\\s*nay|dem\\s*nay)\\b", "hôm nay")
                 .replaceAll("(?iU)\\b(\\d+)\\s*(?:ngày|ngay|n)\\s*(\\d+)\\s*(?:đêm|dem|đ|d)\\b", "$2 đêm")
                 .replaceAll("(?iU)\\bqua\\s+đêm\\b", "1 đêm")
-                .replaceAll("(?iU)\\b(\\d+)\\s*tr(\\d)\\b", "$1.$2 triệu")
                 .replaceAll("(?iU)\\b(?:một|mot|1)\\s+triệu\\s+rưỡi\\b", "1.5 triệu")
-                .replaceAll("(?iU)\\b(?:giá\\s*mềm|giá\\s*rẻ|bình\\s*dân|hạt\\s*dẻ|giá\\s*hạt\\s*dẻ|tiết\\s*kiệm)\\b", "tiết kiệm")
+                .replaceAll("(?iU)\\b(?:một|mot|1)\\s+củ\\s+rưỡi\\b", "1.5 triệu")
+                .replaceAll("(?iU)\\b(\\d+)\\s*(?:củ|cu)\\s*(?:rưỡi|ruoi)\\b", "$1.5 triệu")
+                .replaceAll("(?iU)\\b(?:nửa|nua)\\s+củ\\b", "500k")
+                .replaceAll("(?iU)\\b(\\d+(?:[.,]\\d+)?)\\s*(?:củ|cu)\\b", "$1 triệu")
+                .replaceAll("(?iU)\\b5\\s*(?:loét|loet|xị|xi)\\b", "500k")
+                .replaceAll("(?iU)\\b(\\d+)\\s*tr(\\d)\\b", "$1.$2 triệu")
+                .replaceAll("(?iU)\\b(?:giá\\s*mềm|giá\\s*rẻ|bình\\s*dân|hạt\\s*dẻ|giá\\s*hạt\\s*dẻ|tiết\\s*kiệm|giá\\s*sinh\\s*viên)\\b", "tiết kiệm")
                 .replaceAll("(?iU)\\b(?:tp\\.?\\s*hcm|tphcm|sài\\s*gòn|sai\\s*gon)\\b", "Hồ Chí Minh")
-                .replaceAll("(?iU)\\b(?:bữa\\s*sáng|bua\\s*sang|điểm\\s*tâm|diem\\s*tam|an\\s*sang)\\b", "ăn sáng")
-                .replaceAll("(?iU)\\bbể\\s*bơi\\b", "hồ bơi")
+                .replaceAll("(?iU)\\bsapa\\b", "Sa Pa")
+                .replaceAll("(?iU)\\b(?:bữa\\s*sáng|bua\\s*sang|điểm\\s*tâm|diem\\s*tam|an\\s*sang|buffet\\s*sáng|buffet\\s*sang|bao\\s*ăn\\s*sáng|bao\\s*an\\s*sang)\\b", "ăn sáng")
+                .replaceAll("(?iU)\\b(?:bể\\s*bơi|hồ\\s*bơi\\s*vô\\s*cực|ho\\s*boi\\s*vo\\s*cuc)\\b", "hồ bơi")
+                .replaceAll("(?iU)\\b(?:bồn\\s*tắm\\s*nằm|bon\\s*tam\\s*nam)\\b", "bồn tắm")
                 .replaceAll("(?iU)\\bgiuong\\s*phu\\b", "giường phụ")
                 .replaceAll("(?iU)\\bnguoi\\s*lon\\b", "người lớn")
                 .replaceAll("(?iU)\\bcuoi\\s*tuan\\s*nay\\b", "cuối tuần này");
@@ -409,6 +435,81 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
                 int d2 = Integer.parseInt(thisMonthMatcher.group(2));
                 int m = today.getMonthValue();
                 int y = today.getYear();
+                LocalDate in = LocalDate.of(y, m, d1);
+                LocalDate out = LocalDate.of(y, m, d2);
+                if (out.isAfter(in)) {
+                    return List.of(in, out);
+                }
+            } catch (DateTimeException invalidDate) {
+                // ignore and continue
+            }
+        }
+
+        // 1c. Single date within this month: "ngày 20 tháng này ở 2 đêm" or "20 tháng này"
+        Matcher singleThisMonth = SINGLE_DATE_THIS_MONTH_PATTERN.matcher(message);
+        if (singleThisMonth.find()) {
+            try {
+                int d = Integer.parseInt(singleThisMonth.group(1));
+                LocalDate in = LocalDate.of(today.getYear(), today.getMonthValue(), d);
+                Matcher durationMatcher = DURATION_ONLY_PATTERN.matcher(message);
+                if (durationMatcher.find()) {
+                    int stayDays = Integer.parseInt(durationMatcher.group(1));
+                    if (stayDays > 0) {
+                        return List.of(in, in.plusDays(stayDays));
+                    }
+                }
+                return List.of(in);
+            } catch (DateTimeException invalidDate) {
+                // ignore and continue
+            }
+        }
+
+        // 1d. Range in next month: "từ 5 đến 7 tháng sau"
+        Matcher nextMonthMatcher = DATE_RANGE_NEXT_MONTH_PATTERN.matcher(message);
+        if (nextMonthMatcher.find()) {
+            try {
+                int d1 = Integer.parseInt(nextMonthMatcher.group(1));
+                int d2 = Integer.parseInt(nextMonthMatcher.group(2));
+                LocalDate nm = today.plusMonths(1);
+                LocalDate in = LocalDate.of(nm.getYear(), nm.getMonthValue(), d1);
+                LocalDate out = LocalDate.of(nm.getYear(), nm.getMonthValue(), d2);
+                if (out.isAfter(in)) {
+                    return List.of(in, out);
+                }
+            } catch (DateTimeException invalidDate) {
+                // ignore and continue
+            }
+        }
+
+        // 1e. Single date in next month: "ngày 5 tháng sau ở 3 đêm"
+        Matcher singleNextMonth = SINGLE_DATE_NEXT_MONTH_PATTERN.matcher(message);
+        if (singleNextMonth.find()) {
+            try {
+                int d = Integer.parseInt(singleNextMonth.group(1));
+                LocalDate nm = today.plusMonths(1);
+                LocalDate in = LocalDate.of(nm.getYear(), nm.getMonthValue(), d);
+                Matcher durationMatcher = DURATION_ONLY_PATTERN.matcher(message);
+                if (durationMatcher.find()) {
+                    int stayDays = Integer.parseInt(durationMatcher.group(1));
+                    if (stayDays > 0) {
+                        return List.of(in, in.plusDays(stayDays));
+                    }
+                }
+                return List.of(in);
+            } catch (DateTimeException invalidDate) {
+                // ignore and continue
+            }
+        }
+
+        // 1f. Range with explicit month: "từ 20 đến 22 tháng 11" or "20-22/11"
+        Matcher explicitMonthMatcher = DATE_RANGE_EXPLICIT_MONTH_PATTERN.matcher(message);
+        if (explicitMonthMatcher.find()) {
+            try {
+                int d1 = Integer.parseInt(explicitMonthMatcher.group(1));
+                int d2 = Integer.parseInt(explicitMonthMatcher.group(2));
+                int m = Integer.parseInt(explicitMonthMatcher.group(3));
+                String yStr = explicitMonthMatcher.group(4);
+                int y = (yStr != null && !yStr.isBlank()) ? Integer.parseInt(yStr) : today.getYear();
                 LocalDate in = LocalDate.of(y, m, d1);
                 LocalDate out = LocalDate.of(y, m, d2);
                 if (out.isAfter(in)) {
@@ -614,7 +715,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         // mandatory fees; validation must ask whether the guest means quoted total or all-in.
         BudgetCoverage coverage = explicitCoverage;
 
-        boolean hard = Pattern.compile("(?i)(tối\\s*đa|không\\s*quá|dưới|<|<=)").matcher(message).find();
+        boolean hard = Pattern.compile("(?i)(tối\\s*đa|không\\s*quá|dưới|<|<=|đổ\\s*lại|do\\s*lai|quay\\s*đầu|quay\\s*dau)").matcher(message).find();
 
         return BudgetDto.builder()
                 .amount(amount.toPlainString())
@@ -645,13 +746,67 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         return null;
     }
 
+    static String buildGeminiExtractionPrompt(LocalDate today, String text) {
+        return """
+Today is %s.
+Extract hotel room search criteria from the user message into JSON with keys:
+- locationKeyword: string (e.g. "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hạ Long", "Hồ Chí Minh", "Đà Lạt", "Vũng Tàu", "Hội An", "Huế", "Quy Nhơn", "Sa Pa". Map "Sài Gòn" or "TPHCM" to "Hồ Chí Minh").
+- checkInDate: string (yyyy-MM-dd).
+- checkOutDate: string (yyyy-MM-dd).
+- adults: integer.
+- children: integer.
+- infants: integer.
+- extraBeds: integer.
+- roomsCount: integer (default 1).
+- preferredFeatureCodes: array of strings from ["SEA_VIEW", "POOL", "BATHTUB", "BREAKFAST", "BALCONY", "WIFI"].
+- budget: object with keys:
+  - amount: string integer of total VND (e.g. "1500000").
+  - currency: "VND".
+  - basis: "STAY_TOTAL" or "AVERAGE_PER_NIGHT".
+  - coverage: "BACKEND_QUOTED_TOTAL", "ALL_MANDATORY_CHARGES" or null.
+  - hard: boolean.
+
+Vietnamese colloquial phrases and slang rules:
+1. Pronouns & people:
+   - "vợ chồng", "vợ chồng mình", "mình với người yêu", "mình với crush", "hai đứa mình", "2 đứa mình", "hai người", "chúng mình", "tụi mình" -> adults: 2.
+   - "đi một mình", "1 mình", "đơn thân" -> adults: 1.
+   - "cu con", "bé con", "nhóc", "con nhỏ", "trẻ nhỏ", "bé X tuổi", "con nít" -> children: 1 (or count).
+   - "bé sơ sinh", "em bé", "trẻ sơ sinh", "bé X tháng" -> infants: 1 (or count).
+   - "giường phụ", "kê thêm nệm", "thêm đệm" -> extraBeds: 1 (or count).
+2. Dates relative to today (%s):
+   - "tháng này" / "tháng nay" = current month of today (%s). E.g. "từ 20 đến 22 tháng này" -> checkInDate: "%d-%02d-20", checkOutDate: "%d-%02d-22".
+   - "ngày X tháng này ở Y đêm" -> checkInDate: day X of current month, checkOutDate: checkInDate + Y days.
+   - "tháng sau" / "tháng tới" = next month.
+   - "cuối tuần này" = the upcoming Saturday and Sunday.
+   - "ngày mai", "ngày kia", "ngày mốt" = 1, 2 days after today.
+   - "hôm nay", "tối nay", "đêm nay" = today.
+   - "X ngày Y đêm" means stay duration is Y nights.
+3. Budget slang:
+   - "củ" = 1,000,000 VND (e.g. "1 củ" = "1000000", "1 củ rưỡi" = "1500000", "2 củ" = "2000000").
+   - "loét" or "xị" = 100,000 VND (e.g. "5 loét", "5 xị" = "500000").
+   - "k" = 1,000 VND (e.g. "500k" = "500000").
+   - "giá mềm", "giá rẻ", "bình dân", "hạt dẻ", "tiết kiệm", "giá sinh viên" -> budget-conscious.
+   - "dưới", "tối đa", "không quá", "<=", "đổ lại", "quay đầu" -> hard: true.
+4. Features:
+   - "view biển", "hướng biển", "sát biển", "ngắm biển" -> "SEA_VIEW".
+   - "hồ bơi", "bể bơi", "hồ bơi vô cực" -> "POOL".
+   - "bồn tắm", "bồn tắm nằm" -> "BATHTUB".
+   - "ăn sáng", "buffet sáng", "điểm tâm", "bữa sáng", "bao ăn sáng" -> "BREAKFAST".
+   - "ban công" -> "BALCONY".
+   - "wifi", "internet", "mạng mạnh" -> "WIFI".
+
+Return ONLY valid JSON matching the schema above.
+User message: %s
+""".formatted(today, today, today, today.getYear(), today.getMonthValue(), today.getYear(), today.getMonthValue(), text);
+    }
+
     private CriteriaPatchDto callGeminiExtraction(String text, String apiKey) {
         CompletableFuture<HttpResponse<String>> pending = null;
         RagOutboundLedger.Reservation reservation = null;
         boolean settled = false;
         try {
             LocalDate today = LocalDate.now(clock);
-            String prompt = "Today is " + today + ". Extract hotel room search criteria from user message into JSON with keys: locationKeyword, checkInDate (yyyy-MM-dd), checkOutDate (yyyy-MM-dd), adults, children, infants, extraBeds, roomsCount, preferredFeatureCodes (array), budget (object with amount, currency, basis, coverage, hard). If relative dates like 'ngày mai', 'hôm nay', '3 ngày sau' are mentioned, compute the exact yyyy-MM-dd using today's date (" + today + "). Return ONLY valid JSON: " + text;
+            String prompt = buildGeminiExtractionPrompt(today, text);
 
             Map<String, Object> reqBody = Map.of(
                     "contents", List.of(
