@@ -40,12 +40,12 @@ public class PolicyIntentClassifier {
                     "mấy\\s*giờ|may\\s*gio|khi\\s*nào|khi\\s*nao|bao\\s*giờ|bao\\s*gio|bao\\s*lâu|bao\\s*lau|" +
                     "thế\\s*nào|the\\s*nao|ra\\s*sao|như\\s*thế\\s*nào|nhu\\s*the\\s*nao|" +
                     "mở\\s*cửa|mo\\s*cua|đóng\\s*cửa|dong\\s*cua|phục\\s*vụ|phuc\\s*vu|" +
-                    "có\\s*(?:được|cho\\s*phép|miễn\\s*phí)?.*?không|co\\s*(?:duoc|cho\\s*phep|mien\\s*phi)?.*?khong|" +
+                    "có\\s*(?:được|cho\\s*phép|miễn\\s*phí|hoàn|trả)?.*?không|co\\s*(?:duoc|cho\\s*phep|mien\\s*phi|hoan|tra)?.*?khong|" +
                     "được\\s*không|duoc\\s*khong|check[- ]?in|check[- ]?out|nhận\\s*phòng|tra\\s*phong|trả\\s*phòng|" +
                     "buffet|bữa\\s*sáng|ăn\\s*sáng|an\\s*sang|hồ\\s*bơi|bể\\s*bơi|ho\\s*boi|be\\s*boi|" +
                     "thú\\s*cưng|thu\\s*cung|chó\\s*mèo|cho\\s*meo|hút\\s*thuốc|hut\\s*thuoc|đỗ\\s*xe|do\\s*xe|gửi\\s*xe|gui\\s*xe|" +
                     "phụ\\s*thu|phu\\s*thu|miễn\\s*phí|mien\\s*phi|giường\\s*phụ|giuong\\s*phu|" +
-                    "hủy\\s*phòng|huy\\s*phong|hoàn\\s*tiền|hoan\\s*tien|đổi\\s*lịch|doi\\s*lich)"
+                    "hủy\\s*phòng|huy\\s*phong|hoàn\\s*tiền|hoan\\s*tien|hoàn\\s*cọc|hoan\\s*coc|trả\\s*cọc|tra\\s*coc|lấy\\s*lại\\s*cọc|lay\\s*lai\\s*coc|rút\\s*cọc|rut\\s*coc|phí\\s*hủy|phi\\s*huy|mất\\s*phí|mat\\s*phi|tính\\s*phí|tinh\\s*phi|đổi\\s*lịch|doi\\s*lich|đổi\\s*ngày|doi\\s*ngay|dời\\s*ngày|doi\\s*ngay)"
     );
 
     private static final Pattern DYNAMIC_PRICING_INQUIRY_PATTERN = Pattern.compile(

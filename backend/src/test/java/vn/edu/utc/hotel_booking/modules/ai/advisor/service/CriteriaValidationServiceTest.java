@@ -33,11 +33,37 @@ class CriteriaValidationServiceTest {
         assertThat(service.isOutOfScopeIntent("Chuyển tới trang admin quản trị")).isTrue();
         assertThat(service.isOutOfScopeIntent("book room now please")).isTrue();
         assertThat(service.isOutOfScopeIntent("hold this room for 15 minutes")).isTrue();
+        assertThat(service.isOutOfScopeIntent("Hủy phòng mã BK123 cho tôi ngay")).isTrue();
+        assertThat(service.isOutOfScopeIntent("Hủy phòng mã BK123 cho tôi?")).isTrue();
+        assertThat(service.isOutOfScopeIntent("Thanh toán đơn phòng cho tôi ngay được không?")).isTrue();
 
         // Valid search inquiries must not be detected as out-of-scope
         assertThat(service.isOutOfScopeIntent("Tìm giúp tôi phòng đôi ở Đà Nẵng")).isFalse();
         assertThat(service.isOutOfScopeIntent("Có phòng nào giá dưới 1 triệu không?")).isFalse();
         assertThat(service.isOutOfScopeIntent("Phòng có ban công hướng biển")).isFalse();
+
+        // Policy inquiries regarding cancellation, refund, deposit return must not be detected as out-of-scope write actions
+        assertThat(service.isOutOfScopeIntent("Chính sách hủy phòng và hoàn tiền của khách sạn như thế nào?")).isFalse();
+        assertThat(service.isOutOfScopeIntent("Lỡ đặt rồi mà gần tới ngày bận việc đột xuất không đi được thì có được hoàn tiền cọc không shop ơi?")).isFalse();
+        assertThat(service.isOutOfScopeIntent("Hủy phòng có mất phí không?")).isFalse();
+        assertThat(service.isOutOfScopeIntent("Lỡ đặt cọc rồi bận việc đột xuất có được hoàn cọc không?")).isFalse();
+        assertThat(service.isOutOfScopeIntent("Nếu bận không đi được thì hủy phòng trước mấy ngày được hoàn tiền?")).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should distinguish policy inquiries from imperative write actions")
+    void shouldDistinguishPolicyInquiriesFromWriteActions() {
+        assertThat(service.isPolicyInquiry("Lỡ đặt rồi mà gần tới ngày bận việc đột xuất thì có được hoàn tiền cọc không shop?")).isTrue();
+        assertThat(service.isPolicyInquiry("Chính sách hủy phòng và hoàn tiền của khách sạn như thế nào?")).isTrue();
+        assertThat(service.isPolicyInquiry("Hủy phòng có mất phí không?")).isTrue();
+        assertThat(service.isPolicyInquiry("Lỡ đặt cọc rồi bận việc đột xuất có được hoàn cọc không?")).isTrue();
+        assertThat(service.isPolicyInquiry("Quy định về việc hủy phòng và hoàn tiền cọc ra sao?")).isTrue();
+
+        // Imperative actions and write commands are NOT policy inquiries
+        assertThat(service.isPolicyInquiry("Tôi muốn hủy phòng đã đặt")).isFalse();
+        assertThat(service.isPolicyInquiry("Hủy phòng mã BK123 cho tôi ngay")).isFalse();
+        assertThat(service.isPolicyInquiry("Hãy đặt phòng Deluxe này cho tôi")).isFalse();
+        assertThat(service.isPolicyInquiry("Thanh toán tiền phòng qua thẻ")).isFalse();
     }
 
     @Test
