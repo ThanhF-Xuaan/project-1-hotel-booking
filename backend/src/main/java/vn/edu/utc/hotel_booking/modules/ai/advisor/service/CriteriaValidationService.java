@@ -14,20 +14,73 @@ import java.util.regex.Pattern;
 @Service
 public class CriteriaValidationService {
 
-    private static final Pattern OUT_OF_SCOPE_PATTERN = Pattern.compile(
-            "(?i)(đặt\\s*phòng|dat\\s*phong|giữ\\s*phòng|giu\\s*phong|thanh\\s*toán|thanh\\s*toan|hủy\\s*phòng|huy\\s*phong|hoàn\\s*tiền|hoan\\s*tien|quản\\s*trị|quan\\s*tri|giải\\s*phóng|cập\\s*nhật\\s*hồ\\s*sơ|lưu\\s*giấy\\s*tờ|\\b(book|booking|hold|reserve|pay|payment|cancel|refund|admin|release|guest|identity|delete\\s+from|insert\\s+into|update\\s+\\w+\\s+set|drop\\s+table|https?://)\\b)"
+    private static final Pattern SECURITY_OR_ADMIN_PATTERN = Pattern.compile(
+            "(?i)(quản\\s*trị|quan\\s*tri|giải\\s*phóng|cập\\s*nhật\\s*hồ\\s*sơ|lưu\\s*giấy\\s*tờ|\\b(admin|guest|identity|delete\\s+from|insert\\s+into|update\\s+\\w+\\s+set|drop\\s+table|https?://|javascript:|<script)\\b)"
+    );
+
+    private static final Pattern EXPLICIT_WRITE_COMMAND_PATTERN = Pattern.compile(
+            "(?iu)(?:hãy\\s+)?(?:đặt|dat|giữ|giu|hủy|huy|thanh\\s*toán|thanh\\s*toan)\\s+.*?(?:mã\\s*\\w+|id\\s*\\w+|đơn\\s*\\w+|don\\s*\\w+|cho\\s*tôi(?!\\s*(?:biết|hỏi|xem))|giúp\\s*tôi(?!\\s*(?:biết|hỏi|xem))|hộ\\s*tôi|ngay|luôn)\\b|"
+                    + "(?:hủy|huy)\\s*phòng\\s*(?:mã|id|cho\\s*tôi|giúp\\s*tôi|hộ\\s*tôi|ngay|luôn|này|nay)\\b|"
+                    + "(?:đặt|dat|giữ|giu)\\s*phòng\\s*(?:này|nay|cho\\s*tôi|giúp\\s*tôi|hộ\\s*tôi|ngay|luôn)\\b|"
+                    + "\\b(?:book\\s+(?:now|for\\s+me|this)|cancel\\s+(?:booking|reservation|order|my)|pay\\s+now)\\b"
+    );
+
+    private static final Pattern POLICY_INQUIRY_PATTERN = Pattern.compile(
+            "(?iu)(?:chính\\s*sách|chinh\\s*sach|quy\\s*định|quy\\s*dinh|điều\\s*khoản|dieu\\s*khoan|điều\\s*kiện|dieu\\s*kien|"
+                    + "có\\s*(?:được|cho\\s*phép|miễn\\s*phí|hoàn|trả)?.*?không|co\\s*(?:duoc|cho\\s*phep|mien\\s*phi)?.*?khong|"
+                    + "được\\s*không|duoc\\s*khong|thế\\s*nào|the\\s*nao|ra\\s*sao|như\\s*thế\\s*nào|nhu\\s*the\\s*nao|"
+                    + "mất\\s*phí\\s*(?:không|ko)|mat\\s*phi\\s*(?:khong|ko)|tính\\s*phí\\s*(?:không|ko)|tinh\\s*phi\\s*(?:khong|ko)|"
+                    + "phí\\s*hủy|phi\\s*huy|bao\\s*nhiêu\\s*%|bao\\s*nhieu\\s*%|"
+                    + "lỡ.*?thì\\s*có|nếu.*?thì\\s*có|khi\\s*nào|bao\\s*lâu|trước\\s*(?:mấy|bao\\s*nhiêu)\\s*ngày|"
+                    + "cho\\s*(?:mình|tôi|em)\\s*hỏi|hỏi\\s*về|hỏi\\s*xem|hướng\\s*dẫn|hoàn\\s*cọc|trả\\s*cọc|lấy\\s*lại\\s*cọc|rút\\s*cọc)\\b"
+    );
+
+    private static final Pattern GENERAL_WRITE_OR_MUTATION_PATTERN = Pattern.compile(
+            "(?i)(đặt\\s*phòng|dat\\s*phong|giữ\\s*phòng|giu\\s*phong|thanh\\s*toán|thanh\\s*toan|hủy\\s*phòng|huy\\s*phong|hoàn\\s*tiền|hoan\\s*tien|\\b(book|booking|hold|reserve|pay|payment|cancel|refund|release)\\b)"
     );
 
     private static final Pattern CURRENCY_PATTERN = Pattern.compile("^[A-Z]{3}$");
 
     /**
+     * Determines whether the user message is an inquiry regarding policies, cancellation rules,
+     * refund conditions, deposit returns, or date changes rather than an imperative transaction write.
+     */
+    public boolean isPolicyInquiry(String message) {
+        if (message == null || message.isBlank()) {
+            return false;
+        }
+        if (SECURITY_OR_ADMIN_PATTERN.matcher(message).find() || EXPLICIT_WRITE_COMMAND_PATTERN.matcher(message).find()) {
+            return false;
+        }
+        if (POLICY_INQUIRY_PATTERN.matcher(message).find()) {
+            return true;
+        }
+        if (message.contains("?")) {
+            String lower = message.toLowerCase(Locale.ROOT);
+            return lower.contains("hủy") || lower.contains("hoàn") || lower.contains("cọc")
+                    || lower.contains("phí") || lower.contains("chính sách") || lower.contains("quy định");
+        }
+        return false;
+    }
+
+    /**
      * Detects if the message intent attempts to perform write/hold/payment/cancellation actions.
+     * Genuine policy questions (cancellation, refunds, deposit rules) are distinguished and not blocked as out-of-scope.
      */
     public boolean isOutOfScopeIntent(String message) {
         if (message == null || message.isBlank()) {
             return false;
         }
-        return OUT_OF_SCOPE_PATTERN.matcher(message).find();
+        if (SECURITY_OR_ADMIN_PATTERN.matcher(message).find()) {
+            return true;
+        }
+        if (EXPLICIT_WRITE_COMMAND_PATTERN.matcher(message).find()) {
+            return true;
+        }
+        if (isPolicyInquiry(message)) {
+            return false;
+        }
+        return GENERAL_WRITE_OR_MUTATION_PATTERN.matcher(message).find();
     }
 
     /**

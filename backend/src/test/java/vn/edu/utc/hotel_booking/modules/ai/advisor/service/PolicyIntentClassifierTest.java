@@ -49,6 +49,18 @@ class PolicyIntentClassifierTest {
         assertThat(result.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
         assertThat(result.isWriteIntent()).isFalse();
         assertThat(result.getPolicyQuestion()).contains("hủy phòng");
+
+        String input2 = "Lỡ đặt rồi mà gần tới ngày bận việc đột xuất không đi được thì có được hoàn tiền cọc không shop ơi?";
+        PolicyIntentClassifier.ClassificationResult result2 = classifier.classifyAndSplit(input2);
+        assertThat(result2.isWriteIntent()).isFalse();
+        assertThat(result2.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
+        assertThat(result2.getPolicyQuestion()).contains("hoàn tiền cọc");
+
+        String input3 = "Lỡ đặt cọc rồi mà bận việc đột xuất có được hoàn cọc không shop?";
+        PolicyIntentClassifier.ClassificationResult result3 = classifier.classifyAndSplit(input3);
+        assertThat(result3.isWriteIntent()).isFalse();
+        assertThat(result3.getIntent()).isEqualTo(UnifiedIntent.POLICY_ONLY);
+        assertThat(result3.getPolicyQuestion()).contains("hoàn cọc");
     }
 
     @Test

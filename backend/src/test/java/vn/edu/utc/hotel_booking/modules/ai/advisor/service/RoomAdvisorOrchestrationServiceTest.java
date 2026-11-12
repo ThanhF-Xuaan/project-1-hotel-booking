@@ -79,6 +79,21 @@ class RoomAdvisorOrchestrationServiceTest {
     }
 
     @Test
+    @DisplayName("Should return NEED_INFO with policy guidance when user asks policy inquiry instead of OUT_OF_SCOPE")
+    void shouldReturnNeedInfoWithPolicyGuidanceWhenUserAsksPolicyInquiry() {
+        AdvisorChatRequestDto request = AdvisorChatRequestDto.builder()
+                .contractVersion("2.0")
+                .message("Lỡ đặt rồi mà gần tới ngày bận việc đột xuất thì có được hoàn tiền cọc không shop?")
+                .build();
+
+        AdvisorResultDto result = orchestrationService.chat(request, "user-123");
+
+        assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NEED_INFO);
+        assertThat(result.getReply()).contains("Để tra cứu quy định hủy phòng, hoàn tiền cọc hoặc chính sách của khách sạn");
+        assertThat(result.getReply()).doesNotContain("Các thao tác đặt hoặc giữ phòng cần thực hiện tại giao diện thông thường");
+    }
+
+    @Test
     @DisplayName("Should return NEED_INFO when criteria has missing fields")
     void shouldReturnNeedInfoWhenCriteriaMissing() {
         AdvisorChatRequestDto request = AdvisorChatRequestDto.builder()
