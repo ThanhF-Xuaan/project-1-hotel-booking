@@ -91,15 +91,19 @@ public class HybridRagEmbeddingService implements RagEmbeddingPort {
     }
 
     private void applyDomainClusters(String text, float[] vector) {
-        // Semantic cluster 1: Check-in / Nhận phòng / Giờ nhận
+        // Semantic cluster 1: Check-in / Nhận phòng / Giờ nhận / Nhận phòng sớm
         if (text.contains("check-in") || text.contains("check in") || text.contains("nhận phòng") ||
-                text.contains("checkin") || text.contains("arrival time") || text.contains("giờ nhận")) {
+                text.contains("nhan phong") || text.contains("nhận phòng sớm") || text.contains("nhan phong som") ||
+                text.contains("checkin") || text.contains("arrival time") || text.contains("giờ nhận") ||
+                text.contains("early check-in") || text.contains("early checkin")) {
             boostRange(vector, 0, 16, 2.5f);
         }
 
-        // Semantic cluster 2: Check-out / Trả phòng / Giờ trả
+        // Semantic cluster 2: Check-out / Trả phòng / Giờ trả / Trả phòng muộn
         if (text.contains("check-out") || text.contains("check out") || text.contains("trả phòng") ||
-                text.contains("checkout") || text.contains("departure time") || text.contains("giờ trả")) {
+                text.contains("tra phong") || text.contains("trả phòng muộn") || text.contains("tra phong muon") ||
+                text.contains("checkout") || text.contains("departure time") || text.contains("giờ trả") ||
+                text.contains("late check-out") || text.contains("late checkout")) {
             boostRange(vector, 16, 32, 2.5f);
         }
 
@@ -115,9 +119,13 @@ public class HybridRagEmbeddingService implements RagEmbeddingPort {
             boostRange(vector, 48, 64, 2.5f);
         }
 
-        // Semantic cluster 5: Pets / Thú cưng / Chó mèo
-        if (text.contains("thú cưng") || text.contains("chó mèo") || text.contains("pet") ||
-                text.contains("chó") || text.contains("mèo")) {
+        // Semantic cluster 5: Pets / Thú cưng / Chó mèo / Poodle / Cún
+        if (text.contains("thú cưng") || text.contains("thu cung") ||
+                text.contains("chó mèo") || text.contains("cho meo") ||
+                text.contains("pet") || text.contains("chó") || text.contains("mèo") ||
+                text.contains("cún") || text.contains("cun") ||
+                text.contains("poodle") || text.contains("vật nuôi") || text.contains("vat nuoi") ||
+                text.contains("động vật cảnh") || text.contains("dong vat")) {
             boostRange(vector, 64, 80, 2.5f);
         }
 
@@ -133,9 +141,15 @@ public class HybridRagEmbeddingService implements RagEmbeddingPort {
             boostRange(vector, 96, 112, 2.5f);
         }
 
-        // Semantic cluster 8: Cancellation / Hủy phòng
-        if (text.contains("hủy phòng") || text.contains("chính sách hủy") || text.contains("cancellation") ||
-                text.contains("cancel policy")) {
+        // Semantic cluster 8: Cancellation / Hủy phòng / Hoàn cọc / Hoàn tiền
+        if (text.contains("hủy phòng") || text.contains("huy phong") ||
+                text.contains("chính sách hủy") || text.contains("chinh sach huy") ||
+                text.contains("cancellation") || text.contains("cancel policy") ||
+                text.contains("hoàn tiền") || text.contains("hoan tien") ||
+                text.contains("hoàn cọc") || text.contains("hoan coc") ||
+                text.contains("tiền cọc") || text.contains("tien coc") ||
+                text.contains("đặt cọc") || text.contains("dat coc") ||
+                text.contains("refund") || text.contains("deposit")) {
             boostRange(vector, 112, 128, 2.5f);
         }
 
@@ -154,6 +168,33 @@ public class HybridRagEmbeddingService implements RagEmbeddingPort {
                 text.contains("bồn tắm") || text.contains("bon tam") ||
                 text.contains("room size") || text.contains("layout") || text.contains("square meter")) {
             boostRange(vector, 144, 160, 3.5f);
+        }
+
+        // Semantic cluster 11: Children & Infant surcharge / Phụ thu trẻ em & em bé sơ sinh
+        if (text.contains("trẻ sơ sinh") || text.contains("tre so sinh") ||
+                text.contains("sơ sinh") || text.contains("so sinh") ||
+                text.contains("em bé") || text.contains("em be") ||
+                text.contains("phụ thu trẻ") || text.contains("phu thu tre") ||
+                text.contains("phụ thu bé") || text.contains("phu thu be") ||
+                text.contains("phụ thu") || text.contains("phu thu") ||
+                text.contains("tính thêm tiền") || text.contains("tinh them tien") ||
+                text.contains("tính tiền thêm") || text.contains("tinh tiền") ||
+                text.contains("ngủ chung giường") || text.contains("ngu chung giuong") ||
+                text.contains("giường phụ") || text.contains("giuong phu") ||
+                text.contains("cũi") || text.contains("nôi") ||
+                text.contains("infant") || text.contains("baby") ||
+                (text.contains("trẻ em") && (text.contains("tiền") || text.contains("phí") || text.contains("giá")))) {
+            boostRange(vector, 160, 176, 3.5f);
+        }
+
+        // Semantic cluster 12: Early check-in & Late check-out / Nhận phòng sớm & Trả phòng muộn
+        if (text.contains("nhận phòng sớm") || text.contains("nhan phong som") ||
+                text.contains("trả phòng muộn") || text.contains("tra phong muon") ||
+                text.contains("đến sớm") || text.contains("den som") ||
+                text.contains("rời phòng muộn") || text.contains("roi phong muon") ||
+                text.contains("early check-in") || text.contains("early checkin") ||
+                text.contains("late check-out") || text.contains("late checkout")) {
+            boostRange(vector, 176, 192, 3.5f);
         }
     }
 

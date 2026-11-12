@@ -49,13 +49,13 @@ class DefaultPublicHotelCorpusInitializerTest {
         contextRunner.withPropertyValues("hotel.ai.rag.demo-corpus.enabled=true").run(context -> {
             RagKnowledgeLifecycleService lifecycleService = context.getBean(RagKnowledgeLifecycleService.class);
 
-            verify(lifecycleService, times(10)).ingestAndStage(any(RagIngestRequestDto.class), anyInt());
-            verify(lifecycleService, times(10)).activate(any(RagActivationRequestDto.class));
+            verify(lifecycleService, times(13)).ingestAndStage(any(RagIngestRequestDto.class), anyInt());
+            verify(lifecycleService, times(13)).activate(any(RagActivationRequestDto.class));
         });
     }
 
     @Test
-    @DisplayName("Seeds real 10 docs into vector store and verifies static room description retrieval and isolation")
+    @DisplayName("Seeds real 13 docs into vector store and verifies policy retrieval and isolation")
     void realCorpusSeedingAndRetrievalVerification() {
         RagCorpusGovernanceValidator validator = new RagCorpusGovernanceValidator();
         HybridRagEmbeddingService embeddingService = new HybridRagEmbeddingService();
@@ -141,6 +141,58 @@ class DefaultPublicHotelCorpusInitializerTest {
         assertThat(poolRes.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
         assertThat(poolRes.getAnswer()).contains("06:00").contains("21:00");
         assertThat(poolRes.getAnswer()).doesNotContain("[DLX]", "[STE]", "Diện tích");
+
+        // 6. Verify Pet policy retrieval with colloquial terms (chó mèo, cún poodle)
+        RagQueryResultDto petRes = answerService.answerQuestion(
+                RagQueryRequestDto.builder()
+                        .hotelId(1)
+                        .question("Khách sạn có cho mang theo chó mèo, bé cún poodle không?")
+                        .asOfDate(LocalDate.of(2026, 3, 1))
+                        .build()
+        );
+        assertThat(petRes.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
+        assertThat(petRes.getAnswer()).contains("không cho phép mang theo thú cưng");
+        assertThat(petRes.getCitations()).isNotEmpty();
+        assertThat(petRes.getCitations().get(0).getSourceId()).isEqualTo("POLICY-PETS");
+
+        // 7. Verify Early Check-in policy retrieval
+        RagQueryResultDto earlyCheckInRes = answerService.answerQuestion(
+                RagQueryRequestDto.builder()
+                        .hotelId(1)
+                        .question("Mình muốn nhận phòng sớm tầm 8h sáng thì có được không?")
+                        .asOfDate(LocalDate.of(2026, 3, 1))
+                        .build()
+        );
+        assertThat(earlyCheckInRes.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
+        assertThat(earlyCheckInRes.getAnswer()).contains("nhận phòng sớm");
+        assertThat(earlyCheckInRes.getCitations()).isNotEmpty();
+        assertThat(earlyCheckInRes.getCitations().get(0).getSourceId()).isEqualTo("POLICY-EARLY-CHECKIN");
+
+        // 8. Verify Infant & Child surcharge policy retrieval
+        RagQueryResultDto childSurchargeRes = answerService.answerQuestion(
+                RagQueryRequestDto.builder()
+                        .hotelId(1)
+                        .question("Bé sơ sinh 6 tháng tuổi có bị tính thêm tiền không?")
+                        .asOfDate(LocalDate.of(2026, 3, 1))
+                        .build()
+        );
+        assertThat(childSurchargeRes.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
+        assertThat(childSurchargeRes.getAnswer()).contains("miễn phí hoàn toàn tiền phòng");
+        assertThat(childSurchargeRes.getCitations()).isNotEmpty();
+        assertThat(childSurchargeRes.getCitations().get(0).getSourceId()).isEqualTo("POLICY-CHILD-SURCHARGE");
+
+        // 9. Verify Deposit refund policy retrieval
+        RagQueryResultDto refundRes = answerService.answerQuestion(
+                RagQueryRequestDto.builder()
+                        .hotelId(1)
+                        .question("Nếu bận việc đột xuất hủy phòng có được hoàn tiền cọc không?")
+                        .asOfDate(LocalDate.of(2026, 3, 1))
+                        .build()
+        );
+        assertThat(refundRes.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
+        assertThat(refundRes.getAnswer()).contains("hoàn trả 100% tiền đặt cọc");
+        assertThat(refundRes.getCitations()).isNotEmpty();
+        assertThat(refundRes.getCitations().get(0).getSourceId()).isEqualTo("FAQ-CANCELLATION");
     }
 
     @Configuration(proxyBeanMethods = false)
