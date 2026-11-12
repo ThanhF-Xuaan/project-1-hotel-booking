@@ -61,6 +61,7 @@ jobs:
             VITE_KEYCLOAK_URL=https://smartstay.space
             VITE_KEYCLOAK_REALM=hotel-realm
             VITE_KEYCLOAK_CLIENT_ID=hotel-frontend
+            VITE_ADVISOR_UNIFIED=true
           push: true
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/hotel_frontend:latest

@@ -4,6 +4,12 @@ const result = (reply: string, version = 1) => ({ contractVersion: '2.0', reques
   sessionId: '00000000-0000-4000-8000-000000000001', sessionVersion: version,
   status: 'NEED_INFO', reply, recommendations: [] });
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __VITE_ADVISOR_UNIFIED?: boolean }).__VITE_ADVISOR_UNIFIED = false;
+  });
+});
+
 async function send(page: Page, message: string) {
   await page.getByPlaceholder(/Nhập nhu cầu/).fill(message);
   await page.getByLabel('Gửi tin nhắn').click();
