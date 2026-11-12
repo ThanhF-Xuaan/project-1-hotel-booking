@@ -171,6 +171,83 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    @DisplayName("Should extract single date in current month with stay duration")
+    void shouldExtractSingleDateThisMonthWithDuration() {
+        String msg = "Tìm phòng ở Nha Trang ngày 25 tháng này ở 2 đêm cho 2 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(LocalDate.of(today.getYear(), today.getMonthValue(), 25));
+        assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(today.getYear(), today.getMonthValue(), 27));
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Nha Trang");
+    }
+
+    @Test
+    @DisplayName("Should extract Vietnamese slang budget 'củ', bathtub and sea view")
+    void shouldExtractVietnameseSlangBudgetCuAndFeatures() {
+        String msg = "Tìm phòng ở Đà Lạt cho hai đứa mình ngày 20 đến 22 tháng này giá tầm 1 củ rưỡi có bồn tắm nằm và view biển";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Đà Lạt");
+        assertThat(patch.getBudget()).isNotNull();
+        assertThat(patch.getBudget().getAmount()).isEqualTo("1500000");
+        assertThat(patch.getPreferredFeatureCodes()).contains("BATHTUB", "SEA_VIEW");
+    }
+
+    @Test
+    @DisplayName("Should extract single adult, Saigon destination, and hard budget with 'đổ lại'")
+    void shouldExtractSingleAdultSlangAndHardBudget() {
+        String msg = "Mình đi một mình cần phòng ở Sài Gòn ngày 20 đến 22 tháng này giá dưới 2 củ đổ lại có hồ bơi";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        assertThat(patch.getAdults()).isEqualTo(1);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Hồ Chí Minh");
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(LocalDate.of(today.getYear(), today.getMonthValue(), 20));
+        assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(today.getYear(), today.getMonthValue(), 22));
+        assertThat(patch.getBudget()).isNotNull();
+        assertThat(patch.getBudget().getAmount()).isEqualTo("2000000");
+        assertThat(patch.getBudget().isHard()).isTrue();
+        assertThat(patch.getPreferredFeatureCodes()).contains("POOL");
+    }
+
+    @Test
+    @DisplayName("Should extract date range with explicit month without year")
+    void shouldExtractDateRangeWithExplicitMonthWithoutYear() {
+        String msg = "Tìm phòng ở Phú Quốc từ 15 đến 18 tháng 12 cho 2 người lớn";
+
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+
+        assertThat(patch).isNotNull();
+        LocalDate today = LocalDate.now();
+        assertThat(patch.getCheckInDate()).isEqualTo(LocalDate.of(today.getYear(), 12, 15));
+        assertThat(patch.getCheckOutDate()).isEqualTo(LocalDate.of(today.getYear(), 12, 18));
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getLocationKeyword()).isEqualTo("Phú Quốc");
+    }
+
+    @Test
+    @DisplayName("Should build Gemini extraction prompt containing Vietnamese colloquial and slang rules")
+    void shouldBuildGeminiExtractionPromptWithColloquialRules() {
+        LocalDate date = LocalDate.of(2026, 11, 12);
+        String prompt = HybridRoomAdvisorLlmService.buildGeminiExtractionPrompt(date, "Tìm phòng giá tầm 2 củ");
+
+        assertThat(prompt).contains("Today is 2026-11-12");
+        assertThat(prompt).contains("Vietnamese colloquial phrases and slang rules");
+        assertThat(prompt).contains("củ");
+        assertThat(prompt).contains("tháng này");
+        assertThat(prompt).contains("Tìm phòng giá tầm 2 củ");
+    }
+
+    @Test
     void parsesVietnameseGroupedBudgetWithoutAssumingNightlyBasis() {
         String request = "Tìm phòng tại Hà Nội, nhận phòng 2026-11-09, trả phòng 2026-11-11, "
                 + "2 người lớn, ngân sách tối đa 1.500.000 VND";
