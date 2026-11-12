@@ -17,6 +17,7 @@ import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherCreateRequest
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherResponse;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherUsageResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.service.VoucherService;
 
 import java.math.BigDecimal;
@@ -133,6 +134,29 @@ class VoucherControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.id").value(10))
                 .andExpect(jsonPath("$.result.voucherCode").value("DISCOUNT50"));
+    }
+
+    @Test
+    @DisplayName("API GET /api/v1/pricing/vouchers/{id}/usages - Lấy lịch sử sử dụng voucher thành công")
+    void getVoucherUsages_Success() throws Exception {
+        VoucherUsageResponse usage = VoucherUsageResponse.builder()
+                .id(100L)
+                .voucherId(10)
+                .voucherCode("DISCOUNT50")
+                .bookingGuestId(5L)
+                .guestFullName("Nguyen Van A")
+                .guestPhoneNumber("0912345678")
+                .discountAmount(BigDecimal.valueOf(50000))
+                .usedAt(OffsetDateTime.now())
+                .build();
+
+        when(voucherService.getVoucherUsages(10)).thenReturn(List.of(usage));
+
+        mockMvc.perform(get("/api/v1/pricing/vouchers/{id}/usages", 10))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.result[0].id").value(100))
+                .andExpect(jsonPath("$.result[0].voucherCode").value("DISCOUNT50"))
+                .andExpect(jsonPath("$.result[0].guestFullName").value("Nguyen Van A"));
     }
 
     @Test

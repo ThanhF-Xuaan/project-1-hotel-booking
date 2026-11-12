@@ -21,6 +21,7 @@ import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherValidateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherResponse;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherUsageResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherValidationResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.Voucher;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.VoucherUsage;
@@ -137,6 +138,26 @@ public class VoucherServiceImpl implements VoucherService {
             response.setHotelName("Toàn chuỗi áp dụng");
         }
         return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VoucherUsageResponse> getVoucherUsages(Integer voucherId) {
+        Voucher voucher = voucherRepository.findByIdAndIsDeletedFalse(voucherId)
+                .orElseThrow(() -> new AppException(ErrorCode.VOUCHER_NOT_FOUND));
+
+        return voucherUsageRepository.findByVoucherId(voucherId).stream()
+                .map(u -> VoucherUsageResponse.builder()
+                        .id(u.getId())
+                        .voucherId(voucherId)
+                        .voucherCode(voucher.getVoucherCode())
+                        .bookingGuestId(u.getBookingGuest() != null ? u.getBookingGuest().getId() : null)
+                        .guestFullName(u.getBookingGuest() != null ? u.getBookingGuest().getFullName() : null)
+                        .guestPhoneNumber(u.getBookingGuest() != null ? u.getBookingGuest().getPhone() : null)
+                        .discountAmount(u.getDiscountAmount())
+                        .usedAt(u.getUsedAt())
+                        .build())
+                .toList();
     }
 
     @Override

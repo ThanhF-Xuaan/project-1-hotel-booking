@@ -11,11 +11,12 @@ import {
   Building,
   CheckCircle2,
   Clock,
-  Layers,
+  History,
+  X,
 } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
-import Select from '../../../core/components/ui/Select'
+import Select, { type SelectOption } from '../../../core/components/ui/Select'
 import Modal, { ConfirmModal } from '../../../core/components/ui/Modal'
 import Pagination from '../../../core/components/ui/Pagination'
 import voucherService from '../services/voucher.service'
@@ -24,9 +25,10 @@ import type {
   VoucherDto,
   VoucherCreateRequest,
   VoucherUpdateRequest,
+  VoucherUsageDto,
 } from '../types/voucher.types'
 import type { HotelDto } from '../../organization/types/organization.types'
-import { formatCurrency } from '../../../core/utils/format'
+import { formatCurrency } from '../../../core/utils/currency'
 
 export const VoucherListPage: React.FC = () => {
   const [vouchers, setVouchers] = useState<VoucherDto[]>([])
@@ -36,7 +38,7 @@ export const VoucherListPage: React.FC = () => {
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [page, setPage] = useState(0)
-  const [pageSize, setPageSize] = useState(10)
+  const pageSize = 10
   const [keyword, setKeyword] = useState('')
   const [filterHotelId, setFilterHotelId] = useState<number | undefined>(undefined)
   const [filterDiscountType, setFilterDiscountType] = useState<string>('')
@@ -72,17 +74,26 @@ export const VoucherListPage: React.FC = () => {
   const [deletingIds, setDeletingIds] = useState<number[]>([])
   const [isDeleting, setIsDeleting] = useState(false)
 
-  // Load auxiliary data on mount
+  // Usage History Drawer State
+  const [selectedUsageVoucher, setSelectedUsageVoucher] = useState<VoucherDto | null>(null)
+  const [usages, setUsages] = useState<VoucherUsageDto[]>([])
+  const [isLoadingUsages, setIsLoadingUsages] = useState(false)
+
+  // Load hotels on mount
   useEffect(() => {
+    let active = true
     hotelService
       .filter({ pageSize: 100, status: 'ACTIVE' })
       .then((res) => {
-        if (res.result) setHotels(res.result.content || [])
+        if (active && res.result) setHotels(res.result.content || [])
       })
-      .catch((err) => console.error('Lỗi tải danh mục khách sạn:', err))
+      .catch((err: unknown) => console.error('Lỗi tải danh mục khách sạn:', err))
+    return () => {
+      active = false
+    }
   }, [])
 
-  // Load list of vouchers
+  // Load vouchers callback
   const loadVouchers = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -103,7 +114,7 @@ export const VoucherListPage: React.FC = () => {
         setTotalElements(res.result.totalElements || 0)
         setTotalPages(res.result.totalPages || 0)
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Lỗi tải danh sách voucher:', err)
     } finally {
       setIsLoading(false)
@@ -111,17 +122,13 @@ export const VoucherListPage: React.FC = () => {
   }, [page, pageSize, keyword, filterHotelId, filterDiscountType, filterApplyScope, filterStatus])
 
   useEffect(() => {
-    loadVouchers()
+    const timer = setTimeout(() => {
+      void loadVouchers()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [loadVouchers])
 
-  // Reset to first page when filters change
-  const handleFilterChange = (setter: (val: any) => void, value: any) => {
-    setter(value)
-    setPage(0)
-    setSelectedIds([])
-  }
-
-  // Handle open modal for create
+  // Open modal for create
   const handleOpenCreateModal = () => {
     setEditingVoucher(null)
     setFormHotelId('')
@@ -152,7 +159,7 @@ export const VoucherListPage: React.FC = () => {
     setIsFormModalOpen(true)
   }
 
-  // Handle open modal for edit
+  // Open modal for edit
   const handleOpenEditModal = (voucher: VoucherDto) => {
     setEditingVoucher(voucher)
     setFormHotelId(voucher.hotelId || '')
@@ -179,6 +186,24 @@ export const VoucherListPage: React.FC = () => {
     setFormStatus(voucher.status)
     setFormError(null)
     setIsFormModalOpen(true)
+  }
+
+  // Open usage history drawer
+  const handleOpenUsageDrawer = async (voucher: VoucherDto) => {
+    setSelectedUsageVoucher(voucher)
+    setIsLoadingUsages(true)
+    try {
+      const res = await voucherService.getUsages(voucher.id)
+      if (res.result) {
+        setUsages(res.result)
+      } else {
+        setUsages([])
+      }
+    } catch {
+      setUsages([])
+    } finally {
+      setIsLoadingUsages(false)
+    }
   }
 
   // Submit Form
@@ -267,10 +292,10 @@ export const VoucherListPage: React.FC = () => {
       }
 
       setIsFormModalOpen(false)
-      loadVouchers()
-    } catch (err: any) {
-      console.error('Lỗi lưu voucher:', err)
-      setFormError(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi lưu voucher')
+      void loadVouchers()
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string }
+      setFormError(axiosErr.response?.data?.message || axiosErr.message || 'Có lỗi xảy ra khi lưu voucher')
     } finally {
       setIsSubmitting(false)
     }
@@ -310,8 +335,8 @@ export const VoucherListPage: React.FC = () => {
       await voucherService.deleteBatch(deletingIds)
       setDeleteConfirmOpen(false)
       setSelectedIds([])
-      loadVouchers()
-    } catch (err) {
+      void loadVouchers()
+    } catch (err: unknown) {
       console.error('Lỗi xóa voucher:', err)
     } finally {
       setIsDeleting(false)
@@ -327,6 +352,55 @@ export const VoucherListPage: React.FC = () => {
       year: 'numeric',
     })
   }
+
+  // Filter Select Options
+  const hotelFilterOptions: SelectOption<number | ''>[] = [
+    { value: '', label: 'Tất cả cơ sở (Toàn chuỗi & Khách sạn)' },
+    ...hotels.map((h) => ({ value: h.id, label: h.name })),
+  ]
+
+  const discountTypeFilterOptions: SelectOption<string>[] = [
+    { value: '', label: 'Tất cả hình thức giảm' },
+    { value: 'PERCENT', label: 'Giảm theo phần trăm (%)' },
+    { value: 'FIXED', label: 'Giảm số tiền cố định (VNĐ)' },
+  ]
+
+  const applyScopeFilterOptions: SelectOption<string>[] = [
+    { value: '', label: 'Tất cả phạm vi áp dụng' },
+    { value: 'ROOM_ONLY', label: 'Chỉ tiền phòng (ROOM_ONLY)' },
+    { value: 'TOTAL_BOOKING', label: 'Toàn bộ hóa đơn (TOTAL_BOOKING)' },
+    { value: 'SERVICE_ONLY', label: 'Dịch vụ ăn uống/spa (SERVICE_ONLY)' },
+  ]
+
+  const statusFilterOptions: SelectOption<string>[] = [
+    { value: '', label: 'Tất cả trạng thái' },
+    { value: 'ACTIVE', label: 'Đang kích hoạt (ACTIVE)' },
+    { value: 'INACTIVE', label: 'Tạm ngưng (INACTIVE)' },
+    { value: 'EXPIRED', label: 'Đã hết hạn/hết lượt (EXPIRED)' },
+  ]
+
+  // Form Select Options
+  const formHotelOptions: SelectOption<number | ''>[] = [
+    { value: '', label: 'Toàn chuỗi (Mọi cơ sở đều áp dụng)' },
+    ...hotels.map((h) => ({ value: h.id, label: h.name })),
+  ]
+
+  const formScopeOptions: SelectOption<'ROOM_ONLY' | 'TOTAL_BOOKING' | 'SERVICE_ONLY'>[] = [
+    { value: 'ROOM_ONLY', label: 'Chỉ giảm tiền phòng (ROOM_ONLY)' },
+    { value: 'TOTAL_BOOKING', label: 'Giảm toàn bộ hóa đơn (TOTAL_BOOKING)' },
+    { value: 'SERVICE_ONLY', label: 'Chỉ giảm dịch vụ ăn uống/spa (SERVICE_ONLY)' },
+  ]
+
+  const formTypeOptions: SelectOption<'PERCENT' | 'FIXED'>[] = [
+    { value: 'PERCENT', label: 'Phần trăm (%)' },
+    { value: 'FIXED', label: 'Số tiền cố định (VNĐ)' },
+  ]
+
+  const formStatusOptions: SelectOption<'ACTIVE' | 'INACTIVE' | 'EXPIRED'>[] = [
+    { value: 'ACTIVE', label: 'Đang kích hoạt (ACTIVE)' },
+    { value: 'INACTIVE', label: 'Tạm ngưng (INACTIVE)' },
+    { value: 'EXPIRED', label: 'Hết hạn (EXPIRED)' },
+  ]
 
   return (
     <div className="space-y-6">
@@ -348,7 +422,7 @@ export const VoucherListPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            onClick={loadVouchers}
+            onClick={() => void loadVouchers()}
             disabled={isLoading}
             className="flex items-center gap-2 border-neutral-200 hover:bg-neutral-50 h-10 px-4 rounded-xl text-neutral-700"
           >
@@ -373,65 +447,63 @@ export const VoucherListPage: React.FC = () => {
             <Input
               placeholder="Tìm mã code, tiêu đề..."
               value={keyword}
-              onChange={(e) => handleFilterChange(setKeyword, e.target.value)}
+              onChange={(e) => {
+                setKeyword(e.target.value)
+                setPage(0)
+                setSelectedIds([])
+              }}
               className="pl-9 h-11 rounded-xl"
             />
             <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-3.5 pointer-events-none" />
           </div>
 
           {/* Hotel Filter */}
-          <Select
-            value={filterHotelId !== undefined ? String(filterHotelId) : ''}
-            onChange={(e) =>
-              handleFilterChange(
-                setFilterHotelId,
-                e.target.value ? Number(e.target.value) : undefined
-              )
-            }
-            className="h-11 rounded-xl"
-          >
-            <option value="">Tất cả cơ sở (Toàn chuỗi & Khách sạn)</option>
-            {hotels.map((h) => (
-              <option key={h.id} value={h.id}>
-                {h.name}
-              </option>
-            ))}
-          </Select>
+          <Select<number | ''>
+            value={filterHotelId !== undefined ? filterHotelId : ''}
+            onChange={(val) => {
+              setFilterHotelId(val !== '' ? Number(val) : undefined)
+              setPage(0)
+              setSelectedIds([])
+            }}
+            options={hotelFilterOptions}
+            size="md"
+          />
 
           {/* Discount Type */}
-          <Select
+          <Select<string>
             value={filterDiscountType}
-            onChange={(e) => handleFilterChange(setFilterDiscountType, e.target.value)}
-            className="h-11 rounded-xl"
-          >
-            <option value="">Tất cả hình thức giảm</option>
-            <option value="PERCENT">Giảm theo phần trăm (%)</option>
-            <option value="FIXED">Giảm số tiền cố định (VNĐ)</option>
-          </Select>
+            onChange={(val) => {
+              setFilterDiscountType(val)
+              setPage(0)
+              setSelectedIds([])
+            }}
+            options={discountTypeFilterOptions}
+            size="md"
+          />
 
           {/* Apply Scope */}
-          <Select
+          <Select<string>
             value={filterApplyScope}
-            onChange={(e) => handleFilterChange(setFilterApplyScope, e.target.value)}
-            className="h-11 rounded-xl"
-          >
-            <option value="">Tất cả phạm vi áp dụng</option>
-            <option value="ROOM_ONLY">Chỉ tiền phòng (ROOM_ONLY)</option>
-            <option value="TOTAL_BOOKING">Toàn bộ hóa đơn (TOTAL_BOOKING)</option>
-            <option value="SERVICE_ONLY">Dịch vụ ăn uống/spa (SERVICE_ONLY)</option>
-          </Select>
+            onChange={(val) => {
+              setFilterApplyScope(val)
+              setPage(0)
+              setSelectedIds([])
+            }}
+            options={applyScopeFilterOptions}
+            size="md"
+          />
 
           {/* Status */}
-          <Select
+          <Select<string>
             value={filterStatus}
-            onChange={(e) => handleFilterChange(setFilterStatus, e.target.value)}
-            className="h-11 rounded-xl"
-          >
-            <option value="">Tất cả trạng thái</option>
-            <option value="ACTIVE">Đang kích hoạt (ACTIVE)</option>
-            <option value="INACTIVE">Tạm ngưng (INACTIVE)</option>
-            <option value="EXPIRED">Đã hết hạn/hết lượt (EXPIRED)</option>
-          </Select>
+            onChange={(val) => {
+              setFilterStatus(val)
+              setPage(0)
+              setSelectedIds([])
+            }}
+            options={statusFilterOptions}
+            size="md"
+          />
         </div>
       </div>
 
@@ -637,7 +709,14 @@ export const VoucherListPage: React.FC = () => {
                       </td>
 
                       {/* Thao Tác */}
-                      <td className="py-4 px-4 text-right space-x-1">
+                      <td className="py-4 px-4 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          onClick={() => void handleOpenUsageDrawer(v)}
+                          className="p-1.5 text-neutral-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="Xem lịch sử sử dụng"
+                        >
+                          <History className="w-4 h-4" />
+                        </button>
                         <button
                           onClick={() => handleOpenEditModal(v)}
                           className="p-1.5 text-neutral-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -664,15 +743,11 @@ export const VoucherListPage: React.FC = () => {
         {/* Phân Trang */}
         <div className="p-4 border-t border-neutral-200 bg-neutral-50/50">
           <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            totalItems={totalElements}
+            pageNumber={page}
             pageSize={pageSize}
-            onPageChange={setPage}
-            onPageSizeChange={(newSize) => {
-              setPageSize(newSize)
-              setPage(0)
-            }}
+            totalElements={totalElements}
+            totalPages={totalPages}
+            onPageChange={(newPage) => setPage(newPage)}
           />
         </div>
       </div>
@@ -685,31 +760,28 @@ export const VoucherListPage: React.FC = () => {
         description="Cấu hình các điều kiện chiết khấu, hạn mức và thời gian phát hành voucher"
         maxWidth="2xl"
       >
-        <form onSubmit={handleSubmitForm} className="space-y-4">
+        <form onSubmit={handleSubmitForm} className="space-y-3">
           {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm flex items-center gap-2">
+            <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs sm:text-sm flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{formError}</span>
             </div>
           )}
 
           {/* Section 1: Thông tin cơ bản */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-neutral-700 uppercase mb-1">
                 Mã Code Voucher <span className="text-red-500">*</span>
               </label>
               <Input
-                placeholder="VD: SUMMER2026"
+                placeholder="VD: SUMMER2026 (Viết hoa, chữ và số)"
                 value={formVoucherCode}
                 onChange={(e) => setFormVoucherCode(e.target.value.toUpperCase().replace(/\s+/g, ''))}
                 disabled={Boolean(editingVoucher)}
-                className="font-mono uppercase font-bold"
+                className="h-11 md:h-11 font-mono uppercase font-bold text-xs sm:text-sm px-3.5 bg-white"
                 required
               />
-              <span className="text-[11px] text-neutral-400 mt-0.5 block">
-                Viết hoa liền không dấu, chỉ gồm chữ cái, số, gạch ngang/dưới
-              </span>
             </div>
 
             <div>
@@ -720,6 +792,7 @@ export const VoucherListPage: React.FC = () => {
                 placeholder="VD: Ưu đãi mùa hè 2026"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
                 required
               />
             </div>
@@ -733,40 +806,36 @@ export const VoucherListPage: React.FC = () => {
               placeholder="VD: Giảm 15% tiền phòng áp dụng cho đặt phòng từ 2 đêm..."
               value={formDescription}
               onChange={(e) => setFormDescription(e.target.value)}
+              className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
             />
           </div>
 
           {/* Section 2: Cơ sở & Phạm vi */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-neutral-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-neutral-100">
             <div>
               <label className="block text-xs font-semibold text-neutral-700 uppercase mb-1">
                 Cơ Sở Áp Dụng
               </label>
-              <Select
-                value={formHotelId !== '' ? String(formHotelId) : ''}
-                onChange={(e) => setFormHotelId(e.target.value ? Number(e.target.value) : '')}
-              >
-                <option value="">Toàn chuỗi (Mọi cơ sở đều áp dụng)</option>
-                {hotels.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name}
-                  </option>
-                ))}
-              </Select>
+              <Select<number | ''>
+                value={formHotelId}
+                onChange={(val) => setFormHotelId(val !== '' ? Number(val) : '')}
+                options={formHotelOptions}
+                size="md"
+                className="[&>button]:bg-white [&>button]:h-11 [&>button]:text-xs sm:[&>button]:text-sm [&>button]:font-normal [&>button]:px-3.5"
+              />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-neutral-700 uppercase mb-1">
                 Phạm Vi Giảm Trừ
               </label>
-              <Select
+              <Select<'ROOM_ONLY' | 'TOTAL_BOOKING' | 'SERVICE_ONLY'>
                 value={formApplyScope}
-                onChange={(e) => setFormApplyScope(e.target.value as any)}
-              >
-                <option value="ROOM_ONLY">Chỉ giảm tiền phòng (ROOM_ONLY)</option>
-                <option value="TOTAL_BOOKING">Giảm toàn bộ hóa đơn (TOTAL_BOOKING)</option>
-                <option value="SERVICE_ONLY">Chỉ giảm dịch vụ ăn uống/spa (SERVICE_ONLY)</option>
-              </Select>
+                onChange={(val) => setFormApplyScope(val)}
+                options={formScopeOptions}
+                size="md"
+                className="[&>button]:bg-white [&>button]:h-11 [&>button]:text-xs sm:[&>button]:text-sm [&>button]:font-normal [&>button]:px-3.5"
+              />
             </div>
           </div>
 
@@ -776,13 +845,13 @@ export const VoucherListPage: React.FC = () => {
               <label className="block text-xs font-semibold text-neutral-700 uppercase mb-1">
                 Loại Giảm Giá
               </label>
-              <Select
+              <Select<'PERCENT' | 'FIXED'>
                 value={formDiscountType}
-                onChange={(e) => setFormDiscountType(e.target.value as any)}
-              >
-                <option value="PERCENT">Phần trăm (%)</option>
-                <option value="FIXED">Số tiền cố định (VNĐ)</option>
-              </Select>
+                onChange={(val) => setFormDiscountType(val)}
+                options={formTypeOptions}
+                size="md"
+                className="[&>button]:bg-white [&>button]:h-11 [&>button]:text-xs sm:[&>button]:text-sm [&>button]:font-normal [&>button]:px-3.5"
+              />
             </div>
 
             <div>
@@ -795,6 +864,7 @@ export const VoucherListPage: React.FC = () => {
                 max={formDiscountType === 'PERCENT' ? 100 : undefined}
                 value={formDiscountValue}
                 onChange={(e) => setFormDiscountValue(Number(e.target.value))}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
                 required
               />
             </div>
@@ -811,6 +881,7 @@ export const VoucherListPage: React.FC = () => {
                   setFormMaxDiscountAmount(e.target.value ? Number(e.target.value) : '')
                 }
                 disabled={formDiscountType !== 'PERCENT'}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
               />
             </div>
           </div>
@@ -825,6 +896,7 @@ export const VoucherListPage: React.FC = () => {
                 min={0}
                 value={formMinOrderAmount}
                 onChange={(e) => setFormMinOrderAmount(Number(e.target.value))}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
               />
             </div>
 
@@ -837,6 +909,7 @@ export const VoucherListPage: React.FC = () => {
                 min={1}
                 value={formTotalQuantity}
                 onChange={(e) => setFormTotalQuantity(Number(e.target.value))}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
                 required
               />
             </div>
@@ -850,6 +923,7 @@ export const VoucherListPage: React.FC = () => {
                 min={1}
                 value={formMaxUsagePerUser}
                 onChange={(e) => setFormMaxUsagePerUser(Number(e.target.value))}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
                 required
               />
             </div>
@@ -865,6 +939,7 @@ export const VoucherListPage: React.FC = () => {
                 type="datetime-local"
                 value={formValidFrom}
                 onChange={(e) => setFormValidFrom(e.target.value)}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
                 required
               />
             </div>
@@ -877,6 +952,7 @@ export const VoucherListPage: React.FC = () => {
                 type="datetime-local"
                 value={formValidTo}
                 onChange={(e) => setFormValidTo(e.target.value)}
+                className="h-11 md:h-11 text-xs sm:text-sm px-3.5 bg-white"
                 required
               />
             </div>
@@ -885,19 +961,18 @@ export const VoucherListPage: React.FC = () => {
               <label className="block text-xs font-semibold text-neutral-700 uppercase mb-1">
                 Trạng Thái
               </label>
-              <Select
+              <Select<'ACTIVE' | 'INACTIVE' | 'EXPIRED'>
                 value={formStatus}
-                onChange={(e) => setFormStatus(e.target.value as any)}
-              >
-                <option value="ACTIVE">Kích hoạt (ACTIVE)</option>
-                <option value="INACTIVE">Tạm ngưng (INACTIVE)</option>
-                <option value="EXPIRED">Đã hết hạn (EXPIRED)</option>
-              </Select>
+                onChange={(val) => setFormStatus(val)}
+                options={formStatusOptions}
+                size="md"
+                className="[&>button]:bg-white [&>button]:h-11 [&>button]:text-xs sm:[&>button]:text-sm [&>button]:font-normal [&>button]:px-3.5"
+              />
             </div>
           </div>
 
           {/* Footer actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
+          <div className="flex justify-end gap-3 pt-3 border-t border-neutral-200">
             <Button
               type="button"
               variant="outline"
@@ -920,6 +995,81 @@ export const VoucherListPage: React.FC = () => {
         </form>
       </Modal>
 
+      {/* DRAWER LỊCH SỬ SỬ DỤNG VOUCHER */}
+      {selectedUsageVoucher && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div
+            className="absolute inset-0 bg-neutral-900/40 backdrop-blur-xs transition-opacity"
+            onClick={() => setSelectedUsageVoucher(null)}
+          />
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+            <div className="w-screen max-w-md bg-white shadow-xl flex flex-col">
+              <div className="p-5 border-b border-neutral-200 flex items-center justify-between bg-neutral-50">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-purple-100 text-purple-700 rounded-lg">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-neutral-900">Lịch Sử Sử Dụng</h2>
+                    <p className="text-xs text-neutral-500 font-mono">
+                      Mã: {selectedUsageVoucher.voucherCode} ({selectedUsageVoucher.usedQuantity}/{selectedUsageVoucher.totalQuantity} lượt)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedUsageVoucher(null)}
+                  className="p-1.5 text-neutral-400 hover:text-neutral-700 rounded-lg hover:bg-neutral-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                {isLoadingUsages ? (
+                  <div className="py-12 text-center text-neutral-400">
+                    <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-purple-600" />
+                    Đang tải nhật ký lượt dùng...
+                  </div>
+                ) : usages.length === 0 ? (
+                  <div className="py-12 text-center text-neutral-400">
+                    <Ticket className="w-8 h-8 mx-auto mb-2 text-neutral-300" />
+                    Chưa có lượt khách nào sử dụng mã này
+                  </div>
+                ) : (
+                  usages.map((u) => (
+                    <div
+                      key={u.id}
+                      className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-200/80 space-y-1.5 text-xs"
+                    >
+                      <div className="flex items-center justify-between font-semibold text-neutral-900">
+                        <span>{u.guestFullName || `Khách hàng #${u.bookingGuestId}`}</span>
+                        <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-bold">
+                          -{formatCurrency(u.discountAmount)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-neutral-500 text-[11px]">
+                        <span>SĐT: {u.guestPhoneNumber || 'Không có'}</span>
+                        <span>{new Date(u.usedAt).toLocaleString('vi-VN')}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="p-4 border-t border-neutral-200 bg-neutral-50">
+                <Button
+                  variant="outline"
+                  onClick={() => setSelectedUsageVoucher(null)}
+                  className="w-full justify-center"
+                >
+                  Đóng
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL XÁC NHẬN XÓA */}
       <ConfirmModal
         isOpen={deleteConfirmOpen}
@@ -936,4 +1086,3 @@ export const VoucherListPage: React.FC = () => {
 }
 
 export default VoucherListPage
-

@@ -7,6 +7,7 @@ import type {
   VoucherSearchDto,
   VoucherValidateRequest,
   VoucherValidationResponse,
+  VoucherUsageDto,
 } from '../types/voucher.types'
 
 const BASE_URL = '/api/v1/pricing/vouchers'
@@ -17,6 +18,9 @@ export const voucherService = {
     apiClient.post<PageResponse<VoucherDto>>(`${BASE_URL}/filter`, params),
 
   getById: (id: number) => apiClient.get<VoucherDto>(`${BASE_URL}/${id}`),
+
+  getUsages: (voucherId: number) =>
+    apiClient.get<VoucherUsageDto[]>(`${BASE_URL}/${voucherId}/usages`),
 
   create: (data: VoucherCreateRequest) =>
     apiClient.post<VoucherDto>(BASE_URL, data),

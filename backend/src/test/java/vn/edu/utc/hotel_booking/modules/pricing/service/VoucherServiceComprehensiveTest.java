@@ -20,8 +20,11 @@ import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherValidateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherResponse;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherUsageResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherValidationResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.Voucher;
+import vn.edu.utc.hotel_booking.modules.pricing.entity.VoucherUsage;
+import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.pricing.mapper.VoucherMapper;
 import vn.edu.utc.hotel_booking.modules.pricing.repository.VoucherRepository;
 import vn.edu.utc.hotel_booking.modules.pricing.repository.VoucherUsageRepository;
@@ -335,6 +338,49 @@ class VoucherServiceComprehensiveTest {
         assertThat(res.getValid()).isTrue();
         assertThat(res.getDiscountAmount()).isEqualByComparingTo(BigDecimal.valueOf(300000));
         assertThat(res.getFinalAmount()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách VoucherUsage theo voucherId thành công")
+    void getVoucherUsages_Success() {
+        Voucher voucher = Voucher.builder()
+                .id(1)
+                .voucherCode("SUMMER2026")
+                .build();
+        when(voucherRepository.findByIdAndIsDeletedFalse(1)).thenReturn(Optional.of(voucher));
+
+        BookingGuest guest = BookingGuest.builder()
+                .id(99L)
+                .fullName("Tran Van B")
+                .phone("0988776655")
+                .build();
+
+        VoucherUsage usage = VoucherUsage.builder()
+                .id(1L)
+                .voucher(voucher)
+                .bookingGuest(guest)
+                .discountAmount(BigDecimal.valueOf(50000))
+                .usedAt(OffsetDateTime.now())
+                .build();
+
+        when(voucherUsageRepository.findByVoucherId(1)).thenReturn(List.of(usage));
+
+        List<VoucherUsageResponse> result = voucherService.getVoucherUsages(1);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getVoucherCode()).isEqualTo("SUMMER2026");
+        assertThat(result.get(0).getGuestFullName()).isEqualTo("Tran Van B");
+        assertThat(result.get(0).getGuestPhoneNumber()).isEqualTo("0988776655");
+    }
+
+    @Test
+    @DisplayName("Lấy danh sách VoucherUsage khi voucher không tồn tại ném VOUCHER_NOT_FOUND")
+    void getVoucherUsages_NotFound() {
+        when(voucherRepository.findByIdAndIsDeletedFalse(999)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> voucherService.getVoucherUsages(999))
+                .isInstanceOf(AppException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VOUCHER_NOT_FOUND);
     }
 }
 

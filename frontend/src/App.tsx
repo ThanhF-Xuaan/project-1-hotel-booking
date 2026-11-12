@@ -22,6 +22,7 @@ const VatRuleListPage = lazy(() => import('./modules/pricing/pages/VatRuleListPa
 const HotelAgePolicyListPage = lazy(() => import('./modules/pricing/pages/HotelAgePolicyListPage'))
 const HolidayCalendarListPage = lazy(() => import('./modules/pricing/pages/HolidayCalendarListPage'))
 const SurchargeRuleListPage = lazy(() => import('./modules/pricing/pages/SurchargeRuleListPage'))
+const VoucherListPage = lazy(() => import('./modules/pricing/pages/VoucherListPage'))
 const BookingListPage = lazy(() => import('./modules/booking/pages/BookingListPage'))
 const WalkInBookingPage = lazy(() => import('./modules/booking/pages/WalkInBookingPage'))
 const RoomingListImportPage = lazy(() => import('./modules/booking/pages/RoomingListImportPage'))
@@ -218,6 +219,7 @@ export function App() {
                 <Route path="/pricing/surcharge-rules" element={<SurchargeRuleListPage />} />
                 <Route path="/pricing/age-policies" element={<HotelAgePolicyListPage />} />
                 <Route path="/pricing/holiday-calendars" element={<HolidayCalendarListPage />} />
+                <Route path="/pricing/vouchers" element={<VoucherListPage />} />
               </Route>
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'FINANCE']} />}>
                 <Route path="/pricing/tax-categories" element={<TaxCategoryListPage />} />

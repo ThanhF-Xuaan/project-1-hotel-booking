@@ -17,6 +17,7 @@ import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherCreateRequest
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherResponse;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherUsageResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.service.VoucherService;
 
 import java.util.List;
@@ -66,6 +67,14 @@ public class VoucherController {
     @Operation(summary = "Xem chi tiết voucher theo ID")
     public ResponseEntity<ApiResponse<VoucherResponse>> getVoucherById(@PathVariable Integer id) {
         VoucherResponse response = voucherService.getVoucherById(id);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/{id}/usages")
+    @PreAuthorize("hasAnyRole('CHAIN_EXECUTIVE', 'CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE')")
+    @Operation(summary = "Xem lịch sử các lượt sử dụng của một voucher")
+    public ResponseEntity<ApiResponse<List<VoucherUsageResponse>>> getVoucherUsages(@PathVariable Integer id) {
+        List<VoucherUsageResponse> response = voucherService.getVoucherUsages(id);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

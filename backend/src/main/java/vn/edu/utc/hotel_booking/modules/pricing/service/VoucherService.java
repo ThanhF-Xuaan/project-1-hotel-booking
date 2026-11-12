@@ -7,6 +7,7 @@ import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherUpdateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.VoucherValidateRequest;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherResponse;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherUsageResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.VoucherValidationResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.Voucher;
 
@@ -22,6 +23,8 @@ public interface VoucherService {
     VoucherResponse updateVoucher(Integer id, VoucherUpdateRequest request);
 
     VoucherResponse getVoucherById(Integer id);
+
+    List<VoucherUsageResponse> getVoucherUsages(Integer voucherId);
 
     PageResponse<VoucherResponse> filterVouchers(VoucherSearchDto searchDto);
 

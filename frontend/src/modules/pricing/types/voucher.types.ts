@@ -88,3 +88,13 @@ export interface VoucherValidationResponse {
   applyScope?: string
 }
 
+export interface VoucherUsageDto {
+  id: number
+  voucherId: number
+  bookingGuestId: number
+  guestFullName?: string
+  guestPhoneNumber?: string
+  discountAmount: number
+  usedAt: string
+}
+

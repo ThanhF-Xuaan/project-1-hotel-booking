@@ -36,6 +36,7 @@ export interface BookingCreateRequest {
   companyId?: number;
   bookingType?: BookingType;
   serviceFeeRate?: number;
+  voucherCode?: string;
   rooms: BookingRoomItemRequest[];
 }
 
