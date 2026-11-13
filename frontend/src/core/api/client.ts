@@ -83,6 +83,24 @@ const markSessionExpired = (error: AxiosError): AxiosError => {
   return error
 }
 
+/**
+ * Kiểm tra xem access_token JWT đã hết hạn chưa bằng cách decode payload Base64 (phòng ngừa gửi token chết).
+ */
+export const isTokenExpired = (token: string): boolean => {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return true
+    const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/')
+    const decodedJson = atob(payloadBase64)
+    const payload = JSON.parse(decodedJson) as { exp?: number }
+    if (!payload.exp) return false
+    // Buffer 5 giây phòng lệch đồng hồ mạng
+    return payload.exp * 1000 <= Date.now() + 5000
+  } catch {
+    return true
+  }
+}
+
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -91,15 +109,30 @@ const axiosInstance: AxiosInstance = axios.create({
   timeout: 30000,
 })
 
-// Request Interceptor: Attach JWT Token if available
+// Request Interceptor: Attach JWT Token if available and not expired
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem(TOKEN_KEY)
+    let token = localStorage.getItem(TOKEN_KEY)
+    if (token) {
+      if (isTokenExpired(token)) {
+        // Token đã hết hạn: dọn dẹp để không gửi "token chết" lên server
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(REFRESH_TOKEN_KEY)
+        token = null
+      }
+    }
+
     if (token && config.headers) {
       if (typeof config.headers.set === 'function') {
         config.headers.set('Authorization', `Bearer ${token}`)
       } else {
         config.headers.Authorization = `Bearer ${token}`
+      }
+    } else if (!token && config.headers) {
+      if (typeof (config.headers as unknown as { delete?: (k: string) => void }).delete === 'function') {
+        ;(config.headers as unknown as { delete: (k: string) => void }).delete('Authorization')
+      } else {
+        delete (config.headers as Record<string, unknown>).Authorization
       }
     }
     return config
@@ -112,7 +145,9 @@ axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
     const status = error.response?.status
-    const originalConfig = error.config as (AxiosRequestConfig & { __retriedAfterRefresh?: boolean }) | undefined
+    const originalConfig = error.config as
+      | (AxiosRequestConfig & { __retriedAfterRefresh?: boolean; __retriedWithoutAuth?: boolean })
+      | undefined
 
     // 401 → thử LÀM MỚI token bằng refresh_token rồi gọi lại request gốc 1 lần
     if (status === 401 && originalConfig && !originalConfig.__retriedAfterRefresh) {
@@ -124,25 +159,42 @@ axiosInstance.interceptors.response.use(
         console.info('Đã tự làm mới token, thử lại request...')
         return axiosInstance.request(originalConfig)
       }
-      // Không refresh được: nếu TRƯỚC ĐÓ có token (hết hạn thật) → về trang đăng nhập.
-      // Không có token từ đầu (API công khai/khách vãng lai) → để trang tự xử lý, không ép chuyển trang.
+
+      // Không refresh được: dọn dẹp token trong storage
       if (hadToken) {
         console.warn('Phiên làm việc hết hạn — dọn dẹp token')
         localStorage.removeItem(TOKEN_KEY)
         localStorage.removeItem(REFRESH_TOKEN_KEY)
-        const isPublicArea =
-          typeof window !== 'undefined' &&
-          (window.location.pathname === '/' ||
-            window.location.pathname.startsWith('/portal') ||
-            window.location.pathname.startsWith('/payment/result') ||
-            Boolean(originalConfig.url?.includes('/api/v1/public/')))
-
-        if (!isPublicArea && !window.location.pathname.startsWith('/login')) {
-          window.location.replace('/login?session=expired')
-        }
       } else {
         console.warn('Phiên làm việc hết hạn hoặc chưa đăng nhập')
       }
+
+      const isPublicArea =
+        typeof window !== 'undefined' &&
+        (window.location.pathname === '/' ||
+          window.location.pathname.startsWith('/portal') ||
+          window.location.pathname.startsWith('/payment/result') ||
+          Boolean(originalConfig.url?.includes('/api/v1/public/')) ||
+          Boolean(originalConfig.url?.includes('/api/public/')))
+
+      // Tự hồi phục (Self-healing): Nếu request thuộc khu vực công khai, thử lại 1 lần dưới dạng khách vãng lai
+      if (isPublicArea && !originalConfig.__retriedWithoutAuth) {
+        originalConfig.__retriedWithoutAuth = true
+        if (originalConfig.headers) {
+          if (typeof (originalConfig.headers as unknown as { delete?: (k: string) => void }).delete === 'function') {
+            ;(originalConfig.headers as unknown as { delete: (k: string) => void }).delete('Authorization')
+          } else {
+            delete (originalConfig.headers as Record<string, unknown>).Authorization
+          }
+        }
+        console.info('Khu vực công khai: Tự động thử lại request dưới tư cách khách vãng lai (không kèm token)...')
+        return axiosInstance.request(originalConfig)
+      }
+
+      if (hadToken && !isPublicArea && !window.location.pathname.startsWith('/login')) {
+        window.location.replace('/login?session=expired')
+      }
+
       return Promise.reject(markSessionExpired(error))
     }
 

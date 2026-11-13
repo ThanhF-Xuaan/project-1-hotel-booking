@@ -126,31 +126,87 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "Vui lòng chọn khách sạn hoặc khu vực để tìm kiếm");
         }
 
-        if (request.getDestinationType() == DestinationType.HOTEL || request.getHotelId() != null) {
-            List<AvailableRoomTypeResponse> rooms = searchRooms(request);
+        int roomsCount = (request.getRoomsCount() != null && request.getRoomsCount() > 0) ? request.getRoomsCount() : 1;
+        long nights = ChronoUnit.DAYS.between(request.getCheckInDate(), request.getCheckOutDate());
+        if (nights <= 0) {
+            nights = 1;
+        }
 
-            AvailableHotelResponse selectedHotel = null;
+        if (request.getDestinationType() == DestinationType.HOTEL || request.getHotelId() != null) {
+            HotelResponse targetHotel = null;
             try {
-                HotelResponse h = hotelService.getById(request.getHotelId().shortValue());
-                if (h != null) {
-                    selectedHotel = AvailableHotelResponse.builder()
-                            .hotelId(h.getId() != null ? h.getId().intValue() : null)
-                            .hotelName(h.getName())
-                            .address(h.getAddress())
-                            .phone(h.getPhone())
-                            .regionName(h.getRegionName())
-                            .availableRoomTypesCount(rooms.size())
-                            .currency("VND")
-                            .build();
-                }
+                targetHotel = hotelService.getById(request.getHotelId().shortValue());
             } catch (Exception ex) {
                 log.warn("Không thể lấy thông tin khách sạn id={}: {}", request.getHotelId(), ex.getMessage());
             }
 
+            if (targetHotel == null) {
+                throw new AppException(ErrorCode.HOTEL_NOT_FOUND, "Không tìm thấy khách sạn có ID=" + request.getHotelId());
+            }
+
+            // 1. Tính toán phòng trống và giá của Khách sạn mục tiêu đã chọn (isTarget = true)
+            AvailableHotelResponse targetHotelResp = buildAvailableHotelResponse(
+                    targetHotel, request.getCheckInDate(), request.getCheckOutDate(), roomsCount, request.getVoucherCode(), nights, true
+            );
+
+            List<AvailableHotelResponse> allMatchedHotels = new ArrayList<>();
+            if (targetHotelResp != null) {
+                allMatchedHotels.add(targetHotelResp);
+            }
+
+            // 2. Chỉ tìm kiếm các khách sạn khác trong CÙNG KHU VỰC (cùng regionId, không hiển thị khác khu vực)
+            if (targetHotel.getRegionId() != null) {
+                try {
+                    HotelSearchDto otherSearchDto = HotelSearchDto.builder()
+                            .regionId(targetHotel.getRegionId())
+                            .status("ACTIVE")
+                            .page(0)
+                            .pageSize(100)
+                            .sortBy("id")
+                            .sortDirection("ASC")
+                            .build();
+
+                    PageResponse<HotelResponse> otherHotelsPage = hotelService.filter(otherSearchDto);
+                    if (otherHotelsPage != null && otherHotelsPage.getContent() != null) {
+                        for (HotelResponse other : otherHotelsPage.getContent()) {
+                            if (other.getId() != null && !other.getId().equals(targetHotel.getId())) {
+                                AvailableHotelResponse otherResp = buildAvailableHotelResponse(
+                                        other, request.getCheckInDate(), request.getCheckOutDate(), roomsCount, request.getVoucherCode(), nights, false
+                                );
+                                if (otherResp != null) {
+                                    allMatchedHotels.add(otherResp);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Lỗi khi quét các khách sạn khác cùng khu vực regionId={}: {}", targetHotel.getRegionId(), ex.getMessage());
+                }
+            }
+
+            int pageNum = request.getPage() != null ? request.getPage() : 0;
+            int pageSize = request.getPageSize() != null ? request.getPageSize() : Math.max(allMatchedHotels.size(), 10);
+            int fromIndex = Math.min(pageNum * pageSize, allMatchedHotels.size());
+            int toIndex = Math.min(fromIndex + pageSize, allMatchedHotels.size());
+            List<AvailableHotelResponse> pagedList = allMatchedHotels.subList(fromIndex, toIndex);
+            int totalPages = (int) Math.ceil((double) allMatchedHotels.size() / pageSize);
+
+            PageResponse<AvailableHotelResponse> hotelsPage = PageResponse.<AvailableHotelResponse>builder()
+                    .content(pagedList)
+                    .pageNumber(pageNum)
+                    .pageSize(pageSize)
+                    .totalElements((long) allMatchedHotels.size())
+                    .totalPages(totalPages)
+                    .first(pageNum == 0)
+                    .last(pageNum >= totalPages - 1)
+                    .empty(allMatchedHotels.isEmpty())
+                    .build();
+
             return UnifiedBookingSearchResponse.builder()
-                    .searchType("ROOMS")
-                    .rooms(rooms)
-                    .selectedHotel(selectedHotel)
+                    .searchType("HOTELS")
+                    .hotels(hotelsPage)
+                    .selectedHotel(targetHotelResp)
+                    .rooms(null)
                     .build();
         } else {
             PageResponse<AvailableHotelResponse> hotels = searchHotels(request);
@@ -185,56 +241,14 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
             nights = 1;
         }
 
-        for (HotelResponse hotel : hotelPage.getContent()) {
-            HotelRoomTypeSearchDto roomSearchDto = new HotelRoomTypeSearchDto();
-            roomSearchDto.setHotelId(hotel.getId());
-            roomSearchDto.setStatus("ACTIVE");
-            roomSearchDto.setPage(0);
-            roomSearchDto.setPageSize(100);
-            roomSearchDto.setSortBy("id");
-            roomSearchDto.setSortDirection("ASC");
-
-            PageResponse<HotelRoomTypeResponse> roomTypePage = hotelRoomTypeService.filterHotelRoomTypes(roomSearchDto);
-
-            int availableRoomTypeCount = 0;
-            BigDecimal minPricePerNight = null;
-
-            for (HotelRoomTypeResponse roomType : roomTypePage.getContent()) {
-                int availableCount = checkAvailableRooms(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate());
-                if (availableCount >= roomsCount) {
-                    availableRoomTypeCount++;
-                    try {
-                        PriceBreakdownDto breakdown = calculateRoomPipelinePrice(
-                                roomType, request.getCheckInDate(), request.getCheckOutDate(), request.getVoucherCode()
-                        );
-                        BigDecimal totalAmount = (breakdown != null && breakdown.getFinalTotalAmount() != null)
-                                ? breakdown.getFinalTotalAmount()
-                                : (breakdown != null ? breakdown.getTotalRoomGrossAmount() : null);
-                        if (totalAmount != null) {
-                            BigDecimal pricePerNight = totalAmount
-                                    .divide(BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP);
-                            if (minPricePerNight == null || pricePerNight.compareTo(minPricePerNight) < 0) {
-                                minPricePerNight = pricePerNight;
-                            }
-                        }
-                    } catch (Exception ex) {
-                        log.warn("Lỗi tính giá phòng roomTypeId={}: {}", roomType.getId(), ex.getMessage());
-                    }
+        if (hotelPage != null && hotelPage.getContent() != null) {
+            for (HotelResponse hotel : hotelPage.getContent()) {
+                AvailableHotelResponse hotelResp = buildAvailableHotelResponse(
+                        hotel, request.getCheckInDate(), request.getCheckOutDate(), roomsCount, request.getVoucherCode(), nights, false
+                );
+                if (hotelResp != null) {
+                    matchedHotels.add(hotelResp);
                 }
-            }
-
-            if (availableRoomTypeCount > 0) {
-                AvailableHotelResponse hotelResp = AvailableHotelResponse.builder()
-                        .hotelId(hotel.getId() != null ? hotel.getId().intValue() : null)
-                        .hotelName(hotel.getName())
-                        .address(hotel.getAddress())
-                        .phone(hotel.getPhone())
-                        .regionName(hotel.getRegionName())
-                        .availableRoomTypesCount(availableRoomTypeCount)
-                        .minPricePerNight(minPricePerNight)
-                        .currency("VND")
-                        .build();
-                matchedHotels.add(hotelResp);
             }
         }
 
@@ -255,6 +269,87 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                 .first(pageNum == 0)
                 .last(pageNum >= totalPages - 1)
                 .empty(matchedHotels.isEmpty())
+                .build();
+    }
+
+    private AvailableHotelResponse buildAvailableHotelResponse(
+            HotelResponse hotel,
+            LocalDate checkInDate,
+            LocalDate checkOutDate,
+            int roomsCount,
+            String voucherCode,
+            long nights,
+            boolean isTarget
+    ) {
+        HotelRoomTypeSearchDto roomSearchDto = new HotelRoomTypeSearchDto();
+        roomSearchDto.setHotelId(hotel.getId());
+        roomSearchDto.setStatus("ACTIVE");
+        roomSearchDto.setPage(0);
+        roomSearchDto.setPageSize(100);
+        roomSearchDto.setSortBy("id");
+        roomSearchDto.setSortDirection("ASC");
+
+        PageResponse<HotelRoomTypeResponse> roomTypePage = hotelRoomTypeService.filterHotelRoomTypes(roomSearchDto);
+
+        int availableRoomTypeCount = 0;
+        BigDecimal minPricePerNight = null;
+        BigDecimal matchedVoucherDiscountAmount = null;
+
+        if (roomTypePage != null && roomTypePage.getContent() != null) {
+            for (HotelRoomTypeResponse roomType : roomTypePage.getContent()) {
+                int availableCount = checkAvailableRooms(roomType.getId(), checkInDate, checkOutDate);
+                if (availableCount >= roomsCount) {
+                    availableRoomTypeCount++;
+                    try {
+                        PriceBreakdownDto breakdown = calculateRoomPipelinePrice(
+                                roomType, checkInDate, checkOutDate, voucherCode
+                        );
+                        BigDecimal totalAmount = (breakdown != null && breakdown.getFinalTotalAmount() != null)
+                                ? breakdown.getFinalTotalAmount()
+                                : (breakdown != null ? breakdown.getTotalRoomGrossAmount() : null);
+                        if (totalAmount != null) {
+                            BigDecimal pricePerNight = totalAmount
+                                    .divide(BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP);
+                            if (minPricePerNight == null || pricePerNight.compareTo(minPricePerNight) < 0) {
+                                minPricePerNight = pricePerNight;
+                                if (breakdown != null && breakdown.getDailyPrices() != null && !breakdown.getDailyPrices().isEmpty()) {
+                                    matchedVoucherDiscountAmount = breakdown.getDailyPrices().get(0).getVoucherDiscountAmount();
+                                }
+                            }
+                        }
+                    } catch (Exception ex) {
+                        log.warn("Lỗi tính giá phòng roomTypeId={}: {}", roomType.getId(), ex.getMessage());
+                    }
+                }
+            }
+        }
+
+        if (availableRoomTypeCount == 0 && !isTarget) {
+            return null;
+        }
+
+        String coverUrl = hotel.getCoverImageUrl();
+        if (coverUrl == null || coverUrl.isBlank()) {
+            coverUrl = (hotel.getId() != null && hotel.getId() == 2)
+                    ? "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=1200&q=80"
+                    : (hotel.getId() != null && hotel.getId() == 3)
+                    ? "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80"
+                    : "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80";
+        }
+
+        return AvailableHotelResponse.builder()
+                .hotelId(hotel.getId() != null ? hotel.getId().intValue() : null)
+                .hotelName(hotel.getName())
+                .address(hotel.getAddress())
+                .phone(hotel.getPhone())
+                .regionName(hotel.getRegionName())
+                .availableRoomTypesCount(availableRoomTypeCount)
+                .minPricePerNight(minPricePerNight)
+                .coverImageUrl(coverUrl)
+                .appliedVoucherCode(voucherCode)
+                .voucherDiscountAmount(matchedVoucherDiscountAmount)
+                .currency("VND")
+                .isTarget(isTarget)
                 .build();
     }
 

@@ -45,6 +45,7 @@ export const VoucherListPage: React.FC = () => {
   const [filterApplyScope, setFilterApplyScope] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -96,6 +97,7 @@ export const VoucherListPage: React.FC = () => {
   // Load vouchers callback
   const loadVouchers = useCallback(async () => {
     setIsLoading(true)
+    setLoadError(null)
     try {
       const res = await voucherService.filter({
         page,
@@ -116,6 +118,12 @@ export const VoucherListPage: React.FC = () => {
       }
     } catch (err: unknown) {
       console.error('Lỗi tải danh sách voucher:', err)
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string }
+      const msg =
+        axiosErr?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Không thể kết nối đến máy chủ để tải danh sách voucher.')
+      setLoadError(msg)
+      setVouchers([])
     } finally {
       setIsLoading(false)
     }
@@ -554,6 +562,22 @@ export const VoucherListPage: React.FC = () => {
                   <td colSpan={8} className="py-12 text-center text-neutral-400">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-red-500" />
                     Đang tải dữ liệu vouchers...
+                  </td>
+                </tr>
+              ) : loadError ? (
+                <tr>
+                  <td colSpan={8} className="py-12 text-center text-red-600 space-y-3">
+                    <AlertCircle className="w-10 h-10 mx-auto text-red-500" />
+                    <div className="font-semibold text-sm">{loadError}</div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void loadVouchers()}
+                      className="inline-flex items-center gap-1.5 border-neutral-300 hover:bg-neutral-50 text-xs"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Thử lại
+                    </Button>
                   </td>
                 </tr>
               ) : vouchers.length === 0 ? (

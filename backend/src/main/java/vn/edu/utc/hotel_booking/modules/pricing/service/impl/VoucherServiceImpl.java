@@ -173,13 +173,22 @@ public class VoucherServiceImpl implements VoucherService {
         String keyword = searchDto.getKeyword() != null && !searchDto.getKeyword().trim().isBlank()
                 ? searchDto.getKeyword().trim()
                 : null;
+        String discountType = searchDto.getDiscountType() != null && !searchDto.getDiscountType().trim().isBlank()
+                ? searchDto.getDiscountType().trim()
+                : null;
+        String applyScope = searchDto.getApplyScope() != null && !searchDto.getApplyScope().trim().isBlank()
+                ? searchDto.getApplyScope().trim()
+                : null;
+        String status = searchDto.getStatus() != null && !searchDto.getStatus().trim().isBlank()
+                ? searchDto.getStatus().trim()
+                : null;
 
         Page<Voucher> voucherPage = voucherRepository.filterVouchers(
                 keyword,
                 searchDto.getHotelId(),
-                searchDto.getDiscountType(),
-                searchDto.getApplyScope(),
-                searchDto.getStatus(),
+                discountType,
+                applyScope,
+                status,
                 searchDto.getActiveAt(),
                 pageable
         );

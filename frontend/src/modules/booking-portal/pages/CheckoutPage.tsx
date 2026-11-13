@@ -60,11 +60,39 @@ export const CheckoutPage: React.FC = () => {
     totalAmount: number;
   } | null>(null);
 
+  const nightsCount = criteria
+    ? Math.max(1, Math.round((new Date(criteria.checkOutDate).getTime() - new Date(criteria.checkInDate).getTime()) / 86400000))
+    : 2;
+
+  const basePriceTotal = (offer?.basePrice ?? 1250000) * nightsCount;
+
   // Voucher state
-  const [voucherCodeInput, setVoucherCodeInput] = useState('');
+  const [voucherCodeInput, setVoucherCodeInput] = useState(criteria?.voucherCode || '');
   const [appliedVoucher, setAppliedVoucher] = useState<VoucherValidationResponse | null>(null);
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
+
+  // Tự động kiểm tra và áp dụng voucher nếu được truyền từ trang tìm kiếm
+  useEffect(() => {
+    if (criteria?.voucherCode && basePriceTotal > 0) {
+      const code = criteria.voucherCode.trim().toUpperCase();
+      voucherService
+        .validateVoucher({
+          voucherCode: code,
+          hotelId: criteria.hotelId || 1,
+          orderAmount: basePriceTotal,
+        })
+        .then((res) => {
+          if (res?.result?.valid) {
+            setAppliedVoucher(res.result);
+            setVoucherError(null);
+          }
+        })
+        .catch((err) => {
+          console.warn('Lỗi tự động kích hoạt voucher từ trang tìm kiếm:', err);
+        });
+    }
+  }, [criteria?.voucherCode, criteria?.hotelId, basePriceTotal]);
 
   // VNPay test account copy state
   const [copiedVnpayCard, setCopiedVnpayCard] = useState(false);
@@ -131,11 +159,6 @@ export const CheckoutPage: React.FC = () => {
   const formatVND = (amount: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
 
-  const nightsCount = criteria
-    ? Math.max(1, Math.round((new Date(criteria.checkOutDate).getTime() - new Date(criteria.checkInDate).getTime()) / 86400000))
-    : 2;
-
-  const basePriceTotal = (offer?.basePrice ?? 1250000) * nightsCount;
   const voucherDiscount = appliedVoucher?.discountAmount || 0;
   const netRoomPrice = Math.max(0, basePriceTotal - voucherDiscount);
   const serviceFee = Math.round(netRoomPrice * 0.05);

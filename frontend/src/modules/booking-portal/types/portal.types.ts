@@ -1,10 +1,42 @@
 export interface CustomerSearchCriteria {
-  hotelId: number;
+  destinationType?: 'REGION' | 'HOTEL';
+  destinationId?: number;
+  hotelId?: number;
+  regionId?: number;
   checkInDate: string;
   checkOutDate: string;
   adultCount: number;
   childCount: number;
   roomsCount?: number;
+  voucherCode?: string;
+}
+
+export interface AvailableHotelDto {
+  hotelId: number;
+  hotelName: string;
+  address: string;
+  phone?: string;
+  regionName?: string;
+  availableRoomTypesCount: number;
+  minPricePerNight: number;
+  currency: string;
+  coverImageUrl?: string;
+  appliedVoucherCode?: string;
+  voucherDiscountAmount?: number;
+  isTarget?: boolean;
+}
+
+export interface UnifiedSearchResponse {
+  searchType: 'HOTELS' | 'ROOMS';
+  hotels?: {
+    content: AvailableHotelDto[];
+    pageNumber: number;
+    pageSize: number;
+    totalElements: number;
+    totalPages: number;
+  };
+  rooms?: AvailableRoomTypeApiResponse[];
+  selectedHotel?: AvailableHotelDto;
 }
 
 export interface AvailableRoomOffer {

@@ -34,12 +34,14 @@ public interface VoucherRepository extends JpaRepository<Voucher, Integer> {
     boolean existsByVoucherCodeAndIsDeletedFalse(String voucherCode);
 
     @Query("SELECT v FROM Voucher v WHERE v.isDeleted = false " +
-            "AND (:keyword IS NULL OR LOWER(v.voucherCode) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(v.title) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
-            "AND (:hotelId IS NULL OR v.hotelId = :hotelId) " +
-            "AND (:discountType IS NULL OR v.discountType = :discountType) " +
-            "AND (:applyScope IS NULL OR v.applyScope = :applyScope) " +
-            "AND (:status IS NULL OR v.status = :status) " +
-            "AND (:activeAt IS NULL OR (v.validFrom <= :activeAt AND v.validTo >= :activeAt))")
+            "AND (CAST(:keyword AS string) IS NULL OR CAST(:keyword AS string) = '' " +
+            "     OR LOWER(v.voucherCode) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
+            "     OR LOWER(v.title) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))) " +
+            "AND (CAST(:hotelId AS short) IS NULL OR v.hotelId = :hotelId) " +
+            "AND (CAST(:discountType AS string) IS NULL OR CAST(:discountType AS string) = '' OR v.discountType = :discountType) " +
+            "AND (CAST(:applyScope AS string) IS NULL OR CAST(:applyScope AS string) = '' OR v.applyScope = :applyScope) " +
+            "AND (CAST(:status AS string) IS NULL OR CAST(:status AS string) = '' OR v.status = :status) " +
+            "AND (CAST(:activeAt AS java.time.OffsetDateTime) IS NULL OR (v.validFrom <= :activeAt AND v.validTo >= :activeAt))")
     Page<Voucher> filterVouchers(
             @Param("keyword") String keyword,
             @Param("hotelId") Short hotelId,
