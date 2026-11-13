@@ -35,6 +35,15 @@ public class JwtBlacklistFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
+        String uri = request.getRequestURI();
+        // Bỏ qua kiểm tra blacklist cho các API công khai và Swagger
+        if (uri.startsWith("/api/v1/public/") || uri.startsWith("/api/public/")
+                || uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs")
+                || uri.startsWith("/error") || uri.startsWith("/uploads/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         // Kiểm tra an toàn: authHeader phải có nội dung và bắt đầu bằng "Bearer " (case-insensitive)

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261112-220000-seed-city-regions" author="utc-hotel-team" runOnChange="true">
+        <validCheckSum>ANY</validCheckSum>
+        <comment>Bo sung cac Vung / Thanh pho du lich (Ha Noi, Da Nang, Sa Pa, TP.HCM) va cap nhat lien ket region_id cho khach san</comment>
+        <sqlFile dbms="postgresql"
+                 encoding="utf-8"
+                 path="db/sqlFile/incremental/2026/20261112-220000-seed-city-regions.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>
+

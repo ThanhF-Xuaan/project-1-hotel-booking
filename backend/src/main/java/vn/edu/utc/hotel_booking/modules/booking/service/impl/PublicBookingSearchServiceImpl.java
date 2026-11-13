@@ -133,6 +133,29 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
             try {
                 HotelResponse h = hotelService.getById(request.getHotelId().shortValue());
                 if (h != null) {
+                    String coverUrl = h.getCoverImageUrl();
+                    if (coverUrl == null || coverUrl.isBlank()) {
+                        coverUrl = (h.getId() != null && h.getId() == 2)
+                                ? "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=1200&q=80"
+                                : (h.getId() != null && h.getId() == 3)
+                                ? "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80"
+                                : "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80";
+                    }
+                    BigDecimal hotelMinPrice = null;
+                    BigDecimal hotelVoucherDiscount = null;
+                    if (!rooms.isEmpty()) {
+                        for (AvailableRoomTypeResponse r : rooms) {
+                            if (r.getPriceBreakdown() != null && r.getPriceBreakdown().getDailyPrices() != null
+                                    && !r.getPriceBreakdown().getDailyPrices().isEmpty()) {
+                                BigDecimal dailyGross = r.getPriceBreakdown().getDailyPrices().get(0).getGrossDailyTotal();
+                                if (hotelMinPrice == null || (dailyGross != null && dailyGross.compareTo(hotelMinPrice) < 0)) {
+                                    hotelMinPrice = dailyGross;
+                                    hotelVoucherDiscount = r.getPriceBreakdown().getDailyPrices().get(0).getVoucherDiscountAmount();
+                                }
+                            }
+                        }
+                    }
+
                     selectedHotel = AvailableHotelResponse.builder()
                             .hotelId(h.getId() != null ? h.getId().intValue() : null)
                             .hotelName(h.getName())
@@ -140,6 +163,10 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                             .phone(h.getPhone())
                             .regionName(h.getRegionName())
                             .availableRoomTypesCount(rooms.size())
+                            .minPricePerNight(hotelMinPrice)
+                            .coverImageUrl(coverUrl)
+                            .appliedVoucherCode(request.getVoucherCode())
+                            .voucherDiscountAmount(hotelVoucherDiscount)
                             .currency("VND")
                             .build();
                 }
@@ -198,6 +225,7 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
 
             int availableRoomTypeCount = 0;
             BigDecimal minPricePerNight = null;
+            BigDecimal matchedVoucherDiscountAmount = null;
 
             for (HotelRoomTypeResponse roomType : roomTypePage.getContent()) {
                 int availableCount = checkAvailableRooms(roomType.getId(), request.getCheckInDate(), request.getCheckOutDate());
@@ -215,6 +243,9 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                                     .divide(BigDecimal.valueOf(nights), 2, RoundingMode.HALF_UP);
                             if (minPricePerNight == null || pricePerNight.compareTo(minPricePerNight) < 0) {
                                 minPricePerNight = pricePerNight;
+                                if (breakdown != null && breakdown.getDailyPrices() != null && !breakdown.getDailyPrices().isEmpty()) {
+                                    matchedVoucherDiscountAmount = breakdown.getDailyPrices().get(0).getVoucherDiscountAmount();
+                                }
                             }
                         }
                     } catch (Exception ex) {
@@ -224,6 +255,15 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
             }
 
             if (availableRoomTypeCount > 0) {
+                String coverUrl = hotel.getCoverImageUrl();
+                if (coverUrl == null || coverUrl.isBlank()) {
+                    coverUrl = (hotel.getId() != null && hotel.getId() == 2)
+                            ? "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=1200&q=80"
+                            : (hotel.getId() != null && hotel.getId() == 3)
+                            ? "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80"
+                            : "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80";
+                }
+
                 AvailableHotelResponse hotelResp = AvailableHotelResponse.builder()
                         .hotelId(hotel.getId() != null ? hotel.getId().intValue() : null)
                         .hotelName(hotel.getName())
@@ -232,6 +272,9 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                         .regionName(hotel.getRegionName())
                         .availableRoomTypesCount(availableRoomTypeCount)
                         .minPricePerNight(minPricePerNight)
+                        .coverImageUrl(coverUrl)
+                        .appliedVoucherCode(request.getVoucherCode())
+                        .voucherDiscountAmount(matchedVoucherDiscountAmount)
                         .currency("VND")
                         .build();
                 matchedHotels.add(hotelResp);

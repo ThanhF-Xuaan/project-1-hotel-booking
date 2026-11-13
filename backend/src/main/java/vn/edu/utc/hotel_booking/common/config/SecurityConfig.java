@@ -8,6 +8,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.server.resource.web.DefaultBearerTokenResolver;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -56,9 +57,20 @@ public class SecurityConfig {
                         // Tất cả các API nghiệp vụ còn lại bắt buộc phải có Token (JWT) hợp lệ
                         .anyRequest().authenticated())
 
-                // 4. Bật chế độ OAuth2 Resource Server với Custom JWT Role Converter
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter())))
+                // 4. Bật chế độ OAuth2 Resource Server với Custom JWT Role Converter và bỏ qua token lỗi trên API public
+                .oauth2ResourceServer(oauth2 -> {
+                    DefaultBearerTokenResolver defaultBearerTokenResolver = new DefaultBearerTokenResolver();
+                    oauth2.bearerTokenResolver(request -> {
+                        String uri = request.getRequestURI();
+                        // Với API công khai hoặc tài liệu Swagger, bỏ qua việc trích xuất token để tránh bị BearerTokenAuthenticationFilter chặn 401 khi token rác hoặc hết hạn
+                        if (uri.startsWith("/api/v1/public/") || uri.startsWith("/api/public/")
+                                || uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs")) {
+                            return null;
+                        }
+                        return defaultBearerTokenResolver.resolve(request);
+                    });
+                    oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthenticationConverter()));
+                })
 
                 // 5. Chèn Custom JwtBlacklistFilter trước BearerTokenAuthenticationFilter
                 .addFilterBefore(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class)

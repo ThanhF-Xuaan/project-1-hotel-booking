@@ -30,6 +30,7 @@ import vn.edu.utc.hotel_booking.modules.organization.dto.response.RegionResponse
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.organization.service.RegionService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.PriceCalculationRequest;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.response.DailyPriceDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.PriceBreakdownDto;
 import vn.edu.utc.hotel_booking.modules.pricing.service.PriceEngine;
 import vn.edu.utc.hotel_booking.modules.pricing.service.SurchargeRuleService;
@@ -43,7 +44,9 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class PublicBookingSearchServiceTest {
@@ -150,6 +153,54 @@ class PublicBookingSearchServiceTest {
         assertThat(matched.getHotelName()).isEqualTo("Khách Sạn A");
         assertThat(matched.getAvailableRoomTypesCount()).isEqualTo(1);
         assertThat(matched.getMinPricePerNight()).isEqualByComparingTo("1000000.00");
+        assertThat(matched.getCoverImageUrl()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("searchHotels: Áp dụng voucherCode thành công và gắn vào kết quả phản hồi")
+    void searchHotels_WithVoucherCode_PropagatesVoucherCode() {
+        BookingSearchRequest req = new BookingSearchRequest();
+        req.setRegionId((short) 1);
+        req.setCheckInDate(checkIn);
+        req.setCheckOutDate(checkOut);
+        req.setRoomsCount(1);
+        req.setVoucherCode("SUMMER2026");
+
+        HotelResponse h1 = HotelResponse.builder()
+                .id((short) 10).name("Khách Sạn A").regionName("Hà Nội").coverImageUrl("http://sample.com/cover.jpg").build();
+        when(hotelService.filter(any(HotelSearchDto.class)))
+                .thenReturn(PageResponse.<HotelResponse>builder().content(List.of(h1)).build());
+
+        HotelRoomTypeResponse rt1 = HotelRoomTypeResponse.builder().id(101).standardAdults((short) 2).build();
+        when(hotelRoomTypeService.filterHotelRoomTypes(any(HotelRoomTypeSearchDto.class)))
+                .thenReturn(PageResponse.<HotelRoomTypeResponse>builder().content(List.of(rt1)).build());
+
+        RoomAvailabilityResponse av1 = RoomAvailabilityResponse.builder().date(checkIn).availableCount(3).build();
+        RoomAvailabilityResponse av2 = RoomAvailabilityResponse.builder().date(checkIn.plusDays(1)).availableCount(2).build();
+        when(roomAvailabilityService.getAvailability(any(RoomAvailabilitySearchDto.class)))
+                .thenReturn(List.of(av1, av2));
+
+        DailyPriceDto dp = DailyPriceDto.builder()
+                .date(checkIn)
+                .voucherDiscountAmount(new BigDecimal("100000.00"))
+                .grossDailyTotal(new BigDecimal("900000.00"))
+                .build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .finalTotalAmount(new BigDecimal("1800000.00")) // Sau voucher: 900,000 / đêm
+                .appliedVoucherCode("SUMMER2026")
+                .dailyPrices(List.of(dp))
+                .build();
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class))).thenReturn(breakdown);
+
+        PageResponse<AvailableHotelResponse> response = publicBookingSearchService.searchHotels(req);
+
+        assertThat(response.getContent()).hasSize(1);
+        AvailableHotelResponse matched = response.getContent().get(0);
+        assertThat(matched.getAppliedVoucherCode()).isEqualTo("SUMMER2026");
+        assertThat(matched.getVoucherDiscountAmount()).isEqualByComparingTo("100000.00");
+        assertThat(matched.getMinPricePerNight()).isEqualByComparingTo("900000.00");
+        assertThat(matched.getCoverImageUrl()).isEqualTo("http://sample.com/cover.jpg");
     }
 
     @Test
@@ -232,6 +283,10 @@ class PublicBookingSearchServiceTest {
 
         List<AvailableRoomTypeResponse> result = publicBookingSearchService.searchRooms(req);
 
+        ArgumentCaptor<PriceCalculationRequest> calcCaptor = ArgumentCaptor.forClass(PriceCalculationRequest.class);
+        verify(priceEngine).calculatePrice(calcCaptor.capture());
+        assertThat(calcCaptor.getValue().getVoucherCode()).isEqualTo("SALE10");
+
         assertThat(result).hasSize(1);
         AvailableRoomTypeResponse room = result.get(0);
         assertThat(room.getHotelRoomTypeId()).isEqualTo(101);
@@ -252,6 +307,87 @@ class PublicBookingSearchServiceTest {
         assertThat(room.getSurchargePolicies()).hasSize(2);
         assertThat(room.getSurchargePolicies()).extracting(RoomSurchargePolicyDto::getRuleType)
                 .containsExactlyInAnyOrder("EXTRA_PERSON", "EXTRA_BED");
+    }
+
+    @Test
+    @DisplayName("searchRooms: Áp dụng voucher SUMMER2026 truyền qua PriceEngine và trả về grossDailyTotal chính xác")
+    void searchRooms_WithVoucherSummer2026_PropagatesVoucherAndIncludesDailyGrossTotal() {
+        BookingSearchRequest req = new BookingSearchRequest();
+        req.setHotelId(1);
+        req.setCheckInDate(checkIn);
+        req.setCheckOutDate(checkOut);
+        req.setRoomsCount(1);
+        req.setVoucherCode("SUMMER2026");
+
+        HotelRoomTypeResponse rt = HotelRoomTypeResponse.builder()
+                .id(1)
+                .roomTypeCode("DLX")
+                .roomTypeName("Deluxe Room (Phòng Sang trọng)")
+                .standardAdults((short) 2)
+                .standardChildren((short) 0)
+                .maxAdults((short) 2)
+                .maxChildren((short) 1)
+                .maxInfants((short) 1)
+                .maxTotalGuests((short) 3)
+                .build();
+
+        when(hotelRoomTypeService.filterHotelRoomTypes(any(HotelRoomTypeSearchDto.class))).thenReturn(
+                PageResponse.<HotelRoomTypeResponse>builder().content(List.of(rt)).build()
+        );
+
+        RoomAvailabilityResponse av1 = RoomAvailabilityResponse.builder().date(checkIn).availableCount(20).build();
+        RoomAvailabilityResponse av2 = RoomAvailabilityResponse.builder().date(checkIn.plusDays(1)).availableCount(20).build();
+        when(roomAvailabilityService.getAvailability(any(RoomAvailabilitySearchDto.class))).thenReturn(List.of(av1, av2));
+
+        DailyPriceDto d1 = DailyPriceDto.builder()
+                .date(checkIn)
+                .baseRate(new BigDecimal("2500000.00"))
+                .adjustedRate(new BigDecimal("2750000.00"))
+                .voucherDiscountAmount(new BigDecimal("275000.00"))
+                .netAmount(new BigDecimal("2475000.00"))
+                .serviceFeeAmount(new BigDecimal("123750.00"))
+                .vatAmount(new BigDecimal("207900.00"))
+                .grossDailyTotal(new BigDecimal("2806650.00"))
+                .build();
+
+        DailyPriceDto d2 = DailyPriceDto.builder()
+                .date(checkIn.plusDays(1))
+                .baseRate(new BigDecimal("2500000.00"))
+                .adjustedRate(new BigDecimal("2750000.00"))
+                .voucherDiscountAmount(new BigDecimal("275000.00"))
+                .netAmount(new BigDecimal("2475000.00"))
+                .serviceFeeAmount(new BigDecimal("123750.00"))
+                .vatAmount(new BigDecimal("207900.00"))
+                .grossDailyTotal(new BigDecimal("2806650.00"))
+                .build();
+
+        PriceBreakdownDto breakdown = PriceBreakdownDto.builder()
+                .hotelRoomTypeId(1)
+                .roomTypeName("Deluxe Room (Phòng Sang trọng)")
+                .totalNights(2)
+                .appliedVoucherCode("SUMMER2026")
+                .appliedPromotionName("Ưu Đãi Nghỉ Dưỡng Chào Hè 2026")
+                .dailyPrices(List.of(d1, d2))
+                .totalDiscountAmount(new BigDecimal("550000.00"))
+                .totalRoomGrossAmount(new BigDecimal("5613300.00"))
+                .finalTotalAmount(new BigDecimal("5613300.00"))
+                .build();
+
+        when(priceEngine.calculatePrice(any(PriceCalculationRequest.class))).thenReturn(breakdown);
+
+        List<AvailableRoomTypeResponse> results = publicBookingSearchService.searchRooms(req);
+
+        ArgumentCaptor<PriceCalculationRequest> captor = ArgumentCaptor.forClass(PriceCalculationRequest.class);
+        verify(priceEngine).calculatePrice(captor.capture());
+        assertThat(captor.getValue().getVoucherCode()).isEqualTo("SUMMER2026");
+
+        assertThat(results).hasSize(1);
+        AvailableRoomTypeResponse dlx = results.get(0);
+        assertThat(dlx.getPriceBreakdown().getAppliedVoucherCode()).isEqualTo("SUMMER2026");
+        assertThat(dlx.getPriceBreakdown().getDailyPrices().get(0).getGrossDailyTotal())
+                .isEqualByComparingTo("2806650.00");
+        assertThat(dlx.getPriceBreakdown().getFinalTotalAmount())
+                .isEqualByComparingTo("5613300.00");
     }
 
     @Test

@@ -3,11 +3,15 @@
 -- Bảng: regions, departments, hotels
 -- ==============================================================================
 
--- 1. SEED REGIONS (Các Vùng Quản Lý)
+-- 1. SEED REGIONS (Các Vùng Quản Lý & Điểm Đến Du Lịch)
 INSERT INTO regions (code, name, description, status) VALUES 
     ('NORTH', 'Miền Bắc', 'Khu vực các tỉnh phía Bắc', 'ACTIVE'),
     ('CENTRAL', 'Miền Trung', 'Khu vực các tỉnh miền Trung & Tây Nguyên', 'ACTIVE'),
-    ('SOUTH', 'Miền Nam', 'Khu vực các tỉnh phía Nam', 'ACTIVE')
+    ('SOUTH', 'Miền Nam', 'Khu vực các tỉnh phía Nam', 'ACTIVE'),
+    ('HANOI', 'Hà Nội', 'Thủ đô Hà Nội và vùng phụ cận', 'ACTIVE'),
+    ('DANANG', 'Đà Nẵng', 'Thành phố Đà Nẵng & miền duyên hải', 'ACTIVE'),
+    ('SAPA', 'Sa Pa', 'Thị xã Sa Pa - Tỉnh Lào Cai', 'ACTIVE'),
+    ('HCM', 'TP. Hồ Chí Minh', 'Thành phố Hồ Chí Minh', 'ACTIVE')
 ON CONFLICT (code) DO NOTHING;
 
 -- 2. SEED DEPARTMENTS (Phòng Ban Tiêu Chuẩn)
@@ -23,17 +27,17 @@ ON CONFLICT (code) DO NOTHING;
 -- Sử dụng Subquery để lấy ID của Vùng (region_id) gán cho Khách sạn, có kiểm tra trùng lặp
 INSERT INTO hotels (region_id, name, address, phone, check_in_time, check_out_time, service_fee_percent, status)
 SELECT 
-    (SELECT id FROM regions WHERE code = 'NORTH'), 'Viettel Luxury Hà Nội', 'Tòa nhà Viettel, Nam Từ Liêm, Hà Nội', '02466668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
+    (SELECT id FROM regions WHERE code = 'HANOI'), 'Viettel Luxury Hà Nội', 'Tòa nhà Viettel, Nam Từ Liêm, Hà Nội', '02466668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
 WHERE NOT EXISTS (SELECT 1 FROM hotels WHERE name = 'Viettel Luxury Hà Nội');
 
 INSERT INTO hotels (region_id, name, address, phone, check_in_time, check_out_time, service_fee_percent, status)
 SELECT 
-    (SELECT id FROM regions WHERE code = 'CENTRAL'), 'Viettel Grand Đà Nẵng', 'Số 2 Nguyễn Hữu Thọ, Đà Nẵng', '02366668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
+    (SELECT id FROM regions WHERE code = 'DANANG'), 'Viettel Grand Đà Nẵng', 'Số 2 Nguyễn Hữu Thọ, Đà Nẵng', '02366668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
 WHERE NOT EXISTS (SELECT 1 FROM hotels WHERE name = 'Viettel Grand Đà Nẵng');
 
 INSERT INTO hotels (region_id, name, address, phone, check_in_time, check_out_time, service_fee_percent, status)
 SELECT 
-    (SELECT id FROM regions WHERE code = 'NORTH'), 'Viettel Boutique Sapa', 'Thị trấn Sapa, Lào Cai', '02146668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
+    (SELECT id FROM regions WHERE code = 'SAPA'), 'Viettel Boutique Sapa', 'Thị trấn Sapa, Lào Cai', '02146668888', '14:00:00', '12:00:00', 5.00, 'ACTIVE'
 WHERE NOT EXISTS (SELECT 1 FROM hotels WHERE name = 'Viettel Boutique Sapa');
 
 
@@ -475,3 +479,69 @@ ON CONFLICT (hotel_id, room_number) DO UPDATE
 SET 
     current_status = EXCLUDED.current_status,
     updated_at = CURRENT_TIMESTAMP;
+
+-- ==============================================================================
+-- LỚP 3.6: MÃ GIẢM GIÁ & VOUCHER KHUYẾN MẠI (VOUCHERS)
+-- Bảng: vouchers
+-- ==============================================================================
+
+INSERT INTO vouchers (
+    hotel_id, voucher_code, title, description,
+    discount_type, discount_value, apply_scope, min_order_amount, max_discount_amount,
+    total_quantity, used_quantity, max_usage_per_user,
+    valid_from, valid_to, status, is_deleted
+)
+SELECT 
+    NULL, 'SUMMER2026', 'Ưu Đãi Nghỉ Dưỡng Chào Hè 2026', 'Giảm 15% tiền phòng áp dụng cho toàn bộ các khách sạn trong chuỗi Hotel Grand',
+    'PERCENT', 15.00, 'ROOM_ONLY', 0, 500000.00,
+    200, 12, 1,
+    CURRENT_TIMESTAMP - INTERVAL '10 days', CURRENT_TIMESTAMP + INTERVAL '90 days', 'ACTIVE', FALSE
+WHERE NOT EXISTS (
+    SELECT 1 FROM vouchers WHERE voucher_code = 'SUMMER2026' AND is_deleted = FALSE
+);
+
+INSERT INTO vouchers (
+    hotel_id, voucher_code, title, description,
+    discount_type, discount_value, apply_scope, min_order_amount, max_discount_amount,
+    total_quantity, used_quantity, max_usage_per_user,
+    valid_from, valid_to, status, is_deleted
+)
+SELECT 
+    NULL, 'WELCOME10', 'Tri Ân Khách Hàng Mới', 'Giảm 10% tiền phòng cho lần đặt phòng đầu tiên tại hệ thống',
+    'PERCENT', 10.00, 'ROOM_ONLY', 0, 300000.00,
+    500, 45, 1,
+    CURRENT_TIMESTAMP - INTERVAL '30 days', CURRENT_TIMESTAMP + INTERVAL '365 days', 'ACTIVE', FALSE
+WHERE NOT EXISTS (
+    SELECT 1 FROM vouchers WHERE voucher_code = 'WELCOME10' AND is_deleted = FALSE
+);
+
+INSERT INTO vouchers (
+    hotel_id, voucher_code, title, description,
+    discount_type, discount_value, apply_scope, min_order_amount, max_discount_amount,
+    total_quantity, used_quantity, max_usage_per_user,
+    valid_from, valid_to, status, is_deleted
+)
+SELECT 
+    NULL, 'GRAND500', 'Voucher Giảm 500.000đ Toàn Đơn', 'Giảm trực tiếp 500.000đ cho đơn đặt phòng từ 3.000.000đ trở lên',
+    'FIXED', 500000.00, 'TOTAL_BOOKING', 3000000.00, NULL,
+    100, 8, 1,
+    CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP + INTERVAL '60 days', 'ACTIVE', FALSE
+WHERE NOT EXISTS (
+    SELECT 1 FROM vouchers WHERE voucher_code = 'GRAND500' AND is_deleted = FALSE
+);
+
+INSERT INTO vouchers (
+    hotel_id, voucher_code, title, description,
+    discount_type, discount_value, apply_scope, min_order_amount, max_discount_amount,
+    total_quantity, used_quantity, max_usage_per_user,
+    valid_from, valid_to, status, is_deleted
+)
+SELECT 
+    (SELECT id FROM hotels WHERE name ILIKE '%Hà Nội%' LIMIT 1),
+    'HANOIVIP', 'Ưu Đãi Đặc Quyền Cơ Sở Grand Hà Nội', 'Giảm 20% tiền phòng cho khách hàng lưu trú tại Viettel Luxury Hà Nội',
+    'PERCENT', 20.00, 'ROOM_ONLY', 1500000.00, 1000000.00,
+    50, 3, 1,
+    CURRENT_TIMESTAMP - INTERVAL '15 days', CURRENT_TIMESTAMP + INTERVAL '45 days', 'ACTIVE', FALSE
+WHERE NOT EXISTS (
+    SELECT 1 FROM vouchers WHERE voucher_code = 'HANOIVIP' AND is_deleted = FALSE
+);

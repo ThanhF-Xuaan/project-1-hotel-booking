@@ -34,6 +34,15 @@ public class AvailableHotelResponse {
     @Schema(description = "Giá phòng một đêm thấp nhất (đã bao gồm phí dịch vụ 5% và VAT)", example = "1500000.00")
     BigDecimal minPricePerNight;
 
+    @Schema(description = "Ảnh bìa đại diện của khách sạn", example = "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb")
+    String coverImageUrl;
+
+    @Schema(description = "Mã voucher đã áp dụng cho giá tham chiếu (nếu có)", example = "SUMMER2026")
+    String appliedVoucherCode;
+
+    @Schema(description = "Số tiền được giảm từ voucher trên mỗi đêm (nếu có)", example = "150000.00")
+    BigDecimal voucherDiscountAmount;
+
     @Schema(description = "Đơn vị tiền tệ", example = "VND")
     @Builder.Default
     String currency = "VND";

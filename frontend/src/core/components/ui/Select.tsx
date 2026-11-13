@@ -28,6 +28,7 @@ export interface SelectProps<T = string | number> {
   emptyText?: string;
   onOpen?: () => void | Promise<void>;
   direction?: 'down' | 'up' | 'auto';
+  menuClassName?: string;
 }
 
 export const Select = <T extends string | number>({
@@ -47,6 +48,7 @@ export const Select = <T extends string | number>({
   emptyText = 'Không có tùy chọn nào',
   onOpen,
   direction = 'auto',
+  menuClassName,
 }: SelectProps<T>) => {
   const [isOpen, setIsOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
@@ -169,11 +171,11 @@ export const Select = <T extends string | number>({
         <div className="flex items-center gap-2 truncate">
           {prefixIcon && <span className="text-neutral-400 shrink-0">{prefixIcon}</span>}
           {selectedOption ? (
-            <span className="flex items-center gap-2 truncate text-neutral-900">
+            <span className="flex items-center gap-2 truncate text-neutral-900 min-w-0 flex-1">
               {selectedOption.icon && <span className="shrink-0">{selectedOption.icon}</span>}
-              <span className="truncate">{selectedOption.label}</span>
+              <span className="truncate flex-1 min-w-0">{selectedOption.label}</span>
               {selectedOption.badge && (
-                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-neutral-200 text-neutral-700">
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-neutral-200 text-neutral-700 shrink-0">
                   {selectedOption.badge}
                 </span>
               )}
@@ -199,8 +201,9 @@ export const Select = <T extends string | number>({
         <div
           role="listbox"
           className={cn(
-            'absolute z-50 w-full bg-white rounded-xl border border-neutral-200 shadow-xl p-1.5 max-h-60 overflow-y-auto focus:outline-none animate-in fade-in zoom-in-95 duration-150',
-            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+            'absolute z-50 min-w-full w-full bg-white rounded-xl border border-neutral-200 shadow-xl p-1.5 max-h-60 overflow-y-auto focus:outline-none animate-in fade-in zoom-in-95 duration-150',
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
+            menuClassName
           )}
         >
           {isLoading ? (
@@ -227,9 +230,9 @@ export const Select = <T extends string | number>({
                       : !opt.disabled && 'text-neutral-800 hover:bg-neutral-100'
                   )}
                 >
-                  <div className="flex items-center gap-2 truncate">
+                  <div className="flex items-center gap-2 truncate min-w-0 flex-1">
                     {opt.icon && <span className="shrink-0 text-neutral-500">{opt.icon}</span>}
-                    <div className="truncate">
+                    <div className="truncate min-w-0 flex-1">
                       <div className="truncate">{opt.label}</div>
                       {opt.description && (
                         <div className="text-[11px] text-neutral-500 font-normal truncate">
