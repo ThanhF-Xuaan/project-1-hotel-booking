@@ -23,6 +23,7 @@ export interface AvailableHotelDto {
   coverImageUrl?: string;
   appliedVoucherCode?: string;
   voucherDiscountAmount?: number;
+  isTarget?: boolean;
 }
 
 export interface UnifiedSearchResponse {

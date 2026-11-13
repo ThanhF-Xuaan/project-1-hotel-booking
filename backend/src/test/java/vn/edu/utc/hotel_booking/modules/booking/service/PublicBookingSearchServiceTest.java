@@ -427,22 +427,35 @@ class PublicBookingSearchServiceTest {
     }
 
     @Test
-    @DisplayName("searchUnified: Tìm kiếm theo HOTEL từ 1 ô Dropdown (destinationType=HOTEL, destinationId=10)")
-    void searchUnified_HotelDestination_ReturnsRoomsAndSelectedHotel() {
+    @DisplayName("searchUnified: Tìm kiếm theo HOTEL chuẩn hóa trả về HOTELS, xếp khách sạn mục tiêu lên đầu (isTarget=true) kèm các khách sạn khác cùng khu vực")
+    void searchUnified_HotelDestination_ReturnsHotelsWithTargetAndSameRegionOthers() {
         BookingSearchRequest req = new BookingSearchRequest();
         req.setDestinationType(DestinationType.HOTEL);
         req.setDestinationId(10);
         req.setCheckInDate(checkIn);
         req.setCheckOutDate(checkOut);
 
-        HotelResponse hotel = HotelResponse.builder()
+        HotelResponse targetHotel = HotelResponse.builder()
                 .id((short) 10)
+                .regionId((short) 1)
                 .name("Viettel Luxury Hà Nội")
                 .address("123 Trần Duy Hưng")
                 .phone("02466668888")
                 .regionName("Hà Nội")
                 .build();
-        when(hotelService.getById((short) 10)).thenReturn(hotel);
+        when(hotelService.getById((short) 10)).thenReturn(targetHotel);
+
+        HotelResponse otherHotel = HotelResponse.builder()
+                .id((short) 15)
+                .regionId((short) 1)
+                .name("Viettel Grand Xa La Hà Nội")
+                .address("Khu đô thị Xa La, Hà Đông, Hà Nội")
+                .regionName("Hà Nội")
+                .build();
+
+        when(hotelService.filter(any(HotelSearchDto.class))).thenReturn(
+                PageResponse.<HotelResponse>builder().content(List.of(targetHotel, otherHotel)).build()
+        );
 
         HotelRoomTypeResponse rt = HotelRoomTypeResponse.builder().id(101).build();
         when(hotelRoomTypeService.filterHotelRoomTypes(any(HotelRoomTypeSearchDto.class))).thenReturn(
@@ -456,10 +469,25 @@ class PublicBookingSearchServiceTest {
 
         UnifiedBookingSearchResponse unified = publicBookingSearchService.searchUnified(req);
 
-        assertThat(unified.getSearchType()).isEqualTo("ROOMS");
-        assertThat(unified.getRooms()).hasSize(1);
+        assertThat(unified.getSearchType()).isEqualTo("HOTELS");
+        assertThat(unified.getHotels()).isNotNull();
+        assertThat(unified.getHotels().getContent()).hasSize(2);
+
+        // Khách sạn mục tiêu đứng đầu với isTarget = true
+        AvailableHotelResponse first = unified.getHotels().getContent().get(0);
+        assertThat(first.getHotelId()).isEqualTo(10);
+        assertThat(first.getHotelName()).isEqualTo("Viettel Luxury Hà Nội");
+        assertThat(first.getIsTarget()).isTrue();
+
+        // Khách sạn khác cùng khu vực đứng sau với isTarget = false
+        AvailableHotelResponse second = unified.getHotels().getContent().get(1);
+        assertThat(second.getHotelId()).isEqualTo(15);
+        assertThat(second.getHotelName()).isEqualTo("Viettel Grand Xa La Hà Nội");
+        assertThat(second.getIsTarget()).isFalse();
+
         assertThat(unified.getSelectedHotel()).isNotNull();
         assertThat(unified.getSelectedHotel().getHotelName()).isEqualTo("Viettel Luxury Hà Nội");
+        assertThat(unified.getSelectedHotel().getIsTarget()).isTrue();
     }
 
     @Test

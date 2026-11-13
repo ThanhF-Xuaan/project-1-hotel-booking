@@ -20,7 +20,11 @@ export const HotelCardItem: React.FC<HotelCardItemProps> = ({ hotel, onSelectHot
   const imageUrl = hotel.coverImageUrl || fallbackCover;
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col md:flex-row group">
+    <div
+      className={`bg-white rounded-2xl border shadow-xs hover:shadow-md transition-all overflow-hidden flex flex-col md:flex-row group ${
+        hotel.isTarget ? 'border-red-300 ring-2 ring-red-500/20 shadow-sm' : 'border-neutral-200'
+      }`}
+    >
       {/* Cover Image Container */}
       <div className="md:w-72 lg:w-80 h-52 md:h-auto shrink-0 relative overflow-hidden bg-neutral-100">
         <img
@@ -30,6 +34,12 @@ export const HotelCardItem: React.FC<HotelCardItemProps> = ({ hotel, onSelectHot
           loading="lazy"
         />
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+          {hotel.isTarget && (
+            <span className="px-2.5 py-1 bg-red-600 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 shadow-md">
+              <Star className="w-3 h-3 fill-white text-white" />
+              Khách sạn bạn đã chọn
+            </span>
+          )}
           <span className="px-2.5 py-1 bg-neutral-900/80 backdrop-blur-xs text-white text-[11px] font-semibold rounded-lg flex items-center gap-1 shadow-xs">
             <Building2 className="w-3 h-3 text-red-400" />
             {hotel.regionName || 'Khách sạn'}

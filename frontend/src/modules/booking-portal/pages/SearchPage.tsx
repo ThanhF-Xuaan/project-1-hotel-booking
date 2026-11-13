@@ -169,11 +169,17 @@ export const SearchPage: React.FC = () => {
   const [hotelImages, setHotelImages] = useState<HotelImageDto[]>([]);
 
   const [criteria, setCriteria] = useState<CustomerSearchCriteria>(INITIAL_CRITERIA);
-  const [searchMode, setSearchMode] = useState<'HOTELS' | 'ROOMS'>('ROOMS');
+  const [searchMode, setSearchMode] = useState<'HOTELS' | 'ROOMS'>('HOTELS');
   const [roomOffers, setRoomOffers] = useState<AvailableRoomOffer[]>([]);
   const [availableHotels, setAvailableHotels] = useState<AvailableHotelDto[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState<boolean>(true);
   const [roomError, setRoomError] = useState<string | null>(null);
+
+  const targetHotel = useMemo(() => availableHotels.find((h) => h.isTarget), [availableHotels]);
+  const otherHotels = useMemo(
+    () => (targetHotel ? availableHotels.filter((h) => !h.isTarget) : availableHotels),
+    [availableHotels, targetHotel]
+  );
 
   // Điểm đến: Khu vực/Thành phố hoặc Khách sạn cơ sở
   const [destinations, setDestinations] = useState<DestinationSuggestionDto[]>([]);
@@ -753,7 +759,32 @@ export const SearchPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {availableHotels.map((hotel) => (
+                {/* 1. Khách sạn mục tiêu người dùng đã chọn (nếu tìm theo Khách sạn cơ sở) */}
+                {targetHotel && (
+                  <HotelCardItem
+                    key={targetHotel.hotelId}
+                    hotel={targetHotel}
+                    onSelectHotel={handleSelectHotelFromList}
+                  />
+                )}
+
+                {/* 2. Dải phân cách các khách sạn khác cùng khu vực (chỉ hiển thị khi có khách sạn khác cùng khu vực) */}
+                {targetHotel && otherHotels.length > 0 && (
+                  <div className="pt-6 pb-2 border-t border-neutral-200">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-red-600" />
+                      <h3 className="text-sm sm:text-base font-extrabold uppercase tracking-wide text-neutral-800">
+                        Khách Sạn Khác Trong Khu Vực Cùng Khả Dụng ({otherHotels.length})
+                      </h3>
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Gợi ý các khách sạn lân cận trong cùng khu vực còn phòng trống cho khoảng thời gian của quý khách
+                    </p>
+                  </div>
+                )}
+
+                {/* 3. Danh sách các khách sạn khác cùng khu vực (hoặc toàn bộ danh sách khi tìm theo Vùng) */}
+                {(!targetHotel ? availableHotels : otherHotels).map((hotel) => (
                   <HotelCardItem
                     key={hotel.hotelId}
                     hotel={hotel}

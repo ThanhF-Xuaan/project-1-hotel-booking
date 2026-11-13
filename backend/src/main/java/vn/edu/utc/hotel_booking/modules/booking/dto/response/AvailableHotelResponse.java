@@ -46,4 +46,8 @@ public class AvailableHotelResponse {
     @Schema(description = "Đơn vị tiền tệ", example = "VND")
     @Builder.Default
     String currency = "VND";
+
+    @Schema(description = "Đánh dấu đây là khách sạn mục tiêu người dùng chủ động chọn tìm kiếm", example = "true")
+    @Builder.Default
+    Boolean isTarget = false;
 }
