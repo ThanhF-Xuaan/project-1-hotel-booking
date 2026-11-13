@@ -247,6 +247,33 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    @DisplayName("Should extract colloquial landmarks to canonical cities in deterministic fallback")
+    void shouldExtractColloquialLandmarksToCanonicalCitiesInDeterministicFallback() {
+        // Hồ Gươm, Tháp Rùa, Bờ Hồ -> Hà Nội
+        CriteriaPatchDto p1 = llmService.extractCriteriaPatch("đi ngắm rùa quanh Hồ Gươm 2 đêm", null);
+        assertThat(p1.getLocationKeyword()).isEqualTo("Hà Nội");
+
+        CriteriaPatchDto p2 = llmService.extractCriteriaPatch("muốn đi dạo bờ hồ ngắm tháp rùa từ 20 đến 22 tháng 11", null);
+        assertThat(p2.getLocationKeyword()).isEqualTo("Hà Nội");
+
+        // Bãi Cháy, Tuần Châu -> Hạ Long
+        CriteriaPatchDto p3 = llmService.extractCriteriaPatch("ở gần bãi cháy ngắm vịnh cho 2 người", null);
+        assertThat(p3.getLocationKeyword()).isEqualTo("Hạ Long");
+
+        // Cầu Rồng, Mỹ Khê -> Đà Nẵng
+        CriteriaPatchDto p4 = llmService.extractCriteriaPatch("đi tắm biển mỹ khê xem cầu rồng phun lửa", null);
+        assertThat(p4.getLocationKeyword()).isEqualTo("Đà Nẵng");
+
+        // Fansipan, Cát Cát -> Sa Pa
+        CriteriaPatchDto p5 = llmService.extractCriteriaPatch("chinh phục đỉnh fansipan và đi bản cát cát", null);
+        assertThat(p5.getLocationKeyword()).isEqualTo("Sa Pa");
+
+        // Chợ Bến Thành, Quận 1 -> Hồ Chí Minh
+        CriteriaPatchDto p6 = llmService.extractCriteriaPatch("đi dạo phố đi bộ nguyễn huệ ghé chợ bến thành", null);
+        assertThat(p6.getLocationKeyword()).isEqualTo("Hồ Chí Minh");
+    }
+
+    @Test
     @DisplayName("Should build Gemini extraction prompt containing Vietnamese colloquial and slang rules")
     void shouldBuildGeminiExtractionPromptWithColloquialRules() {
         LocalDate date = LocalDate.of(2026, 11, 12);
