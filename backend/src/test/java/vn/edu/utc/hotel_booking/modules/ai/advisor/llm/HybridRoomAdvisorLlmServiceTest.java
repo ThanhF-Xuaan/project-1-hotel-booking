@@ -235,6 +235,18 @@ class HybridRoomAdvisorLlmServiceTest {
     }
 
     @Test
+    @DisplayName("Should extract Vietnamese family with Ho Guom alias, 2 adults, 1 child, 1 infant")
+    void shouldExtractFamilyWithHoGuomAndInfantSlang() {
+        String msg = "Cuối tuần này mình muốn dắt cả nhà đi chơi quanh Hồ Gươm ngắm rùa, nhà có 2 vợ chồng với 2 đứa nhỏ (1 đứa 4 tuổi, 1 đứa ẵm ngửa) từ ngày 20 đến 22 tháng 11";
+        CriteriaPatchDto patch = llmService.extractCriteriaPatch(msg, null);
+        assertThat(patch).isNotNull();
+        assertThat(patch.getLocationKeyword()).isEqualTo("Hà Nội");
+        assertThat(patch.getAdults()).isEqualTo(2);
+        assertThat(patch.getChildren()).isEqualTo(1);
+        assertThat(patch.getInfants()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("Should build Gemini extraction prompt containing Vietnamese colloquial and slang rules")
     void shouldBuildGeminiExtractionPromptWithColloquialRules() {
         LocalDate date = LocalDate.of(2026, 11, 12);
@@ -461,6 +473,7 @@ class HybridRoomAdvisorLlmServiceTest {
         HttpRequest sent = request.getValue();
         assertThat(sent.uri().getHost()).isEqualTo("generativelanguage.googleapis.com");
         assertThat(sent.uri().getQuery()).isNull();
+        assertThat(sent.uri().toString()).contains("/models/gemini-3.5-flash-lite:generateContent");
         assertThat(sent.uri().toString()).doesNotContain(TEST_KEY);
         assertThat(sent.headers().firstValue("x-goog-api-key")).contains(TEST_KEY);
         assertThat(sent.timeout()).contains(java.time.Duration.ofMillis(500));

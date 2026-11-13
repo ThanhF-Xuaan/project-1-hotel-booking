@@ -168,6 +168,19 @@ class DefaultPublicHotelCorpusInitializerTest {
         assertThat(earlyCheckInRes.getCitations()).isNotEmpty();
         assertThat(earlyCheckInRes.getCitations().get(0).getSourceId()).isEqualTo("POLICY-EARLY-CHECKIN");
 
+        // 7b. Verify Early Check-in luggage storage retrieval
+        RagQueryResultDto luggageRes = answerService.answerQuestion(
+                RagQueryRequestDto.builder()
+                        .hotelId(1)
+                        .question("Đến khách sạn sớm muốn cất hành lý, gửi đồ thì có mất phí không?")
+                        .asOfDate(LocalDate.of(2026, 3, 1))
+                        .build()
+        );
+        assertThat(luggageRes.getStatus()).isEqualTo(RagAnswerStatus.GROUNDED_ANSWER);
+        assertThat(luggageRes.getAnswer()).contains("hành lý").contains("miễn phí");
+        assertThat(luggageRes.getCitations()).isNotEmpty();
+        assertThat(luggageRes.getCitations().get(0).getSourceId()).isEqualTo("POLICY-EARLY-CHECKIN");
+
         // 8. Verify Infant & Child surcharge policy retrieval
         RagQueryResultDto childSurchargeRes = answerService.answerQuestion(
                 RagQueryRequestDto.builder()

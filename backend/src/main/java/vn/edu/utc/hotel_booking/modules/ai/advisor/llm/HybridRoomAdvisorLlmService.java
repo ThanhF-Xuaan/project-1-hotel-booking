@@ -45,8 +45,9 @@ import java.util.regex.Pattern;
 @Service
 public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
+    public static final String MODEL_ID = "gemini-3.5-flash-lite";
     private static final URI GEMINI_ENDPOINT = URI.create(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
+            "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL_ID + ":generateContent");
     static final int MAX_RESPONSE_BYTES = 65_536;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final AdvisorProviderProperties provider;
@@ -68,14 +69,14 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     public HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, @Autowired(required = false) Clock clock) {
         this(provider, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
                 .followRedirects(HttpClient.Redirect.NEVER).build(), () -> System.getenv("GEMINI_API_KEY"),
-                payload -> RagOutboundLedger.beforeCall("gemini-2.5-flash",
+                payload -> RagOutboundLedger.beforeCall(MODEL_ID,
                         new okhttp3.Request.Builder().url(GEMINI_ENDPOINT.toString())
                                 .post(okhttp3.RequestBody.create(payload, okhttp3.MediaType.get("application/json"))).build()),
                 clock != null ? clock : Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
     }
 
     HybridRoomAdvisorLlmService(AdvisorProviderProperties provider, HttpClient httpClient, Supplier<String> apiKey) {
-        this(provider, httpClient, apiKey, payload -> RagOutboundLedger.beforeCall("gemini-2.5-flash",
+        this(provider, httpClient, apiKey, payload -> RagOutboundLedger.beforeCall(MODEL_ID,
                 new okhttp3.Request.Builder().url(GEMINI_ENDPOINT.toString())
                         .post(okhttp3.RequestBody.create(payload, okhttp3.MediaType.get("application/json"))).build()),
                 Clock.system(ZoneId.of("Asia/Ho_Chi_Minh")));
@@ -156,7 +157,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     private static final Pattern ADULTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:người\\s*lớn|nguoi\\s*lon|adults?)");
     private static final Pattern CHILDREN_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:trẻ\\s*em|tre\\s*em|children|child|bé|be)(?:\\s+\\d+\\s*(?:tuổi|tuoi))?");
     private static final Pattern NO_CHILDREN_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:trẻ\\s*em|tre\\s*em|children|child|bé|be)");
-    private static final Pattern INFANTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:em\\s*bé|em\\s*be|trẻ\\s*sơ\\s*sinh|infants?|bab(?:y|ies))");
+    private static final Pattern INFANTS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:em\\s*bé|em\\s*be|trẻ\\s*sơ\\s*sinh|tre\\s*so\\s*sinh|ẵm\\s*ngửa|am\\s*ngua|bế\\s*nách|be\\s*nach|infants?|bab(?:y|ies))");
     private static final Pattern NO_INFANTS_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:em\\s*bé|em\\s*be|trẻ\\s*sơ\\s*sinh|infants?|bab(?:y|ies))");
     private static final Pattern EXTRA_BEDS_PATTERN = Pattern.compile("(?i)(\\d+)\\s*(?:giường\\s*phụ|giuong\\s*phu|extra\\s*beds?)");
     private static final Pattern NO_EXTRA_BEDS_PATTERN = Pattern.compile("(?i)(?:không|khong|no|0)\\s*(?:có\\s*)?(?:giường\\s*phụ|giuong\\s*phu|extra\\s*beds?)");
@@ -177,7 +178,8 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
     private static final List<String> COMMON_DESTINATIONS = List.of(
             "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hồ Chí Minh",
             "Sài Gòn", "Synthetic City", "Central", "Hội An", "Đà Lạt", "Vũng Tàu", "Huế", "Hạ Long",
-            "Quy Nhơn", "Phan Thiết", "Sa Pa", "Sapa", "Ninh Bình", "Cần Thơ"
+            "Quy Nhơn", "Phan Thiết", "Sa Pa", "Sapa", "Ninh Bình", "Cần Thơ",
+            "Hồ Gươm", "Phố Cổ", "Bãi Cháy", "Chợ Bến Thành", "Bà Nà", "Sơn Trà"
     );
 
     @Override
@@ -381,8 +383,12 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         s = s.replaceAll("(?iU)\\b(?:hai|2)\\s+vợ\\s+chồng\\b", "2 người lớn")
                 .replaceAll("(?iU)\\b(?:mình\\s+với\\s+(?:người\\s*yêu|bạn\\s*gái|bạn\\s*trai|vợ|chồng|bồ|crush|ny)|vợ\\s*chồng\\s*mình|hai\\s*đứa\\s*mình|2\\s*đứa\\s*mình|hai\\s*đứa\\s*tụi\\s*mình|2\\s*đứa\\s*tụi\\s*mình|chúng\\s*mình|tụi\\s*mình|hai\\s*người\\s*mình|2\\s*người\\s*mình|(?:hai|2)\\s*đứa(?!\\s*(?:bé|con|tre|trẻ|nho|nhỏ)\\b)|(?:hai|2)\\s+người(?!\\s*(?:lớn|lon)\\b))\\b", "2 người lớn")
                 .replaceAll("(?iU)\\b(?:đi\\s+(?:một|1)\\s+mình|ở\\s+(?:một|1)\\s+mình|(?:một|1)\\s+mình|đơn\\s+thân)\\b", "1 người lớn")
-                .replaceAll("(?iU)\\b(?:1\\s*cu\\s*con|cu\\s*con|1\\s*bé\\s*con|bé\\s*con|1\\s*nhóc|nhóc|1\\s*con\\s*nhỏ|con\\s*nhỏ|trẻ\\s*nhỏ|con\\s*nít|bé\\s*nhỏ)\\b", "1 bé")
-                .replaceAll("(?iU)\\b(?:1\\s*bé\\s*sơ\\s*sinh|bé\\s*sơ\\s*sinh|em\\s*bé\\s*sơ\\s*sinh|trẻ\\s*sơ\\s*sinh)\\b", "1 em bé")
+                .replaceAll("(?iU)\\b(?:hồ\\s*gươm|ho\\s*guom|phố\\s*cổ|pho\\s*co|nam\\s*từ\\s*liêm|nam\\s*tu\\s*liem)\\b", "Hà Nội")
+                .replaceAll("(?iU)\\b(?:bãi\\s*cháy|bai\\s*chay|vịnh\\s*hạ\\s*long|vinh\\s*ha\\s*long)\\b", "Hạ Long")
+                .replaceAll("(?iU)\\b(?:bà\\s*nà|ba\\s*na|sơn\\s*trà|son\\s*tra)\\b", "Đà Nẵng")
+                .replaceAll("(?iU)\\b(?:chợ\\s*bến\\s*thành|cho\\s*ben\\s*thanh)\\b", "Hồ Chí Minh")
+                .replaceAll("(?iU)\\b(?:1\\s*cu\\s*con|cu\\s*con|1\\s*bé\\s*con|bé\\s*con|1\\s*nhóc|nhóc|1\\s*con\\s*nhỏ|con\\s*nhỏ|trẻ\\s*nhỏ|con\\s*nít|bé\\s*nhỏ|đứa\\s*nhỏ|em\\s*nhỏ)\\b", "1 bé")
+                .replaceAll("(?iU)\\b(?:1\\s*bé\\s*sơ\\s*sinh|bé\\s*sơ\\s*sinh|em\\s*bé\\s*sơ\\s*sinh|trẻ\\s*sơ\\s*sinh|1\\s*đứa\\s*ẵm\\s*ngửa|đứa\\s*ẵm\\s*ngửa|ẵm\\s*ngửa|bế\\s*nách|chưa\\s*biết\\s*đi)\\b", "1 em bé")
                 .replaceAll("(?iU)\\b(?:kê\\s*thêm\\s*nệm|thêm\\s*nệm|thêm\\s*đệm|giường\\s*phụ)\\b", "1 giường phụ")
                 .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*NL(?!\\p{L})", "$1 người lớn ")
                 .replaceAll("(?iU)(?<!\\p{L})(\\d+)\\s*TE(?!\\p{L})", "$1 trẻ em ")

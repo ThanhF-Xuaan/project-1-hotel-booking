@@ -135,6 +135,10 @@ hotel:
     advisor:
       unified:
         enabled: ${HOTEL_AI_ADVISOR_UNIFIED_ENABLED:true}
+      provider:
+        gemini-enabled: ${HOTEL_AI_ADVISOR_PROVIDER_GEMINI_ENABLED:true}
+        timeout-millis: ${HOTEL_AI_ADVISOR_PROVIDER_TIMEOUT_MILLIS:4000}
+        max-output-tokens: ${HOTEL_AI_ADVISOR_PROVIDER_MAX_OUTPUT_TOKENS:512}
       security:
         anon-token-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECRET:9aB8cE7dF6gH5jK4mN3pQ2rT1vW0xYzA_bCdEfGhJkMnPqRtVwXyZ}
         anon-token-secondary-secret: ${HOTEL_AI_ADVISOR_SECURITY_ANON_TOKEN_SECONDARY_SECRET:}

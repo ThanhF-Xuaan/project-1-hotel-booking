@@ -201,9 +201,10 @@ public class DefaultPublicHotelCorpusInitializer {
                 RagScopeType.CHAIN_PUBLIC,
                 null,
                 RagDocumentCategory.POLICY,
-                "Chính sách nhận phòng sớm và trả phòng muộn",
+                "Chính sách nhận phòng sớm, trả phòng muộn và gửi hành lý",
                 "Khách sạn hỗ trợ quý khách nhận phòng sớm hoặc trả phòng muộn tùy thuộc vào tình trạng phòng trống thực tế tại thời điểm yêu cầu.\n" +
-                        "Quy định phụ thu khi đến sớm:\n" +
+                        "Trường hợp quý khách đến sớm trước giờ nhận phòng (trước 14:00) hoặc có nhu cầu cất hành lý, gửi đồ, gửi vali để đi dạo chơi, tham quan hoặc làm việc: Khách sạn cung cấp dịch vụ trông giữ hành lý hoàn toàn miễn phí tại quầy lễ tân 24/7.\n" +
+                        "Quy định phụ thu khi nhận phòng sớm vào ở ngay:\n" +
                         "- Đến trước 06:00 sáng: Áp dụng phụ thu 100% giá phòng một đêm (kèm dịch vụ phòng đầy đủ).\n" +
                         "- Đến từ 06:00 sáng đến trước 12:00 trưa: Áp dụng mức phụ thu 50% giá phòng một đêm.\n" +
                         "- Đến từ 12:00 trưa đến trước 14:00 chiều: Được hỗ trợ nhận phòng sớm miễn phí nếu khách sạn có sẵn phòng sạch.\n" +
