@@ -179,8 +179,27 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
             "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hồ Chí Minh",
             "Sài Gòn", "Synthetic City", "Central", "Hội An", "Đà Lạt", "Vũng Tàu", "Huế", "Hạ Long",
             "Quy Nhơn", "Phan Thiết", "Sa Pa", "Sapa", "Ninh Bình", "Cần Thơ",
-            "Hồ Gươm", "Phố Cổ", "Bãi Cháy", "Chợ Bến Thành", "Bà Nà", "Sơn Trà"
+            "Hồ Gươm", "Hồ Hoàn Kiếm", "Phố Cổ", "Tháp Rùa", "Bờ Hồ", "Hồ Tây", "Tây Hồ", "Tràng Tiền", "Nam Từ Liêm", "Mỹ Đình",
+            "Bà Nà", "Bà Nà Hills", "Sơn Trà", "Cầu Rồng", "Mỹ Khê", "Ngũ Hành Sơn",
+            "Fansipan", "Phan Si Pang", "Phan Xi Păng", "Cát Cát", "Bản Cát Cát", "Hàm Rồng", "Lào Cai",
+            "Bãi Cháy", "Vịnh Hạ Long", "Tuần Châu", "Quảng Ninh",
+            "Chợ Bến Thành", "Quận 1", "Bến Nhà Rồng", "Phố Đi Bộ Nguyễn Huệ"
     );
+
+    static String toCanonicalDestination(String dest) {
+        if (dest == null) return null;
+        String folded = foldVietnamese(dest);
+        return switch (folded) {
+            case "ho guom", "ho hoan kiem", "pho co", "thap rua", "bo ho", "ho tay", "tay ho", "trang tien", "nam tu liem", "my dinh", "thu do" -> "Hà Nội";
+            case "ba na", "ba na hills", "son tra", "ban dao son tra", "cau rong", "my khe", "bien my khe", "ngu hanh son" -> "Đà Nẵng";
+            case "fansipan", "phan si pang", "phan xi pang", "cat cat", "ban cat cat", "ham rong", "nui ham rong", "sapa", "lao cai" -> "Sa Pa";
+            case "bai chay", "vinh ha long", "tuan chau", "dao tuan chau", "quang ninh" -> "Hạ Long";
+            case "cho ben thanh", "quan 1", "ben nha rong", "pho di bo nguyen hue", "sai gon", "tphcm" -> "Hồ Chí Minh";
+            case "trang an", "bai dinh", "tam coc" -> "Ninh Bình";
+            case "dai noi", "song huong" -> "Huế";
+            default -> dest;
+        };
+    }
 
     @Override
     public CriteriaPatchDto extractCriteriaPatch(String message, RoomSearchCriteriaDto currentCriteria) {
@@ -316,7 +335,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         // 3. Location Keyword
         for (String dest : COMMON_DESTINATIONS) {
             if (foldVietnamese(lowerMessage).contains(foldVietnamese(dest))) {
-                builder.locationKeyword(dest);
+                builder.locationKeyword(toCanonicalDestination(dest));
                 hasPatch = true;
                 break;
             }
@@ -383,10 +402,11 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         s = s.replaceAll("(?iU)\\b(?:hai|2)\\s+vợ\\s+chồng\\b", "2 người lớn")
                 .replaceAll("(?iU)\\b(?:mình\\s+với\\s+(?:người\\s*yêu|bạn\\s*gái|bạn\\s*trai|vợ|chồng|bồ|crush|ny)|vợ\\s*chồng\\s*mình|hai\\s*đứa\\s*mình|2\\s*đứa\\s*mình|hai\\s*đứa\\s*tụi\\s*mình|2\\s*đứa\\s*tụi\\s*mình|chúng\\s*mình|tụi\\s*mình|hai\\s*người\\s*mình|2\\s*người\\s*mình|(?:hai|2)\\s*đứa(?!\\s*(?:bé|con|tre|trẻ|nho|nhỏ)\\b)|(?:hai|2)\\s+người(?!\\s*(?:lớn|lon)\\b))\\b", "2 người lớn")
                 .replaceAll("(?iU)\\b(?:đi\\s+(?:một|1)\\s+mình|ở\\s+(?:một|1)\\s+mình|(?:một|1)\\s+mình|đơn\\s+thân)\\b", "1 người lớn")
-                .replaceAll("(?iU)\\b(?:hồ\\s*gươm|ho\\s*guom|phố\\s*cổ|pho\\s*co|nam\\s*từ\\s*liêm|nam\\s*tu\\s*liem)\\b", "Hà Nội")
-                .replaceAll("(?iU)\\b(?:bãi\\s*cháy|bai\\s*chay|vịnh\\s*hạ\\s*long|vinh\\s*ha\\s*long)\\b", "Hạ Long")
-                .replaceAll("(?iU)\\b(?:bà\\s*nà|ba\\s*na|sơn\\s*trà|son\\s*tra)\\b", "Đà Nẵng")
-                .replaceAll("(?iU)\\b(?:chợ\\s*bến\\s*thành|cho\\s*ben\\s*thanh)\\b", "Hồ Chí Minh")
+                .replaceAll("(?iU)\\b(?:hồ\\s*gươm|ho\\s*guom|hồ\\s*hoàn\\s*kiếm|ho\\s*hoan\\s*kiem|tháp\\s*rùa|thap\\s*rua|bờ\\s*hồ|bo\\s*ho|phố\\s*cổ|pho\\s*co|chợ\\s*đồng\\s*xuân|cho\\s*dong\\s*xuan|hồ\\s*tây|ho\\s*tay|tây\\s*hồ|tay\\s*ho|tràng\\s*tiền|trang\\s*tien|nam\\s*từ\\s*liêm|nam\\s*tu\\s*liem|mỹ\\s*đình|my\\s*dinh)\\b", "Hà Nội")
+                .replaceAll("(?iU)\\b(?:bãi\\s*cháy|bai\\s*chay|vịnh\\s*hạ\\s*long|vinh\\s*ha\\s*long|tuần\\s*châu|tuan\\s*chau|đảo\\s*tuần\\s*châu|dao\\s*tuan\\s*chau)\\b", "Hạ Long")
+                .replaceAll("(?iU)\\b(?:bà\\s*nà|ba\\s*na|bà\\s*nà\\s*hills|ba\\s*na\\s*hills|sơn\\s*trà|son\\s*tra|bán\\s*đảo\\s*sơn\\s*trà|ban\\s*dao\\s*son\\s*tra|cầu\\s*rồng|cau\\s*rong|mỹ\\s*khê|my\\s*khe|biển\\s*mỹ\\s*khê|bien\\s*my\\s*khe|ngũ\\s*hành\\s*sơn|ngu\\s*hanh\\s*son)\\b", "Đà Nẵng")
+                .replaceAll("(?iU)\\b(?:chợ\\s*bến\\s*thành|cho\\s*ben\\s*thanh|phố\\s*đi\\s*bộ\\s*nguyễn\\s*huệ|pho\\s*di\\s*bo\\s*nguyen\\s*hue|quận\\s*1|quan\\s*1|bến\\s*nhà\\s*rồng|ben\\s*nha\\s*rong)\\b", "Hồ Chí Minh")
+                .replaceAll("(?iU)\\b(?:fansipan|phan\\s*si\\s*pang|phan\\s*xi\\s*păng|phan\\s*xi\\s*pang|bản\\s*cát\\s*cát|ban\\s*cat\\s*cat|cát\\s*cát|cat\\s*cat|núi\\s*hàm\\s*rồng|nui\\s*ham\\s*rong|hàm\\s*rồng|ham\\s*rong|thị\\s*trấn\\s*sapa|thi\\s*tran\\s*sapa)\\b", "Sa Pa")
                 .replaceAll("(?iU)\\b(?:1\\s*cu\\s*con|cu\\s*con|1\\s*bé\\s*con|bé\\s*con|1\\s*nhóc|nhóc|1\\s*con\\s*nhỏ|con\\s*nhỏ|trẻ\\s*nhỏ|con\\s*nít|bé\\s*nhỏ|đứa\\s*nhỏ|em\\s*nhỏ)\\b", "1 bé")
                 .replaceAll("(?iU)\\b(?:1\\s*bé\\s*sơ\\s*sinh|bé\\s*sơ\\s*sinh|em\\s*bé\\s*sơ\\s*sinh|trẻ\\s*sơ\\s*sinh|1\\s*đứa\\s*ẵm\\s*ngửa|đứa\\s*ẵm\\s*ngửa|ẵm\\s*ngửa|bế\\s*nách|chưa\\s*biết\\s*đi)\\b", "1 em bé")
                 .replaceAll("(?iU)\\b(?:kê\\s*thêm\\s*nệm|thêm\\s*nệm|thêm\\s*đệm|giường\\s*phụ)\\b", "1 giường phụ")
@@ -756,7 +776,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
         return """
 Today is %s.
 Extract hotel room search criteria from the user message into JSON with keys:
-- locationKeyword: string (e.g. "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hạ Long", "Hồ Chí Minh", "Đà Lạt", "Vũng Tàu", "Hội An", "Huế", "Quy Nhơn", "Sa Pa". Map "Sài Gòn" or "TPHCM" to "Hồ Chí Minh").
+- locationKeyword: string (e.g. "Đà Nẵng", "Hà Nội", "Nha Trang", "Phú Quốc", "Hạ Long", "Hồ Chí Minh", "Đà Lạt", "Vũng Tàu", "Hội An", "Huế", "Quy Nhơn", "Sa Pa". Map landmarks: "Hồ Gươm", "Phố Cổ", "Tháp Rùa", "Hồ Tây" -> "Hà Nội"; "Bà Nà", "Sơn Trà", "Cầu Rồng", "Mỹ Khê" -> "Đà Nẵng"; "Fansipan", "Cát Cát", "Hàm Rồng" -> "Sa Pa"; "Bãi Cháy", "Vịnh Hạ Long", "Tuần Châu" -> "Hạ Long"; "Sài Gòn", "TPHCM", "Chợ Bến Thành", "Quận 1" -> "Hồ Chí Minh").
 - checkInDate: string (yyyy-MM-dd).
 - checkOutDate: string (yyyy-MM-dd).
 - adults: integer.

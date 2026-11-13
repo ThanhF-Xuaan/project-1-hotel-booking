@@ -128,7 +128,7 @@ class PublicBookingCoreAdapterTest {
         assertThat(daNangUnaccented.isAmbiguous()).isFalse();
         assertThat(daNangUnaccented.getHotelId()).isEqualTo(2);
 
-        // Hà Nội / Ha Noi -> Hotel 1
+        // Hà Nội / Ha Noi / Hồ Gươm / Tháp Rùa / Bờ Hồ -> Hotel 1
         DestinationResolutionResult haNoi = adapter.resolveDestination("Hà Nội", null, null);
         assertThat(haNoi.isAmbiguous()).isFalse();
         assertThat(haNoi.getHotelId()).isEqualTo(1);
@@ -138,11 +138,49 @@ class PublicBookingCoreAdapterTest {
         assertThat(haNoiUnaccented.isAmbiguous()).isFalse();
         assertThat(haNoiUnaccented.getHotelId()).isEqualTo(1);
 
-        // Hạ Long / Ha Long -> Hotel 4
+        DestinationResolutionResult hoGuom = adapter.resolveDestination("Hồ Gươm", null, null);
+        assertThat(hoGuom.isAmbiguous()).isFalse();
+        assertThat(hoGuom.getHotelId()).isEqualTo(1);
+
+        DestinationResolutionResult thapRua = adapter.resolveDestination("Tháp Rùa", null, null);
+        assertThat(thapRua.isAmbiguous()).isFalse();
+        assertThat(thapRua.getHotelId()).isEqualTo(1);
+
+        DestinationResolutionResult phoCo = adapter.resolveDestination("Phố Cổ", null, null);
+        assertThat(phoCo.isAmbiguous()).isFalse();
+        assertThat(phoCo.getHotelId()).isEqualTo(1);
+
+        // Đà Nẵng / Cầu Rồng / Mỹ Khê -> Hotel 2
+        DestinationResolutionResult cauRong = adapter.resolveDestination("Cầu Rồng", null, null);
+        assertThat(cauRong.isAmbiguous()).isFalse();
+        assertThat(cauRong.getHotelId()).isEqualTo(2);
+
+        DestinationResolutionResult myKhe = adapter.resolveDestination("Mỹ Khê", null, null);
+        assertThat(myKhe.isAmbiguous()).isFalse();
+        assertThat(myKhe.getHotelId()).isEqualTo(2);
+
+        // Sapa / Fansipan / Cát Cát -> Hotel 3
+        DestinationResolutionResult fansipan = adapter.resolveDestination("Fansipan", null, null);
+        assertThat(fansipan.isAmbiguous()).isFalse();
+        assertThat(fansipan.getHotelId()).isEqualTo(3);
+
+        DestinationResolutionResult catCat = adapter.resolveDestination("Bản Cát Cát", null, null);
+        assertThat(catCat.isAmbiguous()).isFalse();
+        assertThat(catCat.getHotelId()).isEqualTo(3);
+
+        // Hạ Long / Ha Long / Bãi Cháy / Tuần Châu -> Hotel 4
         DestinationResolutionResult haLong = adapter.resolveDestination("Hạ Long", null, null);
         assertThat(haLong.isAmbiguous()).isFalse();
         assertThat(haLong.getHotelId()).isEqualTo(4);
         assertThat(haLong.getResolvedName()).isEqualTo("Vinpearl Resort & Spa Hạ Long (pilot, dữ liệu công khai)");
+
+        DestinationResolutionResult baiChay = adapter.resolveDestination("Bãi Cháy", null, null);
+        assertThat(baiChay.isAmbiguous()).isFalse();
+        assertThat(baiChay.getHotelId()).isEqualTo(4);
+
+        DestinationResolutionResult tuanChau = adapter.resolveDestination("Tuần Châu", null, null);
+        assertThat(tuanChau.isAmbiguous()).isFalse();
+        assertThat(tuanChau.getHotelId()).isEqualTo(4);
     }
 
     @Test
@@ -166,6 +204,14 @@ class PublicBookingCoreAdapterTest {
         DestinationResolutionResult tphcm = adapter.resolveDestination("TPHCM", null, null);
         assertThat(tphcm.isAmbiguous()).isFalse();
         assertThat(tphcm.getRegionId()).isEqualTo((short) 3);
+
+        DestinationResolutionResult choBenThanh = adapter.resolveDestination("Chợ Bến Thành", null, null);
+        assertThat(choBenThanh.isAmbiguous()).isFalse();
+        assertThat(choBenThanh.getRegionId()).isEqualTo((short) 3);
+
+        DestinationResolutionResult quan1 = adapter.resolveDestination("Quận 1", null, null);
+        assertThat(quan1.isAmbiguous()).isFalse();
+        assertThat(quan1.getRegionId()).isEqualTo((short) 3);
     }
 
     @Test

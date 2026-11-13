@@ -60,19 +60,23 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
         DestinationAliasTarget region3 = new DestinationAliasTarget(DestinationType.REGION, 3, "Miền Nam");
 
         // Hotel 3 (Sapa / Lào Cai)
-        List.of("sapa", "sa pa", "thi tran sapa", "thị trấn sapa", "lao cai", "lào cai", "fansipan", "phan si pang")
+        List.of("sapa", "sa pa", "thi tran sapa", "thị trấn sapa", "lao cai", "lào cai", "fansipan", "phan si pang", "phan xi pang", "phan xi păng",
+                "cat cat", "cát cát", "ban cat cat", "bản cát cát", "ham rong", "hàm rồng", "nui ham rong", "núi hàm rồng")
                 .forEach(k -> map.put(fold(k), hotel3));
 
         // Hotel 2 (Đà Nẵng)
-        List.of("da nang", "đà nẵng", "danang", "tp da nang", "tp đà nẵng", "thanh pho da nang", "thành phố đà nẵng", "son tra", "sơn trà", "ba na", "bà nà")
+        List.of("da nang", "đà nẵng", "danang", "tp da nang", "tp đà nẵng", "thanh pho da nang", "thành phố đà nẵng", "son tra", "sơn trà", "ba na", "bà nà", "ba na hills", "bà nà hills",
+                "cau rong", "cầu rồng", "my khe", "mỹ khê", "bien my khe", "biển mỹ khê", "ngu hanh son", "ngũ hành sơn")
                 .forEach(k -> map.put(fold(k), hotel2));
 
         // Hotel 1 (Hà Nội)
-        List.of("ha noi", "hà nội", "hanoi", "thu do", "thủ đô", "thu do ha noi", "thủ đô hà nội", "tp ha noi", "tp hà nội", "thanh pho ha noi", "thành phố hà nội", "nam tu liem", "nam từ liêm")
+        List.of("ha noi", "hà nội", "hanoi", "thu do", "thủ đô", "thu do ha noi", "thủ đô hà nội", "tp ha noi", "tp hà nội", "thanh pho ha noi", "thành phố hà nội", "nam tu liem", "nam từ liêm",
+                "ho guom", "hồ gươm", "pho co", "phố cổ", "ho hoan kiem", "hồ hoàn kiếm", "thap rua", "tháp rùa", "bo ho", "bờ hồ", "ho tay", "hồ tây", "tay ho", "tây hồ", "trang tien", "tràng tiền", "my dinh", "mỹ đình")
                 .forEach(k -> map.put(fold(k), hotel1));
 
         // Hotel 4 (Hạ Long / Quảng Ninh)
-        List.of("ha long", "hạ long", "halong", "vinh ha long", "vịnh hạ long", "quang ninh", "quảng ninh", "bai chay", "bãi cháy")
+        List.of("ha long", "hạ long", "halong", "vinh ha long", "vịnh hạ long", "quang ninh", "quảng ninh", "bai chay", "bãi cháy",
+                "tuan chau", "tuần châu", "dao tuan chau", "đảo tuần châu")
                 .forEach(k -> map.put(fold(k), hotel4));
 
         // Region 1 (Miền Bắc)
@@ -85,7 +89,8 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
 
         // Region 3 (Miền Nam)
         List.of("mien nam", "miền nam", "nam bo", "nam bộ", "phia nam", "phía nam", "south",
-                "sai gon", "sài gòn", "ho chi minh", "hồ chí minh", "tphcm", "tp hcm", "tp ho chi minh", "thanh pho ho chi minh", "thành phố hồ chí minh")
+                "sai gon", "sài gòn", "ho chi minh", "hồ chí minh", "tphcm", "tp hcm", "tp ho chi minh", "thanh pho ho chi minh", "thành phố hồ chí minh",
+                "cho ben thanh", "chợ bến thành", "quan 1", "quận 1", "pho di bo nguyen hue", "phố đi bộ nguyễn huệ", "ben nha rong", "bến nhà rồng")
                 .forEach(k -> map.put(fold(k), region3));
 
         return Collections.unmodifiableMap(map);
