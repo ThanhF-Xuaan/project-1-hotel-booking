@@ -294,18 +294,29 @@ public class PublicBookingCoreAdapter implements RoomAdvisorCorePort {
                 UnifiedBookingSearchResponse result = publicBookingSearchService.searchUnified(req);
                 AvailableHotelResponse hotel = result != null ? result.getSelectedHotel() : null;
                 List<AvailableRoomTypeResponse> rooms = result != null ? result.getRooms() : null;
-                if (hotel != null && Objects.equals(hotel.getHotelId(), hotelId) && rooms != null
-                        && "ROOMS".equals(result.getSearchType())) {
-                    for (AvailableRoomTypeResponse r : rooms) {
-                        if (rawRooms.size() >= limit) {
-                            catalogComplete = false;
-                            coverageReasons.add(CoverageReason.EVALUATION_LIMIT);
-                            break;
+                if (hotel != null && Objects.equals(hotel.getHotelId(), hotelId)) {
+                    if (rooms == null || !"ROOMS".equals(result.getSearchType())) {
+                        try {
+                            rooms = publicBookingSearchService.searchRooms(req);
+                        } catch (Exception ex) {
+                            log.warn("Lỗi khi tìm phòng cho hotelId={}: {}", hotelId, ex.getMessage());
                         }
-                        rawRooms.add(r);
-                        hotelIdByHrt.put(r.getHotelRoomTypeId(), hotelId);
-                        hotelNameByHrt.put(r.getHotelRoomTypeId(), hotel.getHotelName());
-                        currencyByHrt.put(r.getHotelRoomTypeId(), hotel.getCurrency());
+                    }
+                    if (rooms != null) {
+                        for (AvailableRoomTypeResponse r : rooms) {
+                            if (rawRooms.size() >= limit) {
+                                catalogComplete = false;
+                                coverageReasons.add(CoverageReason.EVALUATION_LIMIT);
+                                break;
+                            }
+                            rawRooms.add(r);
+                            hotelIdByHrt.put(r.getHotelRoomTypeId(), hotelId);
+                            hotelNameByHrt.put(r.getHotelRoomTypeId(), hotel.getHotelName());
+                            currencyByHrt.put(r.getHotelRoomTypeId(), hotel.getCurrency() != null ? hotel.getCurrency() : "VND");
+                        }
+                    } else {
+                        catalogComplete = false;
+                        coverageReasons.add(CoverageReason.CATALOG_PAGE_FAILED);
                     }
                 } else {
                     catalogComplete = false;

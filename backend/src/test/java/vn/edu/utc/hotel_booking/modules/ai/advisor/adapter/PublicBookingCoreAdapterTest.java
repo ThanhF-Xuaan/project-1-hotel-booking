@@ -574,4 +574,52 @@ class PublicBookingCoreAdapterTest {
         assertThat(result.isCatalogComplete()).isFalse();
         assertThat(result.getCoverageReasons()).contains(CoverageReason.PRICE_FAILED);
     }
+
+    @Test
+    @DisplayName("Should fallback to searchRooms when searchUnified returns HOTELS view with null rooms (PR #128 contract)")
+    void shouldFallbackToSearchRoomsWhenSearchUnifiedReturnsHotelsView() {
+        when(publicHotelEligibilityReader.isActivePublicHotel((short) 4)).thenReturn(true);
+        var hotel = AvailableHotelResponse.builder().hotelId(4).hotelName("Vinpearl Resort & Spa Hạ Long").currency("VND").build();
+        when(publicBookingSearchService.searchUnified(any(BookingSearchRequest.class)))
+                .thenReturn(UnifiedBookingSearchResponse.builder()
+                        .searchType("HOTELS")
+                        .selectedHotel(hotel)
+                        .rooms(null)
+                        .build());
+
+        PriceBreakdownDto pb = PriceBreakdownDto.builder()
+                .hotelRoomTypeId(401)
+                .totalNights(2)
+                .finalTotalAmount(new BigDecimal("2500000"))
+                .build();
+        AvailableRoomTypeResponse room = AvailableRoomTypeResponse.builder()
+                .hotelRoomTypeId(401)
+                .roomTypeName("Deluxe Ocean View")
+                .standardAdults((short) 2)
+                .maxAdults((short) 3)
+                .maxTotalGuests((short) 3)
+                .availableRooms(5)
+                .priceBreakdown(pb)
+                .build();
+
+        when(publicBookingSearchService.searchRooms(any(BookingSearchRequest.class)))
+                .thenReturn(List.of(room));
+
+        RoomSearchCriteriaDto criteria = RoomSearchCriteriaDto.builder()
+                .hotelId(4)
+                .checkInDate(LocalDate.of(2026, 11, 15))
+                .checkOutDate(LocalDate.of(2026, 11, 17))
+                .adults(2)
+                .roomsCount(1)
+                .build();
+
+        CoreCandidateDiscoveryResult result = adapter.discoverAndQuoteCandidates(criteria, null, 50);
+
+        assertThat(result.isCatalogComplete()).isTrue();
+        assertThat(result.isAllFailed()).isFalse();
+        assertThat(result.getCandidates()).hasSize(1);
+        assertThat(result.getCandidates().get(0).getHotelId()).isEqualTo(4);
+        assertThat(result.getCandidates().get(0).getHotelName()).isEqualTo("Vinpearl Resort & Spa Hạ Long");
+        assertThat(result.getCandidates().get(0).getRoomTypeName()).isEqualTo("Deluxe Ocean View");
+    }
 }
