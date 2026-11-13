@@ -195,13 +195,13 @@ public class DefaultPublicHotelCorpusInitializer {
                 1
         );
 
-        // 12. POLICY-EARLY-CHECKIN (CHAIN_PUBLIC)
+        // 12. POLICY-EARLY-CHECKIN (HN-01, hotelId = 1)
         ingestAndActivate(
                 "POLICY-EARLY-CHECKIN",
-                RagScopeType.CHAIN_PUBLIC,
-                null,
+                RagScopeType.HOTEL_SCOPED,
+                1,
                 RagDocumentCategory.POLICY,
-                "Chính sách nhận phòng sớm, trả phòng muộn và gửi hành lý",
+                "Chính sách nhận phòng sớm, trả phòng muộn và gửi hành lý cơ sở HN-01",
                 "Khách sạn hỗ trợ quý khách nhận phòng sớm hoặc trả phòng muộn tùy thuộc vào tình trạng phòng trống thực tế tại thời điểm yêu cầu.\n" +
                         "Trường hợp quý khách đến sớm trước giờ nhận phòng (trước 14:00) hoặc có nhu cầu cất hành lý, gửi đồ, gửi vali để đi dạo chơi, tham quan hoặc làm việc: Khách sạn cung cấp dịch vụ trông giữ hành lý hoàn toàn miễn phí tại quầy lễ tân 24/7.\n" +
                         "Quy định phụ thu khi nhận phòng sớm vào ở ngay:\n" +
