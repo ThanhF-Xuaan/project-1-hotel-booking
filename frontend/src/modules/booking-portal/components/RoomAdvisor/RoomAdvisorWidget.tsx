@@ -644,8 +644,8 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                     />
                   )}
 
-                  {/* Result Warnings */}
-                  {msg.result?.warnings && msg.result.warnings.length > 0 && (
+                  {/* Result Warnings (Dev only) */}
+                  {import.meta.env.DEV && msg.result?.warnings && msg.result.warnings.length > 0 && (
                     <div className="mt-2 text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
                       {msg.result.warnings.map((w, idx) => (
                         <p key={idx} className="flex items-center gap-1">
