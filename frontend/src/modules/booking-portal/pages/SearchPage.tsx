@@ -42,9 +42,6 @@ const DEFAULT_CHECK_IN = new Date(Date.now() + 86400000).toISOString().split('T'
 const DEFAULT_CHECK_OUT = new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0];
 
 const INITIAL_CRITERIA: CustomerSearchCriteria = {
-  destinationType: 'HOTEL',
-  destinationId: 1,
-  hotelId: 1,
   checkInDate: DEFAULT_CHECK_IN,
   checkOutDate: DEFAULT_CHECK_OUT,
   adultCount: 2,
@@ -183,33 +180,12 @@ export const SearchPage: React.FC = () => {
 
   // Điểm đến: Khu vực/Thành phố hoặc Khách sạn cơ sở
   const [destinations, setDestinations] = useState<DestinationSuggestionDto[]>([]);
-  const [selectedDestKey, setSelectedDestKey] = useState<string>('HOTEL:1');
-
-  // Load danh sách điểm đến gợi ý từ API
-  useEffect(() => {
-    let isCancelled = false;
-    bookingSearchService
-      .getDestinations()
-      .then((res) => {
-        if (isCancelled || !res?.result) return;
-        setDestinations(res.result);
-      })
-      .catch((err) => {
-        console.warn('Lấy danh sách điểm đến gợi ý thất bại, dùng mặc định:', err);
-      });
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+  const [selectedDestKey, setSelectedDestKey] = useState<string>('');
 
   // Map danh sách điểm đến thành SelectOption có phân nhóm và icon
   const destinationOptions: SelectOption<string>[] = useMemo(() => {
     if (destinations.length === 0) {
-      return [
-        { value: 'HOTEL:1', label: 'Grand Hà Nội Hotel', badge: 'Khách sạn' },
-        { value: 'HOTEL:2', label: 'Premier Đà Nẵng Resort', badge: 'Khách sạn' },
-        { value: 'HOTEL:3', label: 'Boutique Sài Gòn Hotel', badge: 'Khách sạn' },
-      ];
+      return [];
     }
 
     const regions = destinations.filter((d) => d.type === 'REGION');
@@ -275,6 +251,11 @@ export const SearchPage: React.FC = () => {
 
   // Hàm thực thi tìm kiếm hợp nhất (Unified Search)
   const executeUnifiedSearch = (targetCriteria: CustomerSearchCriteria) => {
+    if (!targetCriteria.destinationId && !targetCriteria.hotelId && !targetCriteria.regionId) {
+      setIsLoadingRooms(false);
+      return;
+    }
+
     setIsLoadingRooms(true);
     setRoomError(null);
 
@@ -317,47 +298,43 @@ export const SearchPage: React.FC = () => {
       });
   };
 
-  // Kích hoạt tìm kiếm ban đầu khi mount
+  // Load danh sách điểm đến gợi ý từ API và khởi tạo tìm kiếm ban đầu với điểm đến thực tế của DB
   useEffect(() => {
     let isCancelled = false;
     bookingSearchService
-      .searchUnified(INITIAL_CRITERIA)
+      .getDestinations()
       .then((res) => {
         if (isCancelled) return;
-        if (!res?.result) {
-          setAvailableHotels([]);
-          setRoomOffers([]);
+        if (!res?.result || res.result.length === 0) {
+          setIsLoadingRooms(false);
           return;
         }
 
-        if (res.result.searchType === 'HOTELS') {
-          setSearchMode('HOTELS');
-          setAvailableHotels(res.result.hotels?.content || []);
-          setRoomOffers([]);
-        } else {
-          setSearchMode('ROOMS');
-          const nights = calculateNights(INITIAL_CRITERIA.checkInDate, INITIAL_CRITERIA.checkOutDate);
-          const mapped = (res.result.rooms || []).map((item) => mapApiResponseToOffer(item, nights));
-          setRoomOffers(mapped);
-          setAvailableHotels([]);
-          if (res.result.selectedHotel?.hotelId) {
-            setCriteria((prev) => ({ ...prev, hotelId: res.result.selectedHotel?.hotelId }));
-          }
-        }
-      })
-      .catch((err: unknown) => {
-        if (isCancelled) return;
-        console.error('Lỗi khi tìm kiếm ban đầu:', err);
-        setRoomError('Không thể kết nối đến hệ thống tìm kiếm phòng.');
-        setAvailableHotels([]);
-        setRoomOffers([]);
-      })
-      .finally(() => {
-        if (!isCancelled) {
-          setIsLoadingRooms(false);
-        }
-      });
+        const dests = res.result;
+        setDestinations(dests);
 
+        // Ưu tiên chọn khách sạn đầu tiên hoặc điểm đến đầu tiên có sẵn trên hệ thống
+        const defaultDest = dests.find((d) => d.type === 'HOTEL') || dests[0];
+        const destKey = `${defaultDest.type}:${defaultDest.id}`;
+        setSelectedDestKey(destKey);
+
+        const initialTargetCriteria: CustomerSearchCriteria = {
+          ...INITIAL_CRITERIA,
+          destinationType: defaultDest.type,
+          destinationId: defaultDest.id,
+          hotelId: defaultDest.type === 'HOTEL' ? defaultDest.id : undefined,
+          regionId: defaultDest.type === 'REGION' ? defaultDest.id : undefined,
+        };
+        setCriteria(initialTargetCriteria);
+
+        executeUnifiedSearch(initialTargetCriteria);
+      })
+      .catch((err) => {
+        if (isCancelled) return;
+        console.warn('Lấy danh sách điểm đến gợi ý thất bại:', err);
+        setIsLoadingRooms(false);
+        setRoomError('Không thể kết nối đến hệ thống điểm đến. Vui lòng thử lại sau.');
+      });
     return () => {
       isCancelled = true;
     };
@@ -371,6 +348,10 @@ export const SearchPage: React.FC = () => {
     }
     if (criteria.checkInDate >= criteria.checkOutDate) {
       setRoomError('Ngày nhận phòng phải trước ngày trả phòng ít nhất 1 đêm.');
+      return;
+    }
+    if (!criteria.destinationId && !criteria.hotelId && !criteria.regionId) {
+      setRoomError('Vui lòng chọn thành phố hoặc khách sạn cần tìm.');
       return;
     }
     executeUnifiedSearch(criteria);
@@ -416,7 +397,8 @@ export const SearchPage: React.FC = () => {
   };
 
   const selectedDestinationTitle =
-    destinationOptions.find((d) => d.value === selectedDestKey)?.label || 'Grand Hà Nội Hotel';
+    destinationOptions.find((d) => d.value === selectedDestKey)?.label ||
+    (criteria.hotelId ? `Khách sạn #${criteria.hotelId}` : 'Chọn điểm đến');
 
   const selectedHotelName =
     destinationOptions.find((d) => d.value === `HOTEL:${criteria.hotelId}`)?.label ||
@@ -424,7 +406,9 @@ export const SearchPage: React.FC = () => {
       ? 'Premier Đà Nẵng Resort'
       : criteria.hotelId === 3
       ? 'Boutique Sài Gòn Hotel'
-      : 'Grand Hà Nội Hotel');
+      : criteria.hotelId
+      ? `Khách sạn #${criteria.hotelId}`
+      : 'Khách sạn cơ sở');
 
   const primaryCoverImage =
     hotelImages.find((img) => img.isPrimary)?.url ||
