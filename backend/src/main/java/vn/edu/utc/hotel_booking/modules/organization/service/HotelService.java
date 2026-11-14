@@ -28,4 +28,8 @@ public interface HotelService {
     List<Hotel> getAllActiveHotels();
 
     List<Hotel> getHotelsByRegionId(Short regionId);
+
+    java.util.Map<Short, String> findHotelNamesByIds(java.util.Collection<Short> hotelIds);
+
+    java.util.Optional<String> findHotelNameById(Short id);
 }

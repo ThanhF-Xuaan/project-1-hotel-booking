@@ -199,6 +199,82 @@ class VoucherServiceComprehensiveTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getVoucherCode()).isEqualTo("TET2027");
         assertThat(response.getContent().get(0).getRemainingQuantity()).isEqualTo(40);
+        assertThat(response.getContent().get(0).getHotelName()).isEqualTo("Toàn chuỗi áp dụng");
+    }
+
+    @Test
+    @DisplayName("filterVouchers: Batch load tên cơ sở thành công khi voucher gắn hotelId")
+    void filterVouchers_WithHotelId_BatchLoadsHotelNames() {
+        Voucher v1 = Voucher.builder()
+                .id(1)
+                .hotelId((short) 10)
+                .voucherCode("HANOI20")
+                .discountType("PERCENT")
+                .discountValue(BigDecimal.valueOf(20))
+                .build();
+        Voucher v2 = Voucher.builder()
+                .id(2)
+                .hotelId(null)
+                .voucherCode("ALLCHAIN")
+                .discountType("FIXED")
+                .discountValue(BigDecimal.valueOf(50000))
+                .build();
+
+        Page<Voucher> page = new PageImpl<>(List.of(v1, v2));
+        when(voucherRepository.filterVouchers(any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
+        when(hotelService.findHotelNamesByIds(any())).thenReturn(java.util.Map.of((short) 10, "Viettel Luxury Hà Nội"));
+
+        VoucherSearchDto search = VoucherSearchDto.builder().page(0).pageSize(10).build();
+        PageResponse<VoucherResponse> response = voucherService.filterVouchers(search);
+
+        assertThat(response.getContent()).hasSize(2);
+        assertThat(response.getContent().get(0).getHotelName()).isEqualTo("Viettel Luxury Hà Nội");
+        assertThat(response.getContent().get(1).getHotelName()).isEqualTo("Toàn chuỗi áp dụng");
+        verify(hotelService).findHotelNamesByIds(any());
+    }
+
+    @Test
+    @DisplayName("filterVouchers: Tự phục hồi an toàn khi hotelId không tồn tại hoặc bị xóa trên production (Không rollback)")
+    void filterVouchers_WithNonExistentHotelId_ResilientFallbackWithoutError() {
+        Voucher v = Voucher.builder()
+                .id(99)
+                .hotelId((short) 999)
+                .voucherCode("DEADHOTEL")
+                .discountType("PERCENT")
+                .discountValue(BigDecimal.valueOf(10))
+                .build();
+
+        Page<Voucher> page = new PageImpl<>(List.of(v));
+        when(voucherRepository.filterVouchers(any(), any(), any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(page);
+        // Hotel 999 không tồn tại trong map
+        when(hotelService.findHotelNamesByIds(any())).thenReturn(java.util.Collections.emptyMap());
+
+        VoucherSearchDto search = VoucherSearchDto.builder().page(0).pageSize(10).build();
+        PageResponse<VoucherResponse> response = voucherService.filterVouchers(search);
+
+        assertThat(response.getContent()).hasSize(1);
+        assertThat(response.getContent().get(0).getHotelName()).isEqualTo("Cơ sở #999");
+    }
+
+    @Test
+    @DisplayName("getVoucherById: Tự phục hồi hiển thị nhãn fallback khi khách sạn liên kết bị xóa")
+    void getVoucherById_HotelDeleted_FallbackSuccess() {
+        Voucher v = Voucher.builder()
+                .id(5)
+                .hotelId((short) 88)
+                .voucherCode("VIP88")
+                .discountType("PERCENT")
+                .discountValue(BigDecimal.valueOf(10))
+                .build();
+
+        when(voucherRepository.findByIdAndIsDeletedFalse(5)).thenReturn(Optional.of(v));
+        when(hotelService.findHotelNameById((short) 88)).thenReturn(Optional.empty());
+
+        VoucherResponse res = voucherService.getVoucherById(5);
+
+        assertThat(res.getHotelName()).isEqualTo("Cơ sở #88");
     }
 
     @Test

@@ -218,4 +218,41 @@ class HotelServiceTest {
         assertThrows(AppException.class, () -> hotelService.getEntityById((short) 99));
         verify(hotelRepository).findByIdAndIsDeletedFalse((short) 99);
     }
+
+    @Test
+    @DisplayName("findHotelNamesByIds - Batch load trả về map tên khách sạn chính xác và bỏ qua khách sạn đã bị xóa")
+    void findHotelNamesByIds_Success() {
+        Hotel h1 = Hotel.builder().id((short) 1).name("Khách Sạn A").build();
+        h1.setIsDeleted(false);
+        Hotel h2 = Hotel.builder().id((short) 2).name("Khách Sạn B (Đã xóa)").build();
+        h2.setIsDeleted(true);
+
+        when(hotelRepository.findAllById(List.of((short) 1, (short) 2))).thenReturn(List.of(h1, h2));
+
+        java.util.Map<Short, String> map = hotelService.findHotelNamesByIds(List.of((short) 1, (short) 2));
+
+        assertThat(map).hasSize(1);
+        assertThat(map.get((short) 1)).isEqualTo("Khách Sạn A");
+        assertThat(map.containsKey((short) 2)).isFalse();
+    }
+
+    @Test
+    @DisplayName("findHotelNamesByIds - Trả về Empty Map khi danh sách rỗng hoặc null")
+    void findHotelNamesByIds_EmptyList_ReturnsEmptyMap() {
+        assertThat(hotelService.findHotelNamesByIds(null)).isEmpty();
+        assertThat(hotelService.findHotelNamesByIds(java.util.Collections.emptyList())).isEmpty();
+        verifyNoInteractions(hotelRepository);
+    }
+
+    @Test
+    @DisplayName("findHotelNameById - Trả về tên khi tìm thấy và Optional rỗng khi không tồn tại")
+    void findHotelNameById_Behavior() {
+        Hotel h = Hotel.builder().id((short) 1).name("Khách Sạn Hà Nội").build();
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 1)).thenReturn(Optional.of(h));
+        when(hotelRepository.findByIdAndIsDeletedFalse((short) 99)).thenReturn(Optional.empty());
+
+        assertThat(hotelService.findHotelNameById((short) 1)).contains("Khách Sạn Hà Nội");
+        assertThat(hotelService.findHotelNameById((short) 99)).isEmpty();
+        assertThat(hotelService.findHotelNameById(null)).isEmpty();
+    }
 }
