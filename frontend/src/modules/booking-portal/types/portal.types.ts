@@ -94,8 +94,11 @@ export interface RoomInclusionDto {
 
 export interface RoomSurchargePolicyDto {
   ruleType: string;
+  pricingType?: string;
+  adjustmentType?: string;
   adjustmentValue: number;
   formattedDescription?: string;
+  conditions?: string;
 }
 
 export interface DailyPriceDto {
@@ -135,4 +138,88 @@ export interface AvailableRoomTypeApiResponse {
   amenities?: RoomAmenityDto[];
   inclusions?: RoomInclusionDto[];
   surchargePolicies?: RoomSurchargePolicyDto[];
+}
+
+export interface RoomPriceQuoteRequest {
+  hotelRoomTypeId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  adults: number;
+  children?: number;
+  infants?: number;
+  extraBeds?: number;
+  roomsCount?: number;
+  voucherCode?: string;
+}
+
+export interface RoomPriceQuoteResponse {
+  hotelRoomTypeId: number;
+  roomTypeCode?: string;
+  roomTypeName?: string;
+  adults?: number;
+  children?: number;
+  infants?: number;
+  extraBeds?: number;
+  roomsCount?: number;
+  totalNights?: number;
+  baseRatePerNight?: number;
+  totalBasePrice?: number;
+  totalSurchargeAmount?: number;
+  totalDiscountAmount?: number;
+  finalTotalAmount?: number;
+  priceBreakdown?: PriceBreakdownDto;
+}
+
+export interface CartItemQuoteRequest {
+  hotelRoomTypeId: number;
+  quantity: number;
+  adults: number;
+  children: number;
+  infants?: number;
+  extraBeds?: number;
+}
+
+export interface CartPriceQuoteRequest {
+  hotelId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  voucherCode?: string;
+  items: CartItemQuoteRequest[];
+}
+
+export interface CartPriceQuoteResponse {
+  hotelId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  totalNights: number;
+  totalRooms: number;
+  appliedVoucherCode?: string;
+  appliedPromotionName?: string;
+  totalBasePrice: number;
+  totalSurchargeAmount: number;
+  totalDiscountAmount: number;
+  totalRoomNetAmount: number;
+  totalRoomServiceFee: number;
+  totalRoomVat: number;
+  finalTotalAmount: number;
+  grandTotal: number;
+  itemizedQuotes?: RoomPriceQuoteResponse[];
+}
+
+export interface SelectedRoomConfig {
+  roomIndex: number;
+  adults: number;
+  children: number;
+  infants: number;
+}
+
+export interface SelectedRoomCartItem {
+  hotelRoomTypeId: number;
+  roomTypeName: string;
+  roomTypeCode: string;
+  quantity: number;
+  rooms: SelectedRoomConfig[];
+  estimatedTotal: number;
+  perNightPrice: number;
+  quote?: RoomPriceQuoteResponse;
 }
