@@ -969,6 +969,7 @@ export const SearchPage: React.FC = () => {
         onCloseExternal={() => setIsAdvisorOpen(false)}
         onOpenExternal={() => setIsAdvisorOpen(true)}
         onViewRoomDetails={handleAdvisorViewDetails}
+        onOpenGroupInquiry={() => setIsGroupModalOpen(true)}
       />
 
       {/* Hotel Photo Gallery Modal */}

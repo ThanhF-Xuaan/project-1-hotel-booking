@@ -34,6 +34,7 @@ interface RoomAdvisorWidgetProps {
   isOpenExternal?: boolean;
   onCloseExternal?: () => void;
   onOpenExternal?: () => void;
+  onOpenGroupInquiry?: () => void;
 }
 
 const REQUIRED_SEARCH_FIELDS = ['Địa điểm', 'Ngày nhận & trả', 'Số khách', 'Ngân sách'];
@@ -119,6 +120,7 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
   isOpenExternal,
   onCloseExternal,
   onOpenExternal,
+  onOpenGroupInquiry,
 }) => {
   const [isUnified] = useState(() => {
     if (import.meta.env.VITE_ADVISOR_UNIFIED === 'false') return false;
@@ -555,6 +557,31 @@ export const RoomAdvisorWidget: React.FC<RoomAdvisorWidgetProps> = ({
                   )}
 
                   <p className="whitespace-pre-line">{msg.text}</p>
+
+                  {/* Group Inquiry Action Button when roomsCount > 1 */}
+                  {(msg.text?.includes('Báo Giá Đoàn') || msg.result?.missingFields?.includes('roomsCount')) && (
+                    <div className="mt-2.5 pt-2 border-t border-neutral-100 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onOpenGroupInquiry) {
+                            onOpenGroupInquiry();
+                          } else {
+                            window.dispatchEvent(new CustomEvent('open-group-inquiry'));
+                          }
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-[#EE0000] text-xs font-bold rounded-xl border border-red-200 transition-colors shadow-2xs cursor-pointer"
+                      >
+                        📋 Liên hệ Báo Giá Đoàn
+                      </button>
+                      <a
+                        href="tel:19001234"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-neutral-50 hover:bg-neutral-100 text-neutral-700 text-xs font-semibold rounded-xl border border-neutral-200 transition-colors"
+                      >
+                        📞 Hotline: 1900 1234
+                      </a>
+                    </div>
+                  )}
 
                   {/* Recommendation Cards Section (hidden on ROOM_COMPARISON intent or when replaced by READY comparison matrix) */}
                   {msg.result?.recommendations && msg.result.recommendations.length > 0
