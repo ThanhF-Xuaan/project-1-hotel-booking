@@ -37,7 +37,7 @@ import java.util.UUID;
 public class BookingSessionServiceImpl implements BookingSessionService {
 
     private static final String DRAFT_KEY_PREFIX = "booking:draft:";
-    private static final Duration DRAFT_TTL = Duration.ofMinutes(30);
+    private static final Duration DRAFT_TTL = Duration.ofMinutes(15);
 
     StringRedisTemplate redisTemplate;
     ObjectMapper objectMapper;
@@ -89,7 +89,7 @@ public class BookingSessionServiceImpl implements BookingSessionService {
                 .hotelId(request.getHotelId())
                 .checkInDate(request.getCheckInDate())
                 .checkOutDate(request.getCheckOutDate())
-                .holdMinutes(30)
+                .holdMinutes(15)
                 .items(holdItems)
                 .build();
         roomAvailabilityService.batchHoldInventory(holdReq);

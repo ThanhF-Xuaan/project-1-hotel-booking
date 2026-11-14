@@ -78,7 +78,7 @@ class BookingSessionServiceTest {
         assertThat(response.getQuote().getGrandTotal()).isEqualByComparingTo(BigDecimal.valueOf(4000000));
 
         verify(roomAvailabilityService, times(1)).batchHoldInventory(any(BatchHoldInventoryRequest.class));
-        verify(valueOperations, times(1)).set(eq("booking:draft:session-123"), any(), eq(Duration.ofMinutes(30)));
+        verify(valueOperations, times(1)).set(eq("booking:draft:session-123"), any(), eq(Duration.ofMinutes(15)));
     }
 
     @Test

@@ -223,3 +223,37 @@ export interface SelectedRoomCartItem {
   perNightPrice: number;
   quote?: RoomPriceQuoteResponse;
 }
+
+export interface LeadGuestRequest {
+  fullName: string;
+  phone: string;
+  email?: string;
+  nationality?: string;
+  identityType?: string;
+  identityNumber?: string;
+  notes?: string;
+}
+
+export interface InitiateDraftSessionRequest {
+  sessionId?: string;
+  hotelId: number;
+  checkInDate: string;
+  checkOutDate: string;
+  voucherCode?: string;
+  items: CartItemQuoteRequest[];
+  selectedServices?: Array<{ menuId: number; quantity: number }>;
+  leadGuest?: LeadGuestRequest;
+}
+
+export interface DraftSessionResponse {
+  sessionId: string;
+  expiresAt: string;
+  remainingSeconds: number;
+  quote?: CartPriceQuoteResponse;
+  leadGuest?: LeadGuestRequest;
+}
+
+export interface CancelSessionRequest {
+  sessionId: string;
+  reason?: 'USER_CANCELLED' | 'EXPIRED' | 'SESSION_SUPERSEDED';
+}

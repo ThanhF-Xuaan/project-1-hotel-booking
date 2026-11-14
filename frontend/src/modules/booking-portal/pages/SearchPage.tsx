@@ -37,6 +37,7 @@ import { DestinationCombobox } from '../components/DestinationCombobox';
 import type { SelectedRoomCartItem } from '../types/portal.types';
 import hotelService from '../../organization/services/hotel.service';
 import bookingSearchService from '../services/bookingSearchService';
+import { bookingSessionService } from '../services/bookingSessionService';
 import type { HotelImageDto } from '../../organization/types/organization.types';
 import type { AdvisorRecommendation, AdvisorSearchCriteria } from '../types/roomAdvisor.types';
 
@@ -157,6 +158,7 @@ export const SearchPage: React.FC = () => {
   }, []);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [isHoldingSession, setIsHoldingSession] = useState(false);
   const [hotelImages, setHotelImages] = useState<HotelImageDto[]>([]);
 
   const [criteria, setCriteria] = useState<CustomerSearchCriteria>(INITIAL_CRITERIA);
@@ -468,60 +470,100 @@ export const SearchPage: React.FC = () => {
     });
   };
 
-  const handleProceedCheckout = () => {
-    if (selectedCartItems.length === 0) return;
+  const handleProceedCheckout = async () => {
+    if (selectedCartItems.length === 0 || isHoldingSession) return;
 
-    const primaryItem = selectedCartItems[0];
-    const totalNights = calculateNights(criteria.checkInDate, criteria.checkOutDate);
-    const matchedRoom = rawRooms.find((r) => r.hotelRoomTypeId === primaryItem.hotelRoomTypeId);
-    const fallbackOffer = matchedRoom
-      ? mapApiResponseToOffer(matchedRoom, totalNights)
-      : roomOffers[0] || {
-          hotelRoomTypeId: primaryItem.hotelRoomTypeId,
-          roomTypeCode: primaryItem.roomTypeCode,
-          roomTypeName: primaryItem.roomTypeName,
-          basePrice: primaryItem.perNightPrice,
-          estimatedTotal: primaryItem.estimatedTotal,
-          maxAdults: 2,
-          maxChildren: 0,
-          roomSizeM2: 0,
-          bedDescription: '1 Giường đôi',
-          amenities: [],
-          freeBreakfast: false,
-          freeCancellation: false,
-          availableRoomsCount: 1,
+    setIsHoldingSession(true);
+    try {
+      const itemsPayload = selectedCartItems.map((it) => {
+        const firstRoom = it.rooms[0];
+        return {
+          hotelRoomTypeId: it.hotelRoomTypeId,
+          quantity: it.quantity,
+          adults: firstRoom?.adults ?? 2,
+          children: firstRoom?.children ?? 0,
+          infants: firstRoom?.infants ?? 0,
+          extraBeds: 0,
         };
+      });
 
-    const totalRooms = selectedCartItems.reduce((sum, it) => sum + it.quantity, 0);
-    const totalAdults = selectedCartItems.reduce(
-      (sum, it) => sum + it.rooms.reduce((rSum, r) => rSum + r.adults, 0),
-      0
-    );
-    const totalChildren = selectedCartItems.reduce(
-      (sum, it) => sum + it.rooms.reduce((rSum, r) => rSum + r.children, 0),
-      0
-    );
-    const grandTotal = selectedCartItems.reduce((sum, it) => sum + it.estimatedTotal, 0);
+      const effectiveHotelId = criteria.hotelId || 1;
 
-    navigate('/portal/checkout', {
-      state: {
-        offer: {
-          ...fallbackOffer,
-          hotelRoomTypeId: primaryItem.hotelRoomTypeId,
-          roomTypeName: primaryItem.roomTypeName,
-          roomTypeCode: primaryItem.roomTypeCode,
-          estimatedTotal: grandTotal,
-          basePrice: primaryItem.perNightPrice,
+      const sessionReq = {
+        hotelId: effectiveHotelId,
+        checkInDate: criteria.checkInDate,
+        checkOutDate: criteria.checkOutDate,
+        voucherCode: criteria.voucherCode ? criteria.voucherCode.trim().toUpperCase() : undefined,
+        items: itemsPayload,
+      };
+
+      const sessionRes = await bookingSessionService.initiateDraftSession(sessionReq);
+      const sessionData = sessionRes.result;
+
+      const primaryItem = selectedCartItems[0];
+      const totalNights = calculateNights(criteria.checkInDate, criteria.checkOutDate);
+      const matchedRoom = rawRooms.find((r) => r.hotelRoomTypeId === primaryItem.hotelRoomTypeId);
+      const fallbackOffer = matchedRoom
+        ? mapApiResponseToOffer(matchedRoom, totalNights)
+        : roomOffers[0] || {
+            hotelRoomTypeId: primaryItem.hotelRoomTypeId,
+            roomTypeCode: primaryItem.roomTypeCode,
+            roomTypeName: primaryItem.roomTypeName,
+            basePrice: primaryItem.perNightPrice,
+            estimatedTotal: primaryItem.estimatedTotal,
+            maxAdults: 2,
+            maxChildren: 0,
+            roomSizeM2: 0,
+            bedDescription: '1 Giường đôi',
+            amenities: [],
+            freeBreakfast: false,
+            freeCancellation: false,
+            availableRoomsCount: 1,
+          };
+
+      const totalRooms = selectedCartItems.reduce((sum, it) => sum + it.quantity, 0);
+      const totalAdults = selectedCartItems.reduce(
+        (sum, it) => sum + it.rooms.reduce((rSum, r) => rSum + r.adults, 0),
+        0
+      );
+      const totalChildren = selectedCartItems.reduce(
+        (sum, it) => sum + it.rooms.reduce((rSum, r) => rSum + r.children, 0),
+        0
+      );
+      const grandTotal = sessionData?.quote?.grandTotal || selectedCartItems.reduce((sum, it) => sum + it.estimatedTotal, 0);
+
+      navigate('/portal/checkout', {
+        state: {
+          sessionId: sessionData?.sessionId,
+          remainingSeconds: sessionData?.remainingSeconds || 900,
+          hotelName: selectedHotelName,
+          hotelId: effectiveHotelId,
+          offer: {
+            ...fallbackOffer,
+            hotelRoomTypeId: primaryItem.hotelRoomTypeId,
+            roomTypeName: primaryItem.roomTypeName,
+            roomTypeCode: primaryItem.roomTypeCode,
+            estimatedTotal: grandTotal,
+            basePrice: primaryItem.perNightPrice,
+          },
+          criteria: {
+            ...criteria,
+            hotelId: effectiveHotelId,
+            roomsCount: totalRooms,
+            adultCount: totalAdults,
+            childCount: totalChildren,
+          },
+          selectedCartItems,
         },
-        criteria: {
-          ...criteria,
-          roomsCount: totalRooms,
-          adultCount: totalAdults,
-          childCount: totalChildren,
-        },
-        selectedCartItems,
-      },
-    });
+      });
+    } catch (err: unknown) {
+      console.error('Lỗi khi khởi tạo phiên giữ phòng:', err);
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = axiosErr.response?.data?.message || axiosErr.message || 'Không thể khóa giữ phòng vào lúc này. Vui lòng kiểm tra lại số lượng phòng trống!';
+      alert(msg);
+    } finally {
+      setIsHoldingSession(false);
+    }
   };
 
   const handleAdvisorViewDetails = (rec: AdvisorRecommendation, advisorCriteria?: AdvisorSearchCriteria) => {
@@ -984,6 +1026,7 @@ export const SearchPage: React.FC = () => {
                     checkInDate={criteria.checkInDate}
                     checkOutDate={criteria.checkOutDate}
                     selectedItems={selectedCartItems}
+                    isSubmitting={isHoldingSession}
                     onRemoveRoom={handleRemoveRoomFromCart}
                     onProceedCheckout={handleProceedCheckout}
                   />

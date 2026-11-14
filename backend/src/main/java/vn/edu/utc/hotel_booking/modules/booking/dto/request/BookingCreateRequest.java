@@ -24,6 +24,8 @@ public class BookingCreateRequest {
     @NotNull(message = "ID khách sạn không được để trống")
     Short hotelId;
 
+    String sessionId;
+
     @NotNull(message = "ID khách hàng không được để trống")
     Long guestId;
 
