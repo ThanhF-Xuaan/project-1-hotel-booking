@@ -145,7 +145,7 @@ class IdentityDocumentOcrControllerTest {
     @Test
     @DisplayName("TC-23: /extract-file với validator từ chối → 400")
     void tc23_extractFile_invalidFile_returns400() throws Exception {
-        when(uploadValidator.validate(any()))
+        when(uploadValidator.validateForOcr(any(), any(), any()))
                 .thenReturn(OcrUploadValidator.ValidationResult.fail("Định dạng file không được hỗ trợ"));
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf",
@@ -172,7 +172,7 @@ class IdentityDocumentOcrControllerTest {
     @Test
     @DisplayName("TC-23c: /extract-file với validator từ chối vượt 5MB → 413 PAYLOAD TOO LARGE")
     void tc23c_extractFile_validatorRejects5Mb_returns413() throws Exception {
-        when(uploadValidator.validate(any()))
+        when(uploadValidator.validateForOcr(any(), any(), any()))
                 .thenReturn(OcrUploadValidator.ValidationResult.fail("File vượt quá giới hạn 5 MB"));
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.jpg", "image/jpeg", new byte[100]);
@@ -206,7 +206,7 @@ class IdentityDocumentOcrControllerTest {
     @Test
     @DisplayName("TC-24: /extract-file với file hợp lệ → 200 OK")
     void tc24_extractFile_validFile_returns200() throws Exception {
-        when(uploadValidator.validate(any()))
+        when(uploadValidator.validateForOcr(any(), any(), any()))
                 .thenReturn(OcrUploadValidator.ValidationResult.ok());
         when(ocrVisionPort.extract(any())).thenReturn(buildSuccessDraft());
 
@@ -224,7 +224,7 @@ class IdentityDocumentOcrControllerTest {
     @Test
     @DisplayName("/extract-file thiếu rawOcrText trả UNREADABLE_DOCUMENT, không giả lập OCR")
     void extractFile_missingRawOcrText_returnsUnreadableWithoutCallingExtractor() throws Exception {
-        when(uploadValidator.validate(any()))
+        when(uploadValidator.validateForOcr(any(), any(), any()))
                 .thenReturn(OcrUploadValidator.ValidationResult.ok());
 
         byte[] jpegHeader = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0,
@@ -329,7 +329,7 @@ class IdentityDocumentOcrControllerTest {
         controllerLogger.setLevel(Level.DEBUG);
 
         try {
-            when(uploadValidator.validate(any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
+            when(uploadValidator.validateForOcr(any(), any(), any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
 
             String sensitiveFileName = "PASSPORT_B9876543_JOHN_TEST.jpg";
             byte[] jpegHeader = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0,
@@ -369,7 +369,6 @@ class IdentityDocumentOcrControllerTest {
     void enabledImageUsesCompleteBytesAndIgnoresClientText() throws Exception {
         engineProperties.setEnabled(true);
         byte[] bytes = syntheticImage();
-        when(uploadValidator.validate(any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
         when(uploadValidator.validateForOcr(any(), any(), any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
         when(ocrVisionPort.extractImage(any(), any())).thenReturn(buildSuccessDraft());
         mockMvc.perform(multipart("/api/v1/ai/ocr/extract-file")
@@ -389,7 +388,6 @@ class IdentityDocumentOcrControllerTest {
     @Test
     void enabledEngineFailureReturnsSanitized503WithoutTextFallback() throws Exception {
         engineProperties.setEnabled(true);
-        when(uploadValidator.validate(any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
         when(uploadValidator.validateForOcr(any(), any(), any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
         when(ocrVisionPort.extractImage(any(), any())).thenThrow(
                 new OcrVisionPort.ExtractionUnavailableException("SYNTHETIC_SECRET_STDERR"));
@@ -411,7 +409,6 @@ class IdentityDocumentOcrControllerTest {
     @Test
     void enabledInvalidImageReturns400BeforeEngine() throws Exception {
         engineProperties.setEnabled(true);
-        when(uploadValidator.validate(any())).thenReturn(OcrUploadValidator.ValidationResult.ok());
         when(uploadValidator.validateForOcr(any(), any(), any())).thenReturn(OcrUploadValidator.ValidationResult.fail("bad image"));
         mockMvc.perform(multipart("/api/v1/ai/ocr/extract-file")
                         .file(new MockMultipartFile("file", "synthetic.png", "image/png", new byte[16])))

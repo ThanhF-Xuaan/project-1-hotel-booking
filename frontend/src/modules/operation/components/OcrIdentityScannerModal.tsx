@@ -19,6 +19,7 @@ import Input from '../../../core/components/ui/Input';
 import Select from '../../../core/components/ui/Select';
 import {
   extractIdentityImage,
+  identityOcrErrorMessage,
   ocrFields,
   type IdentityOcrDraft,
 } from '../services/identityOcr.service';
@@ -76,6 +77,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
 
   const ocrRequest = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const manualFields = useRef(new Set<keyof ExtractedOcrResult>());
 
   // Clean up object URL khi previewUrl thay đổi hoặc unmount
   useEffect(() => {
@@ -96,6 +98,25 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
   const handleProcessImage = async (selectedFile: File) => {
     if (!selectedFile) return;
 
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    setFile(null);
+
+    // Giải phóng bản nháp và dữ liệu do ảnh cũ điền trước khi xử lý ảnh thay thế.
+    // Những trường lễ tân đã chủ động sửa được giữ nguyên.
+    ocrRequest.current?.abort();
+    setOcrDraft(null);
+    setHumanVerified(false);
+    setErrorMessage(null);
+    setIsReadingImage(false);
+    if (!manualFields.current.has('fullName')) setFullName('');
+    if (!manualFields.current.has('documentType')) setDocumentType('OTHER');
+    if (!manualFields.current.has('documentNumber')) setDocumentNumber('');
+    if (!manualFields.current.has('dateOfBirth')) setDateOfBirth('');
+    if (!manualFields.current.has('gender')) setGender('OTHER');
+    if (!manualFields.current.has('nationality')) setNationality('');
+    if (!manualFields.current.has('permanentAddress')) setPermanentAddress('');
+
     // Validate mime-type
     const validTypes = ['image/png', 'image/jpeg', 'image/webp'];
     if (!validTypes.includes(selectedFile.type)) {
@@ -109,19 +130,11 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
       return;
     }
 
-    // Revoke previous URL if any
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-
     const objectUrl = URL.createObjectURL(selectedFile);
     setFile(selectedFile);
     setPreviewUrl(objectUrl);
-    setErrorMessage(null);
-    setHumanVerified(false);
     setIsReadingImage(true);
 
-    ocrRequest.current?.abort();
     const request = new AbortController();
     ocrRequest.current = request;
 
@@ -136,17 +149,17 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
 
       setOcrDraft(draft);
 
-      // Auto-populate form fields from OCR extraction
-      if (draft.fullName?.value) setFullName(draft.fullName.value.toUpperCase());
-      if (draft.documentNumber?.value) setDocumentNumber(draft.documentNumber.value);
-      if (draft.dateOfBirth?.value) setDateOfBirth(draft.dateOfBirth.value);
-      if (draft.gender?.value) setGender(draft.gender.value);
-      if (draft.nationality?.value) setNationality(draft.nationality.value);
-      if (draft.documentType?.value) setDocumentType(draft.documentType.value);
-      if (draft.permanentAddress?.value) setPermanentAddress(draft.permanentAddress.value);
-    } catch {
+      // Bản OCR mới thay toàn bộ trường tự động; trường bị thiếu không được giữ từ ảnh cũ.
+      if (!manualFields.current.has('fullName')) setFullName(draft.fullName?.value?.toUpperCase() ?? '');
+      if (!manualFields.current.has('documentNumber')) setDocumentNumber(draft.documentNumber?.value ?? '');
+      if (!manualFields.current.has('dateOfBirth')) setDateOfBirth(draft.dateOfBirth?.value ?? '');
+      if (!manualFields.current.has('gender')) setGender(draft.gender?.value ?? 'OTHER');
+      if (!manualFields.current.has('nationality')) setNationality(draft.nationality?.value ?? '');
+      if (!manualFields.current.has('documentType')) setDocumentType(draft.documentType?.value ?? 'OTHER');
+      if (!manualFields.current.has('permanentAddress')) setPermanentAddress(draft.permanentAddress?.value ?? '');
+    } catch (error) {
       if (!request.signal.aborted) {
-        setErrorMessage('Không thể đọc ảnh qua dịch vụ OCR. Vui lòng kiểm tra ảnh hoặc nhập thủ công.');
+        setErrorMessage(identityOcrErrorMessage(error));
       }
     } finally {
       if (!request.signal.aborted) {
@@ -200,6 +213,12 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
     });
 
     onClose();
+  };
+
+  const markManuallyEdited = (field: keyof ExtractedOcrResult) => {
+    manualFields.current.add(field);
+    // Thay đổi sau khi xác nhận làm mất hiệu lực xác nhận trước đó.
+    setHumanVerified(false);
   };
 
   return (
@@ -384,7 +403,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   <Input
                     placeholder="NGUYỄN VĂN A"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value.toUpperCase())}
+                    onChange={(e) => { markManuallyEdited('fullName'); setFullName(e.target.value.toUpperCase()); }}
                     required
                     leftIcon={<User className="w-4 h-4" />}
                   />
@@ -397,7 +416,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   </label>
                   <Select<DocumentType>
                     value={documentType}
-                    onChange={(val) => setDocumentType(val as DocumentType)}
+                    onChange={(val) => { markManuallyEdited('documentType'); setDocumentType(val as DocumentType); }}
                     options={[
                       { value: 'CCCD', label: 'Căn cước công dân (CCCD)' },
                       { value: 'PASSPORT', label: 'Hộ chiếu (Passport)' },
@@ -417,7 +436,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   <Input
                     placeholder="001200001234"
                     value={documentNumber}
-                    onChange={(e) => setDocumentNumber(e.target.value)}
+                    onChange={(e) => { markManuallyEdited('documentNumber'); setDocumentNumber(e.target.value); }}
                     leftIcon={<CreditCard className="w-4 h-4" />}
                   />
                 </div>
@@ -430,7 +449,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   <Input
                     type="date"
                     value={dateOfBirth}
-                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    onChange={(e) => { markManuallyEdited('dateOfBirth'); setDateOfBirth(e.target.value); }}
                     leftIcon={<Calendar className="w-4 h-4" />}
                   />
                 </div>
@@ -442,7 +461,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   </label>
                   <Select<Gender>
                     value={gender}
-                    onChange={(val) => setGender(val as Gender)}
+                    onChange={(val) => { markManuallyEdited('gender'); setGender(val as Gender); }}
                     options={[
                       { value: 'MALE', label: 'Nam' },
                       { value: 'FEMALE', label: 'Nữ' },
@@ -460,7 +479,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   <Input
                     placeholder="Việt Nam"
                     value={nationality}
-                    onChange={(e) => setNationality(e.target.value)}
+                    onChange={(e) => { markManuallyEdited('nationality'); setNationality(e.target.value); }}
                   />
                 </div>
 
@@ -472,7 +491,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                   <Input
                     placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
                     value={permanentAddress}
-                    onChange={(e) => setPermanentAddress(e.target.value)}
+                    onChange={(e) => { markManuallyEdited('permanentAddress'); setPermanentAddress(e.target.value); }}
                     leftIcon={<MapPin className="w-4 h-4" />}
                   />
                 </div>

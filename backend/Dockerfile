@@ -25,8 +25,9 @@ RUN mvn clean package -DskipTests
 FROM eclipse-temurin:21-jre-alpine
 
 # Cài đặt tzdata để hệ điều hành Alpine nhận diện múi giờ IANA
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata tesseract-ocr tesseract-ocr-data-eng tesseract-ocr-data-vie
 ENV TZ=Asia/Ho_Chi_Minh
+ENV HOTEL_AI_OCR_ENABLED=true
 
 WORKDIR /app
 

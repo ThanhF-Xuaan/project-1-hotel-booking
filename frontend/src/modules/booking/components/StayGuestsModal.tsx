@@ -14,7 +14,7 @@ import {
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
-import { extractIdentityImage, ocrFields, type IdentityOcrDraft } from '../../operation/services/identityOcr.service';
+import { extractIdentityImage, identityOcrErrorMessage, ocrFields, type IdentityOcrDraft } from '../../operation/services/identityOcr.service';
 import stayGuestService from '../../operation/services/stayGuest.service';
 import { hasAnyRole } from '../../auth/utils/token.utils';
 import { LODGING_ROLES } from '../../operation/types/lodging.types';
@@ -82,6 +82,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   const ocrRequest = useRef<AbortController | null>(null);
   const listRequest = useRef<AbortController | null>(null);
   const alive = useRef(true);
+  const manualOcrFields = useRef(new Set<string>());
 
   useEffect(() => {
     alive.current = true;
@@ -97,6 +98,15 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   const readIdentityImage = async (file?: File) => {
     if (!file || isSubmitting) return;
     ocrRequest.current?.abort();
+    setOcrDraft(null);
+    setHumanVerified(false);
+    if (!manualOcrFields.current.has('fullName')) setFullName('');
+    if (!manualOcrFields.current.has('documentType')) setDocumentType('OTHER');
+    if (!manualOcrFields.current.has('documentNumber')) setDocumentNumber('');
+    if (!manualOcrFields.current.has('dateOfBirth')) setDateOfBirth('');
+    if (!manualOcrFields.current.has('gender')) setGender('OTHER');
+    if (!manualOcrFields.current.has('nationality')) setNationality('');
+    if (!manualOcrFields.current.has('permanentAddress')) setPermanentAddress('');
     const request = new AbortController();
     ocrRequest.current = request;
     setIsReadingImage(true);
@@ -110,15 +120,15 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
         return;
       }
       setOcrDraft(draft);
-      setFullName(draft.fullName.value ?? '');
-      setDateOfBirth(draft.dateOfBirth.value ?? '');
-      setGender(draft.gender.value ?? 'OTHER');
-      setNationality(draft.nationality.value ?? '');
-      setDocumentType(draft.documentType.value ?? 'OTHER');
-      setDocumentNumber(draft.documentNumber.value ?? '');
-      setPermanentAddress(draft.permanentAddress.value ?? '');
-    } catch {
-      if (!request.signal.aborted) setErrorMessage('Không thể đọc ảnh. Kiểm tra định dạng, giới hạn 5 MiB hoặc nhập thủ công.');
+      if (!manualOcrFields.current.has('fullName')) setFullName(draft.fullName.value ?? '');
+      if (!manualOcrFields.current.has('dateOfBirth')) setDateOfBirth(draft.dateOfBirth.value ?? '');
+      if (!manualOcrFields.current.has('gender')) setGender(draft.gender.value ?? 'OTHER');
+      if (!manualOcrFields.current.has('nationality')) setNationality(draft.nationality.value ?? '');
+      if (!manualOcrFields.current.has('documentType')) setDocumentType(draft.documentType.value ?? 'OTHER');
+      if (!manualOcrFields.current.has('documentNumber')) setDocumentNumber(draft.documentNumber.value ?? '');
+      if (!manualOcrFields.current.has('permanentAddress')) setPermanentAddress(draft.permanentAddress.value ?? '');
+    } catch (error) {
+      if (!request.signal.aborted) setErrorMessage(identityOcrErrorMessage(error));
     } finally {
       if (!request.signal.aborted) setIsReadingImage(false);
     }
@@ -129,6 +139,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
     setIsReadingImage(false);
     setOcrDraft(null);
     setHumanVerified(false);
+    manualOcrFields.current.clear();
     setCheckInTime('');
     setExpectedCheckOutTime('');
     setFullName('');
@@ -436,7 +447,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 <Input
                   placeholder="NGUYỄN VĂN A"
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value.toUpperCase())}
+                  onChange={(e) => { manualOcrFields.current.add('fullName'); setHumanVerified(false); setFullName(e.target.value.toUpperCase()); }}
                   required
                 />
               </div>
@@ -448,7 +459,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 <select
                   className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
                   value={gender}
-                  onChange={(e) => setGender(e.target.value as Gender)}
+                  onChange={(e) => { manualOcrFields.current.add('gender'); setHumanVerified(false); setGender(e.target.value as Gender); }}
                 >
                   <option value="MALE">Nam</option>
                   <option value="FEMALE">Nữ</option>
@@ -463,7 +474,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 <select
                   className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
                   value={documentType}
-                  onChange={(e) => setDocumentType(e.target.value as DocumentType)}
+                  onChange={(e) => { manualOcrFields.current.add('documentType'); setHumanVerified(false); setDocumentType(e.target.value as DocumentType); }}
                 >
                   <option value="CCCD">Căn cước công dân (CCCD)</option>
                   <option value="PASSPORT">Hộ chiếu (Passport)</option>
@@ -481,7 +492,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                   required
                   placeholder="001200001234"
                   value={documentNumber}
-                  onChange={(e) => setDocumentNumber(e.target.value)}
+                  onChange={(e) => { manualOcrFields.current.add('documentNumber'); setHumanVerified(false); setDocumentNumber(e.target.value); }}
                 />
               </div>
 
@@ -492,7 +503,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 <Input
                   type="date"
                   value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  onChange={(e) => { manualOcrFields.current.add('dateOfBirth'); setHumanVerified(false); setDateOfBirth(e.target.value); }}
                 />
               </div>
 
@@ -503,7 +514,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 <Input
                   placeholder="Việt Nam"
                   value={nationality}
-                  onChange={(e) => setNationality(e.target.value)}
+                  onChange={(e) => { manualOcrFields.current.add('nationality'); setHumanVerified(false); setNationality(e.target.value); }}
                 />
               </div>
 
@@ -514,7 +525,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 <Input
                   placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
                   value={permanentAddress}
-                  onChange={(e) => setPermanentAddress(e.target.value)}
+                  onChange={(e) => { manualOcrFields.current.add('permanentAddress'); setHumanVerified(false); setPermanentAddress(e.target.value); }}
                 />
               </div>
 
