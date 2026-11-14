@@ -70,10 +70,8 @@ public class VoucherServiceImpl implements VoucherService {
 
         String hotelName = "Toàn chuỗi áp dụng";
         if (request.getHotelId() != null) {
-            HotelResponse hotel = hotelService.getById(request.getHotelId());
-            if (hotel != null) {
-                hotelName = hotel.getName();
-            }
+            hotelName = hotelService.findHotelNameById(request.getHotelId())
+                    .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND));
         }
 
         Voucher voucher = voucherMapper.toEntity(request);
@@ -103,10 +101,8 @@ public class VoucherServiceImpl implements VoucherService {
 
         String hotelName = "Toàn chuỗi áp dụng";
         if (request.getHotelId() != null) {
-            HotelResponse hotel = hotelService.getById(request.getHotelId());
-            if (hotel != null) {
-                hotelName = hotel.getName();
-            }
+            hotelName = hotelService.findHotelNameById(request.getHotelId())
+                    .orElseThrow(() -> new AppException(ErrorCode.HOTEL_NOT_FOUND));
         }
 
         voucherMapper.updateEntity(voucher, request);
@@ -126,14 +122,9 @@ public class VoucherServiceImpl implements VoucherService {
 
         VoucherResponse response = voucherMapper.toResponse(voucher);
         if (voucher.getHotelId() != null) {
-            try {
-                HotelResponse hotel = hotelService.getById(voucher.getHotelId());
-                if (hotel != null) {
-                    response.setHotelName(hotel.getName());
-                }
-            } catch (Exception e) {
-                log.debug("Hotel ID {} not found for voucher ID {}", voucher.getHotelId(), id);
-            }
+            String hotelName = hotelService.findHotelNameById(voucher.getHotelId())
+                    .orElse("Cơ sở #" + voucher.getHotelId());
+            response.setHotelName(hotelName);
         } else {
             response.setHotelName("Toàn chuỗi áp dụng");
         }
@@ -193,17 +184,18 @@ public class VoucherServiceImpl implements VoucherService {
                 pageable
         );
 
+        java.util.Set<Short> hotelIds = voucherPage.getContent().stream()
+                .map(Voucher::getHotelId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+
+        java.util.Map<Short, String> hotelNameMap = hotelService.findHotelNamesByIds(hotelIds);
+
         List<VoucherResponse> content = voucherPage.getContent().stream()
                 .map(v -> {
                     VoucherResponse res = voucherMapper.toResponse(v);
                     if (v.getHotelId() != null) {
-                        try {
-                            HotelResponse hotel = hotelService.getById(v.getHotelId());
-                            if (hotel != null) {
-                                res.setHotelName(hotel.getName());
-                            }
-                        } catch (Exception ignored) {
-                        }
+                        res.setHotelName(hotelNameMap.getOrDefault(v.getHotelId(), "Cơ sở #" + v.getHotelId()));
                     } else {
                         res.setHotelName("Toàn chuỗi áp dụng");
                     }
