@@ -33,6 +33,7 @@ export interface BookingRoomItemRequest {
 export interface BookingCreateRequest {
   hotelId: number;
   guestId: number;
+  sessionId?: string;
   companyId?: number;
   bookingType?: BookingType;
   serviceFeeRate?: number;

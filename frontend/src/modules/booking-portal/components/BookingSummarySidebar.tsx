@@ -8,6 +8,7 @@ export interface BookingSummarySidebarProps {
   checkInDate: string;
   checkOutDate: string;
   selectedItems: SelectedRoomCartItem[];
+  isSubmitting?: boolean;
   onRemoveRoom: (hotelRoomTypeId: number, roomIndex: number) => void;
   onProceedCheckout: () => void;
 }
@@ -20,6 +21,7 @@ export const BookingSummarySidebar: React.FC<BookingSummarySidebarProps> = ({
   checkInDate,
   checkOutDate,
   selectedItems,
+  isSubmitting,
   onRemoveRoom,
   onProceedCheckout,
 }) => {
@@ -137,10 +139,10 @@ export const BookingSummarySidebar: React.FC<BookingSummarySidebarProps> = ({
 
         <Button
           onClick={onProceedCheckout}
-          disabled={totalRoomsCount === 0}
+          disabled={totalRoomsCount === 0 || isSubmitting}
           className="w-full h-12 flex items-center justify-center gap-2 font-bold text-sm bg-red-600 hover:bg-red-700 disabled:bg-neutral-200 disabled:text-neutral-400 text-white rounded-xl shadow-xs cursor-pointer transition-all disabled:cursor-not-allowed"
         >
-          <span>ĐẶT NGAY</span>
+          <span>{isSubmitting ? 'ĐANG GIỮ CHỖ...' : 'ĐẶT NGAY'}</span>
           <ArrowRight className="w-4 h-4" />
         </Button>
 

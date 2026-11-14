@@ -249,7 +249,9 @@ public class BookingServiceImpl implements BookingService {
 
             // 1. Giữ/Trừ quỹ phòng tổng hợp (Aggregate Inventory)
             int quantity = roomReq.getQuantity() != null ? roomReq.getQuantity().intValue() : 1;
-            roomAvailabilityService.confirmBookingInventory(hotelRoomType.getId(), roomReq.getCheckInDate(), roomReq.getCheckOutDate(), quantity);
+            if (request.getSessionId() == null || request.getSessionId().isBlank()) {
+                roomAvailabilityService.confirmBookingInventory(hotelRoomType.getId(), roomReq.getCheckInDate(), roomReq.getCheckOutDate(), quantity);
+            }
 
             // 2. Tính toán đơn giá qua Pricing Engine
             PriceCalculationRequest priceReq = PriceCalculationRequest.builder()
@@ -401,6 +403,12 @@ public class BookingServiceImpl implements BookingService {
         booking.setTotalAmount(bookingSubtotal.add(bookingServiceFee).add(bookingVatTotal));
 
         Booking saved = bookingRepository.save(booking);
+
+        // Nếu booking đến từ online draft session đã hold phòng trước đó -> commit hold và xóa draft Redis
+        if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
+            roomAvailabilityService.commitHoldInventory(request.getSessionId().trim());
+            redisTemplate.delete("booking:draft:" + request.getSessionId().trim());
+        }
 
         // Nếu có phòng vật lý được chỉ định, tạo RoomSlot tương ứng
         for (BookingDetail d : saved.getBookingDetails()) {
