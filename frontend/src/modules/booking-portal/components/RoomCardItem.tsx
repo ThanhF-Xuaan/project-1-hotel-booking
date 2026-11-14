@@ -86,17 +86,13 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
   const maxInfants = room.maxInfants || 0;
   const maxTotalGuests = room.maxTotalGuests || maxAdults + maxChildren || 3;
 
-  // Chuỗi mô tả sức chứa thông minh theo trần tổng khách, tránh gây hiểu nhầm
+  // Chuỗi mô tả sức chứa chuẩn hóa đồng bộ 100% cho TẤT CẢ các hạng phòng theo trần tổng khách, triệt tiêu hiểu nhầm
   const capacityDescription = useMemo(() => {
     if (maxChildren === 0) {
-      return `Tối đa ${maxAdults} người lớn`;
+      return `Tối đa ${maxTotalGuests} khách (${maxAdults} người lớn)`;
     }
-    // Nếu trần tổng khách nhỏ hơn tổng (người lớn tối đa + trẻ em tối đa)
-    if (maxTotalGuests < maxAdults + maxChildren) {
-      return `Tối đa ${maxTotalGuests} khách (tối đa ${maxAdults} người lớn)`;
-    }
-    // Trường hợp phòng có thể chứa đầy đủ cả 2 nhóm cùng lúc (ví dụ phòng Family)
-    return `Tối đa ${maxAdults} người lớn, ${maxChildren} trẻ em`;
+    // Mọi hạng phòng có nhận trẻ em đều hiển thị đồng bộ: Trần tổng khách kèm giới hạn người lớn
+    return `Tối đa ${maxTotalGuests} khách (tối đa ${maxAdults} người lớn)`;
   }, [maxAdults, maxChildren, maxTotalGuests]);
 
   // Tính số đêm lưu trú
@@ -487,7 +483,7 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
                     <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
                       Cấu hình số lượng khách từng phòng ({selectedQuantity} phòng):
                     </p>
-                    {maxTotalGuests < maxAdults + maxChildren && (
+                    {maxChildren > 0 && (
                       <p className="text-[11px] text-neutral-500">
                         * Sức chứa tối đa: {maxTotalGuests} khách/phòng (tổng người lớn & trẻ em)
                       </p>
