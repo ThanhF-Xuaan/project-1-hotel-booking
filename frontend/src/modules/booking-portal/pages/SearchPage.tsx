@@ -4,8 +4,6 @@ import {
   Search,
   Calendar,
   Building2,
-  Check,
-  Coffee,
   Sparkles,
   ArrowRight,
   ShieldCheck,
@@ -33,7 +31,10 @@ import { RoomAdvisorWidget, ADVISOR_AUTO_REOPEN_KEY } from '../components/RoomAd
 import { GroupInquiryModal } from '../components/GroupInquiryModal';
 import { HotelGalleryViewerModal } from '../components/HotelGalleryViewerModal';
 import { HotelCardItem } from '../components/HotelCardItem';
+import { RoomCardItem } from '../components/RoomCardItem';
+import { BookingSummarySidebar } from '../components/BookingSummarySidebar';
 import { DestinationCombobox } from '../components/DestinationCombobox';
+import type { SelectedRoomCartItem } from '../types/portal.types';
 import hotelService from '../../organization/services/hotel.service';
 import bookingSearchService from '../services/bookingSearchService';
 import type { HotelImageDto } from '../../organization/types/organization.types';
@@ -85,20 +86,12 @@ const mapApiResponseToOffer = (
   const amenities = (item.amenities || []).map((a) => a.name);
   const inclusions = (item.inclusions || []).map((i) => i.name);
 
-  const hasFreeBreakfast =
-    inclusions.some((name) => /buffet|sáng|breakfast/i.test(name)) ||
-    amenities.some((name) => /buffet|sáng|breakfast/i.test(name));
+  // Chỉ đánh dấu ăn sáng khi inclusions thực tế từ backend có chứa dịch vụ ăn sáng
+  const hasFreeBreakfast = inclusions.some((name) => /buffet|sáng|breakfast/i.test(name));
 
   const bedDescription = item.maxBeds
     ? `${item.maxBeds} Giường đôi ${item.extraBeds ? `(+${item.extraBeds} giường phụ)` : ''}`
     : '1 Giường đôi Queen/King Size';
-
-  const roomSizeM2 =
-    item.roomTypeCode === 'EXE' || item.roomTypeCode === 'SUT' || item.roomTypeCode === 'STE'
-      ? 58
-      : item.roomTypeCode === 'DLX'
-        ? 36
-        : 28;
 
   return {
     hotelRoomTypeId: item.hotelRoomTypeId,
@@ -108,11 +101,11 @@ const mapApiResponseToOffer = (
     estimatedTotal: finalTotal || perNightPrice * totalNights,
     maxAdults: item.maxAdults || 2,
     maxChildren: item.maxChildren || 0,
-    roomSizeM2,
+    roomSizeM2: 0,
     bedDescription,
-    amenities: amenities.length > 0 ? amenities : ['Wi-Fi 6 tốc độ cao', 'Điều hòa 2 chiều', 'TV 4K 55 inch'],
+    amenities,
     freeBreakfast: hasFreeBreakfast,
-    freeCancellation: true,
+    freeCancellation: false, // Xóa bỏ hardcode true
     availableRoomsCount: item.availableRooms,
   };
 };
@@ -169,6 +162,8 @@ export const SearchPage: React.FC = () => {
   const [criteria, setCriteria] = useState<CustomerSearchCriteria>(INITIAL_CRITERIA);
   const [searchMode, setSearchMode] = useState<'HOTELS' | 'ROOMS'>('HOTELS');
   const [roomOffers, setRoomOffers] = useState<AvailableRoomOffer[]>([]);
+  const [rawRooms, setRawRooms] = useState<AvailableRoomTypeApiResponse[]>([]);
+  const [selectedCartItems, setSelectedCartItems] = useState<SelectedRoomCartItem[]>([]);
   const [availableHotels, setAvailableHotels] = useState<AvailableHotelDto[]>([]);
   const [isLoadingRooms, setIsLoadingRooms] = useState<boolean>(true);
   const [roomError, setRoomError] = useState<string | null>(null);
@@ -273,12 +268,17 @@ export const SearchPage: React.FC = () => {
           setSearchMode('HOTELS');
           setAvailableHotels(res.result.hotels?.content || []);
           setRoomOffers([]);
+          setRawRooms([]);
+          setSelectedCartItems([]);
         } else {
           setSearchMode('ROOMS');
+          const roomList = res.result.rooms || [];
+          setRawRooms(roomList);
           const nights = calculateNights(targetCriteria.checkInDate, targetCriteria.checkOutDate);
-          const mapped = (res.result.rooms || []).map((item) => mapApiResponseToOffer(item, nights));
+          const mapped = roomList.map((item) => mapApiResponseToOffer(item, nights));
           setRoomOffers(mapped);
           setAvailableHotels([]);
+          setSelectedCartItems([]);
           if (res.result.selectedHotel?.hotelId) {
             setCriteria((prev) => ({ ...prev, hotelId: res.result.selectedHotel?.hotelId }));
           }
@@ -378,12 +378,16 @@ export const SearchPage: React.FC = () => {
       .searchRooms(nextCriteria)
       .then((res) => {
         if (res?.result) {
+          setRawRooms(res.result);
           const nights = calculateNights(nextCriteria.checkInDate, nextCriteria.checkOutDate);
           const mapped = res.result.map((item) => mapApiResponseToOffer(item, nights));
           setRoomOffers(mapped);
           setSearchMode('ROOMS');
+          setSelectedCartItems([]);
         } else {
+          setRawRooms([]);
           setRoomOffers([]);
+          setSelectedCartItems([]);
         }
       })
       .catch((err: unknown) => {
@@ -420,14 +424,102 @@ export const SearchPage: React.FC = () => {
       ? 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=80'
       : 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=80');
 
-  const formatVND = (amount: number) =>
-    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  const handleUpdateCartItem = (updatedItem: SelectedRoomCartItem | null) => {
+    if (!updatedItem || updatedItem.quantity === 0) {
+      if (!updatedItem) return;
+      setSelectedCartItems((prev) =>
+        prev.filter((it) => it.hotelRoomTypeId !== updatedItem.hotelRoomTypeId)
+      );
+      return;
+    }
 
-  const handleSelectRoom = (offer: AvailableRoomOffer) => {
+    setSelectedCartItems((prev) => {
+      const idx = prev.findIndex((it) => it.hotelRoomTypeId === updatedItem.hotelRoomTypeId);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = updatedItem;
+        return copy;
+      }
+      return [...prev, updatedItem];
+    });
+  };
+
+  const handleRemoveRoomFromCart = (hotelRoomTypeId: number, roomIndex: number) => {
+    setSelectedCartItems((prev) => {
+      const target = prev.find((it) => it.hotelRoomTypeId === hotelRoomTypeId);
+      if (!target) return prev;
+
+      if (target.quantity <= 1) {
+        return prev.filter((it) => it.hotelRoomTypeId !== hotelRoomTypeId);
+      }
+
+      const remainingRooms = target.rooms
+        .filter((r) => r.roomIndex !== roomIndex)
+        .map((r, i) => ({ ...r, roomIndex: i + 1 }));
+
+      const updatedTarget: SelectedRoomCartItem = {
+        ...target,
+        quantity: target.quantity - 1,
+        rooms: remainingRooms,
+        estimatedTotal: Math.round((target.estimatedTotal / target.quantity) * (target.quantity - 1)),
+      };
+
+      return prev.map((it) => (it.hotelRoomTypeId === hotelRoomTypeId ? updatedTarget : it));
+    });
+  };
+
+  const handleProceedCheckout = () => {
+    if (selectedCartItems.length === 0) return;
+
+    const primaryItem = selectedCartItems[0];
+    const totalNights = calculateNights(criteria.checkInDate, criteria.checkOutDate);
+    const matchedRoom = rawRooms.find((r) => r.hotelRoomTypeId === primaryItem.hotelRoomTypeId);
+    const fallbackOffer = matchedRoom
+      ? mapApiResponseToOffer(matchedRoom, totalNights)
+      : roomOffers[0] || {
+          hotelRoomTypeId: primaryItem.hotelRoomTypeId,
+          roomTypeCode: primaryItem.roomTypeCode,
+          roomTypeName: primaryItem.roomTypeName,
+          basePrice: primaryItem.perNightPrice,
+          estimatedTotal: primaryItem.estimatedTotal,
+          maxAdults: 2,
+          maxChildren: 0,
+          roomSizeM2: 0,
+          bedDescription: '1 Giường đôi',
+          amenities: [],
+          freeBreakfast: false,
+          freeCancellation: false,
+          availableRoomsCount: 1,
+        };
+
+    const totalRooms = selectedCartItems.reduce((sum, it) => sum + it.quantity, 0);
+    const totalAdults = selectedCartItems.reduce(
+      (sum, it) => sum + it.rooms.reduce((rSum, r) => rSum + r.adults, 0),
+      0
+    );
+    const totalChildren = selectedCartItems.reduce(
+      (sum, it) => sum + it.rooms.reduce((rSum, r) => rSum + r.children, 0),
+      0
+    );
+    const grandTotal = selectedCartItems.reduce((sum, it) => sum + it.estimatedTotal, 0);
+
     navigate('/portal/checkout', {
       state: {
-        offer,
-        criteria,
+        offer: {
+          ...fallbackOffer,
+          hotelRoomTypeId: primaryItem.hotelRoomTypeId,
+          roomTypeName: primaryItem.roomTypeName,
+          roomTypeCode: primaryItem.roomTypeCode,
+          estimatedTotal: grandTotal,
+          basePrice: primaryItem.perNightPrice,
+        },
+        criteria: {
+          ...criteria,
+          roomsCount: totalRooms,
+          adultCount: totalAdults,
+          childCount: totalChildren,
+        },
+        selectedCartItems,
       },
     });
   };
@@ -828,23 +920,8 @@ export const SearchPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Room Offers Header */}
-            <div className="flex justify-between items-center pt-2">
-              <div>
-                <h2 className="text-xl font-bold text-neutral-900 tracking-tight">
-                  Các Hạng Phòng Khả Dụng ({roomOffers.length} lựa chọn)
-                </h2>
-                <p className="text-xs text-neutral-500 mt-0.5">
-                  Từ {criteria.checkInDate} đến {criteria.checkOutDate} • {criteria.adultCount} người lớn
-                </p>
-              </div>
-              <div className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                <ShieldCheck className="w-4 h-4" />
-                Giữ phòng 15 phút không cần thẻ tín dụng
-              </div>
-            </div>
-
-            {roomOffers.length === 0 ? (
+            {/* Room Offers & Booking Summary: 2-Column Layout (Chuẩn Mường Thanh) */}
+            {rawRooms.length === 0 ? (
               <div className="bg-white rounded-3xl border border-neutral-200 p-10 text-center space-y-4 shadow-xs">
                 <div className="w-14 h-14 bg-neutral-100 rounded-2xl flex items-center justify-center mx-auto text-neutral-400">
                   <Building2 className="w-7 h-7" />
@@ -868,75 +945,49 @@ export const SearchPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div id="room-offers-list" className="space-y-4">
-                {roomOffers.map((offer) => (
-                  <div
-                    key={offer.hotelRoomTypeId}
-                    className="bg-white rounded-3xl border border-neutral-200 p-6 shadow-xs hover:border-red-300 hover:shadow-md transition-all flex flex-col md:flex-row justify-between gap-6"
-                  >
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2.5 py-0.5 bg-neutral-900 text-white text-[11px] font-bold rounded-md">
-                          {offer.roomTypeCode}
-                        </span>
-                        <div className="flex items-center text-amber-500 text-xs gap-0.5">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          ))}
-                        </div>
-                        <span className="text-xs text-neutral-400">• Còn {offer.availableRoomsCount} phòng trống</span>
-                      </div>
-
-                      <h3 className="text-xl font-bold text-neutral-900">{offer.roomTypeName}</h3>
-
-                      <div className="text-xs text-neutral-600 flex flex-wrap gap-x-4 gap-y-1">
-                        <span>📐 Diện tích: <strong>{offer.roomSizeM2} m²</strong></span>
-                        <span>🛏️ {offer.bedDescription}</span>
-                        <span>👥 Tối đa {offer.maxAdults} người lớn</span>
-                      </div>
-
-                      {/* Amenities Badges */}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {offer.freeBreakfast && (
-                          <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-semibold flex items-center gap-1 border border-emerald-200">
-                            <Coffee className="w-3.5 h-3.5 text-emerald-600" />
-                            Ăn sáng Buffet miễn phí
-                          </span>
-                        )}
-                        {offer.freeCancellation && (
-                          <span className="px-2.5 py-1 bg-blue-50 text-blue-800 rounded-lg text-xs font-semibold flex items-center gap-1 border border-blue-200">
-                            <Check className="w-3.5 h-3.5 text-blue-600" />
-                            Miễn phí hủy phòng
-                          </span>
-                        )}
-                        {offer.amenities.map((amenity, idx) => (
-                          <span key={idx} className="px-2.5 py-1 bg-neutral-100 text-neutral-700 rounded-lg text-xs">
-                            {amenity}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Price & Action */}
-                    <div className="md:w-64 md:border-l md:border-neutral-200 md:pl-6 flex flex-col justify-between items-start md:items-end">
-                      <div className="text-left md:text-right space-y-1">
-                        <div className="text-xs text-neutral-400">Giá mỗi đêm từ</div>
-                        <div className="text-2xl font-extrabold text-red-600">{formatVND(offer.basePrice)}</div>
-                        <div className="text-xs text-neutral-500">Đã bao gồm thuế VAT & phí dịch vụ</div>
-                      </div>
-
-                      <div className="w-full mt-4 md:mt-0">
-                        <Button
-                          onClick={() => handleSelectRoom(offer)}
-                          className="w-full flex items-center justify-center gap-2 py-3 font-bold"
-                        >
-                          Đặt Phòng Ngay
-                          <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </div>
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
+                {/* CỘT TRÁI: DANH SÁCH CÁC HẠNG PHÒNG KHẢ DỤNG */}
+                <div className="space-y-4">
+                  <div className="flex flex-wrap justify-between items-center pb-1 gap-2">
+                    <h3 className="text-base font-bold text-neutral-900 tracking-tight">
+                      Vui lòng chọn phòng (Có {rawRooms.length} loại phòng theo tìm kiếm)
+                    </h3>
+                    <div className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      Giữ phòng 15 phút không cần thẻ tín dụng
                     </div>
                   </div>
-                ))}
+
+                  <div id="room-offers-list" className="space-y-4">
+                    {rawRooms.map((room) => (
+                      <RoomCardItem
+                        key={room.hotelRoomTypeId}
+                        room={room}
+                        checkInDate={criteria.checkInDate}
+                        checkOutDate={criteria.checkOutDate}
+                        voucherCode={criteria.voucherCode}
+                        checkInTime="14:00"
+                        checkOutTime="12:00"
+                        currentCartItem={selectedCartItems.find(
+                          (it) => it.hotelRoomTypeId === room.hotelRoomTypeId
+                        )}
+                        onUpdateCartItem={handleUpdateCartItem}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* CỘT PHẢI: PHIẾU THÔNG TIN ĐẶT PHÒNG GHIM CỐ ĐỊNH */}
+                <div className="w-full">
+                  <BookingSummarySidebar
+                    hotelName={selectedHotelName}
+                    checkInDate={criteria.checkInDate}
+                    checkOutDate={criteria.checkOutDate}
+                    selectedItems={selectedCartItems}
+                    onRemoveRoom={handleRemoveRoomFromCart}
+                    onProceedCheckout={handleProceedCheckout}
+                  />
+                </div>
               </div>
             )}
           </div>
