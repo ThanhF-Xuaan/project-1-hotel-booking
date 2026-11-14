@@ -59,6 +59,8 @@ spring:
       enabled: true
       max-file-size: 10MB
       max-request-size: 20MB
+      # Keep multipart data in memory so identity images never spill to servlet temp files.
+      file-size-threshold: ${SPRING_SERVLET_MULTIPART_FILE_SIZE_THRESHOLD:5MB}
 
 keycloak:
   server-url: ${KEYCLOAK_SERVER_URL:http://localhost:8081}
@@ -123,7 +125,7 @@ hotel:
   ai:
     ocr:
       enabled: ${HOTEL_AI_OCR_ENABLED:false}
-      strict-multipart-check: ${HOTEL_AI_OCR_STRICT_MULTIPART:false}
+      timeout-millis: ${HOTEL_AI_OCR_TIMEOUT_MILLIS:45000}
     rag:
       demo-corpus:
         enabled: ${HOTEL_AI_RAG_DEMO_CORPUS_ENABLED:true}

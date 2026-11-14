@@ -168,6 +168,21 @@ class TesseractOcrVisionAdapterTest {
         }
     }
 
+    @Test
+    void engineMayFinishAfterThreeSecondsWithinDefaultBudget() throws Exception {
+        var properties = processTestProperties();
+        var adapter = adapter(properties);
+        var process = startSyntheticProcess("delayed-success");
+        try {
+            extractUsingProcess(adapter, fixture("cccd-synthetic.png"), process);
+            assertThat(process.extractionMillis).isGreaterThanOrEqualTo(3200);
+            assertThat(process.extractionMillis).isLessThan(properties.getTimeoutMillis());
+            assertCleanedUp(adapter, process);
+        } finally {
+            process.destroyForcibly();
+        }
+    }
+
     private void assertOverflowStopsProcess(String stream, CapturedOutput output) throws Exception {
         TesseractOcrVisionAdapter adapter = adapter(processTestProperties());
         byte[] image = fixture("cccd-synthetic.png");
@@ -230,6 +245,12 @@ class TesseractOcrVisionAdapterTest {
     /** Real child with live pipes; emits only a synthetic marker and waits to be terminated. */
     public static class SyntheticOcrProcess {
         public static void main(String[] args) throws Exception {
+            if ("delayed-success".equals(args[0])) {
+                System.in.readAllBytes();
+                Thread.sleep(3200);
+                System.out.println("level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext");
+                return;
+            }
             if (!"sleep".equals(args[0])) {
                 var stream = "stdout".equals(args[0]) ? System.out : System.err;
                 stream.print("SYNTHETIC_OCR_OUTPUT".repeat(128));

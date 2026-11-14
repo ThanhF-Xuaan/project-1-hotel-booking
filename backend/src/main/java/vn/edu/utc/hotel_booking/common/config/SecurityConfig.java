@@ -48,6 +48,10 @@ public class SecurityConfig {
                         // Mở các API công khai không cần đăng nhập (vd: xem phòng trống, danh mục)
                         .requestMatchers("/api/public/**", "/api/v1/public/**").permitAll()
 
+                        // OCR giấy tờ chỉ dành cho nhân viên có vai trò tiếp nhận khách.
+                        .requestMatchers("/api/v1/ai/ocr/**")
+                        .hasAnyRole("CHAIN_ADMIN", "PROPERTY_MANAGER", "RECEPTIONIST")
+
                         // Mở các tài nguyên tệp tĩnh, ảnh public và trang lỗi hệ thống
                         .requestMatchers("/error", "/uploads/**").permitAll()
 

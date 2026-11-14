@@ -173,6 +173,24 @@ class U13ZeroWriteAndPiiSafetyTest {
         }
     }
 
+    @Test
+    void controllerRequiresStaffRolesAndAuditDoesNotCapturePiiPayloads() throws Exception {
+        Class<?> controller = vn.edu.utc.hotel_booking.modules.ai.ocr.controller.IdentityDocumentOcrController.class;
+        var authorization = controller.getAnnotation(org.springframework.security.access.prepost.PreAuthorize.class);
+        assertThat(authorization).isNotNull();
+        assertThat(authorization.value()).contains("CHAIN_ADMIN", "PROPERTY_MANAGER", "RECEPTIONIST");
+
+        for (String methodName : java.util.List.of("extract", "extractFile")) {
+            var method = Arrays.stream(controller.getDeclaredMethods())
+                    .filter(candidate -> candidate.getName().equals(methodName))
+                    .findFirst().orElseThrow();
+            var audit = method.getAnnotation(vn.edu.utc.hotel_booking.common.annotation.Auditable.class);
+            assertThat(audit).isNotNull();
+            assertThat(audit.captureRequest()).isFalse();
+            assertThat(audit.captureResponse()).isFalse();
+        }
+    }
+
     private Field[] getAllFields(Class<?> clazz) {
         Set<Field> fields = new HashSet<>(Arrays.asList(clazz.getDeclaredFields()));
         Class<?> superclass = clazz.getSuperclass();

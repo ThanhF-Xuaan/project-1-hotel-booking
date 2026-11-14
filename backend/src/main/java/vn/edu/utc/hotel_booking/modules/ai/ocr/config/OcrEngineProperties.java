@@ -13,15 +13,16 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "hotel.ai.ocr")
 public class OcrEngineProperties {
 
+    public static final long MAX_TIMEOUT_MILLIS = 60_000;
+
     private boolean enabled = false;
-    private boolean strictMultipartCheck = false;
     @NotBlank
     private String executablePath = "tesseract";
     @NotBlank
     private String languages = "vie+eng";
     @Min(1)
-    @Max(3000)
-    private long timeoutMillis = 3000;
+    @Max(MAX_TIMEOUT_MILLIS)
+    private long timeoutMillis = 45_000;
     @Min(1024)
     @Max(1_048_576)
     private int maxOutputBytes = 1_048_576;
@@ -31,8 +32,6 @@ public class OcrEngineProperties {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
-    public boolean isStrictMultipartCheck() { return strictMultipartCheck; }
-    public void setStrictMultipartCheck(boolean strictMultipartCheck) { this.strictMultipartCheck = strictMultipartCheck; }
     public String getExecutablePath() { return executablePath; }
     public void setExecutablePath(String executablePath) { this.executablePath = executablePath; }
     public String getLanguages() { return languages; }

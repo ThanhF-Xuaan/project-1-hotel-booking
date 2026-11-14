@@ -50,7 +50,7 @@ public class IdentityDocumentOcrService {
 
     /** Ngày sinh dạng dd/MM/yyyy hoặc dd-MM-yyyy. */
     private static final Pattern DATE_VN_PATTERN = Pattern.compile(
-            "\\b(\\d{2})[/\\-](\\d{2})[/\\-](\\d{4})\\b");
+            "(?<!\\d)(\\d{1,2})\\h*[/\\-.]\\h*(\\d{1,2})\\h*[/\\-.]\\h*(\\d{4})(?!\\d)");
 
     /** Họ và tên tiếng Việt (in hoa / có dấu). */
     private static final Pattern FULLNAME_VN_PATTERN = Pattern.compile(
@@ -414,20 +414,19 @@ public class IdentityDocumentOcrService {
     }
 
     private ExtractedFieldDto<String> extractFullNameVn(String text, List<String> lowFields) {
-        Matcher m = FULLNAME_VN_PATTERN.matcher(text);
-        if (m.find()) {
-            String name = m.group(1).trim();
-            if (name.length() >= 2) {
-                log.debug("U13: tìm thấy họ tên {}", PiiRedactionUtil.redact(name));
-                return ExtractedFieldDto.of(name.toUpperCase(), 0.90);
-            }
-        }
+        String name = IdentityTextLabels.name(text);
+        if (name != null) return ExtractedFieldDto.of(name, 0.90);
         lowFields.add("fullName");
         return ExtractedFieldDto.missing();
     }
 
     private ExtractedFieldDto<LocalDate> extractDateOfBirth(String text, List<String> lowFields) {
-        Matcher m = DATE_VN_PATTERN.matcher(text);
+        String labeled = IdentityTextLabels.birth(text);
+        // Never substitute an expiry date when a birth label is present but unreadable.
+        String normalized = IdentityTextLabels.fold(text);
+        String source = labeled != null ? labeled
+                : (normalized.matches("(?s).*(?:ngay\\h*sinh|date\\h*of\\h*birth|date\\h*of\\h*expiry|co\\h*gia\\h*tri).*" ) ? "" : text);
+        Matcher m = DATE_VN_PATTERN.matcher(source);
         if (m.find()) {
             String day = m.group(1);
             String month = m.group(2);
@@ -458,7 +457,9 @@ public class IdentityDocumentOcrService {
     }
 
     private ExtractedFieldDto<Gender> extractGenderVn(String text, List<String> lowFields) {
-        Matcher m = GENDER_VN_PATTERN.matcher(text);
+        String labeled = IdentityTextLabels.gender(text);
+        Matcher m = Pattern.compile("\\b(nam|nu|male|female|m|f)\\b").matcher(
+                labeled == null ? "" : IdentityTextLabels.fold(labeled));
         if (m.find()) {
             String raw = m.group(1).trim().toLowerCase();
             Gender g = switch (raw) {
@@ -473,9 +474,8 @@ public class IdentityDocumentOcrService {
     }
 
     private ExtractedFieldDto<String> extractNationalityVn(String text, List<String> lowFields) {
-        Matcher m = NATIONALITY_VN_PATTERN.matcher(text);
-        if (m.find()) {
-            String nationality = m.group(1);
+        String nationality = IdentityTextLabels.nationality(text);
+        if (nationality != null) {
             if (nationality != null && !nationality.isBlank()) {
                 return ExtractedFieldDto.of(nationality.trim(), 0.90);
             }
@@ -483,15 +483,16 @@ public class IdentityDocumentOcrService {
             lowFields.add("nationality");
             return ExtractedFieldDto.missing();
         }
-        // Mặc định Việt Nam nếu không tìm thấy nhãn nhưng văn bản có tiếng Việt
-        return ExtractedFieldDto.of("Việt Nam", 0.70);
+        lowFields.add("nationality");
+        return ExtractedFieldDto.missing();
     }
 
-    private ExtractedFieldDto<String> extractAddressVn(String text) {
-        Matcher m = ADDRESS_VN_PATTERN.matcher(text);
-        if (m.find()) {
-            String addr = m.group(1).trim();
-            if (addr.length() >= 5) {
+    /** Validate a separately recognized residence block using the same rules as full-document extraction. */
+    public ExtractedFieldDto<String> extractAddressVn(String text) {
+        String extracted = IdentityTextLabels.address(text);
+        if (extracted != null) {
+            String addr = extracted.trim();
+            if (addr.length() >= 5 && addr.matches("[\\p{L}\\p{N}\\h,./()'\\-]+")) {
                 return ExtractedFieldDto.of(addr, 0.85);
             }
         }

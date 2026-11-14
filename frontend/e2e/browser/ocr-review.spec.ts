@@ -48,13 +48,44 @@ test('seven-field draft requires human review and explicit submit', async ({ pag
   expect(Date.parse(String(writes[0].expectedCheckOutTime))).toBeGreaterThan(Date.parse(String(writes[0].checkInTime)));
 });
 
+test('replacing the image clears missing fields and edits revoke prior confirmation', async ({ page }) => {
+  let scans = 0;
+  await page.route('**/api/v1/**', async route => {
+    const req = route.request();
+    if (req.url().endsWith('/ai/ocr/extract-file')) {
+      scans++;
+      const replacement = {
+        ...draft,
+        fullName: field('NGUYEN VAN SECOND'),
+        documentNumber: field(null),
+      };
+      await route.fulfill({ json: { code: 200, result: scans === 1 ? draft : replacement } });
+    } else await route.fulfill({ json: { code: 200, result: [] } });
+  });
+  await page.goto('/e2e/fixtures/ocr-review.html');
+  await page.getByRole('button', { name: 'Thêm khách lưu trú' }).click();
+  await page.getByLabel('Ảnh giấy tờ').setInputFiles(upload);
+  await expect(page.getByPlaceholder('001200001234')).toHaveValue('079190012345');
+
+  await page.getByLabel('Ảnh giấy tờ').setInputFiles({ ...upload, name: 'replacement.png' });
+  await expect(page.getByPlaceholder('NGUYỄN VĂN A')).toHaveValue('NGUYEN VAN SECOND');
+  await expect(page.getByPlaceholder('001200001234')).toHaveValue('');
+  await page.getByRole('checkbox').check();
+  await page.getByPlaceholder('NGUYỄN VĂN A').fill('NGUYEN VAN VERIFIED THEN EDITED');
+  await expect(page.getByRole('checkbox')).not.toBeChecked();
+  await expect(page.getByRole('button', { name: 'Lưu khách lưu trú' })).toBeDisabled();
+});
+
 for (const failure of ['503', 'unreadable', 'invalid-shape']) {
   test(`OCR ${failure} preserves manual input without writes`, async ({ page }) => {
     let writes = 0;
     await page.route('**/api/v1/**', async route => {
       if (route.request().url().endsWith('/ai/ocr/extract-file')) {
         await route.fulfill(failure === '503' ? { status: 503, json: { code: 503 } } : {
-          json: { code: 200, result: failure === 'unreadable' ? { ...draft, status: 'UNREADABLE_DOCUMENT' } : {} },
+          json: { code: 200, result: failure === 'unreadable' ? {
+            ...draft, status: 'UNREADABLE_DOCUMENT', dateOfBirth: null, gender: null,
+            documentType: null, nationality: null, permanentAddress: null,
+          } : {} },
         });
       } else { if (route.request().method() === 'POST') writes++; await route.fulfill({ json: { code: 200, result: [] } }); }
     });

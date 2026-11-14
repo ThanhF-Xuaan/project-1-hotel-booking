@@ -114,6 +114,16 @@ public class OcrUploadValidator {
         }
         ValidationResult name = validateFileName(fileName);
         if (!name.isValid()) return name;
+        return validateImageContent(contentType, imageBytes);
+    }
+
+    private ValidationResult validateImageContent(String contentType, byte[] imageBytes) {
+        if (imageBytes == null || imageBytes.length == 0) {
+            return ValidationResult.fail("File không được rỗng");
+        }
+        if (imageBytes.length > MAX_FILE_SIZE_BYTES) {
+            return ValidationResult.fail("File vượt quá giới hạn 5 MB");
+        }
         if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
             return ValidationResult.fail("Định dạng file không được hỗ trợ");
         }

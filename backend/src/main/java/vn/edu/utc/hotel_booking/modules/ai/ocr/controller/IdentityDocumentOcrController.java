@@ -71,8 +71,8 @@ public class IdentityDocumentOcrController {
     @Auditable(
             actionType = "OCR_SCAN",
             entityName = "Guest",
-            description = "'Quét OCR bóc tách giấy tờ tùy thân: ' + #request.fileName",
-            maskFields = {"rawOcrText", "idNumber", "citizenId", "passportNumber"}
+            description = "Quét OCR bóc tách giấy tờ tùy thân",
+            captureRequest = false
     )
     @PostMapping("/extract")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extract(
@@ -99,8 +99,8 @@ public class IdentityDocumentOcrController {
     @Auditable(
             actionType = "OCR_SCAN_FILE",
             entityName = "Guest",
-            description = "'Quét OCR bóc tách file ảnh giấy tờ tùy thân: ' + #file.originalFilename",
-            maskFields = {"rawOcrText", "idNumber", "citizenId", "passportNumber"}
+            description = "Quét OCR bóc tách ảnh giấy tờ tùy thân",
+            captureRequest = false
     )
     @PostMapping("/extract-file")
     public ResponseEntity<ApiResponse<OcrStayGuestDraftDto>> extractFile(
@@ -113,7 +113,14 @@ public class IdentityDocumentOcrController {
             return payloadTooLarge(message);
         }
 
-        OcrUploadValidator.ValidationResult validation = uploadValidator.validate(file);
+        byte[] image;
+        try {
+            image = file.getBytes();
+        } catch (IOException e) {
+            return invalidImage();
+        }
+        OcrUploadValidator.ValidationResult validation =
+                uploadValidator.validateForOcr(file.getOriginalFilename(), file.getContentType(), image);
         if (!validation.isValid()) {
             if (validation.getReason() != null && validation.getReason().contains("5 MB")) {
                 return payloadTooLarge(validation.getReason());
@@ -121,18 +128,9 @@ public class IdentityDocumentOcrController {
             return invalidImage();
         }
 
-        log.debug("U13 OCR /extract-file: sizeBytes={}", file.getSize());
+        log.debug("U13 OCR /extract-file: sizeBytes={}", image.length);
 
         if (engineProperties.isEnabled()) {
-            byte[] image;
-            try {
-                image = file.getBytes();
-            } catch (IOException e) {
-                return invalidImage();
-            }
-            if (!uploadValidator.validateForOcr(file.getOriginalFilename(), file.getContentType(), image).isValid()) {
-                return invalidImage();
-            }
             OcrDocumentExtractRequestDto metadata = new OcrDocumentExtractRequestDto();
             metadata.setFileName(file.getOriginalFilename());
             metadata.setContentType(file.getContentType());
@@ -159,10 +157,9 @@ public class IdentityDocumentOcrController {
         request.setRawOcrText(rawOcrText);
 
         try {
-            byte[] bytes = file.getBytes();
-            int headerLen = Math.min(bytes.length, 16);
+            int headerLen = Math.min(image.length, 16);
             byte[] header = new byte[headerLen];
-            System.arraycopy(bytes, 0, header, 0, headerLen);
+            System.arraycopy(image, 0, header, 0, headerLen);
             request.setFileHeaderBytes(header);
         } catch (Exception e) {
             log.warn("U13 OCR: không đọc được header bytes");
@@ -191,7 +188,15 @@ public class IdentityDocumentOcrController {
     }
 
     @ExceptionHandler(OcrVisionPort.ExtractionUnavailableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleEngineUnavailable() {
+    public ResponseEntity<ApiResponse<Void>> handleEngineUnavailable(OcrVisionPort.ExtractionUnavailableException ex) {
+        // Only fixed diagnostic codes; never log engine stderr, uploaded names or OCR text.
+        String reason = switch (ex.getMessage() == null ? "" : ex.getMessage()) {
+            case "Local OCR engine timed out", "Local OCR engine could not complete" -> "TIMEOUT";
+            case "Local OCR capacity is unavailable" -> "CAPACITY";
+            case "Local OCR runtime configuration is invalid" -> "CONFIGURATION";
+            default -> "ENGINE_UNAVAILABLE";
+        };
+        log.warn("U13 OCR unavailable: reason={}", reason);
         return ResponseEntity.status(503).body(ApiResponse.<Void>builder()
                 .code(503).message("Dịch vụ OCR tạm thời không khả dụng. Vui lòng thử lại sau.").build());
     }

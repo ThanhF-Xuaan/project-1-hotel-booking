@@ -12,45 +12,38 @@ class OcrMultipartPrivacyGuardTest {
         assertThatCode(() -> new OcrMultipartPrivacyGuard(new OcrEngineProperties(), new MultipartProperties()).afterPropertiesSet()).doesNotThrowAnyException();
     }
 
-    @Test void enabledEngineAcceptsDefaultMultipartWithoutCrash() {
+    @Test void enabledEngineRejectsDefaultDiskSpooling() {
         var engine = new OcrEngineProperties();
         engine.setEnabled(true);
-        // Default strictMultipartCheck is false -> should not throw on default multipart
-        assertThatCode(() -> new OcrMultipartPrivacyGuard(engine, new MultipartProperties()).afterPropertiesSet())
-                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> new OcrMultipartPrivacyGuard(engine, new MultipartProperties()).afterPropertiesSet())
+                .isInstanceOf(IllegalStateException.class);
     }
 
-    @Test void enabledEngineAcceptsSystemMultipartByDefault() {
+    @Test void enabledEngineAcceptsSystemMultipartOnlyWhenFullyBufferedInMemory() {
         var engine = new OcrEngineProperties();
         engine.setEnabled(true);
 
         var systemMultipart = new MultipartProperties();
         systemMultipart.setMaxFileSize(DataSize.ofMegabytes(10));
         systemMultipart.setMaxRequestSize(DataSize.ofMegabytes(20));
-        systemMultipart.setFileSizeThreshold(DataSize.ofMegabytes(0));
+        systemMultipart.setFileSizeThreshold(DataSize.ofMegabytes(5));
 
         assertThatCode(() -> new OcrMultipartPrivacyGuard(engine, systemMultipart).afterPropertiesSet())
                 .doesNotThrowAnyException();
     }
 
-    @Test void enabledEngineRejectsDefaultDiskSpoolingWhenStrictCheckEnabled() {
+    @Test void enabledEngineAcceptsLocalOcrMemorySettings() {
         var engine = new OcrEngineProperties();
         engine.setEnabled(true);
-        engine.setStrictMultipartCheck(true);
-        assertThatThrownBy(() -> new OcrMultipartPrivacyGuard(engine, new MultipartProperties()).afterPropertiesSet())
-                .isInstanceOf(IllegalStateException.class);
-    }
-
-    @Test void enabledEngineAcceptsOnlyBoundedMemorySettingsUnderStrictCheck() {
-        var engine = new OcrEngineProperties();
-        engine.setEnabled(true);
-        engine.setStrictMultipartCheck(true);
         var multipart = new MultipartProperties();
         multipart.setMaxFileSize(DataSize.ofMegabytes(5));
         multipart.setMaxRequestSize(DataSize.ofMegabytes(6));
-        multipart.setFileSizeThreshold(DataSize.ofMegabytes(6));
+        multipart.setFileSizeThreshold(DataSize.ofMegabytes(5));
         assertThatCode(() -> new OcrMultipartPrivacyGuard(engine, multipart).afterPropertiesSet()).doesNotThrowAnyException();
         multipart.setMaxRequestSize(DataSize.ofBytes(-1));
+        assertThatThrownBy(() -> new OcrMultipartPrivacyGuard(engine, multipart).afterPropertiesSet()).isInstanceOf(IllegalStateException.class);
+        multipart.setMaxRequestSize(DataSize.ofMegabytes(6));
+        multipart.setFileSizeThreshold(DataSize.ofMegabytes(4));
         assertThatThrownBy(() -> new OcrMultipartPrivacyGuard(engine, multipart).afterPropertiesSet()).isInstanceOf(IllegalStateException.class);
     }
 
