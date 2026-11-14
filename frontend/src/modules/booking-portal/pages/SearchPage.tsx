@@ -33,6 +33,7 @@ import { RoomAdvisorWidget, ADVISOR_AUTO_REOPEN_KEY } from '../components/RoomAd
 import { GroupInquiryModal } from '../components/GroupInquiryModal';
 import { HotelGalleryViewerModal } from '../components/HotelGalleryViewerModal';
 import { HotelCardItem } from '../components/HotelCardItem';
+import { DestinationCombobox } from '../components/DestinationCombobox';
 import hotelService from '../../organization/services/hotel.service';
 import bookingSearchService from '../services/bookingSearchService';
 import type { HotelImageDto } from '../../organization/types/organization.types';
@@ -468,7 +469,7 @@ export const SearchPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-neutral-50 pb-16">
       {/* Top Navigation */}
-      <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-2xs">
+      <header className="bg-white border-b border-neutral-200 relative z-20 shadow-2xs">
         <div className="max-w-6xl mx-auto px-4 min-h-16 flex flex-wrap items-center justify-between gap-2 py-2 md:h-16 md:flex-nowrap md:py-0">
           <div className="flex shrink-0 items-center gap-2">
             <div className="w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center font-extrabold text-lg shadow-xs">
@@ -498,48 +499,49 @@ export const SearchPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Hero Banner with Search Bar */}
-      <div className="bg-neutral-900 text-white py-12 px-4 shadow-inner">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div className="text-center space-y-2">
-            <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full uppercase tracking-wider inline-flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" />
-              Cam kết giá tốt nhất & Đặt phòng trực tiếp
-            </span>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
-              Kỳ Nghỉ Thượng Lưu Tại Chuỗi Khách Sạn Hotel Grand
-            </h1>
-            <p className="text-neutral-400 text-sm max-w-xl mx-auto">
-              Trải nghiệm dịch vụ 5 sao đẳng cấp quốc tế với công nghệ giữ phòng tức thì và bóc tách giá minh bạch.
-            </p>
-            <div className="pt-2 flex justify-center">
-              <button
-                onClick={() => setIsAdvisorOpen(true)}
-                className="px-4 py-2 bg-neutral-800/90 hover:bg-neutral-800 text-white text-xs font-bold rounded-2xl border border-neutral-700 flex items-center gap-2 transition-all hover:scale-105 shadow-sm cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-red-400 fill-red-400" />
-                Hỏi Trợ lý AI gợi ý phòng theo nhu cầu & ngân sách
-                <ArrowRight className="w-3.5 h-3.5 text-neutral-400" />
-              </button>
-            </div>
+      {/* Hero Banner Intro (Scrolls naturally) */}
+      <div className="bg-neutral-900 text-white pt-8 pb-4 px-4 shadow-inner">
+        <div className="max-w-6xl mx-auto space-y-3 text-center">
+          <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full uppercase tracking-wider inline-flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            Cam kết giá tốt nhất & Đặt phòng trực tiếp
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            Kỳ Nghỉ Thượng Lưu Tại Chuỗi Khách Sạn Hotel Grand
+          </h1>
+          <p className="text-neutral-400 text-xs sm:text-sm max-w-xl mx-auto">
+            Trải nghiệm dịch vụ 5 sao đẳng cấp quốc tế với công nghệ giữ phòng tức thì và bóc tách giá minh bạch.
+          </p>
+          <div className="pt-1 flex justify-center">
+            <button
+              onClick={() => setIsAdvisorOpen(true)}
+              className="px-4 py-1.5 bg-neutral-800/90 hover:bg-neutral-800 text-white text-xs font-bold rounded-2xl border border-neutral-700 flex items-center gap-2 transition-all hover:scale-105 shadow-sm cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-red-400 fill-red-400" />
+              Hỏi Trợ lý AI gợi ý phòng theo nhu cầu & ngân sách
+              <ArrowRight className="w-3 h-3 text-neutral-400" />
+            </button>
           </div>
+        </div>
+      </div>
 
+      {/* Sticky Search Bar Section (Pins at top-0 on Desktop like Mường Thanh) */}
+      <div className="lg:sticky lg:top-0 z-30 bg-neutral-900/95 backdrop-blur-md border-b border-neutral-800 shadow-lg py-3 px-4 transition-all">
+        <div className="max-w-6xl mx-auto">
           {/* Search Box */}
-          <div className="bg-white p-4 sm:p-5 rounded-3xl shadow-xl border border-neutral-100 text-neutral-900 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2.4fr_1.3fr_1.3fr_1.3fr_1.1fr_135px] gap-3 items-start">
-            {/* 1. Điểm Đến (Vùng/Thành phố hoặc Khách sạn cơ sở) */}
+          <div className="bg-white p-3.5 sm:p-4 rounded-2xl shadow-md border border-neutral-100 text-neutral-900 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2.4fr_1.3fr_1.3fr_1.1fr_1.1fr_135px] gap-2.5 items-start">
+            {/* 1. Điểm Đến (Hỗ trợ nhập liệu trực tiếp và tự động gợi ý) */}
             <div className="w-full">
               <label className="h-5 flex items-center gap-1 text-xs font-bold text-neutral-600 mb-1.5 whitespace-nowrap">
                 <MapPin className="w-3.5 h-3.5 text-red-600 shrink-0" />
                 <span>Điểm đến</span>
                 <span className="text-red-500">*</span>
               </label>
-              <Select<string>
+              <DestinationCombobox
+                destinations={destinations}
                 value={selectedDestKey}
                 onChange={handleDestinationChange}
-                options={destinationOptions}
-                placeholder="Chọn thành phố hoặc khách sạn..."
-                menuClassName="min-w-[340px] shadow-2xl"
-                size="md"
+                placeholder="Nhập thành phố hoặc khách sạn..."
               />
             </div>
 

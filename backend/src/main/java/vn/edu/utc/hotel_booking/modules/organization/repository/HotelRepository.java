@@ -16,7 +16,7 @@ import java.util.Optional;
 @Repository
 public interface HotelRepository extends JpaRepository<Hotel, Short>, JpaSpecificationExecutor<Hotel> {
 
-    @Query("SELECT h FROM Hotel h JOIN FETCH h.region WHERE h.id = :id AND h.isDeleted = false")
+    @Query("SELECT h FROM Hotel h LEFT JOIN FETCH h.region WHERE h.id = :id AND h.isDeleted = false")
     Optional<Hotel> findByIdWithRegion(@Param("id") Short id);
 
     Optional<Hotel> findByIdAndIsDeletedFalse(Short id);

@@ -199,4 +199,26 @@ public class HotelServiceImpl implements HotelService {
         }
         return hotelRepository.findByRegionIdAndIsDeletedFalse(regionId);
     }
+
+    @Override
+    public java.util.Map<Short, String> findHotelNamesByIds(java.util.Collection<Short> hotelIds) {
+        if (hotelIds == null || hotelIds.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+        return hotelRepository.findAllById(hotelIds).stream()
+                .filter(h -> !Boolean.TRUE.equals(h.getIsDeleted()))
+                .collect(java.util.stream.Collectors.toMap(
+                        Hotel::getId,
+                        Hotel::getName,
+                        (existing, replacement) -> existing
+                ));
+    }
+
+    @Override
+    public java.util.Optional<String> findHotelNameById(Short id) {
+        if (id == null) {
+            return java.util.Optional.empty();
+        }
+        return hotelRepository.findByIdAndIsDeletedFalse(id).map(Hotel::getName);
+    }
 }
