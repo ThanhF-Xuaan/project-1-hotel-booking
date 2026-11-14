@@ -222,9 +222,21 @@ export const PersonalizationPage: FC = () => {
     return (
       <main className="min-h-screen bg-neutral-50 px-4 py-12">
         <section className="mx-auto max-w-xl rounded-2xl border border-amber-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mb-4">
+            <Sparkles className="w-6 h-6 text-amber-600" />
+          </div>
           <h1 className="text-xl font-bold text-neutral-900">Dành cho tài khoản khách hàng</h1>
-          <p className="mt-2 text-sm text-neutral-600">Vui lòng đăng nhập bằng tài khoản khách hàng để quản lý consent demo.</p>
-          <Button className="mt-6" onClick={() => navigate('/portal/search')}>Về tìm phòng</Button>
+          <p className="mt-2 text-sm text-neutral-600">
+            Tính năng gợi ý hạng phòng cá nhân hóa và quản lý sự đồng thuận (U14) được thiết kế dành riêng cho tài khoản Khách hàng / Hội viên SmartStay.
+          </p>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button variant="outline" onClick={() => navigate('/portal/search')}>
+              Về tìm phòng
+            </Button>
+            <Button onClick={() => navigate('/login?portal=customer')}>
+              Đăng nhập tài khoản khách hàng
+            </Button>
+          </div>
         </section>
       </main>
     )

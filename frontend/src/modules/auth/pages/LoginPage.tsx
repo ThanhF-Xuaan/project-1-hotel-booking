@@ -14,8 +14,11 @@ import {
   Star,
   Sparkles,
   HelpCircle,
+  User,
+  ArrowLeft,
 } from 'lucide-react'
 import { AuthService } from '../services/auth.service'
+import { getUserRoles } from '../utils/token.utils'
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Tên đăng nhập không được để trống'),
@@ -30,9 +33,18 @@ export const LoginPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
 
+  const from = (location.state as { from?: To } | null)?.from
+  const fromPath = typeof from === 'string' ? from : from?.pathname || ''
+  const isCustomerSource = fromPath.startsWith('/portal') || location.search.includes('portal=customer')
+
+  const [loginMode, setLoginMode] = useState<'CUSTOMER' | 'STAFF'>(
+    isCustomerSource ? 'CUSTOMER' : 'STAFF'
+  )
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -52,12 +64,20 @@ export const LoginPage: React.FC = () => {
         if (res.result.refresh_token) {
           localStorage.setItem('auth_refresh_token', res.result.refresh_token)
         }
-        const from = (location.state as { from?: To } | null)?.from
-        const destination: To = typeof from === 'string'
-          ? from
-          : from?.pathname
-            ? { pathname: from.pathname, search: from.search, hash: from.hash }
-            : '/dashboard'
+        const roles = getUserRoles()
+        const isCustomerRole = roles.includes('CUSTOMER')
+        let destination: To
+        if (from) {
+          destination = typeof from === 'string'
+            ? from
+            : from?.pathname
+              ? { pathname: from.pathname, search: from.search, hash: from.hash }
+              : '/dashboard'
+        } else if (loginMode === 'CUSTOMER' || isCustomerRole) {
+          destination = '/portal/search'
+        } else {
+          destination = '/dashboard'
+        }
         navigate(destination, { replace: true })
       } else {
         setErrorMsg(res.message || 'Đăng nhập thất bại')
@@ -166,14 +186,89 @@ export const LoginPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900">
-              Đăng nhập hệ thống
-            </h2>
-            <p className="mt-2 text-sm text-neutral-600">
-              Nhập tài khoản định danh IAM để truy cập bảng điều khiển vận hành.
-            </p>
+          {/* Bộ chuyển đổi chế độ đăng nhập: Khách hàng / Hội viên vs Cán bộ Nhân viên */}
+          <div className="mb-6 flex rounded-2xl bg-neutral-100 p-1 border border-neutral-200/80 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMode('CUSTOMER')
+                setErrorMsg(null)
+              }}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                loginMode === 'CUSTOMER'
+                  ? 'bg-white text-red-600 shadow-xs'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              Khách hàng / Hội viên
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMode('STAFF')
+                setErrorMsg(null)
+              }}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                loginMode === 'STAFF'
+                  ? 'bg-white text-neutral-900 shadow-xs'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Cán bộ Nhân viên IAM
+            </button>
           </div>
+
+          {loginMode === 'CUSTOMER' ? (
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-bold mb-2.5 border border-red-200">
+                <Sparkles className="w-3.5 h-3.5 text-red-600" />
+                Cổng Thành viên & Gợi ý Cá nhân hóa
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900">
+                Đăng nhập Hội viên
+              </h2>
+              <p className="mt-2 text-sm text-neutral-600 leading-relaxed">
+                Đăng nhập để xem gợi ý hạng phòng tối ưu theo lịch sử lưu trú và quản lý quyền riêng tư (U14).
+              </p>
+
+              {/* Thẻ giới thiệu quyền lợi thành viên */}
+              <div className="mt-4 rounded-2xl border border-red-200/80 bg-gradient-to-br from-red-50/70 via-white to-neutral-50 p-4 text-xs text-neutral-800 space-y-2 shadow-2xs">
+                <div className="flex items-center gap-2 font-bold text-red-900">
+                  <Sparkles className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Quyền lợi Thành viên & Gợi ý Thông minh (U14)</span>
+                </div>
+                <p className="text-neutral-600 leading-relaxed text-[12.5px]">
+                  Hệ thống đề xuất hạng phòng phù hợp nhất dựa trên lịch sử đặt phòng 12 tháng qua. Minh bạch theo Nghị định 13/2023/NĐ-CP: bạn toàn quyền Bật hoặc Thu hồi sự đồng thuận bất cứ lúc nào.
+                </p>
+                <div className="pt-2 border-t border-red-100 flex items-center justify-between text-[11.5px]">
+                  <span className="text-neutral-500">
+                    💡 Tài khoản demo: <code className="bg-white px-1.5 py-0.5 rounded border border-neutral-200 font-mono font-bold text-neutral-800">customer</code> / <code className="bg-white px-1.5 py-0.5 rounded border border-neutral-200 font-mono font-bold text-neutral-800">customer123</code>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('username', 'customer')
+                      setValue('password', 'customer123')
+                    }}
+                    className="text-red-600 font-bold hover:underline cursor-pointer"
+                  >
+                    Điền nhanh
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-neutral-900">
+                Đăng nhập hệ thống
+              </h2>
+              <p className="mt-2 text-sm text-neutral-600">
+                Nhập tài khoản định danh IAM để truy cập bảng điều khiển vận hành.
+              </p>
+            </div>
+          )}
 
           {errorMsg && (
             <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm flex items-start gap-3">
@@ -199,7 +294,7 @@ export const LoginPage: React.FC = () => {
                   ? 'border-red-500 bg-red-50/50'
                   : 'border-neutral-300 hover:border-neutral-400 focus:border-red-600 bg-white'
                   }`}
-                placeholder="Nhập tên đăng nhập (ví dụ: admin)"
+                placeholder={loginMode === 'CUSTOMER' ? 'Nhập tên đăng nhập khách hàng (ví dụ: customer)' : 'Nhập tên đăng nhập (ví dụ: admin)'}
               />
               {errors.username && (
                 <p className="mt-1.5 text-xs font-medium text-red-600">{errors.username.message}</p>
@@ -254,31 +349,56 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-5 text-center">
-            <button
-              type="button"
-              onClick={() => alert('Vui lòng liên hệ Quản trị viên hệ thống (Admin) để được cấp lại mật khẩu.')}
-              className="text-sm font-medium text-neutral-600 hover:text-red-600 transition-colors cursor-pointer"
-            >
-              Quên mật khẩu?
-            </button>
-          </div>
+          {loginMode === 'CUSTOMER' ? (
+            <div className="mt-6 space-y-3">
+              <button
+                type="button"
+                onClick={() => navigate('/portal/search')}
+                className="w-full h-[44px] rounded-xl border border-neutral-300 hover:bg-neutral-50 text-neutral-800 text-xs font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+              >
+                <ArrowLeft className="w-4 h-4 text-neutral-500" />
+                <span>Quay lại Cổng đặt phòng</span>
+              </button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/portal/privacy')}
+                  className="text-neutral-500 hover:text-red-600 text-xs font-medium transition-colors inline-flex items-center gap-1.5 cursor-pointer py-1"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-neutral-400" />
+                  <span>Chính sách quyền riêng tư dữ liệu (U14)</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mt-5 text-center">
+                <button
+                  type="button"
+                  onClick={() => alert('Vui lòng liên hệ Quản trị viên hệ thống (Admin) để được cấp lại mật khẩu.')}
+                  className="text-sm font-medium text-neutral-600 hover:text-red-600 transition-colors cursor-pointer"
+                >
+                  Quên mật khẩu?
+                </button>
+              </div>
 
-          <div className="my-6 relative flex items-center justify-center">
-            <div className="w-full border-t border-neutral-200" />
-            <span className="absolute bg-white px-3 text-xs font-medium text-neutral-400 uppercase tracking-wider">
-              Nội bộ
-            </span>
-          </div>
+              <div className="my-6 relative flex items-center justify-center">
+                <div className="w-full border-t border-neutral-200" />
+                <span className="absolute bg-white px-3 text-xs font-medium text-neutral-400 uppercase tracking-wider">
+                  Nội bộ
+                </span>
+              </div>
 
-          <button
-            type="button"
-            onClick={() => alert('Hệ thống quản lý nội bộ dành riêng cho Cán bộ & Nhân viên chuỗi khách sạn SmartStay. Khách hàng vui lòng truy cập cổng đặt phòng công khai.')}
-            className="w-full h-[48px] rounded-xl border border-neutral-300 hover:bg-neutral-50 text-neutral-800 text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
-          >
-            <HelpCircle className="w-4 h-4 text-neutral-500" />
-            <span>Hướng dẫn & Quy chế truy cập</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => alert('Hệ thống quản lý nội bộ dành riêng cho Cán bộ & Nhân viên chuỗi khách sạn SmartStay. Khách hàng vui lòng truy cập cổng đặt phòng công khai.')}
+                className="w-full h-[48px] rounded-xl border border-neutral-300 hover:bg-neutral-50 text-neutral-800 text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+              >
+                <HelpCircle className="w-4 h-4 text-neutral-500" />
+                <span>Hướng dẫn & Quy chế truy cập</span>
+              </button>
+            </>
+          )}
           <div className="mt-8 text-center">
             <p className="text-[11px] text-neutral-400">
               © 2026 SmartStay • Đồ án Tốt nghiệp (UTC) • Bảo vệ bởi Keycloak IAM & Spring Security
