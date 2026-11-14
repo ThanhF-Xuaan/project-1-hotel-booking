@@ -86,6 +86,19 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
   const maxInfants = room.maxInfants || 0;
   const maxTotalGuests = room.maxTotalGuests || maxAdults + maxChildren || 3;
 
+  // Chuỗi mô tả sức chứa thông minh theo trần tổng khách, tránh gây hiểu nhầm
+  const capacityDescription = useMemo(() => {
+    if (maxChildren === 0) {
+      return `Tối đa ${maxAdults} người lớn`;
+    }
+    // Nếu trần tổng khách nhỏ hơn tổng (người lớn tối đa + trẻ em tối đa)
+    if (maxTotalGuests < maxAdults + maxChildren) {
+      return `Tối đa ${maxTotalGuests} khách (tối đa ${maxAdults} người lớn)`;
+    }
+    // Trường hợp phòng có thể chứa đầy đủ cả 2 nhóm cùng lúc (ví dụ phòng Family)
+    return `Tối đa ${maxAdults} người lớn, ${maxChildren} trẻ em`;
+  }, [maxAdults, maxChildren, maxTotalGuests]);
+
   // Tính số đêm lưu trú
   const totalNights = useMemo(() => {
     const start = new Date(checkInDate).getTime();
@@ -328,8 +341,7 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
               </span>
               <span className="flex items-center gap-1 font-medium">
                 <Users className="w-3.5 h-3.5 text-neutral-400" />
-                Tối đa {maxAdults} người lớn
-                {maxChildren > 0 && `, ${maxChildren} trẻ em`}
+                {capacityDescription}
               </span>
             </div>
 
@@ -441,7 +453,7 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
                 <div className="text-right">
                   <div className="flex items-center gap-1 text-xs text-neutral-500 justify-end">
                     <Users className="w-3.5 h-3.5" />
-                    <span>Tối đa {maxAdults} người lớn</span>
+                    <span>{capacityDescription}</span>
                   </div>
                   <p className="text-base sm:text-lg font-extrabold text-neutral-900">
                     {formatCurrency(basePricePerNight)}
@@ -470,12 +482,19 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
             {/* KHỐI CẤU HÌNH SỐ NGƯỜI TỪNG PHÒNG KHI ĐÃ CHỌN >= 1 PHÒNG (ẢNH 6, 7) */}
             {selectedQuantity > 0 && (
               <div className="pt-4 border-t border-neutral-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
-                    Cấu hình số lượng khách từng phòng ({selectedQuantity} phòng):
-                  </p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <div>
+                    <p className="text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                      Cấu hình số lượng khách từng phòng ({selectedQuantity} phòng):
+                    </p>
+                    {maxTotalGuests < maxAdults + maxChildren && (
+                      <p className="text-[11px] text-neutral-500">
+                        * Sức chứa tối đa: {maxTotalGuests} khách/phòng (tổng người lớn & trẻ em)
+                      </p>
+                    )}
+                  </div>
                   {isCalculatingPrice && (
-                    <span className="text-[11px] text-red-600 flex items-center gap-1 font-semibold animate-pulse">
+                    <span className="text-[11px] text-red-600 flex items-center gap-1 font-semibold animate-pulse shrink-0">
                       <Loader2 className="w-3 h-3 animate-spin" />
                       Đang tính lại giá...
                     </span>
@@ -502,9 +521,21 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
                         key={idx}
                         className="p-3 bg-neutral-50 rounded-xl border border-neutral-200 flex flex-wrap items-center justify-between gap-3 text-xs"
                       >
-                        <span className="font-bold text-neutral-800 min-w-[130px]">
-                          Chọn số người phòng {idx + 1}:
-                        </span>
+                        <div className="flex items-center gap-2 min-w-[130px]">
+                          <span className="font-bold text-neutral-800">
+                            Phòng {idx + 1}:
+                          </span>
+                          <span
+                            className={cn(
+                              'px-1.5 py-0.5 rounded-md text-[10px] font-semibold',
+                              guestCfg.adults + guestCfg.children >= maxTotalGuests
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-neutral-200 text-neutral-700'
+                            )}
+                          >
+                            {guestCfg.adults + guestCfg.children}/{maxTotalGuests} khách
+                          </span>
+                        </div>
 
                         <div className="flex flex-wrap items-center gap-3 flex-1 justify-end">
                           {/* Người lớn */}

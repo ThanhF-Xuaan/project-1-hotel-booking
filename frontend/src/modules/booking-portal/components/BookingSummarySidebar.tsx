@@ -154,3 +154,4 @@ export const BookingSummarySidebar: React.FC<BookingSummarySidebarProps> = ({
 };
 
 export default BookingSummarySidebar;
+

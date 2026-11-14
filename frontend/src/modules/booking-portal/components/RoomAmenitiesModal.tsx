@@ -181,3 +181,4 @@ export const RoomAmenitiesModal: React.FC<RoomAmenitiesModalProps> = ({
 };
 
 export default RoomAmenitiesModal;
+
