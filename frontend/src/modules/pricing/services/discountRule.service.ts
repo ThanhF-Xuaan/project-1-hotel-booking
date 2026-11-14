@@ -11,7 +11,13 @@ const BASE_URL = '/api/v1/pricing/discount-rules'
 
 export const discountRuleService = {
   filter: (params: DiscountRuleSearchDto) =>
-    apiClient.post<PageResponse<DiscountRuleDto>>(`${BASE_URL}/filter`, params),
+    apiClient.post<PageResponse<DiscountRuleDto>>(`${BASE_URL}/filter`, {
+      page: 0,
+      pageSize: 10,
+      sortBy: 'id',
+      sortDirection: 'DESC',
+      ...params,
+    }),
 
   getById: (id: number) => apiClient.get<DiscountRuleDto>(`${BASE_URL}/${id}`),
 

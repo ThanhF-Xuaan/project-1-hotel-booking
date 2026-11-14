@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash2, RefreshCw, Search, Edit2, Percent, Tag, Calendar, AlertCircle, Layers, Zap } from 'lucide-react'
+import { Plus, Trash2, RefreshCw, Search, Edit2, Percent, Tag, Calendar, AlertCircle, Layers, Zap, RefreshCcw } from 'lucide-react'
 import Button from '../../../core/components/ui/Button'
 import Input from '../../../core/components/ui/Input'
 import Select from '../../../core/components/ui/Select'
@@ -108,6 +108,8 @@ export const DiscountRuleListPage: React.FC = () => {
       const response = await discountRuleService.filter({
         page,
         pageSize,
+        sortBy: 'id',
+        sortDirection: 'DESC',
         hotelId: filterHotelId || undefined,
         hotelRoomTypeId: filterRoomTypeId || undefined,
         campaignId: filterCampaignId || undefined,
@@ -470,7 +472,7 @@ export const DiscountRuleListPage: React.FC = () => {
       <div className="bg-white rounded-2xl border border-neutral-200/80 shadow-sm overflow-hidden">
         {/* ROW 1: SEARCH & FILTER BAR */}
         <div className="p-4 border-b border-neutral-100 bg-neutral-50/50">
-          <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <form onSubmit={handleSearch} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-center">
             {/* Filter Hotel */}
             <div>
               <Select<number | ''>
@@ -537,8 +539,8 @@ export const DiscountRuleListPage: React.FC = () => {
               />
             </div>
 
-            {/* Filter Status & Buttons */}
-            <div className="flex items-center gap-2">
+            {/* Filter Status */}
+            <div>
               <Select<string>
                 value={filterStatus}
                 onChange={(val) => setFilterStatus(val)}
@@ -549,9 +551,12 @@ export const DiscountRuleListPage: React.FC = () => {
                 ]}
                 size="md"
               />
+            </div>
 
-              <Button type="submit" variant="primary" size="md" className="shrink-0">
-                <Search className="w-4 h-4 mr-1" />
+            {/* Filter Actions */}
+            <div className="flex items-center gap-2">
+              <Button type="submit" variant="primary" size="md" className="flex-1 justify-center whitespace-nowrap bg-neutral-100 hover:bg-neutral-200 active:bg-neutral-300 text-neutral-900 border border-neutral-200 focus:ring-2 focus:ring-neutral-400 focus:ring-offset-2">
+                <Search className="w-4 h-4 mr-1.5 shrink-0" />
                 Lọc
               </Button>
               <Button
@@ -559,9 +564,11 @@ export const DiscountRuleListPage: React.FC = () => {
                 variant="outline"
                 size="md"
                 onClick={handleResetFilter}
-                className="shrink-0"
+                title="Đặt lại bộ lọc"
+                aria-label="Đặt lại bộ lọc"
+                className="w-10 h-10 md:w-12 md:h-12 p-0 shrink-0 flex items-center justify-center text-neutral-600 hover:text-neutral-900"
               >
-                Đặt lại
+                <RefreshCcw className="w-4 h-4 shrink-0" />
               </Button>
             </div>
           </form>
@@ -648,9 +655,8 @@ export const DiscountRuleListPage: React.FC = () => {
                   return (
                     <tr
                       key={rule.id}
-                      className={`hover:bg-neutral-50/60 transition-colors ${
-                        isSelected ? 'bg-red-50/30' : ''
-                      }`}
+                      className={`hover:bg-neutral-50/60 transition-colors ${isSelected ? 'bg-red-50/30' : ''
+                        }`}
                     >
                       <td className="py-3 px-4">
                         <input
@@ -728,11 +734,10 @@ export const DiscountRuleListPage: React.FC = () => {
                       </td>
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            rule.status === 'ACTIVE'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
-                          }`}
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${rule.status === 'ACTIVE'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-neutral-100 text-neutral-600 border border-neutral-200'
+                            }`}
                         >
                           {rule.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm dừng'}
                         </span>
@@ -782,6 +787,7 @@ export const DiscountRuleListPage: React.FC = () => {
         isOpen={isFormModalOpen}
         onClose={() => setIsFormModalOpen(false)}
         title={editingRule ? 'Chỉnh Sửa Quy Tắc Giảm Giá' : 'Thêm Mới Quy Tắc Giảm Giá'}
+        maxWidth="2xl"
       >
         <form onSubmit={handleSubmitForm} className="space-y-4">
           {formError && (
@@ -791,57 +797,59 @@ export const DiscountRuleListPage: React.FC = () => {
             </div>
           )}
 
-          {/* Room Type */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Hạng Phòng Áp Dụng <span className="text-red-500">*</span>
-            </label>
-            <Select<number | ''>
-              value={formRoomTypeId || ''}
-              onChange={(val) => setFormRoomTypeId(Number(val))}
-              disabled={!!editingRule}
-              options={[
-                { value: '', label: 'Chọn hạng phòng', disabled: true },
-                ...hotelRoomTypes.map((hrt) => ({
-                  value: hrt.id,
-                  label: `${hrt.hotelName} - ${hrt.roomTypeName}`,
-                })),
-              ]}
-              size="md"
-            />
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {/* Room Type */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Hạng Phòng Áp Dụng <span className="text-red-500">*</span>
+              </label>
+              <Select<number | ''>
+                value={formRoomTypeId || ''}
+                onChange={(val) => setFormRoomTypeId(Number(val))}
+                disabled={!!editingRule}
+                options={[
+                  { value: '', label: 'Chọn hạng phòng', disabled: true },
+                  ...hotelRoomTypes.map((hrt) => ({
+                    value: hrt.id,
+                    label: `${hrt.hotelName} - ${hrt.roomTypeName}`,
+                  })),
+                ]}
+                size="md"
+              />
+            </div>
 
-          {/* Rule Type */}
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">
-              Loại Ưu Đãi (Discount Rule Type) <span className="text-red-500">*</span>
-            </label>
-            <Select<string>
-              value={formRuleTypeCode}
-              onChange={(val) => {
-                setFormRuleTypeCode(val)
-                if (val === 'LONG_STAY') {
-                  setIsTieredMode(true)
-                  if (formTiers.length === 0) setFormTiers(STANDARD_TIERS)
-                }
-              }}
-              disabled={!!editingRule}
-              options={
-                ruleTypes.length > 0
-                  ? ruleTypes.map((rt) => ({
+            {/* Rule Type */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">
+                Loại Ưu Đãi (Discount Rule Type) <span className="text-red-500">*</span>
+              </label>
+              <Select<string>
+                value={formRuleTypeCode}
+                onChange={(val) => {
+                  setFormRuleTypeCode(val)
+                  if (val === 'LONG_STAY') {
+                    setIsTieredMode(true)
+                    if (formTiers.length === 0) setFormTiers(STANDARD_TIERS)
+                  }
+                }}
+                disabled={!!editingRule}
+                options={
+                  ruleTypes.length > 0
+                    ? ruleTypes.map((rt) => ({
                       value: rt.code,
                       label: `${rt.displayName} (${rt.code})`,
                     }))
-                  : [
+                    : [
                       { value: 'SPECIAL_CAMPAIGN', label: 'Chiến dịch khuyến mại (SPECIAL_CAMPAIGN)' },
                       { value: 'LONG_STAY', label: 'Giảm giá lưu trú dài ngày (LONG_STAY)' },
                       { value: 'LOYALTY', label: 'Khách hàng thân thiết (LOYALTY)' },
                       { value: 'EARLY_BIRD', label: 'Đặt sớm (EARLY_BIRD)' },
                       { value: 'LAST_MINUTE', label: 'Giờ chót (LAST_MINUTE)' },
                     ]
-              }
-              size="md"
-            />
+                }
+                size="md"
+              />
+            </div>
           </div>
 
           {/* Campaign Selection */}
@@ -942,48 +950,50 @@ export const DiscountRuleListPage: React.FC = () => {
                 </div>
 
                 {/* Tiers List */}
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                   {formTiers.map((tier, idx) => (
                     <div
                       key={idx}
-                      className="flex flex-col sm:flex-row items-start sm:items-center gap-2 bg-white p-2.5 rounded-lg border border-neutral-200/70 text-xs shadow-2xs"
+                      className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 bg-white p-3 rounded-xl border border-neutral-200/80 text-xs shadow-2xs"
                     >
-                      <span className="font-semibold text-neutral-700 w-12 shrink-0">
-                        Bậc {idx + 1}:
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-1">
-                        <span className="text-neutral-500">Từ</span>
-                        <input
-                          type="number"
-                          min="1"
-                          className="w-16 h-8 px-2 border border-neutral-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-red-500"
-                          value={tier.minNights}
-                          onChange={(e) =>
-                            handleUpdateTier(idx, 'minNights', Number(e.target.value))
-                          }
-                          required
-                        />
-                        <span className="text-neutral-500">đến</span>
-                        <input
-                          type="number"
-                          min={tier.minNights}
-                          placeholder="Trở lên"
-                          className="w-20 h-8 px-2 border border-neutral-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-red-500"
-                          value={tier.maxNights ?? ''}
-                          onChange={(e) =>
-                            handleUpdateTier(
-                              idx,
-                              'maxNights',
-                              e.target.value === '' ? null : Number(e.target.value)
-                            )
-                          }
-                        />
-                        <span className="text-neutral-500">đêm</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-neutral-800 bg-neutral-100 px-2 py-1 rounded-md shrink-0">
+                          Bậc {idx + 1}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-neutral-500">Từ</span>
+                          <input
+                            type="number"
+                            min="1"
+                            className="w-16 h-8 px-2 border border-neutral-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-red-500 font-medium"
+                            value={tier.minNights}
+                            onChange={(e) =>
+                              handleUpdateTier(idx, 'minNights', Number(e.target.value))
+                            }
+                            required
+                          />
+                          <span className="text-neutral-500">đến</span>
+                          <input
+                            type="number"
+                            min={tier.minNights}
+                            placeholder="Trở lên"
+                            className="w-20 h-8 px-2 border border-neutral-200 rounded-lg text-xs text-center focus:ring-1 focus:ring-red-500 font-medium"
+                            value={tier.maxNights ?? ''}
+                            onChange={(e) =>
+                              handleUpdateTier(
+                                idx,
+                                'maxNights',
+                                e.target.value === '' ? null : Number(e.target.value)
+                              )
+                            }
+                          />
+                          <span className="text-neutral-500">đêm</span>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         <select
-                          className="h-8 px-2 border border-neutral-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-red-500"
+                          className="h-8 px-2.5 border border-neutral-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-red-500 font-medium cursor-pointer"
                           value={tier.discountType}
                           onChange={(e) =>
                             handleUpdateTier(idx, 'discountType', e.target.value as 'PERCENT' | 'FIXED')
@@ -1006,7 +1016,7 @@ export const DiscountRuleListPage: React.FC = () => {
                             }
                             required
                           />
-                          <span className="text-neutral-500">
+                          <span className="text-neutral-500 font-medium">
                             {tier.discountType === 'PERCENT' ? '%' : 'đ'}
                           </span>
                         </div>
@@ -1016,9 +1026,9 @@ export const DiscountRuleListPage: React.FC = () => {
                             type="button"
                             onClick={() => handleRemoveTier(idx)}
                             aria-label={`Xóa bậc ${idx + 1}`}
-                            className="p-1.5 text-neutral-400 hover:text-red-600 rounded-md transition-colors"
+                            className="p-1.5 text-neutral-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>
