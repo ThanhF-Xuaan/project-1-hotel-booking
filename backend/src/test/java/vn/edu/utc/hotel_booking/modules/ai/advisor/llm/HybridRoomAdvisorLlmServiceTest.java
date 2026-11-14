@@ -15,8 +15,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.AdvisorResultDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.CriteriaPatchDto;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.dto.RoomSearchCriteriaDto;
+import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.AdvisorStatus;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.BudgetBasis;
 import vn.edu.utc.hotel_booking.modules.ai.advisor.enums.BudgetCoverage;
 
@@ -692,6 +694,18 @@ class HybridRoomAdvisorLlmServiceTest {
         });
         assertThat(service.extractCriteriaPatch(MESSAGE, null).getAdults()).isEqualTo(2);
         verifyNoInteractions(client);
+    }
+
+    @Test
+    @DisplayName("Should generate friendly group booking reply when roomsCount exceeds 1")
+    void shouldGenerateFriendlyReplyWhenRoomsCountNeedInfo() {
+        AdvisorResultDto result = AdvisorResultDto.builder()
+                .status(AdvisorStatus.NEED_INFO)
+                .missingFields(List.of("roomsCount"))
+                .build();
+        String reply = llmService.generateReply(result, "Tôi muốn đặt 5 phòng cho đoàn");
+        assertThat(reply).contains("Hiện chỉ hỗ trợ tìm một phòng cho mỗi phương án");
+        assertThat(reply).contains("Liên hệ Báo Giá Đoàn");
     }
 
     private String candidate(String finishReason, String modelJson) throws Exception {

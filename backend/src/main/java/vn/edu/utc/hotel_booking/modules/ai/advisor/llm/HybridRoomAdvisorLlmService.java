@@ -233,7 +233,7 @@ public class HybridRoomAdvisorLlmService implements RoomAdvisorLlmPort {
 
             case NEED_INFO:
                 if (result.getMissingFields() != null && result.getMissingFields().contains("roomsCount")) {
-                    return "Hiện chỉ hỗ trợ tìm một phòng cho mỗi phương án. Có thể tìm một phòng hoặc dùng giao diện tìm phòng thông thường.";
+                    return "Hiện chỉ hỗ trợ tìm một phòng cho mỗi phương án. Quý khách muốn đặt từ 2 phòng trở lên vui lòng nhấn [Liên hệ Báo Giá Đoàn] hoặc gọi Hotline để nhận ưu đãi tốt nhất.";
                 }
                 if (result.getAmbiguities() != null && !result.getAmbiguities().isEmpty()) {
                     return "Dạ, có nhiều điểm đến phù hợp với yêu cầu của bạn. Bạn vui lòng chọn rõ khách sạn hoặc khu vực cụ thể nhé.";

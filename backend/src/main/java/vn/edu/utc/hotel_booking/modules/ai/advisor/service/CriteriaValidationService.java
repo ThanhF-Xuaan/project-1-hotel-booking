@@ -209,7 +209,7 @@ public class CriteriaValidationService {
             return ValidationResult.builder()
                     .valid(false)
                     .status(AdvisorStatus.NEED_INFO)
-                    .reply("Hiện chỉ hỗ trợ tìm một phòng cho mỗi phương án. Có thể tìm một phòng hoặc dùng giao diện tìm phòng thông thường.")
+                    .reply("Hiện chỉ hỗ trợ tìm một phòng cho mỗi phương án. Quý khách muốn đặt từ 2 phòng trở lên vui lòng nhấn [Liên hệ Báo Giá Đoàn] hoặc gọi Hotline để nhận ưu đãi tốt nhất.")
                     .criteria(criteria)
                     .missingFields(List.of("roomsCount"))
                     .ambiguities(ambiguities)

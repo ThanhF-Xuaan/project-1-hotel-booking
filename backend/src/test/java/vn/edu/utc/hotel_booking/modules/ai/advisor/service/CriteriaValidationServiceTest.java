@@ -83,6 +83,7 @@ class CriteriaValidationServiceTest {
         assertThat(result.getStatus()).isEqualTo(AdvisorStatus.NEED_INFO);
         assertThat(result.getMissingFields()).containsExactly("roomsCount");
         assertThat(result.getReply()).contains("Hiện chỉ hỗ trợ tìm một phòng cho mỗi phương án");
+        assertThat(result.getReply()).contains("Liên hệ Báo Giá Đoàn");
     }
 
     @Test
