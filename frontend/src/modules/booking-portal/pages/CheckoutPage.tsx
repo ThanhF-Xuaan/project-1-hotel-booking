@@ -30,6 +30,7 @@ import { bookingSessionService } from '../services/bookingSessionService';
 import type { VoucherValidationResponse } from '../../pricing/types/voucher.types';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
 import PaymentErrorModal from '../../finance/components/payment/PaymentErrorModal';
+import SessionExpiredModal from '../components/SessionExpiredModal';
 import { VNPAY_ATM_TEST_CARD } from '../../finance/utils/vnpay.utils';
 import type { AvailableRoomOffer, CustomerSearchCriteria, SelectedRoomCartItem } from '../types/portal.types';
 
@@ -90,6 +91,7 @@ export const CheckoutPage: React.FC = () => {
   // UI state
   const [isRoomsCollapsed, setIsRoomsCollapsed] = useState(false);
   const [isCancellingSession, setIsCancellingSession] = useState(false);
+  const [isExpiredModalOpen, setIsExpiredModalOpen] = useState(false);
 
   // Payment method (cố định cổng thanh toán trực tuyến VNPAY)
   const paymentMethod = 'VNPAY';
@@ -193,6 +195,7 @@ export const CheckoutPage: React.FC = () => {
       setSecondsRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          setIsExpiredModalOpen(true);
           return 0;
         }
         return prev - 1;
@@ -201,6 +204,15 @@ export const CheckoutPage: React.FC = () => {
 
     return () => clearInterval(timer);
   }, []);
+
+  const handleRedirectToSearch = () => {
+    setIsExpiredModalOpen(false);
+    navigate('/portal/search', {
+      state: {
+        criteria,
+      },
+    });
+  };
 
   const formatTimer = (totalSecs: number) => {
     const mins = Math.floor(totalSecs / 60);
@@ -948,6 +960,13 @@ export const CheckoutPage: React.FC = () => {
         onRetry={handleRetryGateway}
         onClose={() => setGatewayError(null)}
         isRetrying={isRetryingGateway}
+      />
+
+      {/* Modal cảnh báo hết hạn giữ phòng 15 phút & tự động redirect */}
+      <SessionExpiredModal
+        isOpen={isExpiredModalOpen}
+        onRedirect={handleRedirectToSearch}
+        autoRedirectSeconds={5}
       />
     </div>
   );
