@@ -36,13 +36,54 @@ export const MyBookingsPage: React.FC = () => {
   const [bookingNumber, setBookingNumber] = useState(urlBookingNumber);
   const [phone, setPhone] = useState(urlPhone);
   const [booking, setBooking] = useState<BookingResponse | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isSearching, setIsSearching] = useState(Boolean(urlBookingNumber));
   const [searchError, setSearchError] = useState('');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState(false);
 
-  const executeSearch = async (targetBookingNumber: string, targetPhone?: string) => {
-    const cleanNumber = targetBookingNumber.trim();
+  // Tự động tải đơn đặt phòng khi có mã từ URL (VD: chuyển từ PaymentResultPage)
+  useEffect(() => {
+    if (!urlBookingNumber) return;
+
+    let active = true;
+
+    const fetchInitialBooking = async () => {
+      try {
+        const cleanNumber = urlBookingNumber.trim();
+        const res = isAdmin
+          ? await bookingService.getByNumber(cleanNumber)
+          : await bookingService.getPublicBookingByNumber(cleanNumber, urlPhone.trim() || undefined);
+
+        if (!active) return;
+        if (res && res.result) {
+          setBooking(res.result);
+        } else {
+          setSearchError('Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.');
+        }
+      } catch (err: unknown) {
+        if (!active) return;
+        const errInfo = getApiErrorMessage(
+          err,
+          'Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.'
+        );
+        setSearchError(errInfo.message);
+      } finally {
+        if (active) {
+          setIsSearching(false);
+        }
+      }
+    };
+
+    void fetchInitialBooking();
+
+    return () => {
+      active = false;
+    };
+  }, [urlBookingNumber, urlPhone, isAdmin]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanNumber = bookingNumber.trim();
     if (!cleanNumber) return;
 
     setIsSearching(true);
@@ -53,7 +94,7 @@ export const MyBookingsPage: React.FC = () => {
     try {
       const res = isAdmin
         ? await bookingService.getByNumber(cleanNumber)
-        : await bookingService.getPublicBookingByNumber(cleanNumber, targetPhone?.trim() || undefined);
+        : await bookingService.getPublicBookingByNumber(cleanNumber, phone.trim() || undefined);
 
       if (res && res.result) {
         setBooking(res.result);
@@ -69,20 +110,6 @@ export const MyBookingsPage: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
-  };
-
-  // Tự động kích hoạt tìm kiếm nếu mã booking được truyền từ URL hoặc State (VD: chuyển từ PaymentResultPage)
-  useEffect(() => {
-    if (urlBookingNumber) {
-      setBookingNumber(urlBookingNumber);
-      if (urlPhone) setPhone(urlPhone);
-      void executeSearch(urlBookingNumber, urlPhone);
-    }
-  }, [urlBookingNumber, urlPhone]);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    void executeSearch(bookingNumber, phone);
   };
 
 
