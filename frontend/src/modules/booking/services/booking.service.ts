@@ -31,6 +31,11 @@ export const bookingService = {
   createPublicBooking: (data: BookingCreateRequest) =>
     apiClient.post<BookingResponse>('/api/v1/public/bookings', data),
 
+  getPublicBookingByNumber: (bookingNumber: string, phone?: string) =>
+    apiClient.get<BookingResponse>(
+      `/api/v1/public/bookings/${bookingNumber}${phone ? `?phone=${encodeURIComponent(phone.trim())}` : ''}`
+    ),
+
   filter: (params: BookingSearchDto) =>
     apiClient.post<PageResponse<BookingResponse>>(`${BASE_URL}/filter`, params),
 

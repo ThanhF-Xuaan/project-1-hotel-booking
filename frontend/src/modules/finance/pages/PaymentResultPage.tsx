@@ -366,7 +366,14 @@ export const PaymentResultPage: React.FC = () => {
             <Button
               variant="outline"
               className="w-full sm:flex-1 h-12 border-neutral-300 text-neutral-800 hover:bg-neutral-50 font-semibold rounded-xl"
-              onClick={() => navigate('/portal/my-bookings')}
+              onClick={() => {
+                const bNum = payment?.bookingNumber;
+                if (bNum) {
+                  navigate(`/portal/my-bookings?bookingNumber=${encodeURIComponent(bNum)}`);
+                } else {
+                  navigate('/portal/my-bookings');
+                }
+              }}
               leftIcon={<FileText className="w-5 h-5" />}
             >
               Tra Cứu Đơn Đặt Phòng

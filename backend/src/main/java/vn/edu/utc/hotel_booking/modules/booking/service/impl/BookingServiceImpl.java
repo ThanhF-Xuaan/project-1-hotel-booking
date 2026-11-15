@@ -577,6 +577,29 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
+    public BookingResponse getPublicBookingByNumber(String bookingNumber, String phone) {
+        Booking booking = bookingRepository.findByBookingNumber(bookingNumber)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + bookingNumber));
+
+        if (phone != null && !phone.isBlank()) {
+            String guestPhone = booking.getGuest() != null ? booking.getGuest().getPhone() : null;
+            if (guestPhone == null || !normalizePhone(guestPhone).equals(normalizePhone(phone))) {
+                throw new AppException(ErrorCode.BOOKING_NOT_FOUND, "Số điện thoại không khớp với thông tin đơn đặt phòng");
+            }
+        }
+        return bookingMapper.toResponse(booking);
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null) return "";
+        String clean = phone.replaceAll("[^0-9]", "");
+        if (clean.startsWith("84") && clean.length() > 2) {
+            clean = "0" + clean.substring(2);
+        }
+        return clean;
+    }
+
+    @Override
     @Transactional
     public BookingResponse updateStatus(Long id, BookingStatus status) {
         Booking booking = bookingRepository.findById(id)
