@@ -82,6 +82,10 @@ public class VnPayGateway implements PaymentGateway {
             throw new AppException(ErrorCode.GATEWAY_ERROR,
                     "Chưa cấu hình VNPay (VNPAY_TMN_ID / VNPAY_HASH_SECRET)");
         }
+        if (hashSecret.trim().length() < 32) {
+            log.warn("Cảnh báo: Khóa bí mật VNPay có độ dài {} ký tự (chuẩn VNPAY Sandbox/Prod là 32 ký tự), có thể gây lỗi sai chữ ký code=70",
+                    hashSecret.trim().length());
+        }
 
         LocalDateTime now = LocalDateTime.now(VN_TZ);
         Map<String, String> data = new LinkedHashMap<>();

@@ -258,6 +258,7 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         Payment payment = paymentRepository.findByGatewayTxnIdWithLock(result.getTxnRef())
+                .or(() -> paymentRepository.findByGatewayTxnId(result.getTxnRef()))
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND,
                         "Không tìm thấy giao dịch với mã đơn: " + result.getTxnRef()));
 

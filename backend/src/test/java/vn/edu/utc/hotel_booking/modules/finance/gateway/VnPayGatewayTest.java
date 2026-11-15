@@ -207,4 +207,32 @@ class VnPayGatewayTest {
         CallbackResult result = khongKey.verifyCallback(successData());
         assertThat(result.isValid()).isFalse();
     }
+
+    @Test
+    @DisplayName("Tạo payment URL với secret key chuẩn 32 ký tự của merchant YD0M5DI1")
+    void createPaymentUrl_WithMerchantSandboxKey_GeneratesValidHashAndParams() {
+        String merchantSecret = "VXEJFXMRNKKAJHNHXVBYMFNSHMXTSCFA";
+        assertThat(merchantSecret).hasSize(32);
+
+        VnPayGateway merchantGateway = new VnPayGateway(
+                "YD0M5DI1",
+                merchantSecret,
+                "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                "http://localhost:8080/api/v1/public/payments/vnpay/return");
+
+        String url = merchantGateway.createPaymentUrl(
+                "VNP20261115150000-9999", BigDecimal.valueOf(2494800),
+                "Thanh toan dat phong BK99999999", "127.0.0.1", "NCB");
+
+        assertThat(url)
+                .startsWith("https://sandbox.vnpayment.vn/paymentv2/vpcpay.html?")
+                .contains("vnp_TmnCode=YD0M5DI1")
+                .contains("vnp_BankCode=NCB")
+                .contains("vnp_Amount=249480000") // 2.494.800 VND × 100
+                .contains("vnp_SecureHash=");
+
+        // Trích xuất vnp_SecureHash và xác thực độ dài chuẩn SHA-512 (128 ký tự hex)
+        String secureHash = url.substring(url.indexOf("vnp_SecureHash=") + "vnp_SecureHash=".length());
+        assertThat(secureHash).hasSize(128);
+    }
 }
