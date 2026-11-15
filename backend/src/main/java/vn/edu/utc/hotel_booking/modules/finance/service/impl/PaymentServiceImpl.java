@@ -4,7 +4,9 @@ import jakarta.persistence.criteria.Predicate;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -30,6 +32,8 @@ import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
+import org.springframework.context.ApplicationEventPublisher;
+import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEvent;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -54,6 +58,9 @@ public class PaymentServiceImpl implements PaymentService {
     BookingRepository bookingRepository;
     FinanceMapper financeMapper;
     StringRedisTemplate redisTemplate;
+    @NonFinal
+    @Autowired(required = false)
+    ApplicationEventPublisher eventPublisher;
     /** Tất cả bean PaymentGateway (VnPayGateway, MoMoGateway) — Strategy Pattern */
     List<PaymentGateway> paymentGateways;
 
@@ -301,6 +308,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
             transactionRepository.save(transaction);
             updateInvoiceStatusIfSettled(saved.getBooking());
+            publishPaymentReceiptEmail(saved);
         } else {
             // Gateway báo thất bại (hủy/đủ hạn mức...) → FAILED để FE hiển thị thử lại
             payment.setStatus(PaymentStatus.FAILED);
@@ -411,9 +419,46 @@ public class PaymentServiceImpl implements PaymentService {
         if (saved.getBooking() != null) {
             updateInvoiceStatusIfSettled(saved.getBooking());
             releaseLock(saved.getBooking().getId());
+            publishPaymentReceiptEmail(saved);
         }
 
         return financeMapper.toResponse(saved);
+    }
+
+    private void publishPaymentReceiptEmail(Payment payment) {
+        if (eventPublisher == null || payment == null || payment.getBooking() == null) {
+            return;
+        }
+        Booking booking = payment.getBooking();
+        if (booking.getGuest() == null || booking.getGuest().getEmail() == null || booking.getGuest().getEmail().isBlank()) {
+            return;
+        }
+
+        try {
+            BigDecimal grandTotal = getGrandTotal(booking);
+            BigDecimal remainingBalance = getRemainingBalance(booking, grandTotal);
+            if (remainingBalance.compareTo(BigDecimal.ZERO) < 0) {
+                remainingBalance = BigDecimal.ZERO;
+            }
+
+            PaymentReceiptEmailEvent event = PaymentReceiptEmailEvent.builder()
+                    .paymentId(payment.getId())
+                    .bookingCode(booking.getBookingNumber())
+                    .recipientEmail(booking.getGuest().getEmail().trim())
+                    .customerName(booking.getGuest().getFullName())
+                    .hotelName(booking.getHotel() != null ? booking.getHotel().getName() : "SmartStay Hotel")
+                    .amount(payment.getTotalAmount())
+                    .paymentMethod(payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : "Thanh toán")
+                    .transactionReference(payment.getTransactionReference())
+                    .paidAt(payment.getPaidAt() != null ? payment.getPaidAt() : OffsetDateTime.now())
+                    .totalBookingAmount(grandTotal)
+                    .remainingBalance(remainingBalance)
+                    .currency("VND")
+                    .build();
+            eventPublisher.publishEvent(event);
+        } catch (Exception ex) {
+            log.error("Failed to publish PaymentReceiptEmailEvent for payment {}: {}", payment.getId(), ex.getMessage());
+        }
     }
 
     @Override

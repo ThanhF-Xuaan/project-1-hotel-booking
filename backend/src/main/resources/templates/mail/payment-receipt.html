@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biên lai thanh toán - SmartStay</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; line-height: 1.5; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f5f7fa; padding: 30px 0; }
+        .main-card { max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); border: 1px solid #e5e7eb; }
+        .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 32px 24px; text-align: center; color: #ffffff; }
+        .brand-badge { display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+        .header h1 { margin: 8px 0 4px; font-size: 22px; font-weight: 700; }
+        .header p { margin: 0; font-size: 13px; opacity: 0.9; }
+        .content { padding: 28px 24px; }
+        .paid-amount-box { background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; padding: 18px; text-align: center; margin-bottom: 24px; }
+        .paid-label { font-size: 12px; text-transform: uppercase; color: #065f46; font-weight: 700; letter-spacing: 0.5px; }
+        .paid-amount { font-size: 28px; font-weight: 800; color: #047857; margin-top: 4px; }
+        .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; color: #4b5563; letter-spacing: 0.5px; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px; margin: 24px 0 12px; }
+        .info-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .info-grid td { padding: 8px 0; font-size: 14px; vertical-align: top; }
+        .info-label { color: #6b7280; width: 40%; }
+        .info-value { color: #111827; font-weight: 600; text-align: right; }
+        .footer { background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="main-card">
+        <div class="header">
+            <div class="brand-badge">SMARTSTAY FINANCE</div>
+            <h1>Biên Lai Xác Nhận Thanh Toán</h1>
+            <p>Giao dịch thanh toán của quý khách đã được ghi nhận thành công</p>
+        </div>
+
+        <div class="content">
+            <p>Kính gửi quý khách <strong th:text="${customerName}">Nguyễn Văn An</strong>,</p>
+            <p style="font-size: 14px; color: #4b5563;">Hệ thống xác nhận đã nhận được khoản thanh toán cho đơn đặt phòng <strong th:text="${bookingCode}">BK-20261115-001</strong> với thông tin giao dịch như sau:</p>
+
+            <div class="paid-amount-box">
+                <div class="paid-label">Số Tiền Đã Thanh Toán</div>
+                <div class="paid-amount" th:text="${amountFormatted}">3,402,000 VND</div>
+            </div>
+
+            <div class="section-title">Chi Tiết Giao Dịch</div>
+            <table class="info-grid">
+                <tr>
+                    <td class="info-label">Mã đơn đặt phòng:</td>
+                    <td class="info-value" style="font-family: monospace; font-size: 15px;" th:text="${bookingCode}">BK-20261115-001</td>
+                </tr>
+                <tr>
+                    <td class="info-label">Phương thức:</td>
+                    <td class="info-value" th:text="${paymentMethod}">VNPay (Cổng thanh toán điện tử)</td>
+                </tr>
+                <tr th:if="${transactionRef}">
+                    <td class="info-label">Mã tham chiếu GD:</td>
+                    <td class="info-value" style="font-family: monospace;" th:text="${transactionRef}">VNP20261115120000</td>
+                </tr>
+                <tr>
+                    <td class="info-label">Thời gian thanh toán:</td>
+                    <td class="info-value" th:text="${paidAtFormatted}">15/11/2026 21:30:00</td>
+                </tr>
+                <tr>
+                    <td class="info-label">Tổng giá trị đơn hàng:</td>
+                    <td class="info-value" th:text="${totalBookingFormatted}">3,402,000 VND</td>
+                </tr>
+                <tr style="border-top: 1px dashed #e5e7eb;">
+                    <td class="info-label" style="padding-top: 10px; font-weight: 700;">Số dư còn lại:</td>
+                    <td class="info-value" style="padding-top: 10px; color: #059669; font-weight: 800;" th:text="${remainingBalanceFormatted}">0 VND (Đã hoàn tất)</td>
+                </tr>
+            </table>
+
+            <div style="margin-top: 24px; padding: 12px; background-color: #f0fdf4; border-radius: 8px; border-left: 4px solid #10b981; font-size: 12px; color: #065f46;">
+                Biên lai này có giá trị xác nhận quý khách đã hoàn thành nghĩa vụ thanh toán cho đơn đặt phòng tương ứng.
+            </div>
+        </div>
+
+        <div class="footer">
+            <p style="margin: 0 0 6px;">Hệ Thống Quản Lý Khách Sạn Thông Minh & Cố Vấn AI SmartStay</p>
+            <p style="margin: 0;">Trường Đại Học Giao Thông Vận Tải (UTC) &bull; Hotline hỗ trợ 24/7: 1900 8888</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
