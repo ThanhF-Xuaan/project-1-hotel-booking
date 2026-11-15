@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   TrendingUp,
@@ -6,7 +6,6 @@ import {
   DollarSign,
   Sparkles,
   RefreshCw,
-  ArrowUpRight,
   UserCheck,
   LogOut,
   Users,
@@ -22,39 +21,68 @@ import type {
 } from '../types/dashboard.types';
 
 export const ManagementDashboard: React.FC = () => {
-  const [hotelId, setHotelId] = useState<number>(1);
+  const [hotelId, setHotelId] = useState<number>(0);
+  const [hotels, setHotels] = useState<{ id: number; name: string }[]>([]);
+  const [hotelsReady, setHotelsReady] = useState(false);
+  const [hotelError, setHotelError] = useState('');
+  const [hotelRevision, setHotelRevision] = useState(0);
   const [targetDate, setTargetDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
+    new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())
   );
-  const [kpis, setKpis] = useState<DashboardKpiResponse | null>(null);
-  const [revenueTrends, setRevenueTrends] = useState<RevenueTrendDto[]>([]);
-  const [occupancyTrends, setOccupancyTrends] = useState<OccupancyTrendDto[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const fetchDashboardData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [kpiRes, revRes, occRes] = await Promise.all([
-        dashboardService.getExecutiveKpis(hotelId, targetDate),
-        dashboardService.getRevenueTrends(hotelId),
-        dashboardService.getOccupancyTrends(hotelId),
-      ]);
-      setKpis(kpiRes);
-      setRevenueTrends(revRes || []);
-      setOccupancyTrends(occRes || []);
-    } catch (err) {
-      console.error('Failed to load dashboard data:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [hotelId, targetDate]);
+  const [revision, setRevision] = useState(0);
+  const [loaded, setLoaded] = useState<{
+    key: string; kpis?: DashboardKpiResponse; revenue?: RevenueTrendDto[];
+    occupancy?: OccupancyTrendDto[]; errors: string[];
+  }>();
+  const key = JSON.stringify([hotelId, targetDate, revision]);
+  const current = loaded?.key === key ? loaded : undefined;
+  const kpis = current?.kpis;
+  const revenueTrends = current?.revenue ?? [];
+  const occupancyTrends = current?.occupancy ?? [];
+  const validDate = /^\d{4}-\d{2}-\d{2}$/.test(targetDate);
+  const isLoading = !!hotelId && validDate && !current;
+  const fetchDashboardData = () => setRevision(value => value + 1);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      void fetchDashboardData();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [fetchDashboardData]);
+    const controller = new AbortController();
+    void dashboardService.getHotels(controller.signal).then(options => {
+      if (controller.signal.aborted) return;
+      setHotels(options);
+      setHotelId(options[0]?.id ?? 0);
+      setHotelsReady(true);
+      setHotelError('');
+    }).catch(() => {
+      if (!controller.signal.aborted) {
+        setHotelsReady(true);
+        setHotelError('Không tải được danh sách khách sạn. Vui lòng thử lại.');
+      }
+    });
+    return () => controller.abort();
+  }, [hotelRevision]);
+
+  useEffect(() => {
+    if (!hotelId || !validDate) return;
+    let active = true;
+    const end = new Date(targetDate + 'T00:00:00Z');
+    end.setUTCDate(end.getUTCDate() - 6);
+    const startDate = end.toISOString().slice(0, 10);
+    void Promise.allSettled([
+      dashboardService.getExecutiveKpis(hotelId, targetDate),
+      dashboardService.getRevenueTrends(hotelId, startDate, targetDate),
+      dashboardService.getOccupancyTrends(hotelId, startDate, targetDate),
+    ]).then(([kpi, revenue, occupancy]) => {
+      if (!active) return;
+      setLoaded({ key,
+        kpis: kpi.status === 'fulfilled' ? kpi.value : undefined,
+        revenue: revenue.status === 'fulfilled' ? revenue.value : undefined,
+        occupancy: occupancy.status === 'fulfilled' ? occupancy.value : undefined,
+        errors: [kpi.status === 'rejected' ? 'chỉ số KPI' : '',
+          revenue.status === 'rejected' ? 'biểu đồ doanh thu' : '',
+          occupancy.status === 'rejected' ? 'biểu đồ lấp đầy' : ''].filter(Boolean),
+      });
+    });
+    return () => { active = false; };
+  }, [hotelId, targetDate, validDate, key]);
 
   const formatVND = (amount: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount || 0);
@@ -62,7 +90,7 @@ export const ManagementDashboard: React.FC = () => {
   const maxRevenue = Math.max(...revenueTrends.map((r) => r.totalRevenue), 1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-busy={!hotelsReady || isLoading}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -80,11 +108,9 @@ export const ManagementDashboard: React.FC = () => {
             <Select<number>
               value={hotelId}
               onChange={(val) => setHotelId(Number(val))}
-              options={[
-                { value: 1, label: 'Khách sạn Grand Hà Nội' },
-                { value: 2, label: 'Khách sạn Premier Đà Nẵng' },
-                { value: 3, label: 'Khách sạn Boutique Sài Gòn' },
-              ]}
+              options={hotels.map(hotel => ({ value: hotel.id, label: hotel.name }))}
+              disabled={!hotelsReady || !!hotelError || hotels.length === 0}
+              placeholder="Chọn khách sạn"
               size="md"
             />
           </div>
@@ -92,6 +118,7 @@ export const ManagementDashboard: React.FC = () => {
           <div className="w-44">
             <Input
               type="date"
+              aria-label="Ngày báo cáo"
               value={targetDate}
               onChange={(e) => setTargetDate(e.target.value)}
               className="h-11"
@@ -101,7 +128,7 @@ export const ManagementDashboard: React.FC = () => {
           <Button
             variant="secondary"
             onClick={fetchDashboardData}
-            disabled={isLoading}
+            disabled={isLoading || !hotelId || !validDate}
             className="h-11 flex items-center gap-1.5 text-xs"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-red-600' : ''}`} />
@@ -110,7 +137,15 @@ export const ManagementDashboard: React.FC = () => {
         </div>
       </div>
 
+      {!hotelsReady && <p role="status">Đang tải danh sách khách sạn…</p>}
+      {hotelError && <div role="alert">{hotelError} <Button onClick={() => setHotelRevision(v => v + 1)}>Thử lại</Button></div>}
+      {hotelsReady && !hotelError && hotels.length === 0 && <p role="status">Chưa có khách sạn trong phạm vi truy cập.</p>}
+      {isLoading && <p role="status">Đang tải dữ liệu dashboard…</p>}
+      {!validDate && <p role="alert">Vui lòng chọn ngày báo cáo hợp lệ.</p>}
+      {!!current?.errors.length && <p role="alert">Không tải được {current.errors.join(', ')}. Nhấn Làm mới để thử lại.</p>}
+
       {/* 4 Core KPI Metric Cards */}
+      {kpis && <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* OCC */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs hover:border-red-300 transition-all">
@@ -119,10 +154,6 @@ export const ManagementDashboard: React.FC = () => {
               <Percent className="w-4 h-4 text-red-600" />
               Tỷ Lệ Lấp Đầy (OCC)
             </div>
-            <span className="text-xs font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full flex items-center gap-0.5">
-              <ArrowUpRight className="w-3 h-3" />
-              Tốt
-            </span>
           </div>
           <div className="text-3xl font-extrabold text-neutral-900 mt-3">
             {kpis?.occupancyRate ?? 0}%
@@ -187,7 +218,7 @@ export const ManagementDashboard: React.FC = () => {
               Tổng Doanh Thu Ngày
             </div>
             <span className="text-xs font-bold px-2 py-0.5 bg-red-600 text-white rounded-full">
-              Hôm nay
+              {targetDate.split('-').reverse().join('/')}
             </span>
           </div>
           <div className="text-2xl font-extrabold text-red-600 mt-3">
@@ -245,7 +276,10 @@ export const ManagementDashboard: React.FC = () => {
         </div>
       </div>
 
+      </>}
+
       {/* Visual Analytics / Trend Charts */}
+      {current && <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* 7-Day Revenue Trend Chart */}
         <div className="bg-white p-5 rounded-2xl border border-neutral-200 shadow-xs space-y-4">
@@ -266,7 +300,7 @@ export const ManagementDashboard: React.FC = () => {
 
           <div className="pt-6 h-64 flex items-end gap-3 justify-between border-b border-neutral-200 pb-2">
             {revenueTrends.map((t) => {
-              const heightPct = Math.max(10, Math.round((t.totalRevenue / maxRevenue) * 100));
+              const heightPct = Math.max(0, Math.round((t.totalRevenue / maxRevenue) * 100));
               const roomPct = t.totalRevenue > 0 ? (t.roomRevenue / t.totalRevenue) * 100 : 100;
 
               return (
@@ -301,7 +335,7 @@ export const ManagementDashboard: React.FC = () => {
 
           <div className="pt-6 h-64 flex items-end gap-3 justify-between border-b border-neutral-200 pb-2">
             {occupancyTrends.map((t) => {
-              const occ = Math.min(100, Math.max(8, t.occupancyRate));
+              const occ = Math.min(100, Math.max(0, t.occupancyRate));
 
               return (
                 <div key={t.date} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
@@ -321,6 +355,9 @@ export const ManagementDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      {current.revenue?.length === 0 && <p>Chưa có dữ liệu xu hướng doanh thu trong khoảng ngày đã chọn.</p>}
+      {current.occupancy?.length === 0 && <p>Chưa có dữ liệu xu hướng lấp đầy trong khoảng ngày đã chọn.</p>}
+      </>}
     </div>
   );
 };
