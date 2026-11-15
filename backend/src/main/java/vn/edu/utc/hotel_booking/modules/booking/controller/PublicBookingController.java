@@ -31,8 +31,11 @@ public class PublicBookingController {
 
     @GetMapping("/{bookingNumber}")
     @Operation(summary = "Tra cứu thông tin đơn đặt phòng bằng mã booking")
-    public ApiResponse<BookingResponse> getBookingByNumber(@PathVariable String bookingNumber) {
-        return ApiResponse.success(bookingService.getByBookingNumber(bookingNumber));
+    public ApiResponse<BookingResponse> getBookingByNumber(
+            @PathVariable String bookingNumber,
+            @RequestParam(required = false) String phone
+    ) {
+        return ApiResponse.success(bookingService.getPublicBookingByNumber(bookingNumber, phone));
     }
 
     @GetMapping("/{bookingNumber}/cancel-preview")

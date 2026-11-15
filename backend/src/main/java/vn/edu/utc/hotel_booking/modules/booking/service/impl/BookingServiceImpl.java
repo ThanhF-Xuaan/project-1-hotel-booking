@@ -179,7 +179,39 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest request) {
         Hotel hotel = hotelService.getEntityById(request.getHotelId());
-        BookingGuest guest = guestService.getEntityById(request.getGuestId());
+        
+        BookingGuest guest = null;
+        if (request.getGuestId() != null) {
+            guest = guestService.getEntityById(request.getGuestId());
+        } else if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
+            guest = guestService.getOrCreateGuest(
+                    request.getCustomerPhone(),
+                    request.getCustomerName() != null ? request.getCustomerName() : "Khách đặt Online",
+                    request.getCustomerEmail(),
+                    request.getCustomerNationality() != null ? request.getCustomerNationality() : "VN"
+            );
+            if (request.getCustomerIdentityNumber() != null && !request.getCustomerIdentityNumber().isBlank()
+                    && (guest.getIdentityNumber() == null || guest.getIdentityNumber().isBlank())) {
+                guest.setIdentityNumber(request.getCustomerIdentityNumber().trim());
+            }
+            if (guest.getIdentityType() == null || guest.getIdentityType().isBlank()) {
+                if (request.getCustomerIdentityType() != null && !request.getCustomerIdentityType().isBlank()) {
+                    guest.setIdentityType(request.getCustomerIdentityType().trim());
+                } else if (guest.getIdentityNumber() != null && !guest.getIdentityNumber().isBlank()) {
+                    String idNum = guest.getIdentityNumber().trim();
+                    if (idNum.matches("^\\d{12}$")) {
+                        guest.setIdentityType("CCCD");
+                    } else if (idNum.matches("^[A-Za-z0-9]{7,9}$")) {
+                        guest.setIdentityType("PASSPORT");
+                    } else if (idNum.matches("^\\d{9}$")) {
+                        guest.setIdentityType("CMND");
+                    }
+                }
+            }
+        } else if (request.getCompanyId() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Thiếu thông tin người đặt phòng (guestId hoặc customerPhone)");
+        }
 
         Company company = null;
         if (request.getCompanyId() != null) {
@@ -542,6 +574,29 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingRepository.findByBookingNumber(bookingNumber)
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + bookingNumber));
         return bookingMapper.toResponse(booking);
+    }
+
+    @Override
+    public BookingResponse getPublicBookingByNumber(String bookingNumber, String phone) {
+        Booking booking = bookingRepository.findByBookingNumber(bookingNumber)
+                .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND, "Không tìm thấy đơn đặt phòng: " + bookingNumber));
+
+        if (phone != null && !phone.isBlank()) {
+            String guestPhone = booking.getGuest() != null ? booking.getGuest().getPhone() : null;
+            if (guestPhone == null || !normalizePhone(guestPhone).equals(normalizePhone(phone))) {
+                throw new AppException(ErrorCode.BOOKING_NOT_FOUND, "Số điện thoại không khớp với thông tin đơn đặt phòng");
+            }
+        }
+        return bookingMapper.toResponse(booking);
+    }
+
+    private String normalizePhone(String phone) {
+        if (phone == null) return "";
+        String clean = phone.replaceAll("[^0-9]", "");
+        if (clean.startsWith("84") && clean.length() > 2) {
+            clean = "0" + clean.substring(2);
+        }
+        return clean;
     }
 
     @Override

@@ -52,6 +52,11 @@ const HONORIFIC_OPTIONS = [
   { value: 'Chị', label: 'Chị' },
 ];
 
+const IDENTITY_TYPE_OPTIONS = [
+  { value: 'CCCD', label: 'Căn cước công dân (CCCD)' },
+  { value: 'PASSPORT', label: 'Hộ chiếu (Passport)' },
+];
+
 const COUNTRY_OPTIONS = [
   { value: 'Việt Nam', label: 'Việt Nam' },
   { value: 'United States', label: 'United States' },
@@ -97,6 +102,7 @@ export const CheckoutPage: React.FC = () => {
   const [confirmEmail, setConfirmEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [country, setCountry] = useState<string>('Việt Nam');
+  const [identityType, setIdentityType] = useState<'CCCD' | 'PASSPORT'>('CCCD');
   const [identityNumber, setIdentityNumber] = useState('');
   const [specialRequest, setSpecialRequest] = useState('');
 
@@ -384,7 +390,7 @@ export const CheckoutPage: React.FC = () => {
   // Tạo phiên thanh toán VNPay cho booking vừa tạo → redirect ra cổng (tree T06: gọi API thật + redirect)
   const handlePayWithGateway = async (bookingId: number): Promise<boolean> => {
     try {
-      const res = await financeService.createVnPayPayment({ bookingId, method: 'VNPAY', bankCode: 'NCB' });
+      const res = await financeService.createPublicVnPayPayment({ bookingId, method: 'VNPAY', bankCode: 'NCB' });
       if (res.result) {
         setPendingGatewayBookingId(null);
         setGatewayError(null);
@@ -552,6 +558,21 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (!identityNumber.trim()) {
+      alert('Vui lòng nhập số giấy tờ tùy thân (CCCD / Hộ chiếu)!');
+      return;
+    }
+
+    if (identityType === 'CCCD' && !/^\d{12}$/.test(identityNumber.trim())) {
+      alert('Số CCCD không đúng định dạng. Căn cước công dân phải gồm đúng 12 chữ số!');
+      return;
+    }
+
+    if (identityType === 'PASSPORT' && !/^[A-Z0-9]{7,9}$/i.test(identityNumber.trim())) {
+      alert('Số hộ chiếu (Passport) không đúng định dạng (7-9 ký tự chữ và số)!');
+      return;
+    }
+
     // Xây dựng danh sách phòng đặt: hỗ trợ cả giỏ hàng đa phòng
     const roomsPayload =
       selectedCartItems.length > 0
@@ -571,6 +592,7 @@ export const CheckoutPage: React.FC = () => {
                   firstName: firstName.trim(),
                   lastName: lastName.trim(),
                   fullName: `${lastName.trim()} ${firstName.trim()}`,
+                  identityType: identityType,
                   identityNumber: identityNumber.trim(),
                 },
               ],
@@ -591,6 +613,7 @@ export const CheckoutPage: React.FC = () => {
                   firstName: firstName.trim(),
                   lastName: lastName.trim(),
                   fullName: `${lastName.trim()} ${firstName.trim()}`,
+                  identityType: identityType,
                   identityNumber: identityNumber.trim(),
                 },
               ],
@@ -598,10 +621,16 @@ export const CheckoutPage: React.FC = () => {
           ];
 
     setIsSubmitting(true);
+    let shouldKeepSubmitting = false;
     try {
-      const res = await bookingService.create({
+      const res = await bookingService.createPublicBooking({
         hotelId: effectiveHotelId,
-        guestId: 1, // Default guest ID
+        customerName: `${lastName.trim()} ${firstName.trim()}`,
+        customerPhone: phone.trim(),
+        customerEmail: email.trim(),
+        customerNationality: country,
+        customerIdentityType: identityType,
+        customerIdentityNumber: identityNumber.trim() || undefined,
         sessionId: sessionId || undefined,
         bookingType: 'FIT',
         serviceFeeRate: 5,
@@ -611,23 +640,32 @@ export const CheckoutPage: React.FC = () => {
       });
 
       if (res && res.result) {
+        // VNPAY: phương thức bắt buộc thanh toán trực tuyến qua cổng
+        if (paymentMethod === 'VNPAY') {
+          const redirected = await handlePayWithGateway(res.result.id);
+          if (redirected) {
+            shouldKeepSubmitting = true;
+            return;
+          }
+          // Tạo phiên thất bại: modal lỗi đã được kích hoạt, không set bookingConfirmed
+          return;
+        }
+
+        // Chỉ dành cho phương thức không cần thanh toán online ngay (nếu có sau này)
         setBookingConfirmed({
           id: res.result.id,
           bookingNumber: res.result.bookingNumber,
           totalAmount: displayGrandTotal,
         });
-
-        // VNPAY: gọi API tạo phiên thanh toán thật + redirect sang ngân hàng
-        if (paymentMethod === 'VNPAY') {
-          await handlePayWithGateway(res.result.id);
-        }
       }
     } catch (err: unknown) {
       console.error('Booking submission failed:', err);
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
       alert(axiosErr.response?.data?.message || axiosErr.message || 'Không thể tạo đơn đặt phòng. Vui lòng thử lại!');
     } finally {
-      setIsSubmitting(false);
+      if (!shouldKeepSubmitting) {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -874,17 +912,38 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Hàng 4: Số CCCD / Hộ chiếu */}
-              <div>
-                <label className="block text-xs font-medium text-neutral-700 mb-1">
-                  Số CCCD / Hộ chiếu (Passport)
-                </label>
-                <Input
-                  value={identityNumber}
-                  onChange={(e) => setIdentityNumber(e.target.value)}
-                  placeholder="VD: 001201000123"
-                  className="h-11"
-                />
+              {/* Hàng 4: Loại giấy tờ & Số CCCD / Hộ chiếu (Bắt buộc theo chuẩn lưu trú) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Loại giấy tờ <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    options={IDENTITY_TYPE_OPTIONS}
+                    value={identityType}
+                    onChange={(val) => setIdentityType(val as 'CCCD' | 'PASSPORT')}
+                    className="w-full h-11"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Số {identityType === 'CCCD' ? 'Căn cước công dân (12 số)' : 'Hộ chiếu (Passport)'} <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    value={identityNumber}
+                    onChange={(e) => setIdentityNumber(e.target.value)}
+                    placeholder={identityType === 'CCCD' ? 'VD: 001201000123' : 'VD: B9876543'}
+                    error={
+                      identityNumber && identityType === 'CCCD' && !/^\d{12}$/.test(identityNumber.trim())
+                        ? 'CCCD phải gồm đúng 12 chữ số'
+                        : identityNumber && identityType === 'PASSPORT' && !/^[A-Z0-9]{7,9}$/i.test(identityNumber.trim())
+                        ? 'Hộ chiếu gồm 7-9 ký tự chữ và số'
+                        : undefined
+                    }
+                    required
+                    className="h-11"
+                  />
+                </div>
               </div>
 
               {/* Hàng 5: Yêu cầu thêm */}

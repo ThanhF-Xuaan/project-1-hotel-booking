@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   Search,
   Calendar,
@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
+import { getApiErrorMessage } from '../../../core/api/error';
 import { CancelBookingModal } from '../../booking/components/CancelBookingModal';
 import { bookingService } from '../../booking/services/booking.service';
 import type { BookingResponse } from '../../booking/types/booking.types';
@@ -20,19 +21,70 @@ import type { BookingResponse } from '../../booking/types/booking.types';
 export const MyBookingsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const isAdmin = location.pathname.startsWith('/booking') || location.pathname.startsWith('/admin');
 
-  const [bookingNumber, setBookingNumber] = useState('');
-  const [phone, setPhone] = useState('');
+  const urlBookingNumber =
+    searchParams.get('bookingNumber') ||
+    (location.state as { bookingNumber?: string })?.bookingNumber ||
+    '';
+  const urlPhone =
+    searchParams.get('phone') ||
+    (location.state as { phone?: string })?.phone ||
+    '';
+
+  const [bookingNumber, setBookingNumber] = useState(urlBookingNumber);
+  const [phone, setPhone] = useState(urlPhone);
   const [booking, setBooking] = useState<BookingResponse | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isSearching, setIsSearching] = useState(Boolean(urlBookingNumber));
   const [searchError, setSearchError] = useState('');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState(false);
 
+  // Tự động tải đơn đặt phòng khi có mã từ URL (VD: chuyển từ PaymentResultPage)
+  useEffect(() => {
+    if (!urlBookingNumber) return;
+
+    let active = true;
+
+    const fetchInitialBooking = async () => {
+      try {
+        const cleanNumber = urlBookingNumber.trim();
+        const res = isAdmin
+          ? await bookingService.getByNumber(cleanNumber)
+          : await bookingService.getPublicBookingByNumber(cleanNumber, urlPhone.trim() || undefined);
+
+        if (!active) return;
+        if (res && res.result) {
+          setBooking(res.result);
+        } else {
+          setSearchError('Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.');
+        }
+      } catch (err: unknown) {
+        if (!active) return;
+        const errInfo = getApiErrorMessage(
+          err,
+          'Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.'
+        );
+        setSearchError(errInfo.message);
+      } finally {
+        if (active) {
+          setIsSearching(false);
+        }
+      }
+    };
+
+    void fetchInitialBooking();
+
+    return () => {
+      active = false;
+    };
+  }, [urlBookingNumber, urlPhone, isAdmin]);
+
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bookingNumber.trim()) return;
+    const cleanNumber = bookingNumber.trim();
+    if (!cleanNumber) return;
 
     setIsSearching(true);
     setSearchError('');
@@ -40,14 +92,21 @@ export const MyBookingsPage: React.FC = () => {
     setCancelSuccess(false);
 
     try {
-      const res = await bookingService.getByNumber(bookingNumber.trim());
+      const res = isAdmin
+        ? await bookingService.getByNumber(cleanNumber)
+        : await bookingService.getPublicBookingByNumber(cleanNumber, phone.trim() || undefined);
+
       if (res && res.result) {
         setBooking(res.result);
       } else {
         setSearchError('Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.');
       }
-    } catch {
-      setSearchError('Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.');
+    } catch (err: unknown) {
+      const errInfo = getApiErrorMessage(
+        err,
+        'Không tìm thấy thông tin đơn đặt phòng. Vui lòng kiểm tra lại mã booking.'
+      );
+      setSearchError(errInfo.message);
     } finally {
       setIsSearching(false);
     }

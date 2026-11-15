@@ -9,11 +9,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
+import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
+import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 
 import java.net.URI;
@@ -141,5 +146,34 @@ public class PaymentCallbackController {
             }
             throw e;
         }
+    }
+
+    @PostMapping("/vnpay/create")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Tạo phiên thanh toán VNPay công khai cho khách đặt phòng online")
+    public ApiResponse<PaymentUrlResponse> createPublicVnPayPayment(
+            @Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
+        return ApiResponse.success("Tạo phiên thanh toán VNPay thành công",
+                paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
+    }
+
+    @GetMapping("/{id}/status")
+    @Operation(summary = "Tra cứu trạng thái thanh toán công khai cho khách vãng lai")
+    public ApiResponse<PaymentResponse> getPublicPaymentStatus(@PathVariable Long id) {
+        return ApiResponse.success(paymentService.getById(id));
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String ip = null;
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            ip = forwarded.split(",")[0].trim();
+        } else {
+            ip = request.getRemoteAddr();
+        }
+        if (ip == null || "0:0:0:0:0:0:0:1".equals(ip) || "::1".equals(ip) || "localhost".equalsIgnoreCase(ip)) {
+            return "127.0.0.1";
+        }
+        return ip;
     }
 }

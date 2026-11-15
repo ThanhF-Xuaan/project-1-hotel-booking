@@ -30,6 +30,8 @@ public interface BookingService {
 
     BookingResponse getByBookingNumber(String bookingNumber);
 
+    BookingResponse getPublicBookingByNumber(String bookingNumber, String phone);
+
     BookingResponse updateStatus(Long id, BookingStatus status);
 
     BookingResponse assignRoom(Long bookingRoomId, Integer roomInstanceId);
