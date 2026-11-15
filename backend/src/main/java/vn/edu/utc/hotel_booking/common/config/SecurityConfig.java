@@ -45,8 +45,13 @@ public class SecurityConfig {
                         // Cho phép truy cập tài liệu API (Swagger UI / OpenAPI)
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
 
-                        // Mở các API công khai không cần đăng nhập (vd: xem phòng trống, danh mục)
-                        .requestMatchers("/api/public/**", "/api/v1/public/**").permitAll()
+                        // Mở các API công khai không cần đăng nhập (vd: xem phòng trống, danh mục, webhook thanh toán)
+                        .requestMatchers(
+                                "/api/public/**",
+                                "/api/v1/public/**",
+                                "/api/v1/payments/vnpay-return",
+                                "/api/v1/payments/vnpay/**"
+                        ).permitAll()
 
                         // OCR giấy tờ chỉ dành cho nhân viên có vai trò tiếp nhận khách.
                         .requestMatchers("/api/v1/ai/ocr/**")
@@ -68,6 +73,7 @@ public class SecurityConfig {
                         String uri = request.getRequestURI();
                         // Với API công khai hoặc tài liệu Swagger, bỏ qua việc trích xuất token để tránh bị BearerTokenAuthenticationFilter chặn 401 khi token rác hoặc hết hạn
                         if (uri.startsWith("/api/v1/public/") || uri.startsWith("/api/public/")
+                                || uri.startsWith("/api/v1/payments/vnpay")
                                 || uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs")) {
                             return null;
                         }
