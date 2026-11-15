@@ -444,7 +444,7 @@ const OcrIdentityScannerModalContent: React.FC<OcrIdentityScannerModalProps> = (
                 {/* Ngày sinh */}
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Ngày sinh (YYYY-MM-DD)
+                    Ngày sinh (MM-DD-YYYY)
                   </label>
                   <Input
                     type="date"
