@@ -72,24 +72,44 @@ export const RoomSwapModal: React.FC<RoomSwapModalProps> = ({
       setIsLoadingRooms(true);
       setSubmitError(null);
 
+      const checkInDate = effectiveDate || new Date().toISOString().split('T')[0];
+      const checkOutDate = target.checkOutDate;
+
+      if (!target.hotelId || !checkOutDate) {
+        setIsLoadingRooms(false);
+        return;
+      }
+
       roomInstanceService
-        .filter({
+        .getAvailableRoomsForAssignment({
           hotelId: target.hotelId,
-          currentStatus: 'READY',
-          pageSize: 100,
+          checkInDate,
+          checkOutDate,
+          excludeBookingRoomId: target.bookingRoomId,
         })
         .then((res) => {
           if (res.result) {
-            // Exclude current room
-            const rooms = (res.result.content || []).filter(
-              (r) => r.id !== target.currentRoomInstanceId
-            );
+            // Exclude current room and keep only available rooms for the stay
+            const rooms = (res.result || [])
+              .filter((r) => r.id !== target.currentRoomInstanceId && r.isAvailable)
+              .map((r) => ({
+                id: r.id,
+                roomNumber: r.roomNumber,
+                hotelRoomTypeId: r.hotelRoomTypeId,
+                roomTypeName: r.roomTypeName,
+                roomTypeCode: r.roomTypeCode,
+                hotelId: r.hotelId,
+                hotelName: r.hotelName,
+                currentStatus: (r.currentStatus || 'READY') as 'READY' | 'OCCUPIED' | 'CLEANING' | 'MAINTENANCE',
+                createdAt: '',
+                updatedAt: '',
+              }));
             setAvailableRooms(rooms);
           }
         })
         .catch((err) => {
           console.error('Lỗi tải danh sách phòng trống:', err);
-          setSubmitError('Không thể tải danh sách phòng trống khả dụng.');
+          setSubmitError('Không thể tải danh sách phòng trống khả dụng theo lịch đổi phòng.');
         })
         .finally(() => {
           setIsLoadingRooms(false);
@@ -97,7 +117,7 @@ export const RoomSwapModal: React.FC<RoomSwapModalProps> = ({
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [isOpen, target]);
+  }, [isOpen, target, effectiveDate]);
 
   // Unique room types from available rooms
   const roomTypeOptions = useMemo(() => {

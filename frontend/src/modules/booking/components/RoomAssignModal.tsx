@@ -9,12 +9,14 @@ import {
   DoorClosed,
   Check,
   Building,
+  Ban,
+  Clock,
 } from 'lucide-react';
 import { Modal } from '../../../core/components/ui/Modal';
 import { Button } from '../../../core/components/ui/Button';
 import roomInstanceService from '../../inventory/services/roomInstance.service';
 import bookingService from '../services/booking.service';
-import type { RoomInstanceDto } from '../../inventory/types/inventory.types';
+import type { RoomAssignmentCandidateDto } from '../../inventory/types/inventory.types';
 
 export interface RoomAssignTarget {
   bookingId: number;
@@ -42,23 +44,23 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
   target,
   onSuccess,
 }) => {
-  const [rooms, setRooms] = useState<RoomInstanceDto[]>([]);
+  const [rooms, setRooms] = useState<RoomAssignmentCandidateDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<number | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'READY' | 'CLEANING'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'AVAILABLE' | 'UNAVAILABLE'>('ALL');
   const [onlyMatchingType, setOnlyMatchingType] = useState(true);
 
   const [isAssigning, setIsAssigning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Load physical rooms when modal opens
+  // Load candidate rooms based on stay dates and RoomSlot sparse data
   useEffect(() => {
     let active = true;
 
-    if (!isOpen || !target?.hotelId) {
+    if (!isOpen || !target?.hotelId || !target?.checkInDate || !target?.checkOutDate) {
       return;
     }
 
@@ -71,19 +73,22 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
       setOnlyMatchingType(Boolean(target.hotelRoomTypeId));
 
       roomInstanceService
-        .filter({
+        .getAvailableRoomsForAssignment({
           hotelId: target.hotelId,
-          pageSize: 150,
+          checkInDate: target.checkInDate!,
+          checkOutDate: target.checkOutDate!,
+          targetHotelRoomTypeId: target.hotelRoomTypeId,
+          excludeBookingRoomId: target.bookingRoomId,
         })
         .then((res) => {
           if (active && res.result) {
-            setRooms(res.result.content || []);
+            setRooms(res.result || []);
           }
         })
         .catch((err) => {
           if (active) {
-            console.error('Lỗi tải danh sách phòng vật lý:', err);
-            setErrorMessage('Không thể tải danh sách phòng. Vui lòng thử lại.');
+            console.error('Lỗi tải danh sách phòng khả dụng (RoomSlot):', err);
+            setErrorMessage('Không thể tải danh sách phòng khả dụng theo lịch lưu trú. Vui lòng thử lại.');
           }
         })
         .finally(() => {
@@ -108,14 +113,17 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
         if (!matchNumber && !matchType) return false;
       }
 
-      // 2. Lọc theo trạng thái
-      if (statusFilter !== 'ALL' && room.currentStatus !== statusFilter) {
+      // 2. Lọc theo tính khả dụng (RoomSlot Sparse Data)
+      if (statusFilter === 'AVAILABLE' && !room.isAvailable) {
+        return false;
+      }
+      if (statusFilter === 'UNAVAILABLE' && room.isAvailable) {
         return false;
       }
 
       // 3. Lọc theo đúng hạng phòng đã đặt
       if (onlyMatchingType && target?.hotelRoomTypeId) {
-        if (room.hotelRoomTypeId !== target.hotelRoomTypeId) {
+        if (!room.isSameRoomType) {
           return false;
         }
       }
@@ -128,8 +136,16 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
     return rooms.find((r) => r.id === selectedRoomId) || null;
   }, [rooms, selectedRoomId]);
 
+  const availableCount = useMemo(() => rooms.filter((r) => r.isAvailable).length, [rooms]);
+  const busyCount = useMemo(() => rooms.filter((r) => !r.isAvailable).length, [rooms]);
+
   const handleConfirm = async () => {
     if (!target || !selectedRoomId || !selectedRoom) return;
+
+    if (!selectedRoom.isAvailable) {
+      setErrorMessage(`Phòng ${selectedRoom.roomNumber} không khả dụng: ${selectedRoom.conflictReason || 'Trùng lịch'}`);
+      return;
+    }
 
     setIsAssigning(true);
     setErrorMessage(null);
@@ -162,10 +178,15 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
       <div className="space-y-5">
         {/* CONTEXT BANNER */}
         <div className="bg-neutral-50/80 border border-neutral-200/90 rounded-2xl p-4 shadow-2xs">
-          <div className="flex items-center gap-2 mb-2.5">
-            <span className="w-2 h-2 rounded-full bg-red-600"></span>
-            <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
-              Thông tin lượt lưu trú cần gán phòng
+          <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-600"></span>
+              <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+                Thông tin lượt lưu trú cần gán phòng
+              </span>
+            </div>
+            <span className="text-[11px] font-semibold text-neutral-400 bg-neutral-200/60 px-2 py-0.5 rounded-md">
+              Kiểm tra theo RoomSlot (Sparse Data)
             </span>
           </div>
 
@@ -199,7 +220,7 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
             <div>
               <span className="text-xs text-neutral-500 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-neutral-400" />
-                Thời gian lưu trú
+                Dải ngày lưu trú
               </span>
               <p className="font-medium text-neutral-800 text-xs mt-1">
                 {target.checkInDate} <span className="text-neutral-400">➔</span> {target.checkOutDate}
@@ -242,31 +263,31 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
                     : 'text-neutral-600 hover:text-neutral-900'
                 }`}
               >
-                Tất cả
+                Tất cả ({rooms.length})
               </button>
               <button
                 type="button"
-                onClick={() => setStatusFilter('READY')}
+                onClick={() => setStatusFilter('AVAILABLE')}
                 className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 ${
-                  statusFilter === 'READY'
+                  statusFilter === 'AVAILABLE'
                     ? 'bg-white text-emerald-700 shadow-2xs font-semibold'
                     : 'text-neutral-600 hover:text-emerald-700'
                 }`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                Sẵn sàng
+                Sẵn sàng ({availableCount})
               </button>
               <button
                 type="button"
-                onClick={() => setStatusFilter('CLEANING')}
+                onClick={() => setStatusFilter('UNAVAILABLE')}
                 className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer flex items-center gap-1 ${
-                  statusFilter === 'CLEANING'
-                    ? 'bg-white text-amber-700 shadow-2xs font-semibold'
-                    : 'text-neutral-600 hover:text-amber-700'
+                  statusFilter === 'UNAVAILABLE'
+                    ? 'bg-white text-neutral-700 shadow-2xs font-semibold'
+                    : 'text-neutral-600 hover:text-neutral-800'
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                Đang dọn
+                <span className="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                Đã bận ({busyCount})
               </button>
             </div>
 
@@ -288,18 +309,19 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
         <div>
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-neutral-600">
-              Chọn phòng vật lý sẵn sàng (Tìm thấy {filteredRooms.length} phòng):
+              Chọn phòng vật lý khả dụng (Tìm thấy {filteredRooms.length} phòng):
             </span>
             {selectedRoom && (
               <span className="text-xs font-bold text-red-600 flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" /> Đã chọn: Phòng {selectedRoom.roomNumber}
+                <Check className="w-3.5 h-3.5" /> Đã chọn: Phòng {selectedRoom.roomNumber} ({selectedRoom.roomTypeName})
               </span>
             )}
           </div>
 
           {isLoading ? (
             <div className="py-12 text-center text-neutral-400 text-xs">
-              Đang tải danh sách phòng vật lý...
+              <Clock className="w-6 h-6 animate-spin mx-auto mb-2 text-neutral-300" />
+              Đang phân tích khả dụng theo dải ngày lưu trú (RoomSlot Sparse Data)...
             </div>
           ) : filteredRooms.length === 0 ? (
             <div className="py-10 text-center bg-neutral-50 rounded-2xl border border-dashed border-neutral-300">
@@ -313,7 +335,7 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
                   onClick={() => setOnlyMatchingType(false)}
                   className="mt-2 text-xs text-red-600 hover:underline font-semibold"
                 >
-                  Bỏ chọn 'Cùng hạng phòng' để xem các phòng khác
+                  Bỏ chọn 'Cùng hạng phòng' để xem các phòng hạng khác
                 </button>
               )}
             </div>
@@ -321,67 +343,63 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto p-1 scrollbar-thin">
               {filteredRooms.map((room) => {
                 const isSelected = selectedRoomId === room.id;
-                const isReady = room.currentStatus === 'READY';
-                const isCleaning = room.currentStatus === 'CLEANING';
-                const isOccupied = room.currentStatus === 'OCCUPIED';
-                const isMaintenance = room.currentStatus === 'MAINTENANCE';
-                const isBlocked = isOccupied || isMaintenance;
+                const isAvailable = room.isAvailable;
 
                 return (
                   <button
                     key={room.id}
                     type="button"
-                    disabled={isBlocked}
+                    disabled={!isAvailable}
                     onClick={() => setSelectedRoomId(room.id)}
-                    className={`relative p-3 rounded-xl border text-left transition-all cursor-pointer select-none flex flex-col justify-between min-h-[92px] ${
+                    className={`relative p-3 rounded-xl border text-left transition-all select-none flex flex-col justify-between min-h-[96px] ${
                       isSelected
-                        ? 'border-red-600 bg-red-50/60 ring-2 ring-red-600 shadow-xs'
-                        : isBlocked
-                        ? 'border-neutral-200 bg-neutral-100/60 opacity-60 cursor-not-allowed'
-                        : 'border-neutral-200 bg-white hover:border-neutral-300 hover:bg-neutral-50/70 shadow-2xs'
+                        ? 'border-red-600 bg-red-50/60 ring-2 ring-red-600 shadow-xs cursor-pointer'
+                        : !isAvailable
+                        ? 'border-neutral-200 bg-neutral-100/70 opacity-60 cursor-not-allowed'
+                        : 'border-neutral-200 bg-white hover:border-emerald-300 hover:bg-neutral-50/70 hover:shadow-2xs cursor-pointer'
                     }`}
                   >
-                    {/* Header: Room Number + Check Icon */}
+                    {/* Header: Room Number + Status Icon */}
                     <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-base text-neutral-900">
-                        {room.roomNumber}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-base text-neutral-900">
+                          {room.roomNumber}
+                        </span>
+                        {room.isSameRoomType && (
+                          <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1 py-0.2 rounded">
+                            Chuẩn
+                          </span>
+                        )}
+                      </div>
                       {isSelected ? (
                         <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center">
                           <Check className="w-3 h-3 stroke-[3]" />
                         </span>
+                      ) : !isAvailable ? (
+                        <Ban className="w-4 h-4 text-neutral-400" />
                       ) : (
-                        <DoorClosed className="w-4 h-4 text-neutral-400" />
+                        <span className="w-4 h-4 rounded-full border border-neutral-300"></span>
                       )}
                     </div>
 
-                    {/* Room Type */}
-                    <div className="text-[11px] text-neutral-600 truncate font-medium mt-1">
-                      {room.roomTypeName || 'Tiêu chuẩn'}
+                    {/* Room Type Label */}
+                    <div className="mt-1">
+                      <p className="text-[11px] text-neutral-500 font-medium truncate" title={room.roomTypeName}>
+                        {room.roomTypeName}
+                      </p>
                     </div>
 
-                    {/* Status Pill */}
-                    <div className="mt-2">
-                      {isReady && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                    {/* Footer Status Badge */}
+                    <div className="mt-2 pt-1 border-t border-neutral-100 flex items-center justify-between text-[11px]">
+                      {isAvailable ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                           Sẵn sàng
                         </span>
-                      )}
-                      {isCleaning && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                          Đang dọn
-                        </span>
-                      )}
-                      {isOccupied && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-neutral-500 bg-neutral-200 px-2 py-0.5 rounded-md">
-                          Có khách
-                        </span>
-                      )}
-                      {isMaintenance && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-md border border-red-200">
-                          Bảo trì
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-neutral-500 font-medium truncate" title={room.conflictReason || 'Đã có khách'}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-neutral-400"></span>
+                          {room.conflictReason || 'Trùng lịch'}
                         </span>
                       )}
                     </div>
@@ -392,30 +410,47 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
           )}
         </div>
 
-        {/* SELECTED CONFIRMATION FOOTER */}
-        {selectedRoom && (
-          <div className="flex items-center gap-2 p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs text-emerald-800 animate-in fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div className="flex-1 font-medium">
-              Sẽ gán <strong className="font-bold">Phòng {selectedRoom.roomNumber}</strong> ({selectedRoom.roomTypeName}) cho đơn đặt phòng này.
-            </div>
+        {/* MODAL FOOTER */}
+        <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
+          <div className="text-xs text-neutral-500 hidden sm:block">
+            {selectedRoom ? (
+              <span className="text-neutral-800">
+                Chuẩn bị gán phòng <strong>{selectedRoom.roomNumber}</strong> cho đơn đặt{' '}
+                <strong>{target.bookingNumber}</strong>
+              </span>
+            ) : (
+              <span>Vui lòng chọn 1 phòng vật lý sẵn sàng từ danh sách trên</span>
+            )}
           </div>
-        )}
 
-        {/* ACTION BUTTONS */}
-        <div className="flex justify-end items-center gap-3 pt-3 border-t border-neutral-100">
-          <Button variant="outline" onClick={onClose} disabled={isAssigning}>
-            Hủy
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleConfirm}
-            disabled={!selectedRoomId || isAssigning}
-            isLoading={isAssigning}
-            className="bg-red-600 hover:bg-red-700 font-semibold"
-          >
-            {isAssigning ? 'Đang xếp...' : 'Xác nhận xếp phòng'}
-          </Button>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={onClose}
+              disabled={isAssigning}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              disabled={!selectedRoomId || isAssigning || !selectedRoom?.isAvailable}
+              onClick={handleConfirm}
+              className="min-w-[150px]"
+            >
+              {isAssigning ? (
+                'Đang xếp phòng...'
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                  Xác nhận xếp phòng
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </Modal>
@@ -423,4 +458,3 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
 };
 
 export default RoomAssignModal;
-

@@ -12,9 +12,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAssignmentCandidateSearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceSearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceUpdateRequest;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAssignmentCandidateResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
 
@@ -72,6 +74,15 @@ public class RoomInstanceController {
     public ResponseEntity<ApiResponse<PageResponse<RoomInstanceResponse>>> filterRoomInstances(
             @RequestBody RoomInstanceSearchDto searchDto) {
         PageResponse<RoomInstanceResponse> response = roomInstanceService.filterRoomInstances(searchDto);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/available-for-assignment")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Lấy danh sách phòng vật lý khả dụng để xếp phòng hoặc đổi phòng theo dải ngày lưu trú (RoomSlot Sparse Data)")
+    public ResponseEntity<ApiResponse<List<RoomAssignmentCandidateResponse>>> getAvailableRoomsForAssignment(
+            @Valid @RequestBody RoomAssignmentCandidateSearchDto request) {
+        List<RoomAssignmentCandidateResponse> response = roomInstanceService.findAvailableRoomsForAssignment(request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

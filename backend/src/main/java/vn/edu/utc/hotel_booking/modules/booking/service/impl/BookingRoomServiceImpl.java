@@ -45,6 +45,16 @@ public class BookingRoomServiceImpl implements BookingRoomService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<BookingRoom> findOverlappingAssignedRoomsInHotel(Short hotelId, LocalDate checkInDate, LocalDate checkOutDate) {
+        if (hotelId == null || checkInDate == null || checkOutDate == null) {
+            return List.of();
+        }
+        return bookingRoomRepository.findOverlappingAssignedRoomsInHotel(hotelId, checkInDate, checkOutDate);
+    }
+
+
+    @Override
+    @Transactional(readOnly = true)
     public List<BookingRoom> findByBookingId(Long bookingId) {
         if (bookingId == null) {
             return List.of();

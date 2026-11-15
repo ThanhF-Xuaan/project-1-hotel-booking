@@ -246,3 +246,28 @@ export interface HotelRoomTypeInclusionRequest {
   description?: string
 }
 
+// ==================== ROOM ASSIGNMENT CANDIDATE (SPARSE DATA) ====================
+export interface RoomAssignmentCandidateDto {
+  id: number
+  roomNumber: string
+  hotelId: number
+  hotelName: string
+  hotelRoomTypeId: number
+  roomTypeCode: string
+  roomTypeName: string
+  floorNumber?: number
+  currentStatus: string
+  isAvailable: boolean
+  isSameRoomType: boolean
+  conflictReason?: string | null
+}
+
+export interface RoomAssignmentCandidateSearchDto {
+  hotelId: number
+  checkInDate: string
+  checkOutDate: string
+  targetHotelRoomTypeId?: number
+  excludeBookingRoomId?: number
+}
+
+

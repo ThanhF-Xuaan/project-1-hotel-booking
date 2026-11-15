@@ -928,6 +928,7 @@ class BookingServiceTest {
 
         verify(bookingRoomService).save(bookingRoom);
         verify(roomSlotService).occupySlots(eq(10), eq(detail.getCheckInDate()), eq(detail.getCheckOutDate()));
+        verify(roomInstanceService).updateRoomStatusEntity(eq(10), eq("OCCUPIED"));
         verify(stayGuestService).syncLodgingQueueForBookingRoom(99L);
     }
 

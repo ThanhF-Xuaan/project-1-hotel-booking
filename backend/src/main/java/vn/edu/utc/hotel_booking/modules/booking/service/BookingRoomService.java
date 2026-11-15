@@ -13,6 +13,9 @@ public interface BookingRoomService {
 
     List<BookingRoom> findOverlappingAssignedRooms(Integer roomInstanceId, LocalDate checkInDate, LocalDate checkOutDate);
 
+    List<BookingRoom> findOverlappingAssignedRoomsInHotel(Short hotelId, LocalDate checkInDate, LocalDate checkOutDate);
+
+
     List<BookingRoom> findByBookingId(Long bookingId);
 
     List<BookingRoom> findByBookingDetailId(Long bookingDetailId);

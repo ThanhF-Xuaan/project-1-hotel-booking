@@ -162,4 +162,28 @@ public class RoomSlotServiceImpl implements RoomSlotService {
             cur = cur.plusDays(1);
         }
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isRoomBusyBetween(Integer roomInstanceId, LocalDate checkIn, LocalDate checkOut, Long excludeBookingRoomId) {
+        if (roomInstanceId == null || checkIn == null || checkOut == null) {
+            return false;
+        }
+        LocalDate cur = checkIn;
+        while (cur.isBefore(checkOut)) {
+            Optional<RoomSlot> optSlot = roomSlotRepository.findByRoomInstanceIdAndSlotDate(roomInstanceId, cur);
+            if (optSlot.isPresent()) {
+                RoomSlot slot = optSlot.get();
+                if (excludeBookingRoomId != null && slot.getBookingRoomId() != null && slot.getBookingRoomId().equals(excludeBookingRoomId)) {
+                    cur = cur.plusDays(1);
+                    continue;
+                }
+                if (vn.edu.utc.hotel_booking.modules.inventory.entity.RoomSlotStatus.isBusy(slot.getStatus())) {
+                    return true;
+                }
+            }
+            cur = cur.plusDays(1);
+        }
+        return false;
+    }
 }

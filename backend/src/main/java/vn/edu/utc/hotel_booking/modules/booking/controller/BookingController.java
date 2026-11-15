@@ -296,7 +296,7 @@ public class BookingController {
 
     @GetMapping("/vacant-rooms")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
-    @Operation(summary = "Xem danh sách các phòng vật lý đang còn trống (READY) kèm sức chứa")
+    @Operation(summary = "Xem danh sách các phòng vật lý đang còn trống kèm sức chứa")
     public ApiResponse<List<RoomInstanceResponse>> getVacantRooms(
             @RequestParam(value = "hotelId", required = false) Short hotelId,
             @RequestParam(value = "checkInDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate checkInDate,

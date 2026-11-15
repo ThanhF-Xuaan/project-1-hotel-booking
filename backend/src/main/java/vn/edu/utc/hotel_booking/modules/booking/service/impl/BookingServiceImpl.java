@@ -874,6 +874,12 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
+        // Kiểm tra xung đột RoomSlot (khóa bảo trì OOO hoặc slot bận khác)
+        if (roomSlotService.isRoomBusyBetween(roomInstance.getId(), detail.getCheckInDate(), detail.getCheckOutDate(), bookingRoom.getId())) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                    "Phòng " + roomInstance.getRoomNumber() + " đang bận hoặc khóa bảo trì trong khoảng thời gian này");
+        }
+
         // Hủy liên kết phòng cũ nếu có
         if (bookingRoom.getRoomInstance() != null) {
             roomSlotService.releaseSlots(bookingRoom.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
@@ -953,6 +959,12 @@ public class BookingServiceImpl implements BookingService {
                 throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
                         "Phòng đích " + targetRoom.getRoomNumber() + " đã có khách đặt trong khoảng thời gian từ " + effectiveDate + " đến " + detail.getCheckOutDate());
             }
+        }
+
+        // Kiểm tra xung đột RoomSlot (khóa bảo trì OOO hoặc slot bận khác)
+        if (roomSlotService.isRoomBusyBetween(targetRoom.getId(), effectiveDate, detail.getCheckOutDate(), bookingRoom.getId())) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                    "Phòng đích " + targetRoom.getRoomNumber() + " đang bận hoặc khóa bảo trì trong khoảng thời gian từ " + effectiveDate + " đến " + detail.getCheckOutDate());
         }
 
         // 3. Phân biệt nâng hạng / đổi hạng phòng
@@ -4011,7 +4023,24 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public List<vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse> getVacantRooms(
             Short hotelId, LocalDate checkInDate, LocalDate checkOutDate) {
-        List<RoomInstance> vacantRooms = roomInstanceRepository.findVacantRooms(hotelId, checkInDate, checkOutDate);
+        if (hotelId != null && checkInDate != null && checkOutDate != null && checkInDate.isBefore(checkOutDate)) {
+            var searchDto = vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAssignmentCandidateSearchDto.builder()
+                    .hotelId(hotelId)
+                    .checkInDate(checkInDate)
+                    .checkOutDate(checkOutDate)
+                    .build();
+            var candidates = roomInstanceService.findAvailableRoomsForAssignment(searchDto);
+            List<Integer> availableRoomIds = candidates.stream()
+                    .filter(vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAssignmentCandidateResponse::isAvailable)
+                    .map(vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAssignmentCandidateResponse::getId)
+                    .toList();
+            if (availableRoomIds.isEmpty()) {
+                return List.of();
+            }
+            List<RoomInstance> rooms = roomInstanceRepository.findAllById(availableRoomIds);
+            return roomInstanceMapper.toResponseList(rooms);
+        }
+        List<RoomInstance> vacantRooms = roomInstanceRepository.findVacantRooms(hotelId);
         return roomInstanceMapper.toResponseList(vacantRooms);
     }
 }

@@ -5,6 +5,8 @@ import type {
   RoomInstanceCreateRequest,
   RoomInstanceUpdateRequest,
   RoomInstanceSearchDto,
+  RoomAssignmentCandidateDto,
+  RoomAssignmentCandidateSearchDto,
 } from '../types/inventory.types'
 
 const BASE_URL = '/api/v1/inventory/rooms'
@@ -12,6 +14,9 @@ const BASE_URL = '/api/v1/inventory/rooms'
 export const roomInstanceService = {
   filter: (params: RoomInstanceSearchDto) =>
     apiClient.post<PageResponse<RoomInstanceDto>>(`${BASE_URL}/filter`, params),
+
+  getAvailableRoomsForAssignment: (params: RoomAssignmentCandidateSearchDto) =>
+    apiClient.post<RoomAssignmentCandidateDto[]>(`${BASE_URL}/available-for-assignment`, params),
 
   getById: (id: number) => apiClient.get<RoomInstanceDto>(`${BASE_URL}/${id}`),
 

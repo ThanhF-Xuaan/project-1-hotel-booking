@@ -36,6 +36,20 @@ public interface BookingRoomRepository extends JpaRepository<BookingRoom, Long> 
             @Param("checkOutDate") LocalDate checkOutDate
     );
 
+    @Query("SELECT br FROM BookingRoom br " +
+            "JOIN br.bookingDetail bd " +
+            "JOIN bd.booking b " +
+            "WHERE b.hotel.id = :hotelId " +
+            "AND br.roomInstance IS NOT NULL " +
+            "AND br.status NOT IN ('CANCELLED', 'CHECKED_OUT') " +
+            "AND bd.checkInDate < :checkOutDate AND bd.checkOutDate > :checkInDate")
+    List<BookingRoom> findOverlappingAssignedRoomsInHotel(
+            @Param("hotelId") Short hotelId,
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate
+    );
+
+
     @Query("SELECT br FROM BookingRoom br JOIN br.bookingDetail bd WHERE bd.booking.id = :bookingId AND br.roomInstance.id = :roomInstanceId")
     java.util.Optional<BookingRoom> findByBookingIdAndRoomInstanceId(
             @Param("bookingId") Long bookingId,

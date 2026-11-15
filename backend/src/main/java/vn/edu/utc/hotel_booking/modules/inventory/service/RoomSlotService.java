@@ -17,4 +17,6 @@ public interface RoomSlotService {
     void updateTodaySlotStatus(Integer roomInstanceId, String status);
 
     void swapSlots(Integer oldRoomId, RoomInstance newRoomInstance, LocalDate effectiveDate, LocalDate checkOutDate, Long bookingRoomId, boolean isInHouse);
+
+    boolean isRoomBusyBetween(Integer roomInstanceId, LocalDate checkIn, LocalDate checkOut, Long excludeBookingRoomId);
 }
