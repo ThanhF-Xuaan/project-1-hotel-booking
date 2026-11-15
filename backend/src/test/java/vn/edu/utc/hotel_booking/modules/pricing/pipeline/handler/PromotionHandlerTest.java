@@ -310,4 +310,108 @@ class PromotionHandlerTest {
         assertThat(night1.getAutoDiscountAmount()).isEqualByComparingTo(new BigDecimal("200000.00"));
         assertThat(night1.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("800000.00"));
     }
+
+    @Test
+    @DisplayName("Chuẩn hóa voucher 10% cho kỳ nghỉ 2 đêm (600.000đ/đêm) -> Giảm đúng 120.000đ cho cả kỳ nghỉ, phân bổ 60.000đ/đêm")
+    void shouldApplyVoucherOnceAcrossMultiNightStay() {
+        HotelRoomType roomType = new HotelRoomType();
+        roomType.setId(1);
+
+        Voucher voucher = Voucher.builder()
+                .id(200)
+                .voucherCode("SUMMER2026")
+                .title("Ưu đãi mùa hè 2026")
+                .discountType("PERCENT")
+                .discountValue(new BigDecimal("10.00")) // 10%
+                .validFrom(OffsetDateTime.now().minusDays(1))
+                .validTo(OffsetDateTime.now().plusDays(30))
+                .status("ACTIVE")
+                .build();
+
+        when(voucherRepository.findValidVoucher(eq("SUMMER2026"), any(), any())).thenReturn(Optional.of(voucher));
+        when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 11, 15))
+                .checkOutDate(LocalDate.of(2026, 11, 17)) // 2 đêm
+                .voucherCode("SUMMER2026")
+                .build();
+
+        DailyRateContext night1 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 11, 15))
+                .baseRate(new BigDecimal("600000.00"))
+                .adjustedRate(new BigDecimal("600000.00"))
+                .build();
+
+        DailyRateContext night2 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 11, 16))
+                .baseRate(new BigDecimal("600000.00"))
+                .adjustedRate(new BigDecimal("600000.00"))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(roomType)
+                .dailyRates(List.of(night1, night2))
+                .build();
+
+        promotionHandler.handle(context);
+
+        // Tổng tiền phòng gốc = 1.200.000đ. Voucher 10% = 120.000đ. Phân bổ mỗi đêm = 60.000đ.
+        assertThat(night1.getVoucherDiscountAmount()).isEqualByComparingTo(new BigDecimal("60000.00"));
+        assertThat(night1.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("540000.00"));
+
+        assertThat(night2.getVoucherDiscountAmount()).isEqualByComparingTo(new BigDecimal("60000.00"));
+        assertThat(night2.getNetRoomRate()).isEqualByComparingTo(new BigDecimal("540000.00"));
+
+        BigDecimal totalVoucherDiscount = night1.getVoucherDiscountAmount().add(night2.getVoucherDiscountAmount());
+        assertThat(totalVoucherDiscount).isEqualByComparingTo(new BigDecimal("120000.00"));
+    }
+
+    @Test
+    @DisplayName("Voucher giảm tiền cố định (FIXED: 150.000đ) chỉ áp dụng 1 lần duy nhất cho toàn kỳ nghỉ 2 đêm")
+    void shouldApplyFixedVoucherOnceAcrossMultiNightStay() {
+        HotelRoomType roomType = new HotelRoomType();
+        roomType.setId(1);
+
+        Voucher voucher = Voucher.builder()
+                .id(201)
+                .voucherCode("FIXED150")
+                .discountType("FIXED")
+                .discountValue(new BigDecimal("150000.00"))
+                .status("ACTIVE")
+                .build();
+
+        when(voucherRepository.findValidVoucher(eq("FIXED150"), any(), any())).thenReturn(Optional.of(voucher));
+        when(discountRuleRepository.findActiveDiscountsForRoomType(eq(1), any(), any())).thenReturn(Collections.emptyList());
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 11, 15))
+                .checkOutDate(LocalDate.of(2026, 11, 17))
+                .voucherCode("FIXED150")
+                .build();
+
+        DailyRateContext night1 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 11, 15))
+                .adjustedRate(new BigDecimal("600000.00"))
+                .build();
+
+        DailyRateContext night2 = DailyRateContext.builder()
+                .date(LocalDate.of(2026, 11, 16))
+                .adjustedRate(new BigDecimal("600000.00"))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .hotelRoomType(roomType)
+                .dailyRates(List.of(night1, night2))
+                .build();
+
+        promotionHandler.handle(context);
+
+        BigDecimal totalDiscount = night1.getVoucherDiscountAmount().add(night2.getVoucherDiscountAmount());
+        assertThat(totalDiscount).isEqualByComparingTo(new BigDecimal("150000.00"));
+    }
 }

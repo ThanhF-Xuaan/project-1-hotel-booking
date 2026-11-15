@@ -106,66 +106,105 @@ public class PromotionHandler extends AbstractPricingHandler {
             totalNights = nightsBetween > 0 ? nightsBetween : 1;
         }
 
-        // 4. Tính toán cho từng đêm lưu trú
-        for (DailyRateContext daily : context.getDailyRates()) {
-            LocalDate date = daily.getDate();
-            BigDecimal adjustedRate = daily.getAdjustedRate();
+        // 4. Bước 1: Tính chiết khấu tự động (Auto Discount) theo từng đêm
+        BigDecimal totalStayAdjustedRate = BigDecimal.ZERO;
+        final long stayNights = totalNights;
+        if (context.getDailyRates() != null) {
+            for (DailyRateContext daily : context.getDailyRates()) {
+                LocalDate date = daily.getDate();
+                BigDecimal adjustedRate = daily.getAdjustedRate() != null ? daily.getAdjustedRate() : BigDecimal.ZERO;
+                totalStayAdjustedRate = totalStayAdjustedRate.add(adjustedRate);
 
-            // A. PHÂN GIẢI CHÍNH SÁCH TỰ ĐỘNG (Priority DESC -> Calculated Amount DESC)
-            BigDecimal autoDiscountAmt = BigDecimal.ZERO;
-            final long stayNights = totalNights;
-            List<DiscountRule> matchingAutoRules = activeDiscounts.stream()
-                    .filter(d -> !date.isBefore(d.getStartDate()) && !date.isAfter(d.getEndDate()))
-                    .filter(d -> matchesConditions(d, stayNights))
-                    .toList();
+                BigDecimal autoDiscountAmt = BigDecimal.ZERO;
+                List<DiscountRule> matchingAutoRules = activeDiscounts.stream()
+                        .filter(d -> !date.isBefore(d.getStartDate()) && !date.isAfter(d.getEndDate()))
+                        .filter(d -> matchesConditions(d, stayNights))
+                        .toList();
 
-            if (!matchingAutoRules.isEmpty()) {
-                Optional<DiscountRule> bestAutoRuleOpt = matchingAutoRules.stream().max(
-                        Comparator.<DiscountRule, Integer>comparing(
-                                d -> d.getRuleType() != null && d.getRuleType().getPriority() != null ? (int) d.getRuleType().getPriority() : 0
-                        ).thenComparing(
-                                d -> calculateDiscountAmount(d, adjustedRate, stayNights)
-                        )
-                );
+                if (!matchingAutoRules.isEmpty()) {
+                    Optional<DiscountRule> bestAutoRuleOpt = matchingAutoRules.stream().max(
+                            Comparator.<DiscountRule, Integer>comparing(
+                                    d -> d.getRuleType() != null && d.getRuleType().getPriority() != null ? (int) d.getRuleType().getPriority() : 0
+                            ).thenComparing(
+                                    d -> calculateDiscountAmount(d, adjustedRate, stayNights)
+                            )
+                    );
 
-                if (bestAutoRuleOpt.isPresent()) {
-                    DiscountRule bestAutoRule = bestAutoRuleOpt.get();
-                    autoDiscountAmt = calculateDiscountAmount(bestAutoRule, adjustedRate, stayNights);
-                    daily.setAppliedAutoDiscountRuleCode(bestAutoRule.getRuleType() != null ? bestAutoRule.getRuleType().getCode() : "DISCOUNT");
+                    if (bestAutoRuleOpt.isPresent()) {
+                        DiscountRule bestAutoRule = bestAutoRuleOpt.get();
+                        autoDiscountAmt = calculateDiscountAmount(bestAutoRule, adjustedRate, stayNights);
+                        daily.setAppliedAutoDiscountRuleCode(bestAutoRule.getRuleType() != null ? bestAutoRule.getRuleType().getCode() : "DISCOUNT");
+                    }
                 }
+                daily.setAutoDiscountAmount(autoDiscountAmt);
             }
+        }
 
-            // B. TÍNH VOUCHER NGƯỜI DÙNG (CỘNG DỒN)
-            BigDecimal voucherDiscountAmt = BigDecimal.ZERO;
-            if (voucherOpt.isPresent()) {
-                Voucher voucher = voucherOpt.get();
-                daily.setAppliedVoucherCode(voucher.getVoucherCode());
+        // 5. Bước 2: Tính Voucher người dùng (Áp dụng 1 lần duy nhất cho toàn bộ đợt lưu trú)
+        BigDecimal totalVoucherDiscount = BigDecimal.ZERO;
+        if (voucherOpt.isPresent()) {
+            Voucher voucher = voucherOpt.get();
+            boolean satisfiesMinOrder = voucher.getMinOrderAmount() == null
+                    || totalStayAdjustedRate.compareTo(voucher.getMinOrderAmount()) >= 0;
 
+            if (satisfiesMinOrder) {
                 if ("PERCENT".equalsIgnoreCase(voucher.getDiscountType())) {
-                    voucherDiscountAmt = adjustedRate.multiply(voucher.getDiscountValue())
+                    totalVoucherDiscount = totalStayAdjustedRate.multiply(voucher.getDiscountValue())
                             .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
 
-                    if (voucher.getMaxDiscountAmount() != null && voucherDiscountAmt.compareTo(voucher.getMaxDiscountAmount()) > 0) {
-                        voucherDiscountAmt = voucher.getMaxDiscountAmount();
+                    if (voucher.getMaxDiscountAmount() != null && totalVoucherDiscount.compareTo(voucher.getMaxDiscountAmount()) > 0) {
+                        totalVoucherDiscount = voucher.getMaxDiscountAmount();
                     }
                 } else if ("FIXED".equalsIgnoreCase(voucher.getDiscountType())) {
-                    voucherDiscountAmt = voucher.getDiscountValue();
+                    totalVoucherDiscount = voucher.getDiscountValue();
+                }
+
+                if (totalVoucherDiscount.compareTo(totalStayAdjustedRate) > 0) {
+                    totalVoucherDiscount = totalStayAdjustedRate;
                 }
             }
+        }
 
-            // C. TỔNG HỢP GIẢM GIÁ
-            BigDecimal totalDiscount = autoDiscountAmt.add(voucherDiscountAmt);
-            if (totalDiscount.compareTo(adjustedRate) > 0) {
-                totalDiscount = adjustedRate;
+        // 6. Bước 3: Phân bổ khoản giảm voucher vào từng đêm và tổng hợp Net Room Rate
+        if (context.getDailyRates() != null && !context.getDailyRates().isEmpty()) {
+            int numNights = context.getDailyRates().size();
+            BigDecimal allocatedVoucherSoFar = BigDecimal.ZERO;
+
+            for (int i = 0; i < numNights; i++) {
+                DailyRateContext daily = context.getDailyRates().get(i);
+                BigDecimal adjustedRate = daily.getAdjustedRate() != null ? daily.getAdjustedRate() : BigDecimal.ZERO;
+                BigDecimal autoDiscountAmt = daily.getAutoDiscountAmount() != null ? daily.getAutoDiscountAmount() : BigDecimal.ZERO;
+
+                BigDecimal nightVoucherDiscount = BigDecimal.ZERO;
+                if (totalVoucherDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                    if (i == numNights - 1) {
+                        nightVoucherDiscount = totalVoucherDiscount.subtract(allocatedVoucherSoFar);
+                    } else if (totalStayAdjustedRate.compareTo(BigDecimal.ZERO) > 0) {
+                        nightVoucherDiscount = totalVoucherDiscount.multiply(adjustedRate)
+                                .divide(totalStayAdjustedRate, 2, RoundingMode.HALF_UP);
+                        allocatedVoucherSoFar = allocatedVoucherSoFar.add(nightVoucherDiscount);
+                    }
+                }
+
+                if (nightVoucherDiscount.compareTo(BigDecimal.ZERO) < 0) {
+                    nightVoucherDiscount = BigDecimal.ZERO;
+                }
+
+                daily.setVoucherDiscountAmount(nightVoucherDiscount);
+                if (voucherOpt.isPresent() && nightVoucherDiscount.compareTo(BigDecimal.ZERO) > 0) {
+                    daily.setAppliedVoucherCode(voucherOpt.get().getVoucherCode());
+                }
+
+                BigDecimal totalDiscount = autoDiscountAmt.add(nightVoucherDiscount);
+                if (totalDiscount.compareTo(adjustedRate) > 0) {
+                    totalDiscount = adjustedRate;
+                }
+
+                BigDecimal netRoomRate = adjustedRate.subtract(totalDiscount);
+                daily.setTotalDiscountAmount(totalDiscount);
+                daily.setDiscountAmount(totalDiscount);
+                daily.setNetRoomRate(netRoomRate);
             }
-
-            BigDecimal netRoomRate = adjustedRate.subtract(totalDiscount);
-
-            daily.setAutoDiscountAmount(autoDiscountAmt);
-            daily.setVoucherDiscountAmount(voucherDiscountAmt);
-            daily.setTotalDiscountAmount(totalDiscount);
-            daily.setDiscountAmount(totalDiscount);
-            daily.setNetRoomRate(netRoomRate);
         }
 
         executeNext(context);

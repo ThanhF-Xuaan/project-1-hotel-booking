@@ -81,6 +81,8 @@ public class AddonServiceHandler extends AbstractPricingHandler {
                     int calculatedQty = 1;
                     switch (pricingType) {
                         case PER_STAY:
+                        case PER_UNIT:
+                        case PER_USE:
                             calculatedQty = req.getQuantity() != null && req.getQuantity() > 0 ? req.getQuantity() : 1;
                             break;
                         case PER_NIGHT:

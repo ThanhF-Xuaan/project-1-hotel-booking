@@ -464,6 +464,9 @@ export const SearchPage: React.FC = () => {
         quantity: target.quantity - 1,
         rooms: remainingRooms,
         estimatedTotal: Math.round((target.estimatedTotal / target.quantity) * (target.quantity - 1)),
+        basePriceTotal: target.basePriceTotal
+          ? Math.round((target.basePriceTotal / target.quantity) * (target.quantity - 1))
+          : undefined,
       };
 
       return prev.map((it) => (it.hotelRoomTypeId === hotelRoomTypeId ? updatedTarget : it));
@@ -554,6 +557,7 @@ export const SearchPage: React.FC = () => {
             childCount: totalChildren,
           },
           selectedCartItems,
+          quote: sessionData?.quote,
         },
       });
     } catch (err: unknown) {

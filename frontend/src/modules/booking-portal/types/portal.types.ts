@@ -179,12 +179,55 @@ export interface CartItemQuoteRequest {
   extraBeds?: number;
 }
 
+export interface SelectedServiceCartRequest {
+  menuId: number;
+  quantity: number;
+}
+
 export interface CartPriceQuoteRequest {
   hotelId: number;
   checkInDate: string;
   checkOutDate: string;
   voucherCode?: string;
   items: CartItemQuoteRequest[];
+  selectedServices?: SelectedServiceCartRequest[];
+}
+
+export interface ServiceQuoteItemResponse {
+  menuId: number;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  subtotal: number;
+  serviceFee: number;
+  vatAmount: number;
+  totalAmount: number;
+}
+
+export type ServicePricingType =
+  | 'PER_STAY'
+  | 'PER_NIGHT'
+  | 'PER_PERSON'
+  | 'PER_PERSON_PER_NIGHT'
+  | 'PER_UNIT'
+  | 'PER_USE';
+
+export interface AddonServiceItem {
+  id: number;
+  hotelId: number;
+  hotelName?: string;
+  taxCategoryId?: number;
+  taxCategoryName?: string;
+  menuType: string;
+  name: string;
+  description?: string;
+  basePrice: number;
+  status: string;
+  masterItemId?: number;
+  masterItemCode?: string;
+  customName?: string;
+  unit?: string;
+  pricingType?: ServicePricingType;
 }
 
 export interface CartPriceQuoteResponse {
@@ -202,8 +245,13 @@ export interface CartPriceQuoteResponse {
   totalRoomServiceFee: number;
   totalRoomVat: number;
   finalTotalAmount: number;
+  totalServiceSubtotal?: number;
+  totalServiceFee?: number;
+  totalServiceVat?: number;
+  totalServiceGrossAmount?: number;
   grandTotal: number;
   itemizedQuotes?: RoomPriceQuoteResponse[];
+  serviceItems?: ServiceQuoteItemResponse[];
 }
 
 export interface SelectedRoomConfig {
@@ -220,6 +268,7 @@ export interface SelectedRoomCartItem {
   quantity: number;
   rooms: SelectedRoomConfig[];
   estimatedTotal: number;
+  basePriceTotal?: number;
   perNightPrice: number;
   quote?: RoomPriceQuoteResponse;
 }

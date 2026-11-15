@@ -169,13 +169,24 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
       try {
         const quotes = await Promise.all(quotePromises);
         let totalSum = 0;
+        let baseTotalSum = 0;
         quotes.forEach((q) => {
-          if (q && q.finalTotalAmount != null) {
-            totalSum += Number(q.finalTotalAmount);
+          const quoteFinalTotal = q?.priceBreakdown?.finalTotalAmount ?? (q as unknown as { finalTotalAmount?: number })?.finalTotalAmount;
+          const quoteBaseTotal = q?.priceBreakdown?.totalBasePrice;
+
+          if (quoteFinalTotal != null) {
+            totalSum += Number(quoteFinalTotal);
+            baseTotalSum += Number(quoteBaseTotal ?? Math.round(Number(quoteFinalTotal) / 1.134));
           } else {
             totalSum += basePricePerNight * totalNights;
+            baseTotalSum += Math.round((basePricePerNight * totalNights) / 1.134);
           }
         });
+
+        const netPerNightPrice =
+          totalNights > 0 && qty > 0
+            ? Math.round(baseTotalSum / (totalNights * qty))
+            : Math.round(basePricePerNight / 1.134);
 
         const updatedItem: SelectedRoomCartItem = {
           hotelRoomTypeId: room.hotelRoomTypeId,
@@ -184,7 +195,8 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
           quantity: qty,
           rooms: targetConfigs,
           estimatedTotal: totalSum,
-          perNightPrice: Math.round(totalSum / (totalNights * qty)),
+          basePriceTotal: baseTotalSum,
+          perNightPrice: netPerNightPrice,
           quote: quotes[0] || undefined,
         };
 

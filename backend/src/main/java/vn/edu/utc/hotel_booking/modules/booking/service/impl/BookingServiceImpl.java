@@ -404,6 +404,25 @@ public class BookingServiceImpl implements BookingService {
 
         Booking saved = bookingRepository.save(booking);
 
+        // Snapshot Add-on Service Orders nếu có
+        if (request.getSelectedServices() != null && !request.getSelectedServices().isEmpty()) {
+            List<ServiceOrderCreateRequest.OrderItemRequest> orderItems = request.getSelectedServices().stream()
+                    .map(s -> ServiceOrderCreateRequest.OrderItemRequest.builder()
+                            .menuId(s.getMenuId())
+                            .quantity(s.getQuantity() != null && s.getQuantity() > 0 ? s.getQuantity() : 1)
+                            .build())
+                    .toList();
+
+            ServiceOrderCreateRequest orderReq = ServiceOrderCreateRequest.builder()
+                    .hotelId(hotel.getId())
+                    .referenceType(ServiceOrderReferenceType.BOOKING)
+                    .referenceId(saved.getId())
+                    .items(orderItems)
+                    .build();
+
+            serviceOrderService.createOrder(orderReq);
+        }
+
         // Nếu booking đến từ online draft session đã hold phòng trước đó -> commit hold và xóa draft Redis
         if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
             roomAvailabilityService.commitHoldInventory(request.getSessionId().trim());

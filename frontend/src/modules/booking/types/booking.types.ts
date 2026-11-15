@@ -39,6 +39,7 @@ export interface BookingCreateRequest {
   serviceFeeRate?: number;
   voucherCode?: string;
   rooms: BookingRoomItemRequest[];
+  selectedServices?: Array<{ menuId: number; quantity: number }>;
 }
 
 export interface BookingSearchDto {
