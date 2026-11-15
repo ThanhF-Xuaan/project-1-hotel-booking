@@ -37,6 +37,7 @@ export interface BookingCreateRequest {
   customerPhone?: string;
   customerEmail?: string;
   customerNationality?: string;
+  customerIdentityType?: string;
   customerIdentityNumber?: string;
   sessionId?: string;
   companyId?: number;

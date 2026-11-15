@@ -194,6 +194,20 @@ public class BookingServiceImpl implements BookingService {
                     && (guest.getIdentityNumber() == null || guest.getIdentityNumber().isBlank())) {
                 guest.setIdentityNumber(request.getCustomerIdentityNumber().trim());
             }
+            if (guest.getIdentityType() == null || guest.getIdentityType().isBlank()) {
+                if (request.getCustomerIdentityType() != null && !request.getCustomerIdentityType().isBlank()) {
+                    guest.setIdentityType(request.getCustomerIdentityType().trim());
+                } else if (guest.getIdentityNumber() != null && !guest.getIdentityNumber().isBlank()) {
+                    String idNum = guest.getIdentityNumber().trim();
+                    if (idNum.matches("^\\d{12}$")) {
+                        guest.setIdentityType("CCCD");
+                    } else if (idNum.matches("^[A-Za-z0-9]{7,9}$")) {
+                        guest.setIdentityType("PASSPORT");
+                    } else if (idNum.matches("^\\d{9}$")) {
+                        guest.setIdentityType("CMND");
+                    }
+                }
+            }
         } else if (request.getCompanyId() == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
                     "Thiếu thông tin người đặt phòng (guestId hoặc customerPhone)");

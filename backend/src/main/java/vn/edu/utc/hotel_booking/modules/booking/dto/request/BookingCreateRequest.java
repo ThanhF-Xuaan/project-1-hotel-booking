@@ -34,6 +34,7 @@ public class BookingCreateRequest {
     String customerPhone;
     String customerEmail;
     String customerNationality;
+    String customerIdentityType;
     String customerIdentityNumber;
 
     Long companyId;

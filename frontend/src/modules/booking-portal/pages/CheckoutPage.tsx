@@ -52,6 +52,11 @@ const HONORIFIC_OPTIONS = [
   { value: 'Chị', label: 'Chị' },
 ];
 
+const IDENTITY_TYPE_OPTIONS = [
+  { value: 'CCCD', label: 'Căn cước công dân (CCCD)' },
+  { value: 'PASSPORT', label: 'Hộ chiếu (Passport)' },
+];
+
 const COUNTRY_OPTIONS = [
   { value: 'Việt Nam', label: 'Việt Nam' },
   { value: 'United States', label: 'United States' },
@@ -97,6 +102,7 @@ export const CheckoutPage: React.FC = () => {
   const [confirmEmail, setConfirmEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [country, setCountry] = useState<string>('Việt Nam');
+  const [identityType, setIdentityType] = useState<'CCCD' | 'PASSPORT'>('CCCD');
   const [identityNumber, setIdentityNumber] = useState('');
   const [specialRequest, setSpecialRequest] = useState('');
 
@@ -552,6 +558,21 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (!identityNumber.trim()) {
+      alert('Vui lòng nhập số giấy tờ tùy thân (CCCD / Hộ chiếu)!');
+      return;
+    }
+
+    if (identityType === 'CCCD' && !/^\d{12}$/.test(identityNumber.trim())) {
+      alert('Số CCCD không đúng định dạng. Căn cước công dân phải gồm đúng 12 chữ số!');
+      return;
+    }
+
+    if (identityType === 'PASSPORT' && !/^[A-Z0-9]{7,9}$/i.test(identityNumber.trim())) {
+      alert('Số hộ chiếu (Passport) không đúng định dạng (7-9 ký tự chữ và số)!');
+      return;
+    }
+
     // Xây dựng danh sách phòng đặt: hỗ trợ cả giỏ hàng đa phòng
     const roomsPayload =
       selectedCartItems.length > 0
@@ -571,6 +592,7 @@ export const CheckoutPage: React.FC = () => {
                   firstName: firstName.trim(),
                   lastName: lastName.trim(),
                   fullName: `${lastName.trim()} ${firstName.trim()}`,
+                  identityType: identityType,
                   identityNumber: identityNumber.trim(),
                 },
               ],
@@ -591,6 +613,7 @@ export const CheckoutPage: React.FC = () => {
                   firstName: firstName.trim(),
                   lastName: lastName.trim(),
                   fullName: `${lastName.trim()} ${firstName.trim()}`,
+                  identityType: identityType,
                   identityNumber: identityNumber.trim(),
                 },
               ],
@@ -606,6 +629,7 @@ export const CheckoutPage: React.FC = () => {
         customerPhone: phone.trim(),
         customerEmail: email.trim(),
         customerNationality: country,
+        customerIdentityType: identityType,
         customerIdentityNumber: identityNumber.trim() || undefined,
         sessionId: sessionId || undefined,
         bookingType: 'FIT',
@@ -888,17 +912,38 @@ export const CheckoutPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Hàng 4: Số CCCD / Hộ chiếu */}
-              <div>
-                <label className="block text-xs font-medium text-neutral-700 mb-1">
-                  Số CCCD / Hộ chiếu (Passport)
-                </label>
-                <Input
-                  value={identityNumber}
-                  onChange={(e) => setIdentityNumber(e.target.value)}
-                  placeholder="VD: 001201000123"
-                  className="h-11"
-                />
+              {/* Hàng 4: Loại giấy tờ & Số CCCD / Hộ chiếu (Bắt buộc theo chuẩn lưu trú) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Loại giấy tờ <span className="text-red-500">*</span>
+                  </label>
+                  <Select
+                    options={IDENTITY_TYPE_OPTIONS}
+                    value={identityType}
+                    onChange={(val) => setIdentityType(val as 'CCCD' | 'PASSPORT')}
+                    className="w-full h-11"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-medium text-neutral-700 mb-1">
+                    Số {identityType === 'CCCD' ? 'Căn cước công dân (12 số)' : 'Hộ chiếu (Passport)'} <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    value={identityNumber}
+                    onChange={(e) => setIdentityNumber(e.target.value)}
+                    placeholder={identityType === 'CCCD' ? 'VD: 001201000123' : 'VD: B9876543'}
+                    error={
+                      identityNumber && identityType === 'CCCD' && !/^\d{12}$/.test(identityNumber.trim())
+                        ? 'CCCD phải gồm đúng 12 chữ số'
+                        : identityNumber && identityType === 'PASSPORT' && !/^[A-Z0-9]{7,9}$/i.test(identityNumber.trim())
+                        ? 'Hộ chiếu gồm 7-9 ký tự chữ và số'
+                        : undefined
+                    }
+                    required
+                    className="h-11"
+                  />
+                </div>
               </div>
 
               {/* Hàng 5: Yêu cầu thêm */}
