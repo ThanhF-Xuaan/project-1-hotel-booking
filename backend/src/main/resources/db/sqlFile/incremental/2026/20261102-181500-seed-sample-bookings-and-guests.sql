@@ -54,6 +54,14 @@ DECLARE
     v_inv_hn_id BIGINT;
     v_inv_dn_id BIGINT;
     v_inv_sp_id BIGINT;
+
+    v_b_hist_id BIGINT;
+    v_bd_dlx_id BIGINT;
+    v_bd_ste_id BIGINT;
+    v_br_102c_id BIGINT;
+    v_br_202d_id BIGINT;
+    v_so_id BIGINT;
+    v_i INT;
 BEGIN
     -- 1. LẤY ID CÁC KHÁCH SẠN CƠ SỞ (ID 1: Hà Nội, ID 2: Đà Nẵng, ID 3: Sapa)
     SELECT id INTO v_hotel_hn_id FROM hotels WHERE id = 1;
@@ -279,6 +287,123 @@ BEGIN
         (v_inv_sp_id, v_bdetail_sp_std_id, 'ROOM_RATE', 'Tiền phòng Standard Room (Phòng 101A & 102A - 3 đêm)', 6, 800000.00, 4800000.00, 5.00, 240000.00, 8.00, 403200.00, 5443200.00);
 
         UPDATE room_instances SET current_status = 'OCCUPIED' WHERE id IN (v_room_101a_id, v_room_102a_id);
+    END IF;
+
+    -- =========================================================================
+    -- BƯỚC 3: SEED BOOKING_DAILY_RATES CHO CÁC ĐƠN ĐANG HOẠT ĐỘNG
+    -- (Đảm bảo chỉ số ADR, RevPAR và Doanh thu trên Dashboard hiển thị dữ liệu thực)
+    -- =========================================================================
+    SELECT br.id INTO v_broom_101c_id FROM booking_rooms br JOIN room_instances ri ON br.room_instance_id = ri.id WHERE ri.room_number = '101C' AND br.status = 'CHECKED_IN' LIMIT 1;
+    SELECT br.id INTO v_broom_201d_id FROM booking_rooms br JOIN room_instances ri ON br.room_instance_id = ri.id WHERE ri.room_number = '201D' AND br.status = 'CHECKED_IN' LIMIT 1;
+    SELECT br.id INTO v_broom_301e_id FROM booking_rooms br JOIN room_instances ri ON br.room_instance_id = ri.id WHERE ri.room_number = '301E' AND br.status = 'CHECKED_IN' LIMIT 1;
+    SELECT br.id INTO v_broom_101b_id FROM booking_rooms br JOIN room_instances ri ON br.room_instance_id = ri.id WHERE ri.room_number = '101B' AND br.status = 'CHECKED_IN' LIMIT 1;
+    SELECT br.id INTO v_broom_201c_id FROM booking_rooms br JOIN room_instances ri ON br.room_instance_id = ri.id WHERE ri.room_number = '201C' AND br.status = 'CHECKED_IN' LIMIT 1;
+    SELECT br.id INTO v_broom_101a_id FROM booking_rooms br JOIN room_instances ri ON br.room_instance_id = ri.id WHERE ri.room_number = '101A' AND br.status = 'CHECKED_IN' LIMIT 1;
+    SELECT br.id INTO v_broom_102a_id FROM booking_rooms br JOIN room_instances ri ON br.room_instance_id = ri.id WHERE ri.room_number = '102A' AND br.status = 'CHECKED_IN' LIMIT 1;
+
+    -- Khách sạn 1 (Hà Nội): 3 phòng (101C, 201D, 301E) - 3 đêm
+    IF v_broom_101c_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM booking_daily_rates WHERE booking_room_id = v_broom_101c_id AND stay_date = CURRENT_DATE) THEN
+        INSERT INTO booking_daily_rates (booking_room_id, stay_date, base_price, service_fee_rate, service_fee_amount, tax_category_id, vat_percent, vat_amount, net_price, status)
+        VALUES
+        (v_broom_101c_id, CURRENT_DATE,     2500000.00, 5.00, 125000.00, 1, 8.00, 210000.00, 2835000.00, 'CONFIRMED'),
+        (v_broom_101c_id, CURRENT_DATE + 1, 2500000.00, 5.00, 125000.00, 1, 8.00, 210000.00, 2835000.00, 'CONFIRMED'),
+        (v_broom_101c_id, CURRENT_DATE + 2, 2500000.00, 5.00, 125000.00, 1, 8.00, 210000.00, 2835000.00, 'CONFIRMED'),
+        (v_broom_201d_id, CURRENT_DATE,     3500000.00, 5.00, 175000.00, 1, 8.00, 294000.00, 3969000.00, 'CONFIRMED'),
+        (v_broom_201d_id, CURRENT_DATE + 1, 3500000.00, 5.00, 175000.00, 1, 8.00, 294000.00, 3969000.00, 'CONFIRMED'),
+        (v_broom_201d_id, CURRENT_DATE + 2, 3500000.00, 5.00, 175000.00, 1, 8.00, 294000.00, 3969000.00, 'CONFIRMED'),
+        (v_broom_301e_id, CURRENT_DATE,     2500000.00, 5.00, 125000.00, 1, 8.00, 210000.00, 2835000.00, 'CONFIRMED'),
+        (v_broom_301e_id, CURRENT_DATE + 1, 2500000.00, 5.00, 125000.00, 1, 8.00, 210000.00, 2835000.00, 'CONFIRMED'),
+        (v_broom_301e_id, CURRENT_DATE + 2, 2500000.00, 5.00, 125000.00, 1, 8.00, 210000.00, 2835000.00, 'CONFIRMED');
+    END IF;
+
+    -- Khách sạn 2 (Đà Nẵng): 2 phòng (101B, 201C) - 3 đêm
+    IF v_broom_101b_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM booking_daily_rates WHERE booking_room_id = v_broom_101b_id AND stay_date = CURRENT_DATE) THEN
+        INSERT INTO booking_daily_rates (booking_room_id, stay_date, base_price, service_fee_rate, service_fee_amount, tax_category_id, vat_percent, vat_amount, net_price, status)
+        VALUES
+        (v_broom_101b_id, CURRENT_DATE,     1500000.00, 5.00,  75000.00, 1, 8.00, 126000.00, 1701000.00, 'CONFIRMED'),
+        (v_broom_101b_id, CURRENT_DATE + 1, 1500000.00, 5.00,  75000.00, 1, 8.00, 126000.00, 1701000.00, 'CONFIRMED'),
+        (v_broom_101b_id, CURRENT_DATE + 2, 1500000.00, 5.00,  75000.00, 1, 8.00, 126000.00, 1701000.00, 'CONFIRMED'),
+        (v_broom_201c_id, CURRENT_DATE,     1700000.00, 5.00,  85000.00, 1, 8.00, 142800.00, 1927800.00, 'CONFIRMED'),
+        (v_broom_201c_id, CURRENT_DATE + 1, 1700000.00, 5.00,  85000.00, 1, 8.00, 142800.00, 1927800.00, 'CONFIRMED'),
+        (v_broom_201c_id, CURRENT_DATE + 2, 1700000.00, 5.00,  85000.00, 1, 8.00, 142800.00, 1927800.00, 'CONFIRMED');
+    END IF;
+
+    -- Khách sạn 3 (Sa Pa): 2 phòng (101A, 102A) - 3 đêm
+    IF v_broom_101a_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM booking_daily_rates WHERE booking_room_id = v_broom_101a_id AND stay_date = CURRENT_DATE) THEN
+        INSERT INTO booking_daily_rates (booking_room_id, stay_date, base_price, service_fee_rate, service_fee_amount, tax_category_id, vat_percent, vat_amount, net_price, status)
+        VALUES
+        (v_broom_101a_id, CURRENT_DATE,      800000.00, 5.00,  40000.00, 1, 8.00,  67200.00,  907200.00, 'CONFIRMED'),
+        (v_broom_101a_id, CURRENT_DATE + 1,  800000.00, 5.00,  40000.00, 1, 8.00,  67200.00,  907200.00, 'CONFIRMED'),
+        (v_broom_101a_id, CURRENT_DATE + 2,  800000.00, 5.00,  40000.00, 1, 8.00,  67200.00,  907200.00, 'CONFIRMED'),
+        (v_broom_102a_id, CURRENT_DATE,      800000.00, 5.00,  40000.00, 1, 8.00,  67200.00,  907200.00, 'CONFIRMED'),
+        (v_broom_102a_id, CURRENT_DATE + 1,  800000.00, 5.00,  40000.00, 1, 8.00,  67200.00,  907200.00, 'CONFIRMED'),
+        (v_broom_102a_id, CURRENT_DATE + 2,  800000.00, 5.00,  40000.00, 1, 8.00,  67200.00,  907200.00, 'CONFIRMED');
+    END IF;
+
+    -- =========================================================================
+    -- BƯỚC 4: SEED DỮ LIỆU LỊCH SỬ 6 NGÀY QUA CHO BIỂU ĐỒ XU HƯỚNG (7-DAY TRENDS)
+    -- =========================================================================
+    IF NOT EXISTS (SELECT 1 FROM bookings WHERE booking_number = 'BK-2026-HN-HIST01') THEN
+        INSERT INTO bookings (
+            hotel_id, guest_id, booking_type, booking_number,
+            subtotal_amount, service_fee_rate, service_fee_amount, total_vat_amount, total_amount,
+            status, issued_at
+        ) VALUES (
+            v_hotel_hn_id, v_guest_nam_id, 'FIT', 'BK-2026-HN-HIST01',
+            36000000.00, 5.00, 1800000.00, 3024000.00, 40824000.00,
+            'CONFIRMED', CURRENT_TIMESTAMP - interval '6 days'
+        ) RETURNING id INTO v_b_hist_id;
+
+        INSERT INTO booking_details (booking_id, hotel_room_type_id, room_type_name, quantity, check_in_date, check_out_date)
+        VALUES (v_b_hist_id, v_hrt_hn_dlx, 'Deluxe Room', 1, CURRENT_DATE - 6, CURRENT_DATE)
+        RETURNING id INTO v_bd_dlx_id;
+
+        INSERT INTO booking_details (booking_id, hotel_room_type_id, room_type_name, quantity, check_in_date, check_out_date)
+        VALUES (v_b_hist_id, v_hrt_hn_ste, 'Suite', 1, CURRENT_DATE - 6, CURRENT_DATE)
+        RETURNING id INTO v_bd_ste_id;
+
+        -- Phòng 102C (id = 12) và 202D (id = 18) đã CHECKED_OUT
+        INSERT INTO booking_rooms (booking_detail_id, room_instance_id, adult_count, child_count, guest_count, status, actual_check_in_at, actual_check_out_at)
+        VALUES (v_bd_dlx_id, 12, 2, 0, 2, 'CHECKED_OUT', CURRENT_TIMESTAMP - interval '6 days', CURRENT_TIMESTAMP - interval '2 hours')
+        RETURNING id INTO v_br_102c_id;
+
+        INSERT INTO booking_rooms (booking_detail_id, room_instance_id, adult_count, child_count, guest_count, status, actual_check_in_at, actual_check_out_at)
+        VALUES (v_bd_ste_id, 18, 2, 0, 2, 'CHECKED_OUT', CURRENT_TIMESTAMP - interval '6 days', CURRENT_TIMESTAMP - interval '2 hours')
+        RETURNING id INTO v_br_202d_id;
+
+        -- Daily rates cho 6 ngày trước
+        FOR v_i IN 1..6 LOOP
+            INSERT INTO booking_daily_rates (booking_room_id, stay_date, base_price, service_fee_rate, service_fee_amount, tax_category_id, vat_percent, vat_amount, net_price, status)
+            VALUES
+            (v_br_102c_id, CURRENT_DATE - v_i, 2500000.00, 5.00, 125000.00, 1, 8.00, 210000.00, 2835000.00, 'CONFIRMED'),
+            (v_br_202d_id, CURRENT_DATE - v_i, 3500000.00, 5.00, 175000.00, 1, 8.00, 294000.00, 3969000.00, 'CONFIRMED');
+        END LOOP;
+    END IF;
+
+    -- =========================================================================
+    -- BƯỚC 5: SEED ĐƠN DỊCH VỤ MINIBAR / F&B HÔM NAY (HIỂN THỊ PHÂN LOẠI TRÊN BIỂU ĐỒ)
+    -- =========================================================================
+    IF NOT EXISTS (SELECT 1 FROM service_orders WHERE order_number = 'SO-20261115-001') THEN
+        SELECT b.id INTO v_booking_hn_id FROM bookings b WHERE b.booking_number = 'BK-2026-HN001' LIMIT 1;
+        IF v_booking_hn_id IS NOT NULL THEN
+            INSERT INTO service_orders (
+                order_number, hotel_id, reference_type, reference_id,
+                sub_total, service_fee_rate, service_fee_amount, vat_amount, total_amount,
+                status, payment_method, payment_status, issued_at
+            ) VALUES (
+                'SO-20261115-001', v_hotel_hn_id, 'BOOKING', v_booking_hn_id,
+                500000.00, 5.00, 25000.00, 42000.00, 567000.00,
+                'COMPLETED', 'POST_TO_ROOM', 'UNPAID', CURRENT_TIMESTAMP
+            ) RETURNING id INTO v_so_id;
+
+            INSERT INTO service_order_details (
+                service_order_id, menu_id, item_type, item_name,
+                quantity, unit_price, subtotal, service_fee_rate, service_fee_amount, vat_rate, vat_amount, total_amount
+            ) VALUES (
+                v_so_id, 1, 'PRODUCT', 'Buffet Sáng Tiêu Chuẩn',
+                2, 250000.00, 500000.00, 5.00, 25000.00, 8.00, 42000.00, 567000.00
+            );
+        END IF;
     END IF;
 
 END $$;
