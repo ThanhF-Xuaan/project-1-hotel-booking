@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.inventory.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -35,12 +36,34 @@ public class RoomAssignmentCandidateResponse {
     @Schema(description = "Trạng thái buồng phòng hiện tại (hôm nay)", example = "READY")
     String currentStatus;
 
+    @JsonProperty("isAvailable")
     @Schema(description = "Cờ xác định phòng có hoàn toàn trống trong dải ngày lưu trú không (Sparse Data)", example = "true")
     boolean isAvailable;
 
+    @JsonProperty("isSameRoomType")
     @Schema(description = "Cờ xác định phòng có cùng hạng với hạng phòng khách đặt không", example = "true")
     boolean isSameRoomType;
 
     @Schema(description = "Lý do xung đột nếu phòng bận (null nếu trống)", example = "Trùng lịch đặt phòng")
     String conflictReason;
+
+    @JsonProperty("isAvailable")
+    public boolean isAvailable() {
+        return isAvailable;
+    }
+
+    @JsonProperty("isSameRoomType")
+    public boolean isSameRoomType() {
+        return isSameRoomType;
+    }
+
+    @JsonProperty("available")
+    public boolean getAvailable() {
+        return isAvailable;
+    }
+
+    @JsonProperty("sameRoomType")
+    public boolean getSameRoomType() {
+        return isSameRoomType;
+    }
 }

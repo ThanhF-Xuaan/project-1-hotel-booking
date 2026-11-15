@@ -8,5 +8,12 @@ export const AuthService = {
   
   logout: async () => {
     return apiClient.post<void>('/api/v1/auth/logout', {})
-  }
+  },
+
+  refreshToken: async (refreshToken: string) => {
+    return apiClient.post<TokenResponse>('/api/v1/auth/refresh', {
+      refreshToken,
+      refresh_token: refreshToken,
+    })
+  },
 }

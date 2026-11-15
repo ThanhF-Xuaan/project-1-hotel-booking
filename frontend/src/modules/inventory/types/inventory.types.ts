@@ -178,7 +178,7 @@ export interface RoomInstanceDto {
   roomTypeCode: string
   roomTypeName: string
   roomNumber: string
-  currentStatus: 'READY' | 'OCCUPIED' | 'CLEANING' | 'MAINTENANCE'
+  currentStatus: 'READY' | 'OCCUPIED' | 'CLEANING' | 'MAINTENANCE' | 'BLOCKED' | string
   maxAdults?: number
   maxChildren?: number
   maxTotalGuests?: number
@@ -260,6 +260,8 @@ export interface RoomAssignmentCandidateDto {
   isAvailable: boolean
   isSameRoomType: boolean
   conflictReason?: string | null
+  available?: boolean
+  sameRoomType?: boolean
 }
 
 export interface RoomAssignmentCandidateSearchDto {

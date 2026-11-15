@@ -114,16 +114,18 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
       }
 
       // 2. Lọc theo tính khả dụng (RoomSlot Sparse Data)
-      if (statusFilter === 'AVAILABLE' && !room.isAvailable) {
+      const isAvailable = Boolean(room.isAvailable ?? room.available);
+      if (statusFilter === 'AVAILABLE' && !isAvailable) {
         return false;
       }
-      if (statusFilter === 'UNAVAILABLE' && room.isAvailable) {
+      if (statusFilter === 'UNAVAILABLE' && isAvailable) {
         return false;
       }
 
       // 3. Lọc theo đúng hạng phòng đã đặt
+      const isSameType = Boolean(room.isSameRoomType ?? room.sameRoomType);
       if (onlyMatchingType && target?.hotelRoomTypeId) {
-        if (!room.isSameRoomType) {
+        if (!isSameType) {
           return false;
         }
       }
@@ -136,13 +138,20 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
     return rooms.find((r) => r.id === selectedRoomId) || null;
   }, [rooms, selectedRoomId]);
 
-  const availableCount = useMemo(() => rooms.filter((r) => r.isAvailable).length, [rooms]);
-  const busyCount = useMemo(() => rooms.filter((r) => !r.isAvailable).length, [rooms]);
+  const availableCount = useMemo(
+    () => rooms.filter((r) => Boolean(r.isAvailable ?? r.available)).length,
+    [rooms]
+  );
+  const busyCount = useMemo(
+    () => rooms.filter((r) => !(r.isAvailable ?? r.available)).length,
+    [rooms]
+  );
 
   const handleConfirm = async () => {
     if (!target || !selectedRoomId || !selectedRoom) return;
 
-    if (!selectedRoom.isAvailable) {
+    const isAvailable = selectedRoom.isAvailable ?? selectedRoom.available;
+    if (!isAvailable) {
       setErrorMessage(`Phòng ${selectedRoom.roomNumber} không khả dụng: ${selectedRoom.conflictReason || 'Trùng lịch'}`);
       return;
     }
@@ -343,7 +352,8 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-72 overflow-y-auto p-1 scrollbar-thin">
               {filteredRooms.map((room) => {
                 const isSelected = selectedRoomId === room.id;
-                const isAvailable = room.isAvailable;
+                const isAvailable = Boolean(room.isAvailable ?? room.available);
+                const isSameRoomType = Boolean(room.isSameRoomType ?? room.sameRoomType);
 
                 return (
                   <button
@@ -365,7 +375,7 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
                         <span className="font-mono font-bold text-base text-neutral-900">
                           {room.roomNumber}
                         </span>
-                        {room.isSameRoomType && (
+                        {isSameRoomType && (
                           <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200 px-1 py-0.2 rounded">
                             Chuẩn
                           </span>
@@ -437,7 +447,7 @@ export const RoomAssignModal: React.FC<RoomAssignModalProps> = ({
               type="button"
               variant="primary"
               size="md"
-              disabled={!selectedRoomId || isAssigning || !selectedRoom?.isAvailable}
+              disabled={!selectedRoomId || isAssigning || !(selectedRoom?.isAvailable ?? selectedRoom?.available)}
               onClick={handleConfirm}
               className="min-w-[150px]"
             >

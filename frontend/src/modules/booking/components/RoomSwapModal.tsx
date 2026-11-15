@@ -91,7 +91,7 @@ export const RoomSwapModal: React.FC<RoomSwapModalProps> = ({
           if (res.result) {
             // Exclude current room and keep only available rooms for the stay
             const rooms = (res.result || [])
-              .filter((r) => r.id !== target.currentRoomInstanceId && r.isAvailable)
+              .filter((r) => r.id !== target.currentRoomInstanceId && Boolean(r.isAvailable ?? r.available))
               .map((r) => ({
                 id: r.id,
                 roomNumber: r.roomNumber,

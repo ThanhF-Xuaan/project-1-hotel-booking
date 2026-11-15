@@ -1,10 +1,24 @@
 import React, { useMemo } from 'react'
-import { Building2, Bell, LogIn, LogOut, User, ShieldCheck } from 'lucide-react'
+import {
+  Building2,
+  Bell,
+  LogIn,
+  LogOut,
+  User,
+  ShieldCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { AuthService } from '../../../modules/auth/services/auth.service'
 import { getUserProfile } from '../../../modules/auth/utils/token.utils'
 
-export const Header: React.FC = () => {
+export interface HeaderProps {
+  isSidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
+}
+
+export const Header: React.FC<HeaderProps> = ({ isSidebarCollapsed, onToggleSidebar }) => {
   const navigate = useNavigate()
   const token = localStorage.getItem('auth_token')
   const isAuthenticated = !!token
@@ -29,7 +43,26 @@ export const Header: React.FC = () => {
 
   return (
     <header className="h-16 bg-white border-b border-neutral-200 px-4 md:px-6 flex items-center justify-between sticky top-0 z-50 shrink-0 shadow-xs">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label={isSidebarCollapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
+            className="p-2 text-neutral-600 hover:text-red-600 hover:bg-neutral-100 rounded-xl transition-all cursor-pointer mr-0.5"
+            title={
+              isSidebarCollapsed
+                ? 'Mở rộng thanh menu (Alt + S)'
+                : 'Thu gọn thanh menu để mở rộng không gian (Alt + S)'
+            }
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen className="w-5 h-5 text-neutral-700 hover:text-red-600" />
+            ) : (
+              <PanelLeftClose className="w-5 h-5 text-neutral-700 hover:text-red-600" />
+            )}
+          </button>
+        )}
         <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shadow-xs">
           <Building2 className="w-5 h-5" />
         </div>

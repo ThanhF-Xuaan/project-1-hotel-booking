@@ -8,19 +8,13 @@ const rawBaseUrl =
 // do toàn bộ service trong frontend đều đã tự định nghĩa prefix '/api/v1/...'
 const API_BASE_URL = rawBaseUrl.replace(/\/api\/?$/, '')
 
-// ── Keycloak (lấy/làm mới token) ─────────────────────────────────────────────
-const KEYCLOAK_BASE =
-  import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8081'
-const KEYCLOAK_REALM = import.meta.env.VITE_KEYCLOAK_REALM || 'hotel-realm'
-const KEYCLOAK_CLIENT_ID = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'hotel-frontend'
-const KEYCLOAK_TOKEN_URL = `${KEYCLOAK_BASE}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/token`
-
+// ── Quản lý Token & Làm mới phiên đăng nhập (Silent Refresh Token) ─────────
 const TOKEN_KEY = 'auth_token'
 const REFRESH_TOKEN_KEY = 'auth_refresh_token'
 
 /**
- * Làm mới access_token bằng refresh_token (grant_type=refresh_token).
- * - Chống "dội" refresh khi nhiều request cùng gặp 401: gộp chung 1 Promise.
+ * Làm mới access_token bằng refresh_token thông qua Backend API /api/v1/auth/refresh.
+ * - Chống "dội" refresh khi nhiều request cùng gặp lúc token hết hạn: gộp chung 1 Promise (Shared Promise Queue).
  * - Trả về access_token mới, hoặc null nếu không có/không refresh được.
  */
 let refreshPromise: Promise<string | null> | null = null
@@ -29,35 +23,55 @@ const doRefresh = async (): Promise<string | null> => {
   try {
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
     if (!refreshToken) return null
-    const res = await fetch(KEYCLOAK_TOKEN_URL, {
+
+    const refreshUrl = `${API_BASE_URL}/api/v1/auth/refresh`
+    const res = await fetch(refreshUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refreshToken: refreshToken,
         refresh_token: refreshToken,
-        client_id: KEYCLOAK_CLIENT_ID,
       }),
     })
-    if (!res.ok) return null
-    const data = (await res.json()) as {
-      access_token?: string
-      refresh_token?: string
+
+    if (!res.ok) {
+      console.warn('Yêu cầu refresh token không thành công, mã HTTP:', res.status)
+      return null
     }
-    if (!data.access_token) return null
-    localStorage.setItem(TOKEN_KEY, data.access_token)
-    // Keycloak cấp refresh_token mới (rotation) → lưu lại
-    if (data.refresh_token) localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token)
-    return data.access_token
-  } catch {
+
+    const data = (await res.json()) as {
+      code?: number
+      result?: {
+        access_token?: string
+        refresh_token?: string
+        accessToken?: string
+        refreshToken?: string
+      }
+    }
+
+    const newAccessToken = data.result?.access_token || data.result?.accessToken
+    const newRefreshToken = data.result?.refresh_token || data.result?.refreshToken
+
+    if (!newAccessToken) return null
+
+    localStorage.setItem(TOKEN_KEY, newAccessToken)
+    // Cập nhật refresh_token mới (Keycloak Refresh Token Rotation)
+    if (newRefreshToken) {
+      localStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken)
+    }
+    console.info('Làm mới phiên làm việc thành công')
+    return newAccessToken
+  } catch (error) {
+    console.error('Lỗi khi làm mới access token:', error)
     return null
   }
 }
 
-const refreshAccessToken = (): Promise<string | null> => {
+export const refreshAccessToken = (): Promise<string | null> => {
   if (!refreshPromise) {
-    // .finally đặt NGOÀI async body: nếu đặt trong, nhánh "không có refresh_token"
-    // (return đồng bộ) sẽ gán refreshPromise = null TRƯỚC lệnh gán → promise "kẹt"
-    // và không bao giờ refresh lại được cho tới khi tải lại trang.
+    // .finally đặt NGOÀI async body: đảm bảo giải phóng singleton promise khi xong
     refreshPromise = doRefresh().finally(() => {
       refreshPromise = null
     })
@@ -84,9 +98,9 @@ const markSessionExpired = (error: AxiosError): AxiosError => {
 }
 
 /**
- * Kiểm tra xem access_token JWT đã hết hạn chưa bằng cách decode payload Base64 (phòng ngừa gửi token chết).
+ * Kiểm tra xem token JWT sắp hết hạn trong offsetSeconds hay không.
  */
-export const isTokenExpired = (token: string): boolean => {
+export const isTokenExpiringSoon = (token: string, offsetSeconds = 15): boolean => {
   try {
     const parts = token.split('.')
     if (parts.length !== 3) return true
@@ -94,12 +108,16 @@ export const isTokenExpired = (token: string): boolean => {
     const decodedJson = atob(payloadBase64)
     const payload = JSON.parse(decodedJson) as { exp?: number }
     if (!payload.exp) return false
-    // Buffer 5 giây phòng lệch đồng hồ mạng
-    return payload.exp * 1000 <= Date.now() + 5000
+    return payload.exp * 1000 <= Date.now() + offsetSeconds * 1000
   } catch {
     return true
   }
 }
+
+/**
+ * Kiểm tra xem access_token JWT đã hết hạn chưa (buffer 5 giây phòng lệch đồng hồ).
+ */
+export const isTokenExpired = (token: string): boolean => isTokenExpiringSoon(token, 5)
 
 const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
@@ -109,15 +127,32 @@ const axiosInstance: AxiosInstance = axios.create({
   timeout: 30000,
 })
 
-// Request Interceptor: Attach JWT Token if available and not expired
+// Request Interceptor: Attach JWT Token & Proactive Refresh
 axiosInstance.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    // Bỏ qua làm mới token cho endpoint refresh chính nó (phòng ngừa vòng lặp)
+    const isRefreshRequest = config.url?.includes('/api/v1/auth/refresh')
+    if (isRefreshRequest) {
+      return config
+    }
+
     let token = localStorage.getItem(TOKEN_KEY)
-    if (token) {
-      if (isTokenExpired(token)) {
-        // Token đã hết hạn: dọn dẹp để không gửi "token chết" lên server
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY)
+
+    // Proactive Refresh: Nếu token sắp hết hạn trong 15s và còn refresh token
+    if (token && isTokenExpiringSoon(token, 15)) {
+      if (refreshToken) {
+        const newToken = await refreshAccessToken()
+        if (newToken) {
+          token = newToken
+        } else {
+          // Refresh token đã hết hạn hoặc không hợp lệ -> dọn dẹp storage
+          localStorage.removeItem(TOKEN_KEY)
+          localStorage.removeItem(REFRESH_TOKEN_KEY)
+          token = null
+        }
+      } else {
         localStorage.removeItem(TOKEN_KEY)
-        localStorage.removeItem(REFRESH_TOKEN_KEY)
         token = null
       }
     }
@@ -140,7 +175,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response Interceptor: Parse standard ApiResponse
+// Response Interceptor: Parse standard ApiResponse & Reactive 401 Fallback
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
@@ -151,17 +186,17 @@ axiosInstance.interceptors.response.use(
 
     // 401 → thử LÀM MỚI token bằng refresh_token rồi gọi lại request gốc 1 lần
     if (status === 401 && originalConfig && !originalConfig.__retriedAfterRefresh) {
-      const hadToken = !!localStorage.getItem(TOKEN_KEY)
+      const hadSession = !!localStorage.getItem(TOKEN_KEY) || !!localStorage.getItem(REFRESH_TOKEN_KEY)
       const newToken = await refreshAccessToken()
       if (newToken) {
         originalConfig.__retriedAfterRefresh = true
         originalConfig.headers = { ...originalConfig.headers, Authorization: `Bearer ${newToken}` }
-        console.info('Đã tự làm mới token, thử lại request...')
+        console.info('Đã tự làm mới token sau 401, thử lại request...')
         return axiosInstance.request(originalConfig)
       }
 
       // Không refresh được: dọn dẹp token trong storage
-      if (hadToken) {
+      if (hadSession) {
         console.warn('Phiên làm việc hết hạn — dọn dẹp token')
         localStorage.removeItem(TOKEN_KEY)
         localStorage.removeItem(REFRESH_TOKEN_KEY)
@@ -191,7 +226,7 @@ axiosInstance.interceptors.response.use(
         return axiosInstance.request(originalConfig)
       }
 
-      if (hadToken && !isPublicArea && !window.location.pathname.startsWith('/login')) {
+      if (hadSession && !isPublicArea && !window.location.pathname.startsWith('/login')) {
         window.location.replace('/login?session=expired')
       }
 

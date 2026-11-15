@@ -195,8 +195,8 @@ export const BookingListPage: React.FC = () => {
     setIsLoadingTimeline(true);
     try {
       const [roomsRes, bookingsRes] = await Promise.all([
-        roomInstanceService.filter({ hotelId, pageSize: 200 }),
-        bookingService.filter({ hotelId, pageSize: 200, page: 1 }),
+        roomInstanceService.filter({ hotelId, pageSize: 500 }),
+        bookingService.filter({ hotelId, pageSize: 500, page: 1 }),
       ]);
       if (roomsRes.result?.content) {
         setAvailableRooms(roomsRes.result.content);
@@ -622,6 +622,80 @@ export const BookingListPage: React.FC = () => {
     }
   };
 
+  const handleOpenDetailModal = (booking: BookingResponse) => {
+    setSelectedBooking(booking);
+    setIsDetailModalOpen(true);
+  };
+
+  const handleOpenServiceOrderFromTimeline = (target: {
+    bookingId: number;
+    bookingNumber?: string;
+    roomInstanceId: number;
+    roomNumber: string;
+    hotelId: number;
+  }) => {
+    setServiceOrderTarget(target);
+    setIsServiceOrderModalOpen(true);
+  };
+
+  const handleOpenWalkInModal = (prefill?: {
+    hotelId?: number;
+    roomInstanceId?: number;
+    roomNumber?: string;
+    checkInDate?: string;
+  }) => {
+    if (prefill?.hotelId) {
+      setSelectedHotelId(prefill.hotelId);
+    }
+    setIsWalkInModalOpen(true);
+  };
+
+  const handleOpenCancelFromTimeline = (target: {
+    bookingId: number;
+    bookingNumber: string;
+    bookingRoomId?: number;
+    roomNumber?: string;
+    roomTypeName?: string;
+  }) => {
+    setCancelTarget(target);
+    setIsCancelModalOpen(true);
+  };
+
+  const handleOpenStayGuestsFromTimeline = (target: {
+    bookingRoomId: number;
+    hotelId: number;
+    roomNumber?: string;
+    guestName?: string;
+  }) => {
+    setStayGuestsTarget({
+      bookingRoomId: target.bookingRoomId,
+      hotelId: target.hotelId,
+      roomNumber: target.roomNumber,
+    });
+    setIsStayGuestsModalOpen(true);
+  };
+
+  const handleUpdateRoomPhysicalStatus = async (roomId: number, status: string) => {
+    try {
+      await roomInstanceService.updateStatus(roomId, status);
+      setActionSuccessMessage(`Đã cập nhật trạng thái phòng sang ${status}!`);
+      if (selectedHotelId) {
+        void loadTimelineData(selectedHotelId);
+      } else {
+        loadData();
+        roomInstanceService.filter({ pageSize: 500 }).then((res) => {
+          if (res.result) setAvailableRooms(res.result.content || []);
+        });
+      }
+    } catch (err: unknown) {
+      console.error('Lỗi cập nhật trạng thái phòng:', err);
+      const errorMsg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Không thể cập nhật trạng thái phòng.';
+      alert(`Thao tác thất bại: ${errorMsg}`);
+    }
+  };
+
   const getStatusBadge = (status: BookingStatus) => {
     switch (status) {
       case 'CONFIRMED':
@@ -680,7 +754,7 @@ export const BookingListPage: React.FC = () => {
             onClick={() => {
               setViewMode('TIMELINE');
               if (availableRooms.length === 0) {
-                roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+                roomInstanceService.filter({ pageSize: 500 }).then((res) => {
                   if (res.result) setAvailableRooms(res.result.content || []);
                 });
               }
@@ -715,12 +789,20 @@ export const BookingListPage: React.FC = () => {
               void loadTimelineData(selectedHotelId);
             } else {
               loadData();
-              roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+              roomInstanceService.filter({ pageSize: 500 }).then((res) => {
                 if (res.result) setAvailableRooms(res.result.content || []);
               });
             }
           }}
           onOpenSwapModal={handleOpenSwapModal}
+          onOpenDetail={handleOpenDetailModal}
+          onCheckIn={handleInitiateCheckIn}
+          onOpenCheckout={handleInitiateCheckOut}
+          onOpenServiceOrder={handleOpenServiceOrderFromTimeline}
+          onOpenWalkIn={handleOpenWalkInModal}
+          onOpenCancel={handleOpenCancelFromTimeline}
+          onOpenStayGuests={handleOpenStayGuestsFromTimeline}
+          onUpdateRoomStatus={handleUpdateRoomPhysicalStatus}
           hotelList={hotelList}
           selectedHotelId={selectedHotelId}
           onSelectHotelId={(hotelId) => {
