@@ -4,22 +4,12 @@ import {
   Search,
   RefreshCw,
   Eye,
-  CheckCircle,
-  LogOut,
   Ban,
-  DollarSign,
-  BedDouble,
-  UserCheck,
   AlertTriangle,
-  Users,
-  Utensils,
-  Trash2,
-  Receipt,
   UserPlus,
   UserX,
   List,
   CalendarRange,
-  ArrowLeftRight,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -38,6 +28,7 @@ import WalkInBookingModal from '../components/WalkInBookingModal';
 import CancelBookingModal from '../components/CancelBookingModal';
 import RoomSwapModal, { type RoomSwapTarget } from '../components/RoomSwapModal';
 import TimelineRackView from '../components/TimelineRackView';
+import BookingDetailModal from '../components/BookingDetailModal';
 import type {
   BookingResponse,
   BookingStatus,
@@ -1008,298 +999,23 @@ export const BookingListPage: React.FC = () => {
       )}
 
       {/* MODAL CHI TIẾT ĐƠN ĐẶT PHÒNG */}
-      {selectedBooking && (
-        <Modal
-          isOpen={isDetailModalOpen}
-          onClose={() => setIsDetailModalOpen(false)}
-          title={`Chi tiết đơn đặt phòng: ${selectedBooking.bookingNumber}`}
-          maxWidth="2xl"
-        >
-          <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
-            {/* Header info */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 bg-neutral-50 rounded-xl">
-              <div>
-                <span className="text-xs text-neutral-500">Khách sạn</span>
-                <p className="font-semibold text-neutral-900 text-sm">{selectedBooking.hotelName}</p>
-              </div>
-              <div>
-                <span className="text-xs text-neutral-500">Khách hàng</span>
-                <p className="font-semibold text-neutral-900 text-sm">
-                  {selectedBooking.guestName ? `${selectedBooking.guestName} (${selectedBooking.guestPhone})` : selectedBooking.guestPhone}
-                </p>
-              </div>
-              <div>
-                <span className="text-xs text-neutral-500">Trạng thái</span>
-                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                  {getStatusBadge(selectedBooking.status)}
-                  {selectedBooking.status === 'CONFIRMED' && (
-                    <button
-                      onClick={() => handleOpenNoShowModal(selectedBooking)}
-                      className="px-2 py-0.5 text-[11px] font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-md transition-colors"
-                      title="Xử lý khách vắng mặt (No-Show)"
-                    >
-                      Xử lý No-Show
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div>
-                <span className="text-xs text-neutral-500">Tổng thanh toán</span>
-                <p className="font-bold text-red-600 text-base">
-                  {new Intl.NumberFormat('vi-VN').format(selectedBooking.totalAmount)} đ
-                </p>
-              </div>
-            </div>
-
-            {/* Chi tiết từng phòng */}
-            <div>
-              <h3 className="text-sm font-bold text-neutral-800 uppercase tracking-wider mb-3">
-                Danh sách phòng đặt ({selectedBooking.bookingDetails?.length || 0})
-              </h3>
-
-              {selectedBooking.bookingDetails?.map((detail) => (
-                <div key={detail.id} className="border border-neutral-200 rounded-xl p-4 mb-4 space-y-4">
-                  <div className="flex justify-between items-center border-b border-neutral-100 pb-2">
-                    <span className="font-bold text-neutral-900 flex items-center gap-2">
-                      <BedDouble className="w-4 h-4 text-red-600" />
-                      {detail.roomTypeName} (SL: {detail.quantity})
-                    </span>
-                    <span className="text-xs text-neutral-500">
-                      {detail.checkInDate} ➔ {detail.checkOutDate}
-                    </span>
-                  </div>
-
-                  {detail.bookingRooms?.map((room, idx) => {
-                    const isRoomAssigned = Boolean(room.roomInstanceId && room.roomNumber);
-
-                    return (
-                      <div key={room.id} className="bg-neutral-50 rounded-lg p-3 space-y-3">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                          <div className="text-sm font-semibold text-neutral-800 flex items-center gap-2">
-                            <span>Phòng #{idx + 1}:</span>
-                            {room.status === 'NO_SHOW' ? (
-                              <span className="text-red-700 bg-red-50 px-2 py-0.5 rounded-md font-semibold text-xs border border-red-200">
-                                Vắng mặt (No-Show)
-                              </span>
-                            ) : isRoomAssigned ? (
-                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-mono font-semibold border border-emerald-200">
-                                {room.roomNumber}
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md text-xs font-semibold border border-amber-200">
-                                <AlertTriangle className="w-3.5 h-3.5" /> Chưa xếp phòng
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-2">
-                            {/* Nút Xếp phòng / Đổi phòng */}
-                            {selectedBooking.status === 'CONFIRMED' && room.status !== 'NO_SHOW' && (
-                              <Button
-                                variant={!isRoomAssigned ? 'primary' : 'outline'}
-                                size="sm"
-                                onClick={() => handleOpenAssignModal(room.id)}
-                              >
-                                <UserCheck className="w-3.5 h-3.5 mr-1" />
-                                {isRoomAssigned ? 'Đổi phòng' : 'Xếp phòng'}
-                              </Button>
-                            )}
-
-                            {/* Nút Khách lưu trú (Bắt buộc phải gán phòng trước) */}
-                            {room.status !== 'NO_SHOW' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!isRoomAssigned}
-                                title={
-                                  !isRoomAssigned
-                                    ? 'Cần xếp phòng vật lý trước khi khai báo khách lưu trú'
-                                    : 'Quản lý thông tin khách lưu trú (CCCD/Hộ chiếu)'
-                                }
-                                onClick={() => handleOpenStayGuestsModal(selectedBooking, room)}
-                                className={
-                                  !isRoomAssigned
-                                    ? 'opacity-50 cursor-not-allowed'
-                                    : 'text-blue-700 hover:text-blue-800 border-blue-200 hover:bg-blue-50'
-                                }
-                              >
-                                <Users className="w-3.5 h-3.5 mr-1" />
-                                Khách lưu trú
-                              </Button>
-                            )}
-
-                            {/* Nút Check-in (Bắt buộc phải gán phòng trước) */}
-                            {room.status === 'EXPECTED' && (
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                disabled={!isRoomAssigned}
-                                title={
-                                  !isRoomAssigned
-                                    ? 'Cần xếp phòng vật lý trước khi Check-in'
-                                    : 'Thực hiện thủ tục Check-in'
-                                }
-                                onClick={() => handleInitiateCheckIn(room)}
-                                className={
-                                  !isRoomAssigned
-                                    ? 'opacity-50 cursor-not-allowed bg-neutral-400 hover:bg-neutral-400'
-                                    : ''
-                                }
-                              >
-                                <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                                Check-in
-                              </Button>
-                            )}
-
-                            {/* Nút No-Show phòng lẻ */}
-                            {room.status === 'EXPECTED' && selectedBooking.status !== 'NO_SHOW' && selectedBooking.status !== 'CANCELLED' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handlePromptRoomNoShow(room)}
-                                className="text-amber-700 hover:text-amber-800 border-amber-300 hover:bg-amber-50"
-                                title="Đánh dấu khách không đến nhận phòng này (Phạt đêm đầu và nhả phòng)"
-                              >
-                                <UserX className="w-3.5 h-3.5 mr-1 text-amber-600" />
-                                No-Show
-                              </Button>
-                            )}
-
-                            {/* Nút Hủy phòng lẻ */}
-                            {room.status === 'EXPECTED' && selectedBooking.status !== 'CANCELLED' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenCancelRoomModal(selectedBooking, room, detail.roomTypeName)}
-                                className="text-red-600 hover:text-red-700 border-red-200 hover:bg-red-50"
-                                title="Hủy phòng này theo chính sách FIT"
-                              >
-                                <Ban className="w-3.5 h-3.5 mr-1" />
-                                Hủy phòng
-                              </Button>
-                            )}
-
-                            {/* Nút Quyết toán & Check-out */}
-                            {room.status === 'CHECKED_IN' && (
-                              <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleOpenCheckoutSettlement(room.id)}
-                                  className="text-blue-700 border-blue-200 hover:bg-blue-50"
-                                  title="Xem bảng kê công nợ và thu tiền tạm ứng / thanh toán"
-                                >
-                                  <Receipt className="w-3.5 h-3.5 mr-1 text-blue-600" />
-                                  Quyết toán
-                                </Button>
-                                <Button
-                                  variant="primary"
-                                  size="sm"
-                                  onClick={() => handleInitiateCheckOut(room)}
-                                  className="bg-red-600 hover:bg-red-700 text-white font-semibold"
-                                  title="Kiểm tra phụ thu trả muộn và thực hiện thủ tục Check-out"
-                                >
-                                  <LogOut className="w-3.5 h-3.5 mr-1" />
-                                  Check-out
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleOpenSwapModal({
-                                      bookingId: selectedBooking.id,
-                                      bookingNumber: selectedBooking.bookingNumber,
-                                      bookingRoomId: room.id,
-                                      currentRoomInstanceId: room.roomInstanceId,
-                                      currentRoomNumber: room.roomNumber,
-                                      currentRoomTypeName: detail.roomTypeName,
-                                      guestName: selectedBooking.guestName,
-                                      checkInDate: detail.checkInDate,
-                                      checkOutDate: detail.checkOutDate,
-                                      hotelId: selectedBooking.hotelId,
-                                    })
-                                  }
-                                  className="text-purple-700 hover:text-purple-800 border-purple-200 hover:bg-purple-50"
-                                  title="Đổi phòng cho khách sang phòng khác cùng hạng hoặc nâng hạng"
-                                >
-                                  <ArrowLeftRight className="w-3.5 h-3.5 mr-1 text-purple-600" />
-                                  Đổi phòng
-                                </Button>
-                              </>
-                            )}
-
-                            {/* Nút Gọi món / POS Dịch vụ phòng */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={!isRoomAssigned}
-                              title={
-                                !isRoomAssigned
-                                  ? 'Cần xếp phòng vật lý trước khi gọi món POS'
-                                  : 'Đặt món ăn, đồ uống minibar và dịch vụ phòng'
-                              }
-                              onClick={() => handleOpenServiceOrderModal(selectedBooking, room)}
-                              className={
-                                !isRoomAssigned
-                                  ? 'opacity-50 cursor-not-allowed'
-                                  : 'text-emerald-700 hover:text-emerald-800 border-emerald-200 hover:bg-emerald-50'
-                              }
-                            >
-                              <Utensils className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                              Gọi món / POS
-                            </Button>
-
-                            {/* Nút Phụ phí */}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenChargeModal(room.id)}
-                            >
-                              <DollarSign className="w-3.5 h-3.5 mr-1" />
-                              Phụ phí
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Phụ phí của phòng nếu có */}
-                        {room.charges && room.charges.length > 0 && (
-                          <div className="border-t border-neutral-200 pt-2 text-xs">
-                            <span className="font-semibold text-neutral-700">Phụ phí phát sinh:</span>
-                            <div className="mt-1 space-y-1">
-                              {room.charges.map((c) => (
-                                <div
-                                  key={c.id}
-                                  className="flex items-center justify-between bg-neutral-50 px-2.5 py-1 rounded-md border border-neutral-200"
-                                >
-                                  <span className="text-neutral-700">
-                                    {c.itemName} x{c.quantity}:{' '}
-                                    <strong className="text-neutral-900">
-                                      {new Intl.NumberFormat('vi-VN').format(c.totalAmount)} đ
-                                    </strong>{' '}
-                                    <span className="text-neutral-500">({c.chargeType})</span>
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePromptDeleteCharge(c.id, c.itemName)}
-                                    className="p-1 text-neutral-400 hover:text-red-600 rounded hover:bg-red-50 transition"
-                                    title="Xóa khoản phụ phí này"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </Modal>
-      )}
+      <BookingDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        booking={selectedBooking}
+        onAssignRoom={handleOpenAssignModal}
+        onStayGuests={handleOpenStayGuestsModal}
+        onCheckIn={handleInitiateCheckIn}
+        onNoShowRoom={handlePromptRoomNoShow}
+        onCancelRoom={handleOpenCancelRoomModal}
+        onCheckoutSettlement={handleOpenCheckoutSettlement}
+        onCheckOut={handleInitiateCheckOut}
+        onSwapRoom={handleOpenSwapModal}
+        onServiceOrder={handleOpenServiceOrderModal}
+        onAddCharge={handleOpenChargeModal}
+        onDeleteCharge={handlePromptDeleteCharge}
+        onNoShowBooking={handleOpenNoShowModal}
+      />
 
       <StayGuestBookingLink />
 
