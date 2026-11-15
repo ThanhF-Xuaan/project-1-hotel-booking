@@ -124,11 +124,26 @@ export const CheckoutPage: React.FC = () => {
   );
   const daysCount = nightsCount + 1;
 
-  // Tổng tiền phòng gốc (trước voucher)
-  const basePriceTotal =
-    selectedCartItems.length > 0
-      ? selectedCartItems.reduce((sum, item) => sum + item.estimatedTotal, 0)
-      : (offer?.basePrice ?? 1250000) * nightsCount;
+  // Danh sách dịch vụ gia tăng / Add-on services & Báo giá giỏ hàng
+  const [availableServices, setAvailableServices] = useState<AddonServiceItem[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState<boolean>(true);
+  const [selectedServices, setSelectedServices] = useState<Array<{ menuId: number; quantity: number }>>([]);
+  const [cartQuote, setCartQuote] = useState<CartPriceQuoteResponse | null>(state?.quote || null);
+  const [isRecalculatingPrice, setIsRecalculatingPrice] = useState(false);
+
+  // Tổng tiền phòng gốc thuần trước thuế phí và voucher
+  const basePriceTotal = useMemo(() => {
+    if (cartQuote?.totalBasePrice != null && cartQuote.totalBasePrice > 0) {
+      return cartQuote.totalBasePrice;
+    }
+    if (selectedCartItems.length > 0) {
+      return selectedCartItems.reduce((sum, item) => {
+        const itemBase = item.basePriceTotal ?? item.quote?.totalBasePrice ?? (item.perNightPrice * nightsCount * item.quantity);
+        return sum + itemBase;
+      }, 0);
+    }
+    return (offer?.basePrice ?? 600000) * nightsCount;
+  }, [cartQuote?.totalBasePrice, selectedCartItems, nightsCount, offer?.basePrice]);
 
   // Voucher state
   const [voucherCodeInput, setVoucherCodeInput] = useState(criteria?.voucherCode || '');
@@ -137,13 +152,6 @@ export const CheckoutPage: React.FC = () => {
   const [isValidatingVoucher, setIsValidatingVoucher] = useState(false);
 
   const effectiveHotelId = criteria?.hotelId || state?.hotelId || 1;
-
-  // Danh sách dịch vụ gia tăng / Add-on services
-  const [availableServices, setAvailableServices] = useState<AddonServiceItem[]>([]);
-  const [isLoadingServices, setIsLoadingServices] = useState<boolean>(true);
-  const [selectedServices, setSelectedServices] = useState<Array<{ menuId: number; quantity: number }>>([]);
-  const [cartQuote, setCartQuote] = useState<CartPriceQuoteResponse | null>(state?.quote || null);
-  const [isRecalculatingPrice, setIsRecalculatingPrice] = useState(false);
 
   // Helper chuyển đổi đơn vị tính chuẩn hóa sang tiếng Việt
   const formatServiceUnit = (unit?: string, pricingType?: string) => {
@@ -383,7 +391,7 @@ export const CheckoutPage: React.FC = () => {
     return `${dayName}, ${dd}/${mm}/${yyyy}`;
   };
 
-  const voucherDiscount = appliedVoucher?.discountAmount || 0;
+  const voucherDiscount = cartQuote?.totalDiscountAmount ?? appliedVoucher?.discountAmount ?? 0;
   const fallbackNetRoomPrice = Math.max(0, basePriceTotal - voucherDiscount);
   const fallbackServiceFee = Math.round(fallbackNetRoomPrice * 0.05);
   const fallbackVat = Math.round((fallbackNetRoomPrice + fallbackServiceFee) * 0.08);
@@ -1099,7 +1107,9 @@ export const CheckoutPage: React.FC = () => {
                           </div>
                           <div className="flex justify-between items-center pt-1 border-t border-neutral-200/60 font-semibold text-neutral-900">
                             <span>Giá phòng:</span>
-                            <span className="text-neutral-900 font-bold">{formatVND(room.estimatedTotal)}</span>
+                            <span className="text-neutral-900 font-bold">
+                              {formatVND(room.basePriceTotal ?? room.quote?.totalBasePrice ?? (room.perNightPrice * nightsCount * room.quantity))}
+                            </span>
                           </div>
                         </div>
                       );

@@ -169,11 +169,14 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
       try {
         const quotes = await Promise.all(quotePromises);
         let totalSum = 0;
+        let baseTotalSum = 0;
         quotes.forEach((q) => {
           if (q && q.finalTotalAmount != null) {
             totalSum += Number(q.finalTotalAmount);
+            baseTotalSum += Number(q.priceBreakdown?.totalBasePrice ?? basePricePerNight * totalNights);
           } else {
             totalSum += basePricePerNight * totalNights;
+            baseTotalSum += basePricePerNight * totalNights;
           }
         });
 
@@ -184,7 +187,8 @@ export const RoomCardItem: React.FC<RoomCardItemProps> = ({
           quantity: qty,
           rooms: targetConfigs,
           estimatedTotal: totalSum,
-          perNightPrice: Math.round(totalSum / (totalNights * qty)),
+          basePriceTotal: baseTotalSum,
+          perNightPrice: basePricePerNight,
           quote: quotes[0] || undefined,
         };
 

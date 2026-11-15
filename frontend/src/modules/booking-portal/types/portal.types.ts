@@ -268,6 +268,7 @@ export interface SelectedRoomCartItem {
   quantity: number;
   rooms: SelectedRoomConfig[];
   estimatedTotal: number;
+  basePriceTotal?: number;
   perNightPrice: number;
   quote?: RoomPriceQuoteResponse;
 }

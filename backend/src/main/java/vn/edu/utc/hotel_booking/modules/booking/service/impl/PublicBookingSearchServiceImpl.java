@@ -644,6 +644,10 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
             short quantity = (item.getQuantity() != null && item.getQuantity() > 0) ? item.getQuantity() : (short) 1;
 
             for (int i = 0; i < quantity; i++) {
+                // Voucher chỉ áp dụng 1 lần duy nhất cho toàn bộ đơn:
+                // Nếu giỏ hàng có nhiều phòng, chỉ phòng đầu tiên áp dụng mã voucher (tránh nhân bản voucher)
+                String vCode = (totalRoomsCount == 0) ? request.getVoucherCode() : null;
+
                 RoomPriceQuoteRequest singleReq = RoomPriceQuoteRequest.builder()
                         .hotelRoomTypeId(item.getHotelRoomTypeId())
                         .checkInDate(request.getCheckInDate())
@@ -652,7 +656,7 @@ public class PublicBookingSearchServiceImpl implements PublicBookingSearchServic
                         .children(item.getChildren() != null ? item.getChildren() : (short) 0)
                         .infants(item.getInfants() != null ? item.getInfants() : (short) 0)
                         .extraBeds(item.getExtraBeds() != null ? item.getExtraBeds() : (short) 0)
-                        .voucherCode(request.getVoucherCode())
+                        .voucherCode(vCode)
                         .build();
 
                 RoomPriceQuoteResponse singleQuote = calculateRoomQuote(singleReq);
