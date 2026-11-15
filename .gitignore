@@ -37,3 +37,9 @@ tools/acceptance/.runtime/
 # Python
 __pycache__/
 *.py[cod]
+
+# ==========================================
+# 5. TEST & LOCAL REPRODUCTION ARTIFACTS
+# ==========================================
+test-results/
+output/
