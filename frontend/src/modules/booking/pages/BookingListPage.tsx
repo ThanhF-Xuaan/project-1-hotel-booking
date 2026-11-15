@@ -29,6 +29,7 @@ import CancelBookingModal from '../components/CancelBookingModal';
 import RoomSwapModal, { type RoomSwapTarget } from '../components/RoomSwapModal';
 import TimelineRackView from '../components/TimelineRackView';
 import BookingDetailModal from '../components/BookingDetailModal';
+import RoomAssignModal, { type RoomAssignTarget } from '../components/RoomAssignModal';
 import type {
   BookingResponse,
   BookingStatus,
@@ -68,10 +69,9 @@ export const BookingListPage: React.FC = () => {
 
   // Assign Room Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [targetBookingRoomId, setTargetBookingRoomId] = useState<number | null>(null);
+  const [assignTarget, setAssignTarget] = useState<RoomAssignTarget | null>(null);
   const [availableRooms, setAvailableRooms] = useState<RoomInstanceDto[]>([]);
-  const [selectedRoomInstanceId, setSelectedRoomInstanceId] = useState<number | ''>('');
-  const [isAssigning, setIsAssigning] = useState(false);
+  const [targetBookingRoomId, setTargetBookingRoomId] = useState<number | null>(null);
 
   // Add Charge Modal
   const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
@@ -264,48 +264,19 @@ export const BookingListPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [loadData]);
 
-  // Load available physical rooms when assigning
-  useEffect(() => {
-    if (isAssignModalOpen) {
-      roomInstanceService
-        .filter({ pageSize: 100 })
-        .then((res) => {
-          if (res.result) {
-            setAvailableRooms(res.result.content || []);
-          }
-        })
-        .catch((err) => console.error('Lỗi tải phòng vật lý:', err));
-    }
-  }, [isAssignModalOpen]);
-
-  const handleOpenAssignModal = (bookingRoomId: number) => {
-    setTargetBookingRoomId(bookingRoomId);
-    setSelectedRoomInstanceId('');
+  const handleOpenAssignModal = (target: RoomAssignTarget) => {
+    setAssignTarget(target);
     setIsAssignModalOpen(true);
   };
 
-  const handleConfirmAssign = async () => {
-    if (!targetBookingRoomId || !selectedRoomInstanceId) return;
-    setIsAssigning(true);
-    try {
-      await bookingService.assignRoom(targetBookingRoomId, Number(selectedRoomInstanceId));
-      setIsAssignModalOpen(false);
-      setActionSuccessMessage('Xếp phòng vật lý thành công!');
-      loadData();
-      if (selectedBooking) {
-        const updated = await bookingService.getById(selectedBooking.id);
-        if (updated.result) {
-          setSelectedBooking(updated.result);
-        }
+  const handleAssignSuccess = async (assignedRoomNumber: string) => {
+    setActionSuccessMessage(`Xếp phòng ${assignedRoomNumber} thành công!`);
+    loadData();
+    if (selectedBooking) {
+      const updated = await bookingService.getById(selectedBooking.id);
+      if (updated.result) {
+        setSelectedBooking(updated.result);
       }
-    } catch (err: unknown) {
-      console.error('Lỗi xếp phòng:', err);
-      const errorMsg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        'Không thể xếp phòng. Vui lòng kiểm tra lại phòng có đang bị trùng lịch hay không.';
-      alert(`Lỗi xếp phòng: ${errorMsg}`);
-    } finally {
-      setIsAssigning(false);
     }
   };
 
@@ -1036,48 +1007,15 @@ export const BookingListPage: React.FC = () => {
       )}
 
       {/* MODAL XẾP PHÒNG VẬT LÝ */}
-      <Modal
+      <RoomAssignModal
         isOpen={isAssignModalOpen}
-        onClose={() => setIsAssignModalOpen(false)}
-        title="Xếp phòng vật lý (Physical Room Assignment)"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-neutral-600">
-            Chọn phòng vật lý đang sẵn sàng để gán cho lượt lưu trú này:
-          </p>
-
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">
-              Phòng vật lý khả dụng
-            </label>
-            <Select<number>
-              value={selectedRoomInstanceId || 0}
-              onChange={(val) => setSelectedRoomInstanceId(val ? Number(val) : 0)}
-              options={[
-                { value: 0, label: 'Chọn số phòng', disabled: true },
-                ...availableRooms.map((r) => ({
-                  value: r.id,
-                  label: `Phòng ${r.roomNumber} - ${r.currentStatus}`,
-                })),
-              ]}
-              size="lg"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
-            <Button variant="outline" onClick={() => setIsAssignModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleConfirmAssign}
-              disabled={!selectedRoomInstanceId || isAssigning}
-            >
-              {isAssigning ? 'Đang xếp...' : 'Xác nhận xếp phòng'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onClose={() => {
+          setIsAssignModalOpen(false);
+          setAssignTarget(null);
+        }}
+        target={assignTarget}
+        onSuccess={handleAssignSuccess}
+      />
 
       {/* MODAL THÊM PHỤ PHÍ */}
       <Modal

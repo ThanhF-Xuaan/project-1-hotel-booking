@@ -18,6 +18,7 @@ export interface RoomActionDropdownProps {
   items: RoomActionItem[];
   label?: string;
   align?: 'left' | 'right';
+  direction?: 'down' | 'up' | 'auto';
   className?: string;
 }
 
@@ -25,16 +26,41 @@ export const RoomActionDropdown: React.FC<RoomActionDropdownProps> = ({
   items,
   label,
   align = 'right',
+  direction = 'auto',
   className,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const handleToggle = () => {
+    if (!isOpen && buttonRef.current) {
+      if (direction === 'auto') {
+        const rect = buttonRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        setOpenUpward(spaceBelow < 250);
+      } else {
+        setOpenUpward(direction === 'up');
+      }
+    }
+    setIsOpen((prev) => !prev);
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+      if (!containerRef.current) return;
+      const target = event.target as HTMLElement;
+
+      // Click bên trong dropdown container -> không đóng
+      if (containerRef.current.contains(target)) return;
+
+      // Tránh đóng khi click vào thanh cuộn của trình duyệt
+      if (event.clientX >= document.documentElement.clientWidth - 16) {
+        return;
       }
+
+      setIsOpen(false);
     };
 
     const handleEscape = (event: KeyboardEvent) => {
@@ -62,8 +88,9 @@ export const RoomActionDropdown: React.FC<RoomActionDropdownProps> = ({
   return (
     <div className={cn('relative inline-block text-left', className)} ref={containerRef}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggle}
         className={cn(
           'inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer select-none',
           isOpen
@@ -80,7 +107,8 @@ export const RoomActionDropdown: React.FC<RoomActionDropdownProps> = ({
       {isOpen && (
         <div
           className={cn(
-            'absolute top-full mt-1.5 z-40 min-w-[200px] bg-white rounded-xl shadow-xl border border-neutral-200/90 py-1.5 focus:outline-none animate-in fade-in zoom-in-95 duration-150',
+            'absolute z-50 min-w-[210px] bg-white rounded-xl shadow-xl border border-neutral-200/95 py-1.5 focus:outline-none animate-in fade-in zoom-in-95 duration-150',
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >
@@ -134,4 +162,3 @@ export const RoomActionDropdown: React.FC<RoomActionDropdownProps> = ({
 };
 
 export default RoomActionDropdown;
-

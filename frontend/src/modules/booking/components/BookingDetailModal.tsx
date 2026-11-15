@@ -24,6 +24,7 @@ import {
 import { Modal } from '../../../core/components/ui/Modal';
 import { Button } from '../../../core/components/ui/Button';
 import { RoomActionDropdown, type RoomActionItem } from './RoomActionDropdown';
+import type { RoomAssignTarget } from './RoomAssignModal';
 import type {
   BookingResponse,
   BookingRoomResponse,
@@ -34,7 +35,7 @@ export interface BookingDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   booking: BookingResponse | null;
-  onAssignRoom: (bookingRoomId: number) => void;
+  onAssignRoom: (target: RoomAssignTarget) => void;
   onStayGuests: (booking: BookingResponse, room: BookingRoomResponse) => void;
   onCheckIn: (room: BookingRoomResponse) => void;
   onNoShowRoom: (room: BookingRoomResponse) => void;
@@ -128,7 +129,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
       title={`Chi tiết đơn đặt phòng: ${booking.bookingNumber}`}
       maxWidth="4xl"
     >
-      <div className="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
+      <div className="space-y-6 pb-24">
         {/* EXECUTIVE SUMMARY BANNER */}
         <div className="bg-gradient-to-br from-neutral-50 to-white rounded-2xl border border-neutral-200/90 p-5 shadow-xs">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 divide-y md:divide-y-0 md:divide-x divide-neutral-200/80">
@@ -421,7 +422,20 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                             <Button
                               variant="primary"
                               size="sm"
-                              onClick={() => onAssignRoom(room.id)}
+                              onClick={() =>
+                                onAssignRoom({
+                                  bookingId: booking.id,
+                                  bookingNumber: booking.bookingNumber,
+                                  bookingRoomId: room.id,
+                                  hotelId: booking.hotelId,
+                                  hotelName: booking.hotelName,
+                                  guestName: booking.guestName,
+                                  roomTypeName: detail.roomTypeName,
+                                  hotelRoomTypeId: detail.hotelRoomTypeId,
+                                  checkInDate: detail.checkInDate,
+                                  checkOutDate: detail.checkOutDate,
+                                })
+                              }
                               className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs"
                             >
                               <UserCheck className="w-3.5 h-3.5 mr-1" />
