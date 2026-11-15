@@ -598,6 +598,7 @@ export const CheckoutPage: React.FC = () => {
           ];
 
     setIsSubmitting(true);
+    let shouldKeepSubmitting = false;
     try {
       const res = await bookingService.createPublicBooking({
         hotelId: effectiveHotelId,
@@ -615,23 +616,32 @@ export const CheckoutPage: React.FC = () => {
       });
 
       if (res && res.result) {
+        // VNPAY: phương thức bắt buộc thanh toán trực tuyến qua cổng
+        if (paymentMethod === 'VNPAY') {
+          const redirected = await handlePayWithGateway(res.result.id);
+          if (redirected) {
+            shouldKeepSubmitting = true;
+            return;
+          }
+          // Tạo phiên thất bại: modal lỗi đã được kích hoạt, không set bookingConfirmed
+          return;
+        }
+
+        // Chỉ dành cho phương thức không cần thanh toán online ngay (nếu có sau này)
         setBookingConfirmed({
           id: res.result.id,
           bookingNumber: res.result.bookingNumber,
           totalAmount: displayGrandTotal,
         });
-
-        // VNPAY: gọi API tạo phiên thanh toán thật + redirect sang ngân hàng
-        if (paymentMethod === 'VNPAY') {
-          await handlePayWithGateway(res.result.id);
-        }
       }
     } catch (err: unknown) {
       console.error('Booking submission failed:', err);
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
       alert(axiosErr.response?.data?.message || axiosErr.message || 'Không thể tạo đơn đặt phòng. Vui lòng thử lại!');
     } finally {
-      setIsSubmitting(false);
+      if (!shouldKeepSubmitting) {
+        setIsSubmitting(false);
+      }
     }
   };
 
