@@ -28,6 +28,8 @@ import vn.edu.utc.hotel_booking.modules.booking.service.BookingChargeService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingRoomService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Company;
+import org.springframework.context.ApplicationEventPublisher;
+import vn.edu.utc.hotel_booking.modules.notification.event.BookingConfirmationEmailEvent;
 import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.service.CompanyService;
 import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
@@ -173,6 +175,7 @@ public class BookingServiceImpl implements BookingService {
     RoomInstanceRepository roomInstanceRepository;
     StayGuestMapper stayGuestMapper;
     RoomInstanceMapper roomInstanceMapper;
+    ApplicationEventPublisher eventPublisher;
 
 
     @Override
@@ -470,7 +473,59 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
+        publishBookingConfirmationEmail(saved);
+
         return bookingMapper.toResponse(saved);
+    }
+
+    private void publishBookingConfirmationEmail(Booking booking) {
+        if (eventPublisher == null || booking == null || booking.getGuest() == null) {
+            return;
+        }
+        String email = booking.getGuest().getEmail();
+        if (email == null || email.isBlank()) {
+            return;
+        }
+
+        try {
+            LocalDate checkIn = null;
+            LocalDate checkOut = null;
+            String roomTypeName = null;
+            int totalRooms = 0;
+            if (booking.getBookingDetails() != null && !booking.getBookingDetails().isEmpty()) {
+                BookingDetail first = booking.getBookingDetails().get(0);
+                checkIn = first.getCheckInDate();
+                checkOut = first.getCheckOutDate();
+                roomTypeName = first.getRoomTypeName();
+                for (BookingDetail d : booking.getBookingDetails()) {
+                    totalRooms += (d.getQuantity() != null ? d.getQuantity() : 1);
+                }
+            }
+
+            BookingConfirmationEmailEvent event = BookingConfirmationEmailEvent.builder()
+                    .bookingId(booking.getId())
+                    .bookingCode(booking.getBookingNumber())
+                    .recipientEmail(email.trim())
+                    .customerName(booking.getGuest().getFullName())
+                    .hotelName(booking.getHotel() != null ? booking.getHotel().getName() : "SmartStay Hotel")
+                    .hotelAddress(booking.getHotel() != null ? booking.getHotel().getAddress() : "")
+                    .hotelPhone(booking.getHotel() != null ? booking.getHotel().getPhone() : "")
+                    .checkInDate(checkIn)
+                    .checkOutDate(checkOut)
+                    .roomTypeName(roomTypeName)
+                    .totalRooms(totalRooms > 0 ? totalRooms : 1)
+                    .totalGuests(1)
+                    .subtotalAmount(booking.getSubtotalAmount())
+                    .serviceFeeAmount(booking.getServiceFeeAmount())
+                    .vatAmount(booking.getTotalVatAmount())
+                    .totalAmount(booking.getTotalAmount())
+                    .currency("VND")
+                    .portalUrl("http://localhost:3000/my-bookings")
+                    .build();
+            eventPublisher.publishEvent(event);
+        } catch (Exception ex) {
+            log.error("Failed to publish BookingConfirmationEmailEvent for booking {}: {}", booking.getBookingNumber(), ex.getMessage());
+        }
     }
 
     @Override
