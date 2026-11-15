@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/public/payments")
+@RequestMapping({"/api/v1/public/payments", "/api/v1/payments"})
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Payment Callback Controller", description = "Webhook công khai từ VNPay/MoMo (không JWT)")
 public class PaymentCallbackController {
@@ -54,7 +54,7 @@ public class PaymentCallbackController {
         this.feResultUrl = feResultUrl;
     }
 
-    @GetMapping("/vnpay/ipn")
+    @GetMapping({"/vnpay/ipn", "/vnpay-ipn"})
     @Operation(summary = "VNPay IPN — server-to-server, verify chữ ký + idempotent")
     public ResponseEntity<Map<String, String>> vnPayIpn(@RequestParam Map<String, String> params) {
         try {
@@ -75,7 +75,7 @@ public class PaymentCallbackController {
         }
     }
 
-    @GetMapping("/vnpay/return")
+    @GetMapping({"/vnpay/return", "/vnpay-return"})
     @Operation(summary = "VNPay redirect trình duyệt — verify rồi 302 về trang kết quả FE")
     public ResponseEntity<Void> vnPayReturn(@RequestParam Map<String, String> params) {
         boolean paid;
