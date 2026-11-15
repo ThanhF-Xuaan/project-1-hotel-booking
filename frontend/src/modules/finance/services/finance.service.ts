@@ -23,6 +23,12 @@ export const financeService = {
   createVnPayPayment: (data: GatewayCreateRequest) =>
     apiClient.post<PaymentUrlResponse>(`${PAYMENT_URL}/vnpay/create`, data),
 
+  createPublicVnPayPayment: (data: GatewayCreateRequest) =>
+    apiClient.post<PaymentUrlResponse>('/api/v1/public/payments/vnpay/create', data),
+
+  getPublicPaymentStatus: (id: number) =>
+    apiClient.get<PaymentResponse>(`/api/v1/public/payments/${id}/status`),
+
   createMoMoPayment: (data: GatewayCreateRequest) =>
     apiClient.post<PaymentUrlResponse>(`${PAYMENT_URL}/momo/create`, data),
 

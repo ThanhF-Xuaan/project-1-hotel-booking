@@ -179,7 +179,25 @@ public class BookingServiceImpl implements BookingService {
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest request) {
         Hotel hotel = hotelService.getEntityById(request.getHotelId());
-        BookingGuest guest = guestService.getEntityById(request.getGuestId());
+        
+        BookingGuest guest = null;
+        if (request.getGuestId() != null) {
+            guest = guestService.getEntityById(request.getGuestId());
+        } else if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank()) {
+            guest = guestService.getOrCreateGuest(
+                    request.getCustomerPhone(),
+                    request.getCustomerName() != null ? request.getCustomerName() : "Khách đặt Online",
+                    request.getCustomerEmail(),
+                    request.getCustomerNationality() != null ? request.getCustomerNationality() : "VN"
+            );
+            if (request.getCustomerIdentityNumber() != null && !request.getCustomerIdentityNumber().isBlank()
+                    && (guest.getIdentityNumber() == null || guest.getIdentityNumber().isBlank())) {
+                guest.setIdentityNumber(request.getCustomerIdentityNumber().trim());
+            }
+        } else if (request.getCompanyId() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
+                    "Thiếu thông tin người đặt phòng (guestId hoặc customerPhone)");
+        }
 
         Company company = null;
         if (request.getCompanyId() != null) {

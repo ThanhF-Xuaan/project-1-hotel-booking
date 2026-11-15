@@ -28,6 +28,9 @@ export const bookingService = {
   create: (data: BookingCreateRequest) =>
     apiClient.post<BookingResponse>(`${BASE_URL}/create`, data),
 
+  createPublicBooking: (data: BookingCreateRequest) =>
+    apiClient.post<BookingResponse>('/api/v1/public/bookings', data),
+
   filter: (params: BookingSearchDto) =>
     apiClient.post<PageResponse<BookingResponse>>(`${BASE_URL}/filter`, params),
 

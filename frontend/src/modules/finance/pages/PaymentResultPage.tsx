@@ -75,7 +75,17 @@ export const PaymentResultPage: React.FC = () => {
 
     const check = async () => {
       try {
-        const res = await financeService.getPaymentById(paymentId);
+        let res;
+        try {
+          res = await financeService.getPaymentById(paymentId);
+        } catch (innerErr) {
+          const errStatus = getErrorStatus(innerErr);
+          if (errStatus === 401 || errStatus === 403) {
+            res = await financeService.getPublicPaymentStatus(paymentId);
+          } else {
+            throw innerErr;
+          }
+        }
         if (!active || !res.result) return;
         setPollFailed(false);
         setAuthPollStopped(false);
@@ -88,8 +98,7 @@ export const PaymentResultPage: React.FC = () => {
         if (!active) return;
         const status = getErrorStatus(err);
         if (status === 401 || status === 403) {
-          // Người dùng không có token ở origin hiện tại (VD: port 80 vs 3000 hoặc khách portal)
-          // ➔ dừng poll lặp vô hạn và dùng kết quả đã được BE xác thực chữ ký trên query params
+          // Người dùng không có token ở origin hiện tại và public status cũng dừng
           setAuthPollStopped(true);
           if (intervalRef.current) {
             clearInterval(intervalRef.current);

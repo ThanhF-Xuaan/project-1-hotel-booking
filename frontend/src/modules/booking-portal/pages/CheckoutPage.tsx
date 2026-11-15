@@ -384,7 +384,7 @@ export const CheckoutPage: React.FC = () => {
   // Tạo phiên thanh toán VNPay cho booking vừa tạo → redirect ra cổng (tree T06: gọi API thật + redirect)
   const handlePayWithGateway = async (bookingId: number): Promise<boolean> => {
     try {
-      const res = await financeService.createVnPayPayment({ bookingId, method: 'VNPAY', bankCode: 'NCB' });
+      const res = await financeService.createPublicVnPayPayment({ bookingId, method: 'VNPAY', bankCode: 'NCB' });
       if (res.result) {
         setPendingGatewayBookingId(null);
         setGatewayError(null);
@@ -599,9 +599,13 @@ export const CheckoutPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const res = await bookingService.create({
+      const res = await bookingService.createPublicBooking({
         hotelId: effectiveHotelId,
-        guestId: 1, // Default guest ID
+        customerName: `${lastName.trim()} ${firstName.trim()}`,
+        customerPhone: phone.trim(),
+        customerEmail: email.trim(),
+        customerNationality: country,
+        customerIdentityNumber: identityNumber.trim() || undefined,
         sessionId: sessionId || undefined,
         bookingType: 'FIT',
         serviceFeeRate: 5,

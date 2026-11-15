@@ -26,8 +26,15 @@ public class BookingCreateRequest {
 
     String sessionId;
 
-    @NotNull(message = "ID khách hàng không được để trống")
+    // ID khách hàng đại diện (BookingGuest) — tùy chọn khi đặt phòng online công khai
     Long guestId;
+
+    // Thông tin Người đặt phòng đại diện (BookingGuest) — tự động tìm/tạo hồ sơ nếu guestId bị trống
+    String customerName;
+    String customerPhone;
+    String customerEmail;
+    String customerNationality;
+    String customerIdentityNumber;
 
     Long companyId;
 
