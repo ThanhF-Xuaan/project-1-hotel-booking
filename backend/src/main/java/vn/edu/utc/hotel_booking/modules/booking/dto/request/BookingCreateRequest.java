@@ -44,6 +44,9 @@ public class BookingCreateRequest {
     @Builder.Default
     List<RoomItemRequest> rooms = new ArrayList<>();
 
+    @Builder.Default
+    List<CartPriceQuoteRequest.SelectedServiceRequest> selectedServices = new ArrayList<>();
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

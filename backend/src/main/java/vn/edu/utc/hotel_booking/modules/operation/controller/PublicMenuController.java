@@ -50,7 +50,7 @@ public class PublicMenuController {
         MenuSearchDto searchDto = new MenuSearchDto();
         searchDto.setHotelId(hotelId);
         searchDto.setMenuType(vn.edu.utc.hotel_booking.modules.operation.entity.MenuType.SERVICE);
-        searchDto.setStatus("AVAILABLE");
+        searchDto.setStatus("ACTIVE");
         searchDto.setPage(page);
         searchDto.setPageSize(size);
         return ApiResponse.success(menuService.filter(searchDto));

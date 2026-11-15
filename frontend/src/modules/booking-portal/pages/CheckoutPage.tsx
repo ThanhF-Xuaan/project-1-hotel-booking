@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Clock,
@@ -18,6 +18,9 @@ import {
   ChevronUp,
   FileText,
   AlertCircle,
+  Plus,
+  Minus,
+  Loader2,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -27,12 +30,20 @@ import { bookingService } from '../../booking/services/booking.service';
 import { financeService } from '../../finance/services/finance.service';
 import { voucherService } from '../../pricing/services/voucher.service';
 import { bookingSessionService } from '../services/bookingSessionService';
+import { publicMenuService } from '../services/publicMenuService';
+import { bookingSearchService } from '../services/bookingSearchService';
 import type { VoucherValidationResponse } from '../../pricing/types/voucher.types';
 import { getApiErrorMessage, type ApiErrorInfo } from '../../../core/api/error';
 import PaymentErrorModal from '../../finance/components/payment/PaymentErrorModal';
 import SessionExpiredModal from '../components/SessionExpiredModal';
 import { VNPAY_ATM_TEST_CARD } from '../../finance/utils/vnpay.utils';
-import type { AvailableRoomOffer, CustomerSearchCriteria, SelectedRoomCartItem } from '../types/portal.types';
+import type {
+  AvailableRoomOffer,
+  CustomerSearchCriteria,
+  SelectedRoomCartItem,
+  AddonServiceItem,
+  CartPriceQuoteResponse,
+} from '../types/portal.types';
 
 const HONORIFIC_OPTIONS = [
   { value: 'Ông', label: 'Ông' },
@@ -65,6 +76,7 @@ export const CheckoutPage: React.FC = () => {
     offer?: AvailableRoomOffer;
     criteria?: CustomerSearchCriteria;
     selectedCartItems?: SelectedRoomCartItem[];
+    quote?: CartPriceQuoteResponse;
   } | undefined;
 
   const sessionId = state?.sessionId;
@@ -72,7 +84,7 @@ export const CheckoutPage: React.FC = () => {
   const hotelName = state?.hotelName || 'Khách sạn Viettel Boutique Sapa';
   const offer = state?.offer;
   const criteria = state?.criteria;
-  const selectedCartItems = state?.selectedCartItems || [];
+  const selectedCartItems = useMemo(() => state?.selectedCartItems || [], [state?.selectedCartItems]);
 
   // 15-Minute Countdown Timer (đồng bộ từ Backend remainingSeconds hoặc fallback 900s)
   const [secondsRemaining, setSecondsRemaining] = useState<number>(initialSeconds);
@@ -126,6 +138,114 @@ export const CheckoutPage: React.FC = () => {
 
   const effectiveHotelId = criteria?.hotelId || state?.hotelId || 1;
 
+  // Danh sách dịch vụ gia tăng / Add-on services
+  const [availableServices, setAvailableServices] = useState<AddonServiceItem[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState<boolean>(true);
+  const [selectedServices, setSelectedServices] = useState<Array<{ menuId: number; quantity: number }>>([]);
+  const [cartQuote, setCartQuote] = useState<CartPriceQuoteResponse | null>(state?.quote || null);
+  const [isRecalculatingPrice, setIsRecalculatingPrice] = useState(false);
+
+  // Helper chuyển đổi đơn vị tính chuẩn hóa sang tiếng Việt
+  const formatServiceUnit = (unit?: string, pricingType?: string) => {
+    if (pricingType === 'PER_STAY') return 'kỳ nghỉ';
+    if (pricingType === 'PER_NIGHT') return 'đêm';
+    if (pricingType === 'PER_PERSON') return 'người';
+    if (pricingType === 'PER_PERSON_PER_NIGHT') return 'người/đêm';
+    if (pricingType === 'PER_USE') return 'lượt';
+    switch (unit?.toUpperCase()) {
+      case 'CHUYEN':
+        return 'chuyến';
+      case 'KG':
+        return 'kg';
+      case 'NGAY':
+        return 'ngày';
+      case 'GOI':
+        return 'gói';
+      case 'PHAN':
+        return 'suất';
+      case 'LUOT':
+        return 'lượt';
+      default:
+        return unit?.toLowerCase() || 'lượt';
+    }
+  };
+
+  // Tính toán lại báo giá giỏ hàng đa hạng phòng + dịch vụ thời gian thực
+  const recalculateCartPricing = async (
+    services: Array<{ menuId: number; quantity: number }>,
+    vCode?: string
+  ) => {
+    setIsRecalculatingPrice(true);
+    try {
+      const itemsPayload =
+        selectedCartItems.length > 0
+          ? selectedCartItems.map((cartItem) => {
+              const firstRoom = cartItem.rooms[0];
+              return {
+                hotelRoomTypeId: cartItem.hotelRoomTypeId,
+                quantity: cartItem.quantity as number,
+                adults: firstRoom?.adults ?? 2,
+                children: firstRoom?.children ?? 0,
+                infants: firstRoom?.infants ?? 0,
+                extraBeds: 0,
+              };
+            })
+          : [
+              {
+                hotelRoomTypeId: offer?.hotelRoomTypeId || 1,
+                quantity: 1,
+                adults: criteria?.adultCount || 2,
+                children: criteria?.childCount || 0,
+                infants: 0,
+                extraBeds: 0,
+              },
+            ];
+
+      const res = await bookingSearchService.calculateCartQuote({
+        hotelId: effectiveHotelId,
+        checkInDate,
+        checkOutDate,
+        voucherCode: vCode || undefined,
+        items: itemsPayload,
+        selectedServices: services.length > 0 ? services : undefined,
+      });
+
+      if (res && res.result) {
+        setCartQuote(res.result);
+      }
+    } catch (err) {
+      console.warn('Lỗi tính toán lại báo giá giỏ hàng:', err);
+    } finally {
+      setIsRecalculatingPrice(false);
+    }
+  };
+
+  // Tải danh mục dịch vụ bổ sung chuẩn chuỗi & cơ sở override từ Backend
+  useEffect(() => {
+    let isSubscribed = true;
+    publicMenuService
+      .getAddonServicesByHotel(effectiveHotelId)
+      .then((res) => {
+        if (!isSubscribed) return;
+        if (res && res.result && Array.isArray(res.result.content)) {
+          setAvailableServices(res.result.content);
+        }
+      })
+      .catch((err) => {
+        if (!isSubscribed) return;
+        console.warn('Không thể tải danh sách dịch vụ bổ sung:', err);
+      })
+      .finally(() => {
+        if (isSubscribed) {
+          setIsLoadingServices(false);
+        }
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [effectiveHotelId]);
+
   // Tự động kiểm tra và áp dụng voucher nếu được truyền từ trang tìm kiếm
   useEffect(() => {
     if (criteria?.voucherCode && basePriceTotal > 0) {
@@ -147,6 +267,35 @@ export const CheckoutPage: React.FC = () => {
         });
     }
   }, [criteria?.voucherCode, effectiveHotelId, basePriceTotal]);
+
+  // Bật/tắt dịch vụ
+  const handleToggleService = (menuId: number) => {
+    const existing = selectedServices.find((s) => s.menuId === menuId);
+    let next: Array<{ menuId: number; quantity: number }>;
+    if (existing) {
+      next = selectedServices.filter((s) => s.menuId !== menuId);
+    } else {
+      next = [...selectedServices, { menuId, quantity: 1 }];
+    }
+    setSelectedServices(next);
+    recalculateCartPricing(next, appliedVoucher?.voucherCode);
+  };
+
+  // Tăng/giảm số lượng dịch vụ [ - 1 + ]
+  const handleUpdateServiceQuantity = (menuId: number, delta: number) => {
+    const next = selectedServices
+      .map((s) => {
+        if (s.menuId === menuId) {
+          const newQty = s.quantity + delta;
+          return newQty > 0 ? { ...s, quantity: newQty } : null;
+        }
+        return s;
+      })
+      .filter((s): s is { menuId: number; quantity: number } => s !== null);
+
+    setSelectedServices(next);
+    recalculateCartPricing(next, appliedVoucher?.voucherCode);
+  };
 
   // VNPay test account copy state
   const [copiedVnpayCard, setCopiedVnpayCard] = useState(false);
@@ -235,10 +384,16 @@ export const CheckoutPage: React.FC = () => {
   };
 
   const voucherDiscount = appliedVoucher?.discountAmount || 0;
-  const netRoomPrice = Math.max(0, basePriceTotal - voucherDiscount);
-  const serviceFee = Math.round(netRoomPrice * 0.05);
-  const vat = Math.round((netRoomPrice + serviceFee) * 0.08);
-  const grandTotal = netRoomPrice + serviceFee + vat;
+  const fallbackNetRoomPrice = Math.max(0, basePriceTotal - voucherDiscount);
+  const fallbackServiceFee = Math.round(fallbackNetRoomPrice * 0.05);
+  const fallbackVat = Math.round((fallbackNetRoomPrice + fallbackServiceFee) * 0.08);
+  const fallbackGrandTotal = fallbackNetRoomPrice + fallbackServiceFee + fallbackVat;
+
+  const displayBasePriceTotal = cartQuote?.totalBasePrice ?? basePriceTotal;
+  const displayServiceSubtotal = cartQuote?.totalServiceSubtotal ?? 0;
+  const displayHotelServiceFee = (cartQuote?.totalRoomServiceFee ?? fallbackServiceFee) + (cartQuote?.totalServiceFee ?? 0);
+  const displayTotalVat = (cartQuote?.totalRoomVat ?? fallbackVat) + (cartQuote?.totalServiceVat ?? 0);
+  const displayGrandTotal = cartQuote?.grandTotal ?? fallbackGrandTotal;
 
   // Xử lý khi khách bấm quay lại chọn phòng -> Giải phóng hold phòng lập tức
   const handleBackToSearch = async () => {
@@ -271,18 +426,22 @@ export const CheckoutPage: React.FC = () => {
         if (res.result.valid) {
           setAppliedVoucher(res.result);
           setVoucherError(null);
+          recalculateCartPricing(selectedServices, code);
         } else {
           setAppliedVoucher(null);
           setVoucherError(res.result.message || 'Mã giảm giá không hợp lệ');
+          recalculateCartPricing(selectedServices, undefined);
         }
       } else {
         setAppliedVoucher(null);
         setVoucherError('Không thể kiểm tra mã giảm giá');
+        recalculateCartPricing(selectedServices, undefined);
       }
     } catch (err: unknown) {
       setAppliedVoucher(null);
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
       setVoucherError(axiosErr.response?.data?.message || axiosErr.message || 'Lỗi khi kiểm tra mã voucher');
+      recalculateCartPricing(selectedServices, undefined);
     } finally {
       setIsValidatingVoucher(false);
     }
@@ -292,6 +451,7 @@ export const CheckoutPage: React.FC = () => {
     setAppliedVoucher(null);
     setVoucherCodeInput('');
     setVoucherError(null);
+    recalculateCartPricing(selectedServices, undefined);
   };
 
   const handleConfirmBooking = async (e: React.FormEvent) => {
@@ -363,13 +523,14 @@ export const CheckoutPage: React.FC = () => {
         serviceFeeRate: 5,
         voucherCode: appliedVoucher?.voucherCode || undefined,
         rooms: roomsPayload,
+        selectedServices: selectedServices.length > 0 ? selectedServices : undefined,
       });
 
       if (res && res.result) {
         setBookingConfirmed({
           id: res.result.id,
           bookingNumber: res.result.bookingNumber,
-          totalAmount: grandTotal,
+          totalAmount: displayGrandTotal,
         });
 
         // VNPAY: gọi API tạo phiên thanh toán thật + redirect sang ngân hàng
@@ -473,7 +634,7 @@ export const CheckoutPage: React.FC = () => {
     <div className="min-h-screen bg-neutral-50 pb-16">
       {/* Top Header — Chuẩn Mường Thanh (Không có logo SSL) */}
       <header className="bg-white border-b border-neutral-200 sticky top-0 z-30 shadow-2xs">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <button
             type="button"
             onClick={handleBackToSearch}
@@ -494,7 +655,7 @@ export const CheckoutPage: React.FC = () => {
           secondsRemaining > 0 ? 'bg-amber-500 text-white' : 'bg-red-600 text-white'
         } py-3 px-4 shadow-sm sticky top-16 z-20`}
       >
-        <div className="max-w-5xl mx-auto flex items-center justify-between text-xs sm:text-sm font-semibold">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-xs sm:text-sm font-semibold">
           <div className="flex items-center gap-2">
             {secondsRemaining > 0 ? (
               <>
@@ -515,10 +676,10 @@ export const CheckoutPage: React.FC = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 mt-6">
-        <form onSubmit={handleConfirmBooking} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* CỘT TRÁI (2 Cột): Thông tin người đặt phòng & Phương thức thanh toán & Chính sách */}
-          <div className="lg:col-span-2 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 mt-6">
+        <form onSubmit={handleConfirmBooking} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* CỘT TRÁI (7 Cột): Thông tin người đặt phòng & Phương thức thanh toán & Chính sách */}
+          <div className="lg:col-span-7 space-y-6">
             {/* Khối Thông tin người đặt phòng */}
             <div className="bg-white p-6 rounded-3xl border border-neutral-200 shadow-xs space-y-4">
               <h2 className="text-lg font-bold text-neutral-900 flex items-center gap-2">
@@ -768,9 +929,110 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* CỘT PHẢI (1 Cột): "Yêu cầu đặt phòng của bạn" (Chuẩn Mường Thanh) */}
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-3xl border border-neutral-200 shadow-xs space-y-5 sticky top-32">
+          {/* CỘT PHẢI (5 Cột): Dịch vụ gia tăng & Yêu cầu đặt phòng (Mở rộng ~510px) */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Card 1: Khối Dịch vụ bổ sung / Dịch vụ gia tăng (Add-on Services) */}
+            <div className="bg-white p-6 rounded-3xl border border-neutral-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-neutral-900 text-sm">Dịch vụ bổ sung (Add-on Services)</h3>
+                    <p className="text-[11px] text-neutral-500">Tùy chọn nâng tầm trải nghiệm lưu trú</p>
+                  </div>
+                </div>
+                {selectedServices.length > 0 && (
+                  <span className="text-[11px] bg-red-100 text-red-700 font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                    Đã chọn {selectedServices.length}
+                  </span>
+                )}
+              </div>
+
+              {isLoadingServices ? (
+                <div className="py-6 flex items-center justify-center text-neutral-400 gap-2 text-xs">
+                  <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+                  Đang tải danh mục dịch vụ...
+                </div>
+              ) : availableServices.length === 0 ? (
+                <p className="text-xs text-neutral-500 italic py-2">Khách sạn chưa có dịch vụ bổ sung khả dụng.</p>
+              ) : (
+                <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                  {availableServices.map((service) => {
+                    const selectedItem = selectedServices.find((s) => s.menuId === service.id);
+                    const isSelected = !!selectedItem;
+                    const unitStr = formatServiceUnit(service.unit, service.pricingType);
+
+                    return (
+                      <div
+                        key={service.id}
+                        className={`p-3.5 rounded-2xl border transition-all ${
+                          isSelected
+                            ? 'border-red-500 bg-red-50/20 shadow-xs'
+                            : 'border-neutral-200/80 bg-neutral-50/40 hover:border-neutral-300'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <label className="flex items-start gap-3 cursor-pointer flex-1 select-none">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleService(service.id)}
+                              className="mt-1 h-4 w-4 rounded text-red-600 focus:ring-red-500 border-neutral-300 cursor-pointer"
+                            />
+                            <div className="space-y-1">
+                              <div className="font-bold text-xs text-neutral-900 leading-snug">
+                                {service.name}
+                              </div>
+                              {service.description && (
+                                <div className="text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">
+                                  {service.description}
+                                </div>
+                              )}
+                              <div className="text-xs font-bold text-red-600 pt-0.5">
+                                {formatVND(service.basePrice)}{' '}
+                                <span className="text-[11px] text-neutral-500 font-normal">
+                                  /{unitStr}
+                                </span>
+                              </div>
+                            </div>
+                          </label>
+
+                          {/* Bộ tăng/giảm số lượng [ - 1 + ] khi được chọn */}
+                          {isSelected && (
+                            <div className="flex items-center gap-1.5 bg-white border border-neutral-200 rounded-xl p-1 shrink-0 self-center shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateServiceQuantity(service.id, -1)}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-100 text-neutral-700 cursor-pointer transition-colors"
+                                title="Giảm số lượng"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-6 text-center text-xs font-bold text-neutral-900 font-mono">
+                                {selectedItem.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateServiceQuantity(service.id, 1)}
+                                className="w-6 h-6 flex items-center justify-center rounded-lg hover:bg-neutral-100 text-neutral-700 cursor-pointer transition-colors"
+                                title="Tăng số lượng"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: Khối "Yêu cầu đặt phòng của bạn" & Bảng tổng kết chi phí (Chuẩn Mường Thanh) */}
+            <div className="bg-white p-6 rounded-3xl border border-neutral-200 shadow-xs space-y-5">
               <h3 className="font-bold text-neutral-900 text-lg flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-red-600" />
                 Yêu cầu đặt phòng của bạn
@@ -910,7 +1172,7 @@ export const CheckoutPage: React.FC = () => {
               <div className="space-y-2 text-xs text-neutral-600">
                 <div className="flex justify-between">
                   <span>Tiền phòng ({nightsCount} đêm):</span>
-                  <span className="font-medium text-neutral-800">{formatVND(basePriceTotal)}</span>
+                  <span className="font-medium text-neutral-800">{formatVND(displayBasePriceTotal)}</span>
                 </div>
                 {voucherDiscount > 0 && (
                   <div className="flex justify-between text-emerald-700 font-medium">
@@ -918,17 +1180,30 @@ export const CheckoutPage: React.FC = () => {
                     <span>-{formatVND(voucherDiscount)}</span>
                   </div>
                 )}
+                {displayServiceSubtotal > 0 && (
+                  <div className="flex justify-between text-neutral-800">
+                    <span>Dịch vụ bổ sung ({selectedServices.length} món):</span>
+                    <span className="font-medium text-neutral-900">{formatVND(displayServiceSubtotal)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span>Phí dịch vụ khách sạn (5%):</span>
-                  <span>{formatVND(serviceFee)}</span>
+                  <span>{formatVND(displayHotelServiceFee)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Thuế GTGT (VAT 8%):</span>
-                  <span>{formatVND(vat)}</span>
+                  <span>Thuế GTGT (VAT):</span>
+                  <span>{formatVND(displayTotalVat)}</span>
                 </div>
-                <div className="flex justify-between text-base font-extrabold text-neutral-900 pt-3 border-t border-neutral-200">
-                  <span>Tổng giá:</span>
-                  <span className="text-red-600">{formatVND(grandTotal)}</span>
+                <div className="flex justify-between items-center text-base font-extrabold text-neutral-900 pt-3 border-t border-neutral-200">
+                  <span className="flex items-center gap-1.5">
+                    Tổng giá:
+                    {isRecalculatingPrice && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-red-600" />
+                    )}
+                  </span>
+                  <span className={`text-red-600 ${isRecalculatingPrice ? 'opacity-60' : ''}`}>
+                    {formatVND(displayGrandTotal)}
+                  </span>
                 </div>
 
                 {/* Dòng lưu ý pháp lý theo đúng quy định Mường Thanh */}

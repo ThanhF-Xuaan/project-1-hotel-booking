@@ -33,10 +33,13 @@ export interface BookingRoomItemRequest {
 export interface BookingCreateRequest {
   hotelId: number;
   guestId: number;
+  sessionId?: string;
   companyId?: number;
   bookingType?: BookingType;
   serviceFeeRate?: number;
+  voucherCode?: string;
   rooms: BookingRoomItemRequest[];
+  selectedServices?: Array<{ menuId: number; quantity: number }>;
 }
 
 export interface BookingSearchDto {

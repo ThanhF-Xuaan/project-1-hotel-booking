@@ -169,4 +169,78 @@ class AddonServiceHandlerTest {
         assertThat(items.get(0).getUnitPrice()).isEqualByComparingTo(new BigDecimal("250000.00"));
         assertThat(items.get(0).getSubtotal()).isEqualByComparingTo(new BigDecimal("250000.00"));
     }
+
+    @Test
+    @DisplayName("Should correctly calculate PER_UNIT and PER_USE pricing types")
+    void shouldCalculatePerUnitAndPerUsePricing() {
+        TaxCategory catLaundry = TaxCategory.builder().id(8).categoryCode("LAUNDRY").categoryName("Laundry").build();
+        TaxCategory catTransport = TaxCategory.builder().id(7).categoryCode("TRANSPORT").categoryName("Transport").build();
+
+        MasterItem masterLaundry = MasterItem.builder()
+                .id(104)
+                .code("CHAIN_LAUNDRY")
+                .name("Giặt là")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_UNIT)
+                .defaultBasePrice(new BigDecimal("30000.00"))
+                .build();
+
+        Menu menuLaundry = Menu.builder()
+                .id(104)
+                .name("Giặt là")
+                .basePrice(new BigDecimal("50000.00")) // Hotel override: 50k
+                .taxCategory(catLaundry)
+                .masterItem(masterLaundry)
+                .build();
+
+        MasterItem masterShuttle = MasterItem.builder()
+                .id(105)
+                .code("CHAIN_AIRPORT_SHUTTLE")
+                .name("Xe đưa đón sân bay")
+                .pricingType(vn.edu.utc.hotel_booking.modules.operation.entity.ServicePricingType.PER_USE)
+                .defaultBasePrice(new BigDecimal("250000.00"))
+                .build();
+
+        Menu menuShuttle = Menu.builder()
+                .id(105)
+                .name("Xe đưa đón sân bay")
+                .basePrice(new BigDecimal("350000.00")) // Hotel override: 350k
+                .taxCategory(catTransport)
+                .masterItem(masterShuttle)
+                .build();
+
+        when(menuRepository.findByIdAndIsDeletedFalse(104)).thenReturn(Optional.of(menuLaundry));
+        when(menuRepository.findByIdAndIsDeletedFalse(105)).thenReturn(Optional.of(menuShuttle));
+
+        PriceCalculationRequest request = PriceCalculationRequest.builder()
+                .hotelRoomTypeId(1)
+                .checkInDate(LocalDate.of(2026, 12, 31))
+                .checkOutDate(LocalDate.of(2027, 1, 2))
+                .adults((short) 2)
+                .selectedServices(List.of(
+                        SelectedServiceRequest.builder().serviceId(104).quantity(3).build(), // 3 kg giặt là = 150k
+                        SelectedServiceRequest.builder().serviceId(105).quantity(2).build()  // 2 chuyến xe = 700k
+                ))
+                .build();
+
+        PricingContext context = PricingContext.builder()
+                .request(request)
+                .build();
+
+        addonServiceHandler.handle(context);
+
+        List<ServiceItemContext> items = context.getServiceItems();
+        assertThat(items).hasSize(2);
+
+        // Laundry: 50.000 * 3 = 150.000
+        ServiceItemContext item1 = items.get(0);
+        assertThat(item1.getQuantity()).isEqualTo(3);
+        assertThat(item1.getPricingType()).isEqualTo(ServicePricingType.PER_UNIT);
+        assertThat(item1.getSubtotal()).isEqualByComparingTo(new BigDecimal("150000.00"));
+
+        // Shuttle: 350.000 * 2 = 700.000
+        ServiceItemContext item2 = items.get(1);
+        assertThat(item2.getQuantity()).isEqualTo(2);
+        assertThat(item2.getPricingType()).isEqualTo(ServicePricingType.PER_USE);
+        assertThat(item2.getSubtotal()).isEqualByComparingTo(new BigDecimal("700000.00"));
+    }
 }
