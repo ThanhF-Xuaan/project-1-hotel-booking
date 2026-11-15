@@ -557,6 +557,7 @@ export const SearchPage: React.FC = () => {
             childCount: totalChildren,
           },
           selectedCartItems,
+          quote: sessionData?.quote,
         },
       });
     } catch (err: unknown) {

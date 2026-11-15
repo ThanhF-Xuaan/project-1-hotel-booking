@@ -131,19 +131,23 @@ export const CheckoutPage: React.FC = () => {
   const [cartQuote, setCartQuote] = useState<CartPriceQuoteResponse | null>(state?.quote || null);
   const [isRecalculatingPrice, setIsRecalculatingPrice] = useState(false);
 
-  // Tổng tiền phòng gốc thuần trước thuế phí và voucher
+  // Tổng tiền phòng gốc thuần (Net) trước thuế phí và voucher
   const basePriceTotal = useMemo(() => {
     if (cartQuote?.totalBasePrice != null && cartQuote.totalBasePrice > 0) {
       return cartQuote.totalBasePrice;
     }
     if (selectedCartItems.length > 0) {
       return selectedCartItems.reduce((sum, item) => {
-        const itemBase = item.basePriceTotal ?? item.quote?.totalBasePrice ?? (item.perNightPrice * nightsCount * item.quantity);
+        const itemBase =
+          item.basePriceTotal ??
+          item.quote?.priceBreakdown?.totalBasePrice ??
+          Math.round(item.estimatedTotal / 1.134);
         return sum + itemBase;
       }, 0);
     }
-    return (offer?.basePrice ?? 600000) * nightsCount;
-  }, [cartQuote?.totalBasePrice, selectedCartItems, nightsCount, offer?.basePrice]);
+    const estimated = offer?.estimatedTotal ?? (offer?.basePrice ?? 600000) * nightsCount;
+    return Math.round(estimated / 1.134);
+  }, [cartQuote?.totalBasePrice, selectedCartItems, nightsCount, offer?.estimatedTotal, offer?.basePrice]);
 
   // Voucher state
   const [voucherCodeInput, setVoucherCodeInput] = useState(criteria?.voucherCode || '');
@@ -227,6 +231,70 @@ export const CheckoutPage: React.FC = () => {
       setIsRecalculatingPrice(false);
     }
   };
+
+  // Tự động tải báo giá ban đầu từ backend nếu chưa có từ router state (hoặc khi F5 tải lại trang)
+  useEffect(() => {
+    if (state?.quote || !effectiveHotelId) return;
+
+    let isSubscribed = true;
+    const itemsPayload =
+      selectedCartItems.length > 0
+        ? selectedCartItems.map((cartItem) => {
+            const firstRoom = cartItem.rooms[0];
+            return {
+              hotelRoomTypeId: cartItem.hotelRoomTypeId,
+              quantity: cartItem.quantity as number,
+              adults: firstRoom?.adults ?? 2,
+              children: firstRoom?.children ?? 0,
+              infants: firstRoom?.infants ?? 0,
+              extraBeds: 0,
+            };
+          })
+        : [
+            {
+              hotelRoomTypeId: offer?.hotelRoomTypeId || 1,
+              quantity: 1,
+              adults: criteria?.adultCount || 2,
+              children: criteria?.childCount || 0,
+              infants: 0,
+              extraBeds: 0,
+            },
+          ];
+
+    bookingSearchService
+      .calculateCartQuote({
+        hotelId: effectiveHotelId,
+        checkInDate,
+        checkOutDate,
+        voucherCode: criteria?.voucherCode || undefined,
+        items: itemsPayload,
+        selectedServices: undefined,
+      })
+      .then((res) => {
+        if (!isSubscribed) return;
+        if (res && res.result) {
+          setCartQuote(res.result);
+        }
+      })
+      .catch((err) => {
+        if (!isSubscribed) return;
+        console.warn('Lỗi tính toán lại báo giá ban đầu:', err);
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [
+    state?.quote,
+    effectiveHotelId,
+    checkInDate,
+    checkOutDate,
+    criteria?.voucherCode,
+    criteria?.adultCount,
+    criteria?.childCount,
+    offer?.hotelRoomTypeId,
+    selectedCartItems,
+  ]);
 
   // Tải danh mục dịch vụ bổ sung chuẩn chuỗi & cơ sở override từ Backend
   useEffect(() => {
@@ -393,15 +461,23 @@ export const CheckoutPage: React.FC = () => {
 
   const voucherDiscount = cartQuote?.totalDiscountAmount ?? appliedVoucher?.discountAmount ?? 0;
   const fallbackNetRoomPrice = Math.max(0, basePriceTotal - voucherDiscount);
-  const fallbackServiceFee = Math.round(fallbackNetRoomPrice * 0.05);
-  const fallbackVat = Math.round((fallbackNetRoomPrice + fallbackServiceFee) * 0.08);
-  const fallbackGrandTotal = fallbackNetRoomPrice + fallbackServiceFee + fallbackVat;
+  const fallbackRoomServiceFee = Math.round(fallbackNetRoomPrice * 0.05);
+  const fallbackRoomVat = Math.round((fallbackNetRoomPrice + fallbackRoomServiceFee) * 0.08);
+  const fallbackRoomGross = fallbackNetRoomPrice + fallbackRoomServiceFee + fallbackRoomVat;
+
+  const fallbackServiceSubtotal = selectedServices.reduce((sum, s) => {
+    const item = availableServices.find((a) => a.id === s.menuId);
+    return sum + (item ? item.basePrice * s.quantity : 0);
+  }, 0);
+  const fallbackServiceFee = Math.round(fallbackServiceSubtotal * 0.05);
+  const fallbackServiceVat = Math.round((fallbackServiceSubtotal + fallbackServiceFee) * 0.10);
+  const fallbackServiceGross = fallbackServiceSubtotal + fallbackServiceFee + fallbackServiceVat;
 
   const displayBasePriceTotal = cartQuote?.totalBasePrice ?? basePriceTotal;
-  const displayServiceSubtotal = cartQuote?.totalServiceSubtotal ?? 0;
-  const displayHotelServiceFee = (cartQuote?.totalRoomServiceFee ?? fallbackServiceFee) + (cartQuote?.totalServiceFee ?? 0);
-  const displayTotalVat = (cartQuote?.totalRoomVat ?? fallbackVat) + (cartQuote?.totalServiceVat ?? 0);
-  const displayGrandTotal = cartQuote?.grandTotal ?? fallbackGrandTotal;
+  const displayServiceSubtotal = cartQuote?.totalServiceSubtotal ?? fallbackServiceSubtotal;
+  const displayHotelServiceFee = (cartQuote?.totalRoomServiceFee ?? fallbackRoomServiceFee) + (cartQuote?.totalServiceFee ?? fallbackServiceFee);
+  const displayTotalVat = (cartQuote?.totalRoomVat ?? fallbackRoomVat) + (cartQuote?.totalServiceVat ?? fallbackServiceVat);
+  const displayGrandTotal = cartQuote?.grandTotal ?? (fallbackRoomGross + fallbackServiceGross);
 
   // Xử lý khi khách bấm quay lại chọn phòng -> Giải phóng hold phòng lập tức
   const handleBackToSearch = async () => {
@@ -1105,10 +1181,15 @@ export const CheckoutPage: React.FC = () => {
                           <div className="text-[11px] text-neutral-600">
                             Dành cho: {adults} Người lớn - {children} Trẻ em - {infants} Em bé
                           </div>
-                          <div className="flex justify-between items-center pt-1 border-t border-neutral-200/60 font-semibold text-neutral-900">
-                            <span>Giá phòng:</span>
+                          <div className="flex justify-between items-start pt-1.5 border-t border-neutral-200/60 text-xs">
+                            <div>
+                              <span className="font-semibold text-neutral-800">Tiền phòng ({nightsCount} đêm):</span>
+                              <div className="text-[10px] text-neutral-500 font-normal">
+                                (Trọn gói gồm thuế & phí: {formatVND(room.estimatedTotal || Math.round((room.basePriceTotal ?? 1200000) * 1.134))})
+                              </div>
+                            </div>
                             <span className="text-neutral-900 font-bold">
-                              {formatVND(room.basePriceTotal ?? room.quote?.totalBasePrice ?? (room.perNightPrice * nightsCount * room.quantity))}
+                              {formatVND(room.basePriceTotal ?? Math.round((room.estimatedTotal ?? 0) / 1.134))}
                             </span>
                           </div>
                         </div>
