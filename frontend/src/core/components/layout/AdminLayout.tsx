@@ -5,7 +5,7 @@ import Sidebar from './Sidebar'
 
 export const AdminLayout: React.FC = () => {
   return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col font-sans">
+    <div className="h-screen bg-neutral-50 flex flex-col font-sans overflow-hidden">
       <Header />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar />

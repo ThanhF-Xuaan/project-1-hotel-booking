@@ -24,24 +24,30 @@ public final class OccupancyDemoService {
 
     public DemoResponse replay(String scenario) {
         requireAdmin();
-        if (!"HOTEL_A".equals(scenario) && !"HOTEL_B".equals(scenario)) throw new IllegalArgumentException("Invalid demo scenario");
+        if (!"HOTEL_A".equals(scenario) && !"HOTEL_B".equals(scenario) && !"HOTEL_C".equals(scenario)) throw new IllegalArgumentException("Invalid demo scenario");
         return provider.occupancy(scenario, data -> replayData(scenario,data));
     }
     private DemoResponse replayData(String scenario, vn.edu.utc.hotel_booking.modules.ai.demo.data.DemoDataProvider.OccupancyData data) {
         var reference=data.reference();
+        var mode = data.dataMode() == OccupancyHistoryBatch.DataMode.AUTHORITATIVE
+                ? OccupancyHistoryBatch.DataMode.AUTHORITATIVE
+                : OccupancyHistoryBatch.DataMode.SYNTHETIC;
+        boolean isBusiness = mode == OccupancyHistoryBatch.DataMode.AUTHORITATIVE;
         var scope = new AuthorizedHotelScope(data.hotelId(), data.regionId());
         var history = new OccupancyHistoryService(id -> isAdmin() && id == data.hotelId() ? Optional.of(scope) : Optional.empty(),
                 query -> {
                     if (!query.scope().equals(scope)) throw new IllegalArgumentException("Invalid demo scope");
-                    return new OccupancyHistoryBatch(OccupancyHistoryBatch.DataMode.SYNTHETIC, data.rows());
+                    return new OccupancyHistoryBatch(mode, data.rows());
                 }, Clock.fixed(reference, ZoneOffset.UTC));
         var from = data.rows().getFirst().date();
         var to = data.rows().getLast().date();
         var observed = history.read(data.hotelId(), from, to);
         var forecast = new OccupancyForecastService(history, new ForecastBacktestEvaluator()).forecast(data.hotelId(), from, to);
         requireAdmin();
-        return new DemoResponse("SYNTHETIC", false, scenario,
-                "Dữ liệu mô phỏng theo mốc cố định; không phải lịch sử hoặc dự báo của khách sạn thật.", reference, observed, forecast);
+        return new DemoResponse(mode.name(), isBusiness, scenario,
+                isBusiness ? "Dữ liệu lịch sử và dự báo được tổng hợp trực tiếp từ bảng bookings và room_instances trong PostgreSQL."
+                           : "Dữ liệu mô phỏng theo mốc cố định; không phải lịch sử hoặc dự báo của khách sạn thật.",
+                reference, observed, forecast);
     }
 
     private boolean isAdmin() {

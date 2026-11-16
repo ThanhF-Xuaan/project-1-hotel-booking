@@ -66,11 +66,11 @@ const navGroups: NavGroup[] = [
         icon: <LayoutDashboard className="w-4 h-4" />,
       },
       {
-        label: 'Dự báo lấp đầy (Demo)',
-        to: '/ai/demo/occupancy',
+        label: 'Dự báo tỷ lệ lấp đầy',
+        to: '/ai/occupancy',
         icon: <TrendingUp aria-hidden="true" className="w-4 h-4" />,
-        badge: 'Demo',
-        roles: ['CHAIN_ADMIN'],
+        badge: 'AI',
+        roles: ['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER'],
       },
       {
         label: 'Điện/nước bất thường (Demo)',
@@ -457,7 +457,7 @@ export const Sidebar: React.FC = () => {
   }, [])
 
   return (
-    <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col shrink-0 min-h-[calc(100vh-4rem)] select-none">
+    <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col shrink-0 sticky top-16 h-[calc(100vh-4rem)] z-30 select-none overflow-hidden">
       <div className="py-4 px-3 flex-1 overflow-y-auto">
         <BranchedMenu
           items={menuItems}
