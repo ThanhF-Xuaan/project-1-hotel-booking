@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import apiClient from '../../../core/api/client'
 
-export type DemoScenario = 'HOTEL_A' | 'HOTEL_B' | 'HOTEL_C'
+export type DemoScenario = 'HOTEL_A' | 'HOTEL_B'
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value =>
   Number.isFinite(Date.parse(`${value}T00:00:00Z`)) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value)
 const percent = z.number().min(0).max(100)
@@ -15,19 +15,18 @@ const sample = z.object({
   : row.occupiedRooms !== null && row.capacityRooms !== null && row.occupiedRooms <= row.capacityRooms)
 const point = z.object({ date, occupancyPercent: percent, lowerPercent: percent, upperPercent: percent })
   .refine(row => row.lowerPercent <= row.occupancyPercent && row.occupancyPercent <= row.upperPercent)
-const reference = z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/))
+const reference = z.literal('2026-10-29T17:00:00Z')
 const responseSchema = z.object({
-  dataMode: z.enum(['SYNTHETIC', 'AUTHORITATIVE']), businessData: z.boolean(),
-  scenario: z.enum(['HOTEL_A', 'HOTEL_B', 'HOTEL_C']), referenceInstant: reference,
-  notice: z.string().optional(),
+  dataMode: z.literal('SYNTHETIC'), businessData: z.literal(false),
+  scenario: z.enum(['HOTEL_A', 'HOTEL_B']), referenceInstant: reference,
   history: z.object({
     status: z.enum(['COMPLETE', 'PARTIAL']), hotelId: z.number().int().positive(),
-    fromInclusive: date, toInclusive: date, asOf: reference, dataMode: z.enum(['SYNTHETIC', 'AUTHORITATIVE']),
+    fromInclusive: date, toInclusive: date, asOf: reference, dataMode: z.literal('SYNTHETIC'),
     samples: z.array(sample).min(1).max(500),
   }),
   forecast: z.object({
     status: z.enum(['FORECAST_READY', 'BASELINE_FALLBACK', 'INSUFFICIENT_COVERAGE', 'INVALID_REQUEST', 'ACCESS_DENIED', 'DEPENDENCY_UNAVAILABLE']),
-    hotelId: z.number().int().positive(), asOf: reference.nullable(), dataMode: z.enum(['SYNTHETIC', 'AUTHORITATIVE']).nullable(),
+    hotelId: z.number().int().positive(), asOf: reference.nullable(), dataMode: z.literal('SYNTHETIC').nullable(),
     model: z.enum(['SEASONAL_NAIVE_7', 'RIDGE_TREND_WEEKDAY']).nullable(),
     modelVersion: z.string().max(80).nullable(),
     rangeMethod: z.enum(['ROLLING_OUT_OF_SAMPLE_ABS_ERROR_P90', 'CAUSAL_WEEKLY_DIFFERENCE_ABS_ERROR_P90']).nullable(),
@@ -48,17 +47,16 @@ function validateResponse(raw: unknown, scenario: DemoScenario): OccupancyDemo {
   const value = responseSchema.parse(raw)
   const { history, forecast } = value
   const ready = forecast.status === 'FORECAST_READY' || forecast.status === 'BASELINE_FALLBACK'
-  const expectedHotelId = scenario === 'HOTEL_A' ? 1 : scenario === 'HOTEL_B' ? 2 : 3
-  if (value.scenario !== scenario || history.hotelId !== expectedHotelId
-    || forecast.hotelId !== history.hotelId
+  if (value.scenario !== scenario || history.hotelId !== (scenario === 'HOTEL_A' ? 1 : 2)
+    || forecast.hotelId !== history.hotelId || history.toInclusive !== '2026-10-29'
     || history.samples[0].date !== history.fromInclusive || history.samples.at(-1)?.date !== history.toInclusive
     || history.samples.some((row, i, rows) => row.hotelId !== history.hotelId || (i > 0 && row.date !== nextDay(rows[i - 1].date)))
     || (history.status === 'COMPLETE' && history.samples.some(row => row.coverage === 'MISSING'))
     || (ready && (forecast.points.length !== 30 || !forecast.model || !forecast.modelVersion || !forecast.rangeMethod
-      || forecast.residualRadiusPp === null || forecast.dataMode !== value.dataMode || forecast.asOf !== value.referenceInstant
+      || forecast.residualRadiusPp === null || forecast.dataMode !== 'SYNTHETIC' || forecast.asOf !== value.referenceInstant
       || forecast.points.some((row, i, rows) => row.date !== nextDay(i === 0 ? history.toInclusive : rows[i - 1].date))))
     || (!ready && (forecast.points.length !== 0 || forecast.model !== null || forecast.residualRadiusPp !== null))) {
-    throw new Error('Invalid occupancy response')
+    throw new Error('Invalid synthetic replay response')
   }
   return value
 }

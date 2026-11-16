@@ -54,7 +54,7 @@ const RoomDetailsPage = lazy(() => import('./modules/booking-portal/pages/RoomDe
 const PersonalizationPage = lazy(() => import('./modules/booking-portal/pages/PersonalizationPage'))
 const PrivacyPage = lazy(() => import('./modules/booking-portal/pages/PrivacyPage'))
 const OccupancyDemoPage = lazy(() => import('./modules/analytics/pages/OccupancyDemoPage'))
-const OccupancyPage = lazy(() => import('./modules/analytics/pages/OccupancyDemoPage'))
+const OccupancyPage = lazy(() => import('./modules/analytics/pages/OccupancyPage'))
 const UtilityDemoPage = lazy(() => import('./modules/analytics/pages/UtilityDemoPage'))
 const GroupDemoPage = lazy(() => import('./modules/analytics/pages/GroupDemoPage'))
 const DepartmentListPage = lazy(() => import('./modules/organization/pages/DepartmentListPage'))
