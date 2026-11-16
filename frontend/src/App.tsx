@@ -54,6 +54,7 @@ const RoomDetailsPage = lazy(() => import('./modules/booking-portal/pages/RoomDe
 const PersonalizationPage = lazy(() => import('./modules/booking-portal/pages/PersonalizationPage'))
 const PrivacyPage = lazy(() => import('./modules/booking-portal/pages/PrivacyPage'))
 const OccupancyDemoPage = lazy(() => import('./modules/analytics/pages/OccupancyDemoPage'))
+const OccupancyPage = lazy(() => import('./modules/analytics/pages/OccupancyDemoPage'))
 const UtilityDemoPage = lazy(() => import('./modules/analytics/pages/UtilityDemoPage'))
 const GroupDemoPage = lazy(() => import('./modules/analytics/pages/GroupDemoPage'))
 const DepartmentListPage = lazy(() => import('./modules/organization/pages/DepartmentListPage'))
@@ -92,7 +93,9 @@ export function App() {
             </Route>
           </Route>
 
-          <Route path="/ai/demo/occupancy" element={<Navigate to="/ai/occupancy" replace />} />
+          <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
+            <Route path="/ai/demo/occupancy" element={<OccupancyDemoPage />} />
+          </Route>
 
           <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
             <Route path="/ai/demo/utility-anomalies" element={<UtilityDemoPage />} />
@@ -110,7 +113,7 @@ export function App() {
 
               {/* Dự báo tỷ lệ lấp đầy AI */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
-                <Route path="/ai/occupancy" element={<OccupancyDemoPage />} />
+                <Route path="/ai/occupancy" element={<OccupancyPage />} />
               </Route>
 
               {/* Phân hệ Đặt phòng */}
