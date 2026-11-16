@@ -186,6 +186,8 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-booking@smartstay.utc.edu.vn}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-SmartStay Hotel Booking}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
     depends_on:
       postgres_db:
         condition: service_healthy
