@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="vi" class="h-full bg-neutral-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: Dự báo tỷ lệ lấp đầy phòng (AI Occupancy Forecast) - SmartStay</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              DEFAULT: '#EE0000',
+              50: '#FEF2F2',
+              100: '#FEE2E2',
+              500: '#EF4444',
+              600: '#DC2626',
+              700: '#B91C1C',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="h-full flex flex-col text-neutral-900 antialiased bg-neutral-50">
+
+  <!-- TOP HEADER (Mirroring Header.tsx) -->
+  <header class="h-16 bg-white border-b border-neutral-200 px-4 lg:px-6 flex items-center justify-between z-30 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-red-600 flex items-center justify-center text-white font-black text-xl shadow-xs">
+        S
+      </div>
+      <div>
+        <span class="font-extrabold text-base tracking-tight text-neutral-900">SMART<span class="text-red-600">STAY</span></span>
+        <span class="hidden sm:inline-block ml-2 px-2 py-0.5 rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-600 border border-neutral-200">ENTERPRISE</span>
+      </div>
+    </div>
+
+    <!-- Center/Right Header Controls -->
+    <div class="flex items-center gap-4">
+      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 text-xs font-medium text-neutral-700 border border-neutral-200">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        PostgreSQL 16: <strong class="text-neutral-900">Online</strong>
+      </div>
+      
+      <div class="flex items-center gap-3 pl-3 border-l border-neutral-200">
+        <div class="w-8 h-8 rounded-full bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center">
+          AD
+        </div>
+        <div class="hidden sm:block text-left">
+          <p class="text-xs font-bold leading-none text-neutral-900">Admin Quản trị</p>
+          <p class="text-[10px] text-neutral-500 mt-0.5">ROLE_CHAIN_ADMIN</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- BODY CONTAINER (SIDEBAR + MAIN CONTENT) -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- LEFT SIDEBAR (Mirroring Sidebar.tsx) -->
+    <aside class="w-64 bg-white border-r border-neutral-200 flex flex-col shrink-0 select-none overflow-y-auto">
+      <div class="p-3 space-y-6">
+        
+        <!-- GROUP 1: TỔNG QUAN -->
+        <div>
+          <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+            TỔNG QUAN
+          </div>
+          <nav class="mt-1 space-y-1">
+            <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors">
+              <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+              Bàn làm việc (Dashboard)
+            </a>
+
+            <!-- ACTIVE ITEM: DỰ BÁO TỶ LỆ LẤP ĐẦY -->
+            <a href="#" class="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold bg-red-50 text-red-600 transition-colors shadow-xs">
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                <span>Dự báo tỷ lệ lấp đầy</span>
+              </div>
+              <span class="px-1.5 py-0.5 rounded-md bg-red-600 text-white text-[9px] font-extrabold uppercase">AI</span>
+            </a>
+
+            <a href="#" class="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span>Điện/nước bất thường</span>
+              </div>
+              <span class="px-1.5 py-0.5 rounded-md bg-neutral-200 text-neutral-600 text-[9px] font-semibold">Demo</span>
+            </a>
+
+            <a href="#" class="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                <span>Phân phòng Group</span>
+              </div>
+              <span class="px-1.5 py-0.5 rounded-md bg-neutral-200 text-neutral-600 text-[9px] font-semibold">Demo</span>
+            </a>
+          </nav>
+        </div>
+
+        <!-- GROUP 2: ĐẶT PHÒNG & LƯU TRÚ -->
+        <div>
+          <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            ĐẶT PHÒNG & LƯU TRÚ
+          </div>
+          <nav class="mt-1 space-y-1">
+            <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
+              <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+              Danh sách Đặt phòng
+            </a>
+            <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
+              <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+              Khách đoàn (Groups)
+            </a>
+            <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
+              <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+              Đặt phòng Vãng lai (Walk-in)
+            </a>
+          </nav>
+        </div>
+
+        <!-- GROUP 3: VẬN HÀNH & GIÁ PHÒNG -->
+        <div>
+          <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            GIÁ PHÒNG & CHÍNH SÁCH
+          </div>
+          <nav class="mt-1 space-y-1">
+            <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
+              <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+              Bảng giá phòng cơ sở
+            </a>
+            <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors">
+              <svg class="w-4 h-4 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg>
+              Quy tắc Giảm giá & Voucher
+            </a>
+          </nav>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- MAIN WORKSPACE CONTENT -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-neutral-50">
+      <div class="space-y-6 max-w-7xl mx-auto">
+
+        <!-- CONTROL & FILTER BAR (HÀNG 1 THEO DESIGN SYSTEM) -->
+        <section class="rounded-2xl border border-neutral-200 bg-white p-4 sm:p-5 shadow-xs flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-4">
+            <div>
+              <label for="hotel-select" class="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Cơ sở khách sạn
+              </label>
+              <select id="hotel-select" class="h-10 sm:h-12 w-72 rounded-xl border border-neutral-300 bg-white px-3 text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-red-600 shadow-xs">
+                <option value="HOTEL_A" selected>Viettel Luxury Hà Nội (Khách sạn 1 - 50 phòng)</option>
+                <option value="HOTEL_B">Viettel Grand Đà Nẵng (Khách sạn 2 - 80 phòng)</option>
+                <option value="HOTEL_C">Viettel Boutique Sa Pa (Khách sạn 3 - 35 phòng)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Trạng thái đồng bộ
+              </label>
+              <button type="button" class="h-10 sm:h-12 px-4 rounded-xl border border-neutral-300 bg-white text-xs font-bold text-neutral-800 hover:bg-neutral-50 flex items-center gap-2 shadow-xs transition-colors">
+                <svg class="w-4 h-4 text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Tải lại số liệu
+              </button>
+            </div>
+          </div>
+
+          <div class="text-right">
+            <div class="text-xs text-neutral-500 font-medium">Chốt dữ liệu lịch sử đến: <strong class="text-neutral-900 font-bold">15/11/2026 (Hôm qua)</strong></div>
+            <div class="text-[11px] text-neutral-400 mt-0.5">Tần suất làm mới: Tự động mỗi 15 phút · Trạng thái: Sẵn sàng</div>
+          </div>
+        </section>
+
+        <!-- 4-EXECUTIVE KPI CARDS GRID -->
+        <section aria-label="Chỉ số hoạt động chính" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          <!-- Card 1: Tỷ lệ lấp đầy hôm qua -->
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-neutral-300 transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-neutral-500">Hôm qua (Thực tế)</span>
+                <span class="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                </span>
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <span class="text-3xl font-extrabold text-neutral-900 tracking-tight">68.0%</span>
+                <span class="text-xs font-bold text-emerald-600 flex items-center gap-0.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                  +4.2%
+                </span>
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-neutral-500 border-t border-neutral-100 pt-2.5">
+              34 / 50 phòng có khách sử dụng
+            </p>
+          </div>
+
+          <!-- Card 2: Dự báo trung bình 30 ngày tới -->
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-neutral-300 transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-neutral-500">Dự báo TB 30 ngày</span>
+                <span class="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+                </span>
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <span class="text-3xl font-extrabold text-neutral-900 tracking-tight">72.4%</span>
+                <span class="text-xs font-semibold text-neutral-500">kỳ vọng</span>
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-neutral-500 border-t border-neutral-100 pt-2.5">
+              Cao điểm: <strong class="text-neutral-900">86.0%</strong> vào Thứ Bảy (21/11)
+            </p>
+          </div>
+
+          <!-- Card 3: Khoảng tin cậy P90 -->
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-neutral-300 transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-neutral-500">Biên tin cậy P90</span>
+                <span class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </span>
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <span class="text-3xl font-extrabold text-neutral-900 tracking-tight">±6.8%</span>
+                <span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">Độ tin cậy 90%</span>
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-neutral-500 border-t border-neutral-100 pt-2.5">
+              Đo lường sai số ngoài mẫu (Out-of-sample)
+            </p>
+          </div>
+
+          <!-- Card 4: Dữ liệu huấn luyện PostgreSQL -->
+          <div class="rounded-2xl border border-neutral-200 bg-white p-5 shadow-xs flex flex-col justify-between hover:border-neutral-300 transition-all">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold uppercase tracking-wider text-neutral-500">Dữ liệu huấn luyện</span>
+                <span class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                </span>
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <span class="text-3xl font-extrabold text-neutral-900 tracking-tight">240 ngày</span>
+                <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">100% đầy đủ</span>
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-neutral-500 border-t border-neutral-100 pt-2.5">
+              Từ 20/03/2026 đến 15/11/2026 (0 ngày thiếu)
+            </p>
+          </div>
+
+        </section>
+
+        <!-- INTERACTIVE CHART SECTION -->
+        <section class="rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6 shadow-xs">
+          <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 class="text-base font-bold text-neutral-900 sm:text-lg">
+                Xu hướng lấp đầy thực tế & Dự báo 30 ngày tới
+              </h2>
+              <p class="text-xs sm:text-sm text-neutral-500 mt-0.5">
+                Hiển thị chuỗi ngày lịch sử thực tế từ PostgreSQL và 30 ngày ngoại suy bằng mô hình Ridge Regression.
+              </p>
+            </div>
+
+            <!-- Range Filter Pills -->
+            <div class="flex items-center gap-1 p-1 bg-neutral-100 rounded-xl text-xs font-semibold">
+              <button type="button" class="px-3 py-1.5 rounded-lg text-neutral-600 hover:text-neutral-900 transition-colors">60 ngày</button>
+              <button type="button" class="px-3 py-1.5 rounded-lg bg-white text-neutral-900 shadow-xs font-bold">90 ngày</button>
+              <button type="button" class="px-3 py-1.5 rounded-lg text-neutral-600 hover:text-neutral-900 transition-colors">180 ngày</button>
+              <button type="button" class="px-3 py-1.5 rounded-lg text-neutral-600 hover:text-neutral-900 transition-colors">Toàn bộ 240 ngày</button>
+            </div>
+          </div>
+
+          <!-- Mockup SVG Chart -->
+          <div class="relative w-full overflow-hidden">
+            <svg viewBox="0 0 960 320" class="w-full h-auto text-xs" style="overflow: visible;">
+              <defs>
+                <linearGradient id="bandGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#9333ea" stop-opacity="0.18"></stop>
+                  <stop offset="100%" stop-color="#9333ea" stop-opacity="0.04"></stop>
+                </linearGradient>
+                <linearGradient id="histGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#2563eb" stop-opacity="0.12"></stop>
+                  <stop offset="100%" stop-color="#2563eb" stop-opacity="0.00"></stop>
+                </linearGradient>
+              </defs>
+
+              <!-- Grid Horizontal Lines -->
+              <line x1="55" y1="20" x2="940" y2="20" stroke="#f1f5f9" stroke-width="1"></line>
+              <text x="45" y="24" fill="#94a3b8" text-anchor="end" font-size="11">100%</text>
+
+              <line x1="55" y1="85" x2="940" y2="85" stroke="#f1f5f9" stroke-width="1"></line>
+              <text x="45" y="89" fill="#94a3b8" text-anchor="end" font-size="11">75%</text>
+
+              <line x1="55" y1="150" x2="940" y2="150" stroke="#f1f5f9" stroke-width="1"></line>
+              <text x="45" y="154" fill="#94a3b8" text-anchor="end" font-size="11">50%</text>
+
+              <line x1="55" y1="215" x2="940" y2="215" stroke="#f1f5f9" stroke-width="1"></line>
+              <text x="45" y="219" fill="#94a3b8" text-anchor="end" font-size="11">25%</text>
+
+              <line x1="55" y1="280" x2="940" y2="280" stroke="#cbd5e1" stroke-width="1"></line>
+              <text x="45" y="284" fill="#94a3b8" text-anchor="end" font-size="11">0%</text>
+
+              <!-- Historical Occupancy Area & Line (Simulated 90 days) -->
+              <path d="M 55,140 Q 120,110 180,150 T 310,120 T 440,160 T 570,115 T 700,145 L 700,280 L 55,280 Z" fill="url(#histGrad)"></path>
+              <path d="M 55,140 Q 120,110 180,150 T 310,120 T 440,160 T 570,115 T 700,145" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round"></path>
+
+              <!-- DIVIDING VERTICAL LINE: MỐC HIỆN TẠI -->
+              <line x1="700" y1="20" x2="700" y2="280" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="4 4"></line>
+              <g transform="translate(700, 30)">
+                <rect x="-48" y="-12" width="96" height="20" rx="4" fill="#dc2626"></rect>
+                <text x="0" y="2" fill="#ffffff" font-size="10" font-weight="700" text-anchor="middle">HÔM NAY · 16/11</text>
+              </g>
+
+              <!-- Forecast P90 Confidence Band (700 to 940) -->
+              <polygon points="700,125 740,105 780,120 820,95 860,115 900,90 940,110 940,175 900,155 860,175 820,160 780,180 740,165 700,165" fill="url(#bandGrad)"></polygon>
+
+              <!-- Forecast Median Line (Dashed Purple) -->
+              <path d="M 700,145 L 740,135 L 780,150 L 820,128 L 860,145 L 900,122 L 940,142" fill="none" stroke="#7c3aed" stroke-width="2.5" stroke-dasharray="5 4" stroke-linecap="round"></path>
+
+              <!-- Interactive Hover Point Indicator on Peak -->
+              <circle cx="900" cy="122" r="5" fill="#7c3aed" stroke="#ffffff" stroke-width="2"></circle>
+
+              <!-- Tooltip Card at Peak (Simulated) -->
+              <g transform="translate(830, 45)">
+                <rect x="0" y="0" width="140" height="60" rx="8" fill="#1e293b" opacity="0.95"></rect>
+                <text x="12" y="18" fill="#cbd5e1" font-size="10" font-weight="600">Thứ Bảy, 12/12/2026</text>
+                <text x="12" y="36" fill="#a78bfa" font-size="14" font-weight="800">Dự báo: 86.4%</text>
+                <text x="12" y="50" fill="#94a3b8" font-size="9">P90: 79.6% – 93.2%</text>
+              </g>
+
+              <!-- X-Axis Labels -->
+              <text x="55" y="302" fill="#64748b" font-size="11" text-anchor="start">18/08/2026</text>
+              <text x="270" y="302" fill="#64748b" font-size="11" text-anchor="middle">15/09/2026</text>
+              <text x="485" y="302" fill="#64748b" font-size="11" text-anchor="middle">15/10/2026</text>
+              <text x="700" y="302" fill="#dc2626" font-size="11" font-weight="700" text-anchor="middle">15/11/2026</text>
+              <text x="940" y="302" fill="#7c3aed" font-size="11" font-weight="700" text-anchor="end">15/12/2026</text>
+            </svg>
+          </div>
+
+          <!-- Legend Bar -->
+          <div class="mt-4 pt-4 border-t border-neutral-100 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div class="flex items-center gap-6">
+              <div class="flex items-center gap-2">
+                <span class="w-3.5 h-1 bg-blue-600 rounded-full"></span>
+                <span class="text-neutral-700 font-medium">Lịch sử thực tế (PostgreSQL)</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3.5 h-1 border-t-2 border-dashed border-purple-600"></span>
+                <span class="text-neutral-700 font-medium">Dự báo mô hình AI</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3.5 h-3 bg-purple-100 rounded-xs border border-purple-300"></span>
+                <span class="text-neutral-700 font-medium">Dải tin cậy P90 (±6.8 pp)</span>
+              </div>
+            </div>
+            <div class="text-neutral-400 text-[11px]">
+              Ghi chú: Di chuột lên biểu đồ để xem chi tiết từng ngày
+            </div>
+          </div>
+        </section>
+
+        <!-- TABBED DATA EXPLORER (HÀNG 3 THEO DESIGN SYSTEM) -->
+        <section id="forecast-table" class="rounded-2xl border border-neutral-200 bg-white shadow-xs overflow-hidden">
+          
+          <!-- Tab Navigation Header -->
+          <div class="border-b border-neutral-200 bg-neutral-50/60 px-4 sm:px-6 pt-3 flex items-center gap-2">
+            <button type="button" class="px-4 py-2.5 text-xs sm:text-sm font-bold text-red-600 border-b-2 border-red-600 bg-white rounded-t-xl shadow-2xs">
+              Bảng dự báo 30 ngày tới (Mô hình AI)
+            </button>
+            <button type="button" class="px-4 py-2.5 text-xs sm:text-sm font-semibold text-neutral-600 hover:text-neutral-900 rounded-t-xl transition-colors">
+              Lịch sử đặt phòng PostgreSQL (240 ngày)
+            </button>
+          </div>
+
+          <!-- Tab Content (Active: 30-Day Forecast) -->
+          <div class="p-4 sm:p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-neutral-900">Chi tiết dự báo từ 16/11/2026 đến 15/12/2026</h3>
+                <p class="text-xs text-neutral-500 mt-0.5">Biên độ dao động dự báo tham chiếu theo phân vị 90 (P90): ±6.8 điểm phần trăm</p>
+              </div>
+
+              <!-- Filter Search / Action -->
+              <div class="flex items-center gap-2">
+                <input type="text" placeholder="Tìm kiếm theo ngày (VD: 2026-11)..." class="h-9 px-3 rounded-lg border border-neutral-200 text-xs w-56 focus:outline-none focus:ring-1 focus:ring-red-600">
+                <button type="button" class="h-9 px-3 rounded-lg border border-neutral-200 text-xs font-bold text-neutral-700 hover:bg-neutral-50 shadow-2xs">
+                  Xuất Excel
+                </button>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="overflow-x-auto rounded-xl border border-neutral-200">
+              <table class="w-full text-left text-xs sm:text-sm">
+                <thead class="bg-neutral-50 border-b border-neutral-200 text-neutral-700 uppercase tracking-wider text-[11px] font-bold">
+                  <tr>
+                    <th scope="col" class="py-3 px-4">Ngày</th>
+                    <th scope="col" class="py-3 px-4">Thứ</th>
+                    <th scope="col" class="py-3 px-4">Tỷ lệ dự báo</th>
+                    <th scope="col" class="py-3 px-4">Biên dưới (P90)</th>
+                    <th scope="col" class="py-3 px-4">Biên trên (P90)</th>
+                    <th scope="col" class="py-3 px-4">Trạng thái công suất</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-neutral-100 font-medium text-neutral-800">
+                  <tr class="hover:bg-neutral-50/80 transition-colors">
+                    <td class="py-3 px-4 font-bold text-neutral-900">16/11/2026</td>
+                    <td class="py-3 px-4 text-neutral-500">Thứ Hai</td>
+                    <td class="py-3 px-4 font-bold text-purple-700">62.4%</td>
+                    <td class="py-3 px-4 text-neutral-600">55.6%</td>
+                    <td class="py-3 px-4 text-neutral-600">69.2%</td>
+                    <td class="py-3 px-4">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        Ổn định
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-neutral-50/80 transition-colors">
+                    <td class="py-3 px-4 font-bold text-neutral-900">17/11/2026</td>
+                    <td class="py-3 px-4 text-neutral-500">Thứ Ba</td>
+                    <td class="py-3 px-4 font-bold text-purple-700">56.1%</td>
+                    <td class="py-3 px-4 text-neutral-600">49.3%</td>
+                    <td class="py-3 px-4 text-neutral-600">62.9%</td>
+                    <td class="py-3 px-4">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                        Thấp điểm
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-neutral-50/80 transition-colors">
+                    <td class="py-3 px-4 font-bold text-neutral-900">18/11/2026</td>
+                    <td class="py-3 px-4 text-neutral-500">Thứ Tư</td>
+                    <td class="py-3 px-4 font-bold text-purple-700">58.3%</td>
+                    <td class="py-3 px-4 text-neutral-600">51.5%</td>
+                    <td class="py-3 px-4 text-neutral-600">65.1%</td>
+                    <td class="py-3 px-4">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        Ổn định
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-neutral-50/80 transition-colors">
+                    <td class="py-3 px-4 font-bold text-neutral-900">19/11/2026</td>
+                    <td class="py-3 px-4 text-neutral-500">Thứ Năm</td>
+                    <td class="py-3 px-4 font-bold text-purple-700">67.8%</td>
+                    <td class="py-3 px-4 text-neutral-600">61.0%</td>
+                    <td class="py-3 px-4 text-neutral-600">74.6%</td>
+                    <td class="py-3 px-4">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        Ổn định
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-neutral-50/80 transition-colors bg-red-50/30">
+                    <td class="py-3 px-4 font-bold text-neutral-900">20/11/2026</td>
+                    <td class="py-3 px-4 font-bold text-red-600">Thứ Sáu</td>
+                    <td class="py-3 px-4 font-extrabold text-red-600">82.5%</td>
+                    <td class="py-3 px-4 text-neutral-600">75.7%</td>
+                    <td class="py-3 px-4 text-neutral-600">89.3%</td>
+                    <td class="py-3 px-4">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
+                        🔥 Cao điểm
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-neutral-50/80 transition-colors bg-red-50/30">
+                    <td class="py-3 px-4 font-bold text-neutral-900">21/11/2026</td>
+                    <td class="py-3 px-4 font-bold text-red-600">Thứ Bảy</td>
+                    <td class="py-3 px-4 font-extrabold text-red-600">86.0%</td>
+                    <td class="py-3 px-4 text-neutral-600">79.2%</td>
+                    <td class="py-3 px-4 text-neutral-600">92.8%</td>
+                    <td class="py-3 px-4">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200">
+                        🔥 Cao điểm
+                      </span>
+                    </td>
+                  </tr>
+                  <tr class="hover:bg-neutral-50/80 transition-colors">
+                    <td class="py-3 px-4 font-bold text-neutral-900">22/11/2026</td>
+                    <td class="py-3 px-4 text-neutral-500">Chủ Nhật</td>
+                    <td class="py-3 px-4 font-bold text-purple-700">74.2%</td>
+                    <td class="py-3 px-4 text-neutral-600">67.4%</td>
+                    <td class="py-3 px-4 text-neutral-600">81.0%</td>
+                    <td class="py-3 px-4">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                        Ổn định
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-neutral-500">
+              <div>Hiển thị <strong>1 – 7</strong> trên tổng số <strong>30 ngày</strong> dự báo</div>
+              <div class="flex items-center gap-1">
+                <button type="button" class="px-2.5 py-1.5 rounded-lg border border-neutral-200 text-neutral-400 cursor-not-allowed">Trước</button>
+                <button type="button" class="px-3 py-1.5 rounded-lg bg-red-600 text-white font-bold">1</button>
+                <button type="button" class="px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50">2</button>
+                <button type="button" class="px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50">3</button>
+                <button type="button" class="px-3 py-1.5 rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50">4</button>
+                <button type="button" class="px-2.5 py-1.5 rounded-lg border border-neutral-200 text-neutral-700 hover:bg-neutral-50">Sau</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>

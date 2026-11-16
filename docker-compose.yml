@@ -179,6 +179,14 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-hotelbooking123}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-hotel-booking-storage}
       S3_PATH_STYLE_ACCESS: ${S3_PATH_STYLE_ACCESS:-true}
+      # =========================================================================
+      # CẤU HÌNH AI DEMO MODULES (U22 Forecast, Group Assignment, Utility)
+      # =========================================================================
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-m1-demo}
+      HOTEL_AI_DEMO_DATA_SOURCE: ${HOTEL_AI_DEMO_DATA_SOURCE:-live}
+      HOTEL_AI_DEMO_FORECAST_ENABLED: ${HOTEL_AI_DEMO_FORECAST_ENABLED:-true}
+      HOTEL_AI_DEMO_GROUP_ENABLED: ${HOTEL_AI_DEMO_GROUP_ENABLED:-true}
+      HOTEL_AI_DEMO_UTILITY_ENABLED: ${HOTEL_AI_DEMO_UTILITY_ENABLED:-true}
     depends_on:
       postgres_db:
         condition: service_healthy

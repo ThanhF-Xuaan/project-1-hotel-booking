@@ -92,9 +92,7 @@ export function App() {
             </Route>
           </Route>
 
-          <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
-            <Route path="/ai/demo/occupancy" element={<OccupancyDemoPage />} />
-          </Route>
+          <Route path="/ai/demo/occupancy" element={<Navigate to="/ai/occupancy" replace />} />
 
           <Route element={<ProtectedRoute roles={['CHAIN_ADMIN']} />}>
             <Route path="/ai/demo/utility-anomalies" element={<UtilityDemoPage />} />
@@ -109,6 +107,11 @@ export function App() {
             <Route element={<AdminLayout />}>
               {/* Dashboard chung cho toàn bộ nhân sự */}
               <Route path="/dashboard" element={<ManagementDashboard />} />
+
+              {/* Dự báo tỷ lệ lấp đầy AI */}
+              <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER']} />}>
+                <Route path="/ai/occupancy" element={<OccupancyDemoPage />} />
+              </Route>
 
               {/* Phân hệ Đặt phòng */}
               <Route element={<ProtectedRoute roles={['CHAIN_ADMIN', 'CHAIN_EXECUTIVE', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP', 'FINANCE']} />}>

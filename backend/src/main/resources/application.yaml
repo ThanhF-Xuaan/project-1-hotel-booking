@@ -123,6 +123,14 @@ hotel:
     contracts:
       base-path: ${CONTRACT_STORAGE_PATH:uploads/contracts}
   ai:
+    demo:
+      data-source: ${HOTEL_AI_DEMO_DATA_SOURCE:live}
+      forecast:
+        enabled: ${HOTEL_AI_DEMO_FORECAST_ENABLED:false}
+      group:
+        enabled: ${HOTEL_AI_DEMO_GROUP_ENABLED:false}
+      utility:
+        enabled: ${HOTEL_AI_DEMO_UTILITY_ENABLED:false}
     ocr:
       enabled: ${HOTEL_AI_OCR_ENABLED:false}
       timeout-millis: ${HOTEL_AI_OCR_TIMEOUT_MILLIS:45000}
