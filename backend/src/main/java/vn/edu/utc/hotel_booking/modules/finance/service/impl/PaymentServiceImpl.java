@@ -21,6 +21,7 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentSearchDto;
+import vn.edu.utc.hotel_booking.modules.finance.dto.request.ProcessRefundRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.*;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.PaymentGateway;
@@ -589,6 +590,81 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
         }
 
         return financeMapper.toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponse processRefund(Long id, ProcessRefundRequest request) {
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền ID: " + id));
+
+        if (payment.getPaymentPurpose() != PaymentPurpose.REFUND) {
+            throw new AppException(ErrorCode.PAYMENT_NOT_PENDING,
+                    "Giao dịch ID " + id + " không phải là yêu cầu hoàn tiền (Mục đích hiện tại: " + payment.getPaymentPurpose() + ")");
+        }
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new AppException(ErrorCode.PAYMENT_NOT_PENDING,
+                    "Chỉ có thể xử lý yêu cầu hoàn tiền đang ở trạng thái chờ duyệt (PENDING) — trạng thái hiện tại: " + payment.getStatus());
+        }
+
+        if (request.getAction() == ProcessRefundRequest.RefundAction.APPROVE) {
+            PaymentMethod method = request.getRefundMethod() != null ? request.getRefundMethod() : PaymentMethod.BANK_TRANSFER;
+            String reference = request.getTransactionReference() != null && !request.getTransactionReference().isBlank()
+                    ? request.getTransactionReference().trim()
+                    : buildReferenceCode(payment.getTransactionReference());
+
+            payment.setStatus(PaymentStatus.REFUNDED);
+            payment.setPaymentMethod(method);
+            payment.setTransactionReference(reference);
+            payment.setPaidAt(OffsetDateTime.now());
+            payment.setGatewayTxnId("INTERNAL_REFUND_SETTLED");
+
+            String note = request.getNote() != null ? request.getNote().replace("\"", "\\\"") : "";
+            payment.setRawCallbackPayload(String.format(
+                    "{\"action\": \"APPROVE\", \"method\": \"%s\", \"reference\": \"%s\", \"note\": \"%s\", \"approvedAt\": \"%s\"}",
+                    method.name(), reference, note, OffsetDateTime.now()
+            ));
+
+            Payment saved = paymentRepository.save(payment);
+
+            Transaction transaction = Transaction.builder()
+                    .payment(saved)
+                    .booking(saved.getBooking())
+                    .transactionType(TransactionType.REFUND)
+                    .amount(saved.getTotalAmount())
+                    .referenceCode(reference)
+                    .status("COMPLETED")
+                    .issuedAt(OffsetDateTime.now())
+                    .build();
+            transactionRepository.save(transaction);
+
+            if (saved.getBooking() != null) {
+                syncInvoiceAfterRefund(saved.getBooking());
+                releaseLock(saved.getBooking().getId());
+            }
+
+            log.info("Kế toán đã PHÊ DUYỆT hoàn tiền ID {}: số tiền {} đ, phương thức {}, mã tham chiếu {}",
+                    saved.getId(), saved.getTotalAmount(), method, reference);
+            return financeMapper.toResponse(saved);
+        } else {
+            payment.setStatus(PaymentStatus.CANCELLED);
+            payment.setGatewayTxnId("INTERNAL_REFUND_REJECTED");
+            String note = request.getNote() != null ? request.getNote().replace("\"", "\\\"") : "Kế toán từ chối yêu cầu hoàn tiền";
+            payment.setRawCallbackPayload(String.format(
+                    "{\"action\": \"REJECT\", \"reason\": \"%s\", \"rejectedAt\": \"%s\"}",
+                    note, OffsetDateTime.now()
+            ));
+
+            Payment saved = paymentRepository.save(payment);
+
+            if (saved.getBooking() != null) {
+                releaseLock(saved.getBooking().getId());
+            }
+
+            log.info("Kế toán đã TỪ CHỐI yêu cầu hoàn tiền ID {}: lý do '{}'", saved.getId(), note);
+            return financeMapper.toResponse(saved);
+        }
     }
 
     private BigDecimal getGrandTotal(Booking booking) {

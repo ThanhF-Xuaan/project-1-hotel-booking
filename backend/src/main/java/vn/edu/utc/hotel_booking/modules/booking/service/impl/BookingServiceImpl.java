@@ -1817,11 +1817,15 @@ public class BookingServiceImpl implements BookingService {
             bookingChargeService.createCharge(firstRoom, chargeReq);
         }
 
-        // 4. Release toàn bộ phòng, lịch phòng và hoàn trả kho bán cho TOÀN BỘ các đêm của đơn
+        // 4. Release toàn bộ phòng, lịch phòng và hoàn trả kho bán cho các phòng còn active của đơn
         if (booking.getBookingDetails() != null) {
             for (BookingDetail detail : booking.getBookingDetails()) {
+                long expectedRoomsCount = 0;
                 if (detail.getBookingRooms() != null) {
                     for (BookingRoom br : detail.getBookingRooms()) {
+                        if (br.getStatus() == BookingRoomStatus.EXPECTED) {
+                            expectedRoomsCount++;
+                        }
                         br.setStatus(BookingRoomStatus.NO_SHOW);
                         bookingRoomService.save(br);
 
@@ -1843,25 +1847,36 @@ public class BookingServiceImpl implements BookingService {
                     }
                 }
 
-                // Hoàn trả kho phòng bán hàng cho các đêm của detail
-                if (detail.getHotelRoomType() != null) {
-                    int roomsCount = detail.getQuantity() != null && detail.getQuantity() > 0 ? detail.getQuantity().intValue() : 1;
+                // Hoàn trả kho phòng bán hàng cho các đêm của detail:
+                // CHỈ release đúng số phòng thực sự chuyển sang NO_SHOW trong đợt này (expectedRoomsCount),
+                // tránh release trùng lặp nếu có phòng đã bị NO_SHOW hoặc CANCELLED trước đó!
+                if (detail.getHotelRoomType() != null && expectedRoomsCount > 0) {
                     roomAvailabilityService.releaseBookedInventory(
                             detail.getHotelRoomType().getId(),
                             detail.getCheckInDate(),
                             detail.getCheckOutDate(),
-                            roomsCount
+                            (int) expectedRoomsCount
                     );
                 }
             }
         }
 
-        // 5. Tính tiền dư và tạo bản ghi cần REFUND ở trạng thái PENDING
+        // 5. Xử lý thanh toán: Hủy các giao dịch PENDING cũ và tạo bản ghi REFUND nếu có cọc dư
         List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        if (payments != null) {
+            for (Payment p : payments) {
+                if (p.getStatus() == PaymentStatus.PENDING && p.getPaymentPurpose() != PaymentPurpose.REFUND) {
+                    p.setStatus(PaymentStatus.CANCELLED);
+                    p.setRawCallbackPayload("{\"reason\": \"Tự động hủy giao dịch thanh toán do đơn chuyển sang No-Show\"}");
+                    paymentRepository.save(p);
+                }
+            }
+        }
+
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -1896,7 +1911,6 @@ public class BookingServiceImpl implements BookingService {
         booking.setNotes(booking.getNotes() != null ? booking.getNotes() + "\n" + noShowNote : noShowNote);
         Booking savedBooking = bookingRepository.save(booking);
 
-        // 7. Ghi nhật ký kiểm toán (AuditLog)
         auditLogService.recordLog(
                 null,
                 "BOOKING_NO_SHOW",
@@ -1983,68 +1997,83 @@ public class BookingServiceImpl implements BookingService {
             );
         }
 
-        // 5. Kiểm tra trạng thái chung của Booking
+        // 5. Kiểm tra trạng thái chung của Booking và xử lý thanh toán
         boolean allRoomsNoShowOrCancelled = booking.getBookingDetails().stream()
                 .flatMap(bd -> bd.getBookingRooms().stream())
                 .allMatch(br -> br.getStatus() == BookingRoomStatus.NO_SHOW
                         || br.getStatus() == BookingRoomStatus.CANCELLED);
 
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        if (payments != null) {
+            totalPaid = payments.stream()
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
+                    .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
         if (allRoomsNoShowOrCancelled) {
             booking.setStatus(BookingStatus.NO_SHOW);
-            // Nếu tất cả các phòng đều không đến, kích hoạt hoàn tiền cọc dôi dư toàn đơn
-            List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
-            BigDecimal totalPaid = BigDecimal.ZERO;
+            // Tự động hủy các khoản thanh toán PENDING cũ (chưa thanh toán) nếu toàn bộ đơn No-Show
             if (payments != null) {
-                totalPaid = payments.stream()
-                        .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
-                        .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                for (Payment p : payments) {
+                    if (p.getStatus() == PaymentStatus.PENDING && p.getPaymentPurpose() != PaymentPurpose.REFUND) {
+                        p.setStatus(PaymentStatus.CANCELLED);
+                        p.setRawCallbackPayload("{\"reason\": \"Tự động hủy giao dịch thanh toán do tất cả các phòng No-Show\"}");
+                        paymentRepository.save(p);
+                    }
+                }
             }
+        }
 
-            BigDecimal allPenalties = BigDecimal.ZERO;
-            BigDecimal allAddons = BigDecimal.ZERO;
-            for (BookingDetail bd : booking.getBookingDetails()) {
-                if (bd.getBookingRooms() != null) {
-                    for (BookingRoom br : bd.getBookingRooms()) {
-                        if (br.getCharges() != null) {
-                            for (BookingCharge c : br.getCharges()) {
-                                if (c.getChargeType() == BookingChargeType.PENALTY) {
-                                    allPenalties = allPenalties.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
-                                } else {
-                                    allAddons = allAddons.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
-                                }
+        // Tính toán hoàn tiền cọc dôi dư (kể cả khi No-Show 1 phòng trong đơn nhiều phòng)
+        BigDecimal allPenalties = BigDecimal.ZERO;
+        BigDecimal allAddons = BigDecimal.ZERO;
+        BigDecimal activeRoomsTotal = BigDecimal.ZERO;
+        for (BookingDetail bd : booking.getBookingDetails()) {
+            if (bd.getBookingRooms() != null) {
+                for (BookingRoom br : bd.getBookingRooms()) {
+                    if (br.getStatus() == BookingRoomStatus.EXPECTED || br.getStatus() == BookingRoomStatus.CHECKED_IN) {
+                        activeRoomsTotal = activeRoomsTotal.add(calculateSingleRoomTotalAmount(br, bd, booking));
+                    }
+                    if (br.getCharges() != null) {
+                        for (BookingCharge c : br.getCharges()) {
+                            if (c.getChargeType() == BookingChargeType.PENALTY) {
+                                allPenalties = allPenalties.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
+                            } else {
+                                allAddons = allAddons.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
                             }
                         }
                     }
                 }
             }
+        }
 
-            List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
-            BigDecimal preorderedTotal = BigDecimal.ZERO;
-            if (orders != null) {
-                preorderedTotal = orders.stream()
-                        .filter(o -> o.getStatus() != ServiceOrderStatus.CANCELLED)
-                        .map(ServiceOrderResponse::getTotalAmount)
-                        .filter(Objects::nonNull)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
+        BigDecimal preorderedTotal = BigDecimal.ZERO;
+        if (orders != null) {
+            preorderedTotal = orders.stream()
+                    .filter(o -> o.getStatus() != ServiceOrderStatus.CANCELLED)
+                    .map(ServiceOrderResponse::getTotalAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
 
-            BigDecimal nonRefundableTotal = allPenalties.add(preorderedTotal).add(allAddons);
-            BigDecimal surplus = totalPaid.subtract(nonRefundableTotal);
-            if (surplus.compareTo(BigDecimal.ZERO) > 0) {
-                Payment refundPayment = Payment.builder()
-                        .booking(booking)
-                        .totalAmount(surplus)
-                        .paymentPurpose(PaymentPurpose.REFUND)
-                        .paymentMethod(PaymentMethod.OTHER)
-                        .paymentProvider("SYSTEM_NO_SHOW_REFUND")
-                        .status(PaymentStatus.PENDING)
-                        .transactionReference("REFUND-SURPLUS-" + booking.getBookingNumber())
-                        .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
-                        .rawCallbackPayload("{\"reason\": \"Hoàn tiền cọc dôi dư do tất cả các phòng No-Show\", \"amount\": " + surplus + "}")
-                        .build();
-                paymentRepository.save(refundPayment);
-            }
+        BigDecimal totalObligations = activeRoomsTotal.add(allPenalties).add(preorderedTotal).add(allAddons);
+        BigDecimal surplus = totalPaid.subtract(totalObligations);
+        if (surplus.compareTo(BigDecimal.ZERO) > 0) {
+            Payment refundPayment = Payment.builder()
+                    .booking(booking)
+                    .totalAmount(surplus)
+                    .paymentPurpose(PaymentPurpose.REFUND)
+                    .paymentMethod(PaymentMethod.OTHER)
+                    .paymentProvider("SYSTEM_NO_SHOW_REFUND")
+                    .status(PaymentStatus.PENDING)
+                    .transactionReference("REFUND-NOSHOW-" + bookingRoomId + "-" + System.currentTimeMillis())
+                    .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
+                    .rawCallbackPayload("{\"reason\": \"Hoàn tiền cọc dôi dư do phòng No-Show\", \"amount\": " + surplus + "}")
+                    .build();
+            paymentRepository.save(refundPayment);
         }
 
         String logNote = String.format("[ROOM_NO_SHOW - %s] Phòng ID %s bị No-Show. Lý do: %s. Phạt: %,.0f đ. Bởi: %s",
@@ -3115,7 +3144,7 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -3178,7 +3207,7 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -3352,7 +3381,7 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -3548,7 +3577,7 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }

@@ -366,6 +366,8 @@ public class FolioServiceImpl implements FolioService {
                     } else {
                         totalCredits = totalCredits.add(p.getTotalAmount());
                     }
+                } else if (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND) {
+                    totalCredits = totalCredits.subtract(p.getTotalAmount());
                 }
             }
         }

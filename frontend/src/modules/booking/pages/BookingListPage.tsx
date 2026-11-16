@@ -605,6 +605,9 @@ export const BookingListPage: React.FC = () => {
         `Đã ghi nhận No-Show cho ${noShowTargetRoom.label}! Hệ thống đã tính phạt đêm đầu cho phòng này và giải phóng phòng vật lý.`
       );
       loadData();
+      if (selectedHotelId) {
+        void loadTimelineData(selectedHotelId);
+      }
       if (selectedBooking) {
         const updated = await bookingService.getById(selectedBooking.id);
         if (updated.result) {
@@ -801,6 +804,7 @@ export const BookingListPage: React.FC = () => {
           onOpenServiceOrder={handleOpenServiceOrderFromTimeline}
           onOpenWalkIn={handleOpenWalkInModal}
           onOpenCancel={handleOpenCancelFromTimeline}
+          onOpenRoomNoShow={handlePromptRoomNoShow}
           onOpenStayGuests={handleOpenStayGuestsFromTimeline}
           onUpdateRoomStatus={handleUpdateRoomPhysicalStatus}
           hotelList={hotelList}

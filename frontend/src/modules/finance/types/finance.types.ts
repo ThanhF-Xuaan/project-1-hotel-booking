@@ -27,6 +27,13 @@ export interface PaymentCreateRequest {
   transactionReference?: string;
 }
 
+export interface ProcessRefundRequest {
+  action: 'APPROVE' | 'REJECT';
+  refundMethod?: PaymentMethod;
+  transactionReference?: string;
+  note?: string;
+}
+
 export interface PaymentSearchDto {
   bookingId?: number;
   paymentMethod?: PaymentMethod;

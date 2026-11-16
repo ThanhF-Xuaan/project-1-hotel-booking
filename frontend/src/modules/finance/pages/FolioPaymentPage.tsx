@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
+  RotateCcw,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -82,8 +83,18 @@ export const FolioPaymentPage: React.FC = () => {
   const [globalPage, setGlobalPage] = useState(1);
   const [globalStatusFilter, setGlobalStatusFilter] = useState<'ALL' | PaymentStatus>('ALL');
   const [globalMethodFilter, setGlobalMethodFilter] = useState<'ALL' | PaymentMethod>('ALL');
+  const [globalPurposeFilter, setGlobalPurposeFilter] = useState<'ALL' | 'REFUND'>('ALL');
+  const [pendingRefundCount, setPendingRefundCount] = useState(0);
   const [isLoadingGlobal, setIsLoadingGlobal] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
+
+  // Xử lý Yêu cầu Hoàn tiền Nội bộ (Refund Approval Workflow)
+  const [processRefundTarget, setProcessRefundTarget] = useState<PaymentResponse | null>(null);
+  const [refundAction, setRefundAction] = useState<'APPROVE' | 'REJECT'>('APPROVE');
+  const [refundMethod, setRefundMethod] = useState<PaymentMethod>('BANK_TRANSFER');
+  const [refundTransRef, setRefundTransRef] = useState('');
+  const [refundNote, setRefundNote] = useState('');
+  const [isProcessingRefund, setIsProcessingRefund] = useState(false);
 
   // Payment Modal
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -256,7 +267,8 @@ export const FolioPaymentPage: React.FC = () => {
     async (
       targetPage = globalPage,
       targetStatus = globalStatusFilter,
-      targetMethod = globalMethodFilter
+      targetMethod = globalMethodFilter,
+      targetPurpose = globalPurposeFilter
     ) => {
       setIsLoadingGlobal(true);
       setGlobalError(null);
@@ -268,6 +280,7 @@ export const FolioPaymentPage: React.FC = () => {
           sortDirection: 'DESC',
           status: targetStatus === 'ALL' ? undefined : targetStatus,
           paymentMethod: targetMethod === 'ALL' ? undefined : targetMethod,
+          paymentPurpose: targetPurpose === 'REFUND' ? 'REFUND' : undefined,
         });
         if (res.result) {
           setGlobalPayments(res.result.content || []);
@@ -284,8 +297,24 @@ export const FolioPaymentPage: React.FC = () => {
         setIsLoadingGlobal(false);
       }
     },
-    [globalPage, globalStatusFilter, globalMethodFilter]
+    [globalPage, globalStatusFilter, globalMethodFilter, globalPurposeFilter]
   );
+
+  const fetchPendingRefundCount = useCallback(async () => {
+    try {
+      const res = await financeService.filterPayments({
+        page: 1,
+        pageSize: 1,
+        status: 'PENDING',
+        paymentPurpose: 'REFUND',
+      });
+      if (res.result) {
+        setPendingRefundCount(res.result.totalElements || 0);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -304,14 +333,15 @@ export const FolioPaymentPage: React.FC = () => {
     let isMounted = true;
     const loadGlobal = async () => {
       if (isMounted) {
-        await fetchGlobalPayments(globalPage, globalStatusFilter, globalMethodFilter);
+        await fetchGlobalPayments(globalPage, globalStatusFilter, globalMethodFilter, globalPurposeFilter);
+        await fetchPendingRefundCount();
       }
     };
     void loadGlobal();
     return () => {
       isMounted = false;
     };
-  }, [fetchGlobalPayments, globalPage, globalStatusFilter, globalMethodFilter]);
+  }, [fetchGlobalPayments, fetchPendingRefundCount, globalPage, globalStatusFilter, globalMethodFilter, globalPurposeFilter]);
 
   // Tự đồng bộ dữ liệu khi quay lại trang qua nút Back trình duyệt (bfcache)
   useEffect(() => {
@@ -655,6 +685,65 @@ export const FolioPaymentPage: React.FC = () => {
       setPaymentError(getApiErrorMessage(err, 'Hoàn tiền thất bại'));
     } finally {
       setIsRefunding(false);
+    }
+  };
+
+  const getRefundReason = (p: PaymentResponse) => {
+    if (p.rawCallbackPayload) {
+      try {
+        const data = JSON.parse(p.rawCallbackPayload);
+        if (data.reason) return String(data.reason);
+        if (data.note) return String(data.note);
+      } catch {
+        // ignore
+      }
+    }
+    if (p.transactionReference?.startsWith('REFUND-SURPLUS')) {
+      return 'Hoàn cọc dôi dư (Khách No-Show)';
+    }
+    if (p.transactionReference?.startsWith('REFUND-CANCEL')) {
+      return 'Hoàn tiền cọc dôi dư (Hủy phòng)';
+    }
+    if (p.transactionReference?.startsWith('REFUND-NETTING')) {
+      return 'Hoàn cọc thừa sau bù trừ check-out';
+    }
+    return 'Yêu cầu hoàn tiền';
+  };
+
+  const handleOpenProcessRefundModal = (payment: PaymentResponse) => {
+    setProcessRefundTarget(payment);
+    setRefundAction('APPROVE');
+    setRefundMethod('BANK_TRANSFER');
+    setRefundTransRef('');
+    setRefundNote('');
+  };
+
+  const handleConfirmProcessRefund = async () => {
+    if (!processRefundTarget) return;
+    setIsProcessingRefund(true);
+    try {
+      await financeService.processRefund(processRefundTarget.id, {
+        action: refundAction,
+        refundMethod: refundAction === 'APPROVE' ? refundMethod : undefined,
+        transactionReference: refundTransRef.trim() || undefined,
+        note: refundNote.trim() || undefined,
+      });
+      setSuccessMessage(
+        refundAction === 'APPROVE'
+          ? `Đã phê duyệt hoàn tiền ${formatCurrency(processRefundTarget.totalAmount)} thành công!`
+          : `Đã từ chối yêu cầu hoàn tiền #${processRefundTarget.id}.`
+      );
+      setProcessRefundTarget(null);
+      await fetchGlobalPayments();
+      await fetchPendingRefundCount();
+      if (currentBooking) {
+        await fetchFolioData(currentBooking.bookingNumber);
+      }
+    } catch (err: unknown) {
+      console.error('Lỗi xử lý hoàn tiền:', err);
+      setPaymentError(getApiErrorMessage(err, 'Xử lý yêu cầu hoàn tiền thất bại'));
+    } finally {
+      setIsProcessingRefund(false);
     }
   };
 
@@ -1530,20 +1619,66 @@ export const FolioPaymentPage: React.FC = () => {
 
       {/* KHỐI 3: LỊCH SỬ GIAO DỊCH & THANH TOÁN TOÀN HỆ THỐNG (1 BẢNG DUY NHẤT, LUÔN HIỂN THỊ) */}
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-xs overflow-hidden">
+        {/* TAB CHUYỂN ĐỔI CHẾ ĐỘ XEM: TẤT CẢ GIAO DỊCH vs YÊU CẦU HOÀN TIỀN */}
+        <div className="flex border-b border-neutral-200 bg-neutral-50/70 px-4 pt-2.5 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setGlobalPurposeFilter('ALL');
+              setGlobalStatusFilter('ALL');
+              setGlobalPage(1);
+            }}
+            className={`px-4 py-2.5 text-xs font-bold rounded-t-xl border-t border-x transition-all cursor-pointer flex items-center gap-2 ${
+              globalPurposeFilter === 'ALL'
+                ? 'bg-white border-neutral-200 text-neutral-900 border-b-2 border-b-white -mb-px shadow-2xs'
+                : 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100/50'
+            }`}
+          >
+            <History className="w-4 h-4 text-neutral-600" />
+            <span>Tất cả Giao dịch &amp; Thu ngân</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setGlobalPurposeFilter('REFUND');
+              setGlobalStatusFilter('ALL');
+              setGlobalPage(1);
+            }}
+            className={`px-4 py-2.5 text-xs font-bold rounded-t-xl border-t border-x transition-all cursor-pointer flex items-center gap-2 ${
+              globalPurposeFilter === 'REFUND'
+                ? 'bg-white border-neutral-200 text-amber-700 border-b-2 border-b-white -mb-px shadow-2xs'
+                : 'border-transparent text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100/50'
+            }`}
+          >
+            <RotateCcw className="w-4 h-4 text-amber-600" />
+            <span>Yêu Cầu Hoàn Tiền (Refund Requests)</span>
+            {pendingRefundCount > 0 && (
+              <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-500 text-white animate-pulse">
+                {pendingRefundCount} chờ duyệt
+              </span>
+            )}
+          </button>
+        </div>
+
         <div className="p-4 border-b border-neutral-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
-              <History className="w-5 h-5" />
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+              globalPurposeFilter === 'REFUND' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+            }`}>
+              {globalPurposeFilter === 'REFUND' ? <RotateCcw className="w-5 h-5" /> : <History className="w-5 h-5" />}
             </div>
             <div>
               <div className="font-bold text-neutral-900 flex items-center gap-2">
-                <span>Lịch sử Giao dịch &amp; Thanh toán</span>
+                <span>{globalPurposeFilter === 'REFUND' ? 'Quản lý Yêu Cầu Hoàn Tiền (Refunds)' : 'Lịch sử Giao dịch & Thanh toán'}</span>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-700">
-                  {globalTotalElements} giao dịch
+                  {globalTotalElements} {globalPurposeFilter === 'REFUND' ? 'phiếu hoàn' : 'giao dịch'}
                 </span>
               </div>
               <p className="text-xs text-neutral-500">
-                Lưu toàn bộ thanh toán của mọi phòng/đơn đặt phòng — luôn hiển thị &amp; tương tác trực tiếp trạng thái
+                {globalPurposeFilter === 'REFUND'
+                  ? 'Kiểm tra và phê duyệt các khoản hoàn tiền cọc dôi dư do Hủy phòng, No-Show hoặc Folio Netting'
+                  : 'Lưu toàn bộ thanh toán của mọi phòng/đơn đặt phòng — luôn hiển thị & tương tác trực tiếp trạng thái'}
               </p>
             </div>
           </div>
@@ -1569,7 +1704,10 @@ export const FolioPaymentPage: React.FC = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => void fetchGlobalPayments()}
+              onClick={() => {
+                void fetchGlobalPayments();
+                void fetchPendingRefundCount();
+              }}
               disabled={isLoadingGlobal}
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isLoadingGlobal ? 'animate-spin' : ''}`} />
@@ -1581,14 +1719,21 @@ export const FolioPaymentPage: React.FC = () => {
         {/* Bộ lọc nhanh theo trạng thái toàn hệ thống */}
         <div className="px-4 py-2.5 bg-neutral-50/70 border-b border-neutral-100 flex flex-wrap items-center gap-1.5 text-xs">
           {(
-            [
-              { key: 'ALL', label: 'Tất cả' },
-              { key: 'PENDING', label: 'PENDING (Đang chờ)' },
-              { key: 'SUCCESS', label: 'SUCCESS (Thành công)' },
-              { key: 'FAILED', label: 'FAILED (Thất bại)' },
-              { key: 'CANCELLED', label: 'CANCELLED (Đã hủy)' },
-              { key: 'REFUNDED', label: 'REFUNDED (Đã hoàn)' },
-            ] as const
+            globalPurposeFilter === 'REFUND'
+              ? ([
+                  { key: 'ALL', label: 'Tất cả phiếu hoàn' },
+                  { key: 'PENDING', label: 'PENDING (Chờ duyệt)' },
+                  { key: 'REFUNDED', label: 'REFUNDED (Đã hoàn)' },
+                  { key: 'CANCELLED', label: 'CANCELLED (Đã từ chối)' },
+                ] as const)
+              : ([
+                  { key: 'ALL', label: 'Tất cả' },
+                  { key: 'PENDING', label: 'PENDING (Đang chờ)' },
+                  { key: 'SUCCESS', label: 'SUCCESS (Thành công)' },
+                  { key: 'FAILED', label: 'FAILED (Thất bại)' },
+                  { key: 'CANCELLED', label: 'CANCELLED (Đã hủy)' },
+                  { key: 'REFUNDED', label: 'REFUNDED (Đã hoàn)' },
+                ] as const)
           ).map((tab) => {
             const active = globalStatusFilter === tab.key;
             return (
@@ -1623,7 +1768,7 @@ export const FolioPaymentPage: React.FC = () => {
               <tr>
                 <th className="p-3.5">Mã giao dịch</th>
                 <th className="p-3.5">Đơn đặt phòng / Phòng</th>
-                <th className="p-3.5">Phương thức</th>
+                <th className="p-3.5">{globalPurposeFilter === 'REFUND' ? 'Lý do hoàn' : 'Phương thức'}</th>
                 <th className="p-3.5 text-right">Số tiền (VNĐ)</th>
                 <th className="p-3.5 text-center">Trạng thái</th>
                 <th className="p-3.5">Thời gian</th>
@@ -1695,13 +1840,32 @@ export const FolioPaymentPage: React.FC = () => {
                         </button>
                       </td>
                       <td className="p-3.5 text-neutral-700 text-xs">
-                        <div className="font-semibold">{p.paymentMethod}</div>
-                        <div className="text-[11px] text-neutral-400">
-                          {p.paymentProvider || p.paymentPurpose}
-                        </div>
+                        {p.paymentPurpose === 'REFUND' ? (
+                          <>
+                            <div className="font-semibold text-amber-700 flex items-center gap-1">
+                              <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Hoàn tiền</span>
+                            </div>
+                            <div className="text-[11px] text-neutral-500 line-clamp-1" title={getRefundReason(p)}>
+                              {getRefundReason(p)}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-semibold">{p.paymentMethod}</div>
+                            <div className="text-[11px] text-neutral-400">
+                              {p.paymentProvider || p.paymentPurpose}
+                            </div>
+                          </>
+                        )}
                       </td>
-                      <td className="p-3.5 text-right font-bold text-neutral-900">
-                        {formatCurrency(p.totalAmount)}
+                      <td className={`p-3.5 text-right font-bold ${
+                        p.paymentPurpose === 'REFUND' ? 'text-amber-600' : 'text-neutral-900'
+                      }`}>
+                        {p.paymentPurpose === 'REFUND' ? `-${formatCurrency(p.totalAmount)}` : formatCurrency(p.totalAmount)}
+                        {p.paymentPurpose === 'REFUND' && (
+                          <div className="text-[10px] text-amber-600 font-normal">Xuất hoàn trả</div>
+                        )}
                       </td>
                       <td className="p-3.5 text-center">
                         <PaymentStatusBadge status={p.status} />
@@ -1717,24 +1881,38 @@ export const FolioPaymentPage: React.FC = () => {
                         <div className="flex flex-wrap items-center justify-center gap-1.5">
                           {p.status === 'PENDING' && (
                             <>
-                              <button
-                                type="button"
-                                onClick={() => setActionConfirm({ type: 'complete', payment: p })}
-                                className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1 cursor-pointer"
-                                title="Xác nhận giao dịch thành công (PENDING → SUCCESS)"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                Xác nhận
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setActionConfirm({ type: 'cancel', payment: p })}
-                                className="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 flex items-center gap-1 cursor-pointer"
-                                title="Hủy giao dịch PENDING & mở khóa Redis"
-                              >
-                                <XCircle className="w-3.5 h-3.5" />
-                                Hủy
-                              </button>
+                              {p.paymentPurpose === 'REFUND' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenProcessRefundModal(p)}
+                                  className="text-xs text-amber-800 hover:text-amber-950 font-bold px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  title="Kế toán duyệt hoặc từ chối hoàn tiền"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                                  Xử lý hoàn tiền
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActionConfirm({ type: 'complete', payment: p })}
+                                    className="text-xs text-emerald-700 hover:text-emerald-900 font-semibold px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1 cursor-pointer"
+                                    title="Xác nhận giao dịch thành công (PENDING → SUCCESS)"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    Xác nhận
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setActionConfirm({ type: 'cancel', payment: p })}
+                                    className="text-xs text-red-600 hover:text-red-800 font-semibold px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 flex items-center gap-1 cursor-pointer"
+                                    title="Hủy giao dịch PENDING & mở khóa Redis"
+                                  >
+                                    <XCircle className="w-3.5 h-3.5" />
+                                    Hủy
+                                  </button>
+                                </>
+                              )}
                             </>
                           )}
                           {p.status === 'SUCCESS' && (
@@ -1747,13 +1925,15 @@ export const FolioPaymentPage: React.FC = () => {
                                 <Printer className="w-3.5 h-3.5" />
                                 Biên lai
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRefundModal(p)}
-                                className="text-xs text-amber-700 hover:text-amber-900 font-semibold px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 cursor-pointer"
-                              >
-                                Hoàn tiền
-                              </button>
+                              {p.paymentPurpose !== 'REFUND' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRefundModal(p)}
+                                  className="text-xs text-amber-700 hover:text-amber-900 font-semibold px-2 py-1 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 cursor-pointer"
+                                >
+                                  Hoàn tiền
+                                </button>
+                              )}
                             </>
                           )}
                           {(p.status === 'FAILED' || p.status === 'CANCELLED') && (
@@ -1953,6 +2133,175 @@ export const FolioPaymentPage: React.FC = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* MODAL PHÊ DUYỆT & XỬ LÝ HOÀN TIỀN NỘI BỘ (REFUND WORKFLOW) */}
+      <Modal
+        isOpen={Boolean(processRefundTarget)}
+        onClose={() => setProcessRefundTarget(null)}
+        title={
+          processRefundTarget
+            ? `Xử lý Yêu cầu Hoàn tiền #${processRefundTarget.id}`
+            : 'Xử lý hoàn tiền'
+        }
+        maxWidth="md"
+      >
+        {processRefundTarget && (
+          <div className="space-y-4 text-sm">
+            {/* Box tóm tắt thông tin */}
+            <div className="p-3.5 bg-neutral-50 rounded-xl border border-neutral-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500">Mã đơn đặt phòng:</span>
+                <span className="font-bold text-neutral-900">
+                  {processRefundTarget.bookingNumber || `BK-${processRefundTarget.bookingId}`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500">Số tiền cần hoàn:</span>
+                <span className="text-base font-bold text-amber-600">
+                  {formatCurrency(processRefundTarget.totalAmount)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-500">Lý do phát sinh:</span>
+                <span className="font-medium text-neutral-800 text-right">
+                  {getRefundReason(processRefundTarget)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs text-neutral-500">
+                <span>Thời gian yêu cầu:</span>
+                <span>{new Date(processRefundTarget.createdAt).toLocaleString('vi-VN')}</span>
+              </div>
+            </div>
+
+            {/* Chọn hành động: APPROVE vs REJECT */}
+            <div>
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider mb-1.5">
+                Quyết định của Kế toán
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRefundAction('APPROVE')}
+                  className={`p-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                    refundAction === 'APPROVE'
+                      ? 'border-emerald-600 bg-emerald-50 text-emerald-800 ring-2 ring-emerald-500/20 shadow-xs'
+                      : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  Duyệt hoàn tiền (APPROVE)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRefundAction('REJECT')}
+                  className={`p-2.5 rounded-xl border font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all ${
+                    refundAction === 'REJECT'
+                      ? 'border-red-600 bg-red-50 text-red-800 ring-2 ring-red-500/20 shadow-xs'
+                      : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50'
+                  }`}
+                >
+                  <XCircle className="w-4 h-4 text-red-600" />
+                  Từ chối yêu cầu (REJECT)
+                </button>
+              </div>
+            </div>
+
+            {refundAction === 'APPROVE' ? (
+              <div className="space-y-3 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Hình thức chi tiền <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={refundMethod}
+                    onChange={(e) => setRefundMethod(e.target.value as PaymentMethod)}
+                    className="w-full h-10 px-3 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="BANK_TRANSFER">Chuyển khoản ngân hàng (Ủy nhiệm chi - Bank Transfer)</option>
+                    <option value="CASH">Tiền mặt tại quầy lễ tân (Cash)</option>
+                    <option value="OTHER">Hình thức khác (Voucher / Điểm thưởng)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Mã tham chiếu ngân hàng / Số phiếu chi
+                  </label>
+                  <Input
+                    placeholder="VD: FT26111600987 hoặc PC-00123"
+                    value={refundTransRef}
+                    onChange={(e) => setRefundTransRef(e.target.value)}
+                  />
+                  <p className="text-[11px] text-neutral-500 mt-1">
+                    Nhập mã giao dịch chuyển khoản thực tế để phục vụ đối soát sổ phụ kế toán.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Ghi chú chứng từ kế toán
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={refundNote}
+                    onChange={(e) => setRefundNote(e.target.value)}
+                    placeholder="Diễn giải chứng từ, tên chủ tài khoản, ngân hàng thụ hưởng..."
+                    className="w-full p-2.5 text-xs bg-white border border-neutral-300 rounded-xl text-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 p-3 bg-red-50/50 rounded-xl border border-red-100">
+                <label className="block text-xs font-semibold text-red-800">
+                  Lý do từ chối yêu cầu hoàn tiền <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={refundNote}
+                  onChange={(e) => setRefundNote(e.target.value)}
+                  placeholder="Nhập lý do kế toán từ chối (VD: Khách đồng ý nhận voucher bảo lưu, sai lệch số tài khoản...)"
+                  className="w-full p-2.5 text-xs bg-white border border-red-200 rounded-xl text-neutral-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-200">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setProcessRefundTarget(null)}
+                disabled={isProcessingRefund}
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                variant={refundAction === 'APPROVE' ? 'primary' : 'danger'}
+                size="sm"
+                onClick={() => void handleConfirmProcessRefund()}
+                disabled={isProcessingRefund}
+                className={refundAction === 'APPROVE' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+              >
+                {isProcessingRefund ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Đang xử lý...
+                  </>
+                ) : refundAction === 'APPROVE' ? (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Xác nhận Duyệt &amp; Hoàn tiền
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Xác nhận Từ chối
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* MODAL PHIÊN THANH TOÁN GATEWAY (D3) — countdown + link + hủy/làm lại (§6) */}

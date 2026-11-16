@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Select from '../../../core/components/ui/Select';
 import {
   Building,
@@ -25,6 +25,8 @@ import {
   Ban,
   PlusCircle,
   Eye,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import type {
   BookingResponse,
@@ -73,6 +75,7 @@ export interface TimelineRackViewProps {
     roomNumber?: string;
     roomTypeName?: string;
   }) => void;
+  onOpenRoomNoShow?: (bookingRoom: BookingRoomResponse) => void;
   onOpenStayGuests?: (target: {
     bookingRoomId: number;
     hotelId: number;
@@ -101,6 +104,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
   rooms,
   bookings,
   isLoading,
+  onRefresh,
   onOpenSwapModal,
   onOpenDetail,
   onCheckIn,
@@ -108,12 +112,17 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
   onOpenServiceOrder,
   onOpenWalkIn,
   onOpenCancel,
+  onOpenRoomNoShow,
   onOpenStayGuests,
   onUpdateRoomStatus,
   hotelList = [],
   selectedHotelId,
   onSelectHotelId,
 }) => {
+  // Auto-refresh timer states (options: 0 = Off, 30s, 60s, 120s; default: 60s)
+  const [autoRefreshInterval, setAutoRefreshInterval] = useState<number>(60);
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(60);
+
   // Date range state (default 14 days, e.g., today to +13 days)
   const [startDateStr, setStartDateStr] = useState<string>(() => {
     return toLocalDateStr(new Date());
@@ -208,6 +217,26 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
     setEndDateStr(toLocalDateStr(end));
   };
 
+  // Auto-refresh countdown effect (with auto-pause during modal operations)
+  useEffect(() => {
+    if (autoRefreshInterval <= 0) return;
+
+    const timer = setInterval(() => {
+      // Pause countdown when user has quick operations modal open
+      if (activeCellInfo) return;
+
+      setSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          onRefresh();
+          return autoRefreshInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [autoRefreshInterval, activeCellInfo, onRefresh]);
+
   // Filter rooms by selected hotel
   const currentHotelRooms = useMemo(() => {
     const currentHotelId = selectedHotelId || hotelList[0]?.id;
@@ -233,6 +262,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
       b.bookingDetails?.forEach((bd) => {
         bd.bookingRooms?.forEach((br: BookingRoomResponse) => {
           if (!br.roomInstanceId) return;
+          if (br.status === 'NO_SHOW' || br.status === 'CANCELLED') return;
 
           const checkIn = parseLocalDate(bd.checkInDate);
           const checkOut = parseLocalDate(bd.checkOutDate);
@@ -725,6 +755,95 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
               >
                 <Rows3 className="w-3.5 h-3.5" />
                 Thu gọn
+              </button>
+            </div>
+
+            {/* Auto-Refresh Control */}
+            <div className="inline-flex items-center gap-1.5 pl-2 border-l border-neutral-200">
+              <div className="inline-flex rounded-lg p-0.5 bg-neutral-100 border border-neutral-200 text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoRefreshInterval(0);
+                    setSecondsRemaining(0);
+                  }}
+                  className={`px-2 py-1 rounded cursor-pointer transition-all ${
+                    autoRefreshInterval === 0
+                      ? 'bg-white text-neutral-900 shadow-2xs font-bold'
+                      : 'text-neutral-500 hover:text-neutral-800'
+                  }`}
+                  title="Tắt tự động làm mới"
+                >
+                  Tắt
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoRefreshInterval(30);
+                    setSecondsRemaining(30);
+                  }}
+                  className={`px-2 py-1 rounded cursor-pointer transition-all ${
+                    autoRefreshInterval === 30
+                      ? 'bg-white text-red-600 shadow-2xs font-bold'
+                      : 'text-neutral-500 hover:text-neutral-800'
+                  }`}
+                  title="Tự động làm mới mỗi 30 giây"
+                >
+                  30s
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoRefreshInterval(60);
+                    setSecondsRemaining(60);
+                  }}
+                  className={`px-2 py-1 rounded cursor-pointer transition-all ${
+                    autoRefreshInterval === 60
+                      ? 'bg-white text-red-600 shadow-2xs font-bold'
+                      : 'text-neutral-500 hover:text-neutral-800'
+                  }`}
+                  title="Tự động làm mới mỗi 60 giây (Khuyên dùng)"
+                >
+                  60s
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAutoRefreshInterval(120);
+                    setSecondsRemaining(120);
+                  }}
+                  className={`px-2 py-1 rounded cursor-pointer transition-all ${
+                    autoRefreshInterval === 120
+                      ? 'bg-white text-red-600 shadow-2xs font-bold'
+                      : 'text-neutral-500 hover:text-neutral-800'
+                  }`}
+                  title="Tự động làm mới mỗi 2 phút"
+                >
+                  2p
+                </button>
+              </div>
+
+              {autoRefreshInterval > 0 && (
+                <span
+                  className="px-2 py-1 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold flex items-center gap-1 shadow-2xs"
+                  title="Thời gian đến lượt làm mới tiếp theo (tự động tạm dừng khi mở modal)"
+                >
+                  <Clock className="w-3 h-3 text-red-600 animate-pulse" />
+                  <span>{secondsRemaining}s</span>
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSecondsRemaining(autoRefreshInterval);
+                  onRefresh();
+                }}
+                disabled={isLoading}
+                className="p-1.5 rounded-lg border border-neutral-200 bg-white hover:bg-neutral-50 text-neutral-700 hover:text-red-600 transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                title="Làm mới ma trận ngay lập tức"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-red-600' : ''}`} />
               </button>
             </div>
           </div>
@@ -1474,7 +1593,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                         </div>
                       </button>
 
-                      {/* Hủy phòng / No-Show */}
+                      {/* Hủy phòng (Chính sách hủy linh hoạt) */}
                       <button
                         type="button"
                         onClick={() => {
@@ -1488,17 +1607,40 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                           setActiveCellInfo(null);
                           onOpenCancel?.(target);
                         }}
-                        className="flex items-center gap-3 p-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-950 transition-all font-bold text-left cursor-pointer group shadow-2xs col-span-2"
+                        className="flex items-center gap-2.5 p-3 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-950 transition-all font-bold text-left cursor-pointer group shadow-2xs col-span-1"
                       >
                         <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                           <Ban className="w-4 h-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-bold leading-tight">
-                            Hủy Phòng / Đánh Dấu No-Show
+                            Hủy Phòng
                           </div>
-                          <div className="text-[10px] text-rose-700 font-normal">
-                            Áp dụng chính sách phạt hủy & giải phóng kho phòng
+                          <div className="text-[10px] text-rose-700 font-normal truncate">
+                            Theo chính sách hủy
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Báo No-Show (Khách không đến) */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const room = activeCellInfo.bookingRoom!;
+                          setActiveCellInfo(null);
+                          onOpenRoomNoShow?.(room);
+                        }}
+                        className="flex items-center gap-2.5 p-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-950 transition-all font-bold text-left cursor-pointer group shadow-2xs col-span-1"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                          <AlertTriangle className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold leading-tight">
+                            Khách Vắng Mặt
+                          </div>
+                          <div className="text-[10px] text-amber-700 font-normal truncate">
+                            Phạt 100% đêm đầu (No-Show)
                           </div>
                         </div>
                       </button>

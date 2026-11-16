@@ -14,6 +14,7 @@ import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentSearchDto;
+import vn.edu.utc.hotel_booking.modules.finance.dto.request.ProcessRefundRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
@@ -154,5 +155,21 @@ public class PaymentController {
             @RequestParam(required = false) String reason
     ) {
         return ApiResponse.success("Hoàn tiền thành công", paymentService.refundPayment(id, refundAmount, reason));
+    }
+
+    @Auditable(
+            actionType = "PAYMENT_PROCESS_REFUND",
+            entityName = "Payment",
+            entityId = "#id.toString()",
+            description = "'Phê duyệt/Từ chối yêu cầu hoàn tiền ID ' + #id + ': hành động ' + #request.action"
+    )
+    @PostMapping("/{id}/process-refund")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
+    @Operation(summary = "Xử lý phê duyệt hoặc từ chối yêu cầu hoàn tiền (Refund Workflow)")
+    public ApiResponse<PaymentResponse> processRefund(
+            @PathVariable Long id,
+            @Valid @RequestBody ProcessRefundRequest request
+    ) {
+        return ApiResponse.success("Xử lý yêu cầu hoàn tiền thành công", paymentService.processRefund(id, request));
     }
 }

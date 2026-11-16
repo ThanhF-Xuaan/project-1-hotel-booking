@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.finance.service;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentSearchDto;
+import vn.edu.utc.hotel_booking.modules.finance.dto.request.ProcessRefundRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
@@ -43,4 +44,9 @@ public interface PaymentService {
     PaymentResponse cancelPayment(Long id);
 
     PaymentResponse refundPayment(Long id, BigDecimal refundAmount, String reason);
+
+    /**
+     * Phê duyệt hoặc từ chối yêu cầu hoàn tiền (REFUND PENDING) sinh ra từ Hủy phòng / No-Show / Folio netting.
+     */
+    PaymentResponse processRefund(Long id, ProcessRefundRequest request);
 }

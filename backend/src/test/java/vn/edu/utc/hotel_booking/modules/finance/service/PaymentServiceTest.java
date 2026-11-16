@@ -15,6 +15,7 @@ import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
+import vn.edu.utc.hotel_booking.modules.finance.dto.request.ProcessRefundRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.*;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.PaymentGateway;
@@ -591,5 +592,124 @@ class PaymentServiceTest {
         assertThat(response.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
         assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.ISSUED);
         verify(invoiceRepository).save(invoice);
+    }
+
+    @Test
+    @DisplayName("processRefund phê duyệt yêu cầu hoàn tiền PENDING thành công: chuyển REFUNDED và tạo Transaction REFUND")
+    void processRefund_Approve_Success() {
+        Payment pendingRefund = Payment.builder()
+                .id(99L)
+                .booking(testBooking)
+                .totalAmount(BigDecimal.valueOf(1200000))
+                .paymentPurpose(PaymentPurpose.REFUND)
+                .paymentMethod(PaymentMethod.OTHER)
+                .paymentProvider("SYSTEM_NO_SHOW_REFUND")
+                .status(PaymentStatus.PENDING)
+                .transactionReference("REFUND-SURPLUS-BK001")
+                .build();
+
+        ProcessRefundRequest request = ProcessRefundRequest.builder()
+                .action(ProcessRefundRequest.RefundAction.APPROVE)
+                .refundMethod(PaymentMethod.BANK_TRANSFER)
+                .transactionReference("FT261116999888")
+                .note("Đã chuyển khoản trả lại tiền cọc dư cho khách")
+                .build();
+
+        when(paymentRepository.findById(99L)).thenReturn(Optional.of(pendingRefund));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(financeMapper.toResponse(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            return PaymentResponse.builder()
+                    .id(p.getId())
+                    .status(p.getStatus())
+                    .paymentMethod(p.getPaymentMethod())
+                    .transactionReference(p.getTransactionReference())
+                    .build();
+        });
+
+        PaymentResponse response = paymentService.processRefund(99L, request);
+
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.REFUNDED);
+        assertThat(response.getPaymentMethod()).isEqualTo(PaymentMethod.BANK_TRANSFER);
+        assertThat(response.getTransactionReference()).isEqualTo("FT261116999888");
+
+        ArgumentCaptor<Transaction> txCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(txCaptor.capture());
+        Transaction savedTx = txCaptor.getValue();
+        assertThat(savedTx.getTransactionType()).isEqualTo(TransactionType.REFUND);
+        assertThat(savedTx.getAmount()).isEqualByComparingTo(BigDecimal.valueOf(1200000));
+        assertThat(savedTx.getReferenceCode()).isEqualTo("FT261116999888");
+        assertThat(savedTx.getStatus()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    @DisplayName("processRefund từ chối yêu cầu hoàn tiền: chuyển trạng thái thành CANCELLED")
+    void processRefund_Reject_Success() {
+        Payment pendingRefund = Payment.builder()
+                .id(100L)
+                .booking(testBooking)
+                .totalAmount(BigDecimal.valueOf(500000))
+                .paymentPurpose(PaymentPurpose.REFUND)
+                .status(PaymentStatus.PENDING)
+                .build();
+
+        ProcessRefundRequest request = ProcessRefundRequest.builder()
+                .action(ProcessRefundRequest.RefundAction.REJECT)
+                .note("Khách đồng ý nhận voucher thay vì tiền mặt")
+                .build();
+
+        when(paymentRepository.findById(100L)).thenReturn(Optional.of(pendingRefund));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(financeMapper.toResponse(any(Payment.class))).thenAnswer(inv -> {
+            Payment p = inv.getArgument(0);
+            return PaymentResponse.builder().id(p.getId()).status(p.getStatus()).build();
+        });
+
+        PaymentResponse response = paymentService.processRefund(100L, request);
+
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
+        verify(transactionRepository, never()).save(any(Transaction.class));
+    }
+
+    @Test
+    @DisplayName("processRefund ném lỗi khi giao dịch không phải là mục đích REFUND")
+    void processRefund_ThrowsException_WhenNotRefundPurpose() {
+        Payment normalPayment = Payment.builder()
+                .id(101L)
+                .booking(testBooking)
+                .paymentPurpose(PaymentPurpose.FULL_PAYMENT)
+                .status(PaymentStatus.PENDING)
+                .build();
+
+        when(paymentRepository.findById(101L)).thenReturn(Optional.of(normalPayment));
+
+        ProcessRefundRequest request = ProcessRefundRequest.builder()
+                .action(ProcessRefundRequest.RefundAction.APPROVE)
+                .build();
+
+        assertThatThrownBy(() -> paymentService.processRefund(101L, request))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.PAYMENT_NOT_PENDING));
+    }
+
+    @Test
+    @DisplayName("processRefund ném lỗi khi yêu cầu hoàn tiền không ở trạng thái PENDING")
+    void processRefund_ThrowsException_WhenNotPending() {
+        Payment settledRefund = Payment.builder()
+                .id(102L)
+                .booking(testBooking)
+                .paymentPurpose(PaymentPurpose.REFUND)
+                .status(PaymentStatus.REFUNDED)
+                .build();
+
+        when(paymentRepository.findById(102L)).thenReturn(Optional.of(settledRefund));
+
+        ProcessRefundRequest request = ProcessRefundRequest.builder()
+                .action(ProcessRefundRequest.RefundAction.APPROVE)
+                .build();
+
+        assertThatThrownBy(() -> paymentService.processRefund(102L, request))
+                .isInstanceOf(AppException.class)
+                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.PAYMENT_NOT_PENDING));
     }
 }
