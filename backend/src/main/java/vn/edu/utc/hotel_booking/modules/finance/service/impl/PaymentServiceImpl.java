@@ -33,6 +33,7 @@ import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEvent;
 
 import java.math.BigDecimal;
@@ -50,7 +51,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Transactional(readOnly = true)
-public class PaymentServiceImpl implements PaymentService {
+public class PaymentServiceImpl implements PaymentService, ApplicationEventPublisherAware {
 
     PaymentRepository paymentRepository;
     TransactionRepository transactionRepository;
@@ -59,8 +60,12 @@ public class PaymentServiceImpl implements PaymentService {
     FinanceMapper financeMapper;
     StringRedisTemplate redisTemplate;
     @NonFinal
-    @Autowired(required = false)
     ApplicationEventPublisher eventPublisher;
+
+    @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
     /** Tất cả bean PaymentGateway (VnPayGateway, MoMoGateway) — Strategy Pattern */
     List<PaymentGateway> paymentGateways;
 

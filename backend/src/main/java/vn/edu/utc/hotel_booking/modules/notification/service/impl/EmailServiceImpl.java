@@ -66,6 +66,44 @@ public class EmailServiceImpl implements EmailService {
             context.setVariable("totalFormatted", formatMoney(event.getTotalAmount()));
             context.setVariable("portalUrl", safe(event.getPortalUrl(), "http://localhost:3000/my-bookings"));
 
+            BigDecimal totalServices = BigDecimal.ZERO;
+            if (event.getServices() != null) {
+                for (var s : event.getServices()) {
+                    if (s.getUnitPriceFormatted() == null && s.getUnitPrice() != null) {
+                        s.setUnitPriceFormatted(formatMoney(s.getUnitPrice()));
+                    }
+                    if (s.getTotalPriceFormatted() == null && s.getTotalPrice() != null) {
+                        s.setTotalPriceFormatted(formatMoney(s.getTotalPrice()));
+                    }
+                    if (s.getTotalPrice() != null) {
+                        totalServices = totalServices.add(s.getTotalPrice());
+                    }
+                }
+                context.setVariable("services", event.getServices());
+            }
+            if (totalServices.compareTo(BigDecimal.ZERO) > 0) {
+                context.setVariable("totalServicesFormatted", formatMoney(totalServices));
+            }
+
+            BigDecimal totalSurcharges = BigDecimal.ZERO;
+            if (event.getSurcharges() != null) {
+                for (var s : event.getSurcharges()) {
+                    if (s.getUnitPriceFormatted() == null && s.getUnitPrice() != null) {
+                        s.setUnitPriceFormatted(formatMoney(s.getUnitPrice()));
+                    }
+                    if (s.getTotalPriceFormatted() == null && s.getTotalPrice() != null) {
+                        s.setTotalPriceFormatted(formatMoney(s.getTotalPrice()));
+                    }
+                    if (s.getTotalPrice() != null) {
+                        totalSurcharges = totalSurcharges.add(s.getTotalPrice());
+                    }
+                }
+                context.setVariable("surcharges", event.getSurcharges());
+            }
+            if (totalSurcharges.compareTo(BigDecimal.ZERO) > 0) {
+                context.setVariable("totalSurchargesFormatted", formatMoney(totalSurcharges));
+            }
+
             String htmlBody = templateEngine.process("mail/booking-confirmation", context);
 
             MimeMessage message = mailSender.createMimeMessage();
@@ -106,6 +144,44 @@ public class EmailServiceImpl implements EmailService {
                 rem = formatMoney(event.getRemainingBalance()) + " (Còn phải thanh toán tại quầy)";
             }
             context.setVariable("remainingBalanceFormatted", rem);
+
+            BigDecimal totalServices = BigDecimal.ZERO;
+            if (event.getServices() != null) {
+                for (var s : event.getServices()) {
+                    if (s.getUnitPriceFormatted() == null && s.getUnitPrice() != null) {
+                        s.setUnitPriceFormatted(formatMoney(s.getUnitPrice()));
+                    }
+                    if (s.getTotalPriceFormatted() == null && s.getTotalPrice() != null) {
+                        s.setTotalPriceFormatted(formatMoney(s.getTotalPrice()));
+                    }
+                    if (s.getTotalPrice() != null) {
+                        totalServices = totalServices.add(s.getTotalPrice());
+                    }
+                }
+                context.setVariable("services", event.getServices());
+            }
+            if (totalServices.compareTo(BigDecimal.ZERO) > 0) {
+                context.setVariable("totalServicesFormatted", formatMoney(totalServices));
+            }
+
+            BigDecimal totalSurcharges = BigDecimal.ZERO;
+            if (event.getSurcharges() != null) {
+                for (var s : event.getSurcharges()) {
+                    if (s.getUnitPriceFormatted() == null && s.getUnitPrice() != null) {
+                        s.setUnitPriceFormatted(formatMoney(s.getUnitPrice()));
+                    }
+                    if (s.getTotalPriceFormatted() == null && s.getTotalPrice() != null) {
+                        s.setTotalPriceFormatted(formatMoney(s.getTotalPrice()));
+                    }
+                    if (s.getTotalPrice() != null) {
+                        totalSurcharges = totalSurcharges.add(s.getTotalPrice());
+                    }
+                }
+                context.setVariable("surcharges", event.getSurcharges());
+            }
+            if (totalSurcharges.compareTo(BigDecimal.ZERO) > 0) {
+                context.setVariable("totalSurchargesFormatted", formatMoney(totalSurcharges));
+            }
 
             String htmlBody = templateEngine.process("mail/payment-receipt", context);
 
