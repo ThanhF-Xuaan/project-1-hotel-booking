@@ -248,7 +248,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           const items: AddonServiceItem[] = servicesRes.result.content.map((m) => ({
             id: m.id,
             name: m.name,
-            price: m.basePrice,
+            price: Number(m.basePrice) || 0,
             quantity: 0,
             roomIndex: 0,
           }));
@@ -561,7 +561,12 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     }
   };
 
+  const hotelServiceFeeRate = hotels.find((h) => h.id === selectedHotelId)?.serviceFeePercent ?? 5;
+  const roomNet = quoteResponse?.subtotalAmount || 0;
+  const roomServiceFee = quoteResponse?.totalServiceFeeAmount || 0;
+  const roomVat = quoteResponse?.totalVatAmount || 0;
   const totalRoomGross = quoteResponse?.totalAmount || 0;
+
   const totalApprovedCharges = useMemo(
     () =>
       confirmedCharges.reduce((acc, c) => {
@@ -570,11 +575,19 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       }, 0),
     [confirmedCharges]
   );
-  const totalServices = useMemo(
+  const totalServicesNet = useMemo(
     () => selectedServices.reduce((acc, s) => acc + s.price * s.quantity, 0),
     [selectedServices]
   );
-  const grandTotal = totalRoomGross + totalApprovedCharges + totalServices;
+  const servicesFee = Math.round(totalServicesNet * (hotelServiceFeeRate / 100));
+  const servicesTaxable = totalServicesNet + servicesFee;
+  const servicesVat = Math.round(servicesTaxable * 0.08);
+  const totalServicesGross = servicesTaxable + servicesVat;
+
+  const subtotalNet = roomNet + totalApprovedCharges + totalServicesNet;
+  const grandServiceFee = roomServiceFee + servicesFee;
+  const grandVat = roomVat + servicesVat;
+  const grandTotal = totalRoomGross + totalApprovedCharges + totalServicesGross;
   const isSmallOrFit = rooms.length <= 2 && bookingType === 'FIT';
 
   useEffect(() => {
@@ -1501,8 +1514,28 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600">Tiền phòng ({rooms.length} phòng):</span>
-                <span className="font-bold">{totalRoomGross.toLocaleString('vi-VN')} đ</span>
+                <span className="font-bold">{roomNet.toLocaleString('vi-VN')} đ</span>
               </div>
+              {quoteResponse?.rooms && quoteResponse.rooms.length > 0 && (
+                <div className="pl-3 border-l-2 border-neutral-300 space-y-1.5 py-1 bg-neutral-100/60 rounded-r-lg">
+                  {quoteResponse.rooms.map((qr, idx) => {
+                    const rInstId = Number(rooms[idx]?.roomInstanceId);
+                    const rm = readyRooms.find((x) => x.id === rInstId);
+                    const rType = roomTypes.find((x) => x.id === Number(rooms[idx]?.hotelRoomTypeId));
+                    const label = rm?.roomNumber ? `P.${rm.roomNumber}` : `Phòng #${idx + 1}`;
+                    const typeName = rType?.name || 'Phòng';
+                    const lineNet = qr.netPrice ?? qr.totalPrice ?? 0;
+                    return (
+                      <div key={idx} className="flex justify-between text-xs text-neutral-600">
+                        <span>• {label} - {typeName} ({stayPeriod.checkInDate} ➔ {stayPeriod.checkOutDate})</span>
+                        <span className="font-semibold text-neutral-800">
+                          {lineNet.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600">Phụ thu:</span>
                 <span className="font-bold">{totalApprovedCharges.toLocaleString('vi-VN')} đ</span>
@@ -1524,7 +1557,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600">Dịch vụ đi kèm:</span>
-                <span className="font-bold">{totalServices.toLocaleString('vi-VN')} đ</span>
+                <span className="font-bold">{totalServicesNet.toLocaleString('vi-VN')} đ</span>
               </div>
               {selectedServices.filter((s) => s.quantity > 0).length > 0 && (
                 <div className="pl-3 border-l-2 border-red-300 space-y-1.5 py-1 bg-red-50/50 rounded-r-lg">
@@ -1540,6 +1573,24 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     ))}
                 </div>
               )}
+
+              <div className="border-t border-dashed border-neutral-300 pt-2.5 space-y-1.5 text-xs text-neutral-600">
+                <div className="flex justify-between">
+                  <span>Tạm tính (Trước thuế &amp; phí):</span>
+                  <span className="font-semibold text-neutral-800">{subtotalNet.toLocaleString('vi-VN')} đ</span>
+                </div>
+                {grandServiceFee > 0 && (
+                  <div className="flex justify-between">
+                    <span>Phí dịch vụ ({hotelServiceFeeRate}%):</span>
+                    <span className="font-semibold text-neutral-800">+{grandServiceFee.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Thuế GTGT (VAT 8%):</span>
+                  <span className="font-semibold text-neutral-800">+{grandVat.toLocaleString('vi-VN')} đ</span>
+                </div>
+              </div>
+
               <div className="border-t border-neutral-200 pt-3 flex justify-between items-center">
                 <span className="text-base font-extrabold text-neutral-900">TỔNG CẦN THANH TOÁN:</span>
                 <span className="text-2xl font-black text-red-600">{grandTotal.toLocaleString('vi-VN')} đ</span>
