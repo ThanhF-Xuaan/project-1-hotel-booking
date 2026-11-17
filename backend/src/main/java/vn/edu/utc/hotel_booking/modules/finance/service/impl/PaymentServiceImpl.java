@@ -35,6 +35,9 @@ import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEvent;
+import vn.edu.utc.hotel_booking.modules.notification.dto.InvoiceItemEmailDto;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -446,6 +449,61 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                 remainingBalance = BigDecimal.ZERO;
             }
 
+            // Trích xuất số phòng
+            String roomNumber = null;
+            if (booking.getBookingDetails() != null) {
+                for (BookingDetail bd : booking.getBookingDetails()) {
+                    if (bd.getBookingRooms() != null) {
+                        for (BookingRoom br : bd.getBookingRooms()) {
+                            if (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null) {
+                                roomNumber = br.getRoomInstance().getRoomNumber();
+                                break;
+                            }
+                        }
+                    }
+                    if (roomNumber != null) break;
+                }
+            }
+
+            // Trích xuất hóa đơn GTGT / Folio mới nhất nếu có
+            Invoice invoice = null;
+            try {
+                if (invoiceRepository != null && booking.getId() != null) {
+                    List<Invoice> invoices = invoiceRepository.findByBookingId(booking.getId());
+                    if (invoices != null && !invoices.isEmpty()) {
+                        invoice = invoices.get(invoices.size() - 1);
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("Chưa tìm thấy hóa đơn cho đơn {}: {}", booking.getId(), ex.getMessage());
+            }
+
+            String invoiceNumber = (invoice != null && invoice.getInvoiceNumber() != null)
+                    ? invoice.getInvoiceNumber()
+                    : null;
+            OffsetDateTime invoiceDate = (invoice != null && invoice.getIssuedAt() != null)
+                    ? invoice.getIssuedAt()
+                    : (invoice != null && invoice.getCreatedAt() != null ? invoice.getCreatedAt() : payment.getPaidAt());
+            BigDecimal subtotalAmount = invoice != null ? invoice.getSubTotal() : booking.getSubtotalAmount();
+            BigDecimal serviceFeeRate = invoice != null ? invoice.getServiceFeeRate() : booking.getServiceFeeRate();
+            BigDecimal serviceFeeAmount = invoice != null ? invoice.getServiceFeeAmount() : booking.getServiceFeeAmount();
+            BigDecimal vatAmount = invoice != null ? invoice.getVatAmount() : booking.getTotalVatAmount();
+            BigDecimal invoiceGrandTotal = invoice != null ? invoice.getGrandTotal() : grandTotal;
+
+            List<InvoiceItemEmailDto> invoiceDetails = new ArrayList<>();
+            if (invoice != null && invoice.getDetails() != null && !invoice.getDetails().isEmpty()) {
+                for (InvoiceDetail d : invoice.getDetails()) {
+                    invoiceDetails.add(InvoiceItemEmailDto.builder()
+                            .description(d.getDescription())
+                            .quantity(d.getQuantity() != null ? d.getQuantity() : 1)
+                            .unitPrice(d.getUnitPrice())
+                            .vatRate(d.getVatRate())
+                            .vatAmount(d.getVatAmount())
+                            .subtotal(d.getSubtotal() != null ? d.getSubtotal() : d.getTotalAmount())
+                            .build());
+                }
+            }
+
             PaymentReceiptEmailEvent event = PaymentReceiptEmailEvent.builder()
                     .paymentId(payment.getId())
                     .bookingCode(booking.getBookingNumber())
@@ -459,6 +517,15 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                     .totalBookingAmount(grandTotal)
                     .remainingBalance(remainingBalance)
                     .currency("VND")
+                    .invoiceNumber(invoiceNumber)
+                    .roomNumber(roomNumber)
+                    .invoiceDate(invoiceDate)
+                    .subtotalAmount(subtotalAmount)
+                    .serviceFeeRate(serviceFeeRate)
+                    .serviceFeeAmount(serviceFeeAmount)
+                    .vatAmount(vatAmount)
+                    .grandTotal(invoiceGrandTotal)
+                    .invoiceDetails(invoiceDetails)
                     .build();
             eventPublisher.publishEvent(event);
         } catch (Exception ex) {

@@ -564,13 +564,17 @@ export const FolioPaymentPage: React.FC = () => {
     setIsProcessingPayment(true);
     try {
       if (isGatewayMethod(payMethod)) {
-        // D3 — tạo phiên thanh toán online → mở CheckoutModal (countdown + link gateway)
+        // Tạo phiên thanh toán online → Chuyển hướng trực tiếp sang cổng VNPay Sandbox
         const res = await financeService.createVnPayPayment({
           bookingId: currentBooking.id,
           method: 'VNPAY',
           bankCode: 'NCB',
           amount: payAmount,
         });
+        if (res.result?.paymentUrl) {
+          window.location.assign(res.result.paymentUrl);
+          return;
+        }
         if (res.result) {
           setActiveGateway('VNPAY');
           setGatewaySession(res.result);

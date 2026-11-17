@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   RefreshCw,
@@ -137,6 +138,18 @@ export const BookingListPage: React.FC = () => {
 
   // Action status message
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const successBooking = searchParams.get('successBooking');
+    if (successBooking) {
+      setActionSuccessMessage(
+        `Thanh toán qua VNPAY thành công! Đã đặt phòng và Check-in In-house thành công cho đơn ${successBooking}.`
+      );
+      searchParams.delete('successBooking');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Walk-in Booking Modal
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
