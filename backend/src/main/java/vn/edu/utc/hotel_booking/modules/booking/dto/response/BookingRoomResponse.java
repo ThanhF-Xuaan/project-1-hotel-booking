@@ -3,6 +3,7 @@ package vn.edu.utc.hotel_booking.modules.booking.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
+import vn.edu.utc.hotel_booking.modules.operation.dto.response.StayGuestResponse;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -30,6 +31,9 @@ public class BookingRoomResponse {
 
     @Builder.Default
     List<BookingGuestResponse> bookingGuests = new ArrayList<>();
+
+    @Builder.Default
+    List<StayGuestResponse> stayGuests = new ArrayList<>();
 
     @Builder.Default
     List<BookingDailyRateResponse> dailyRates = new ArrayList<>();

@@ -4,8 +4,9 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.*;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
+import vn.edu.utc.hotel_booking.modules.operation.mapper.StayGuestMapper;
 
-@Mapper(componentModel = "spring", builder = @org.mapstruct.Builder(disableBuilder = true))
+@Mapper(componentModel = "spring", builder = @org.mapstruct.Builder(disableBuilder = true), uses = {StayGuestMapper.class})
 public interface BookingMapper {
 
     @Mapping(target = "hotelId", source = "hotel.id")
@@ -27,6 +28,7 @@ public interface BookingMapper {
     @Mapping(target = "roomInstanceId", source = "roomInstance.id")
     @Mapping(target = "roomNumber", source = "roomInstance.roomNumber")
     @Mapping(target = "bookingGuests", source = "stayGuests")
+    @Mapping(target = "stayGuests", source = "stayGuests")
     @Mapping(target = "dailyRates", source = "dailyRates")
     @Mapping(target = "charges", source = "charges")
     BookingRoomResponse toRoomResponse(BookingRoom entity);

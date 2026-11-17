@@ -65,6 +65,8 @@ export const BookingListPage: React.FC = () => {
     bookingId?: number;
     roomId?: number;
     roomNumber?: string;
+    leadGuestName?: string;
+    leadGuestPhone?: string;
   } | null>(null);
 
   // Assign Room Modal
@@ -272,6 +274,13 @@ export const BookingListPage: React.FC = () => {
   const handleAssignSuccess = async (assignedRoomNumber: string) => {
     setActionSuccessMessage(`Xếp phòng ${assignedRoomNumber} thành công!`);
     loadData();
+    const hotelIdToRefresh =
+      selectedHotelId ||
+      selectedBooking?.hotelId ||
+      (hotelList.length > 0 ? hotelList[0].id : undefined);
+    if (hotelIdToRefresh) {
+      void loadTimelineData(hotelIdToRefresh);
+    }
     if (selectedBooking) {
       const updated = await bookingService.getById(selectedBooking.id);
       if (updated.result) {
@@ -315,6 +324,8 @@ export const BookingListPage: React.FC = () => {
       bookingId: booking.id,
       roomId: room.roomInstanceId,
       roomNumber: room.roomNumber,
+      leadGuestName: booking.guestName,
+      leadGuestPhone: booking.guestPhone,
     });
     setIsStayGuestsModalOpen(true);
   };
@@ -361,6 +372,13 @@ export const BookingListPage: React.FC = () => {
       await bookingService.checkIn(bookingRoomId);
       setActionSuccessMessage('Check-in thành công! Phòng đã chuyển sang trạng thái đang ở và đồng bộ hàng chờ lưu trú.');
       loadData();
+      const hotelIdToRefresh =
+        selectedHotelId ||
+        selectedBooking?.hotelId ||
+        (hotelList.length > 0 ? hotelList[0].id : undefined);
+      if (hotelIdToRefresh) {
+        void loadTimelineData(hotelIdToRefresh);
+      }
       if (selectedBooking) {
         const updated = await bookingService.getById(selectedBooking.id);
         if (updated.result) {
@@ -567,6 +585,14 @@ export const BookingListPage: React.FC = () => {
         `Đã ghi nhận khách vắng mặt (No-Show) cho đơn ${noShowBooking.bookingNumber}! Đã áp dụng phạt theo chính sách No-Show, giải phóng phòng và tạo yêu cầu hoàn cọc dôi dư (nếu có).`
       );
       loadData();
+      const hotelIdToRefresh =
+        selectedHotelId ||
+        noShowBooking.hotelId ||
+        selectedBooking?.hotelId ||
+        (hotelList.length > 0 ? hotelList[0].id : undefined);
+      if (hotelIdToRefresh) {
+        void loadTimelineData(hotelIdToRefresh);
+      }
       if (selectedBooking && selectedBooking.id === noShowBooking.id) {
         const updated = await bookingService.getById(selectedBooking.id);
         if (updated.result) {
@@ -605,8 +631,12 @@ export const BookingListPage: React.FC = () => {
         `Đã ghi nhận No-Show cho ${noShowTargetRoom.label}! Hệ thống đã tính phạt đêm đầu cho phòng này và giải phóng phòng vật lý.`
       );
       loadData();
-      if (selectedHotelId) {
-        void loadTimelineData(selectedHotelId);
+      const hotelIdToRefresh =
+        selectedHotelId ||
+        selectedBooking?.hotelId ||
+        (hotelList.length > 0 ? hotelList[0].id : undefined);
+      if (hotelIdToRefresh) {
+        void loadTimelineData(hotelIdToRefresh);
       }
       if (selectedBooking) {
         const updated = await bookingService.getById(selectedBooking.id);
@@ -682,8 +712,12 @@ export const BookingListPage: React.FC = () => {
     try {
       await roomInstanceService.updateStatus(roomId, status);
       setActionSuccessMessage(`Đã cập nhật trạng thái phòng sang ${status}!`);
-      if (selectedHotelId) {
-        void loadTimelineData(selectedHotelId);
+      const hotelIdToRefresh =
+        selectedHotelId ||
+        selectedBooking?.hotelId ||
+        (hotelList.length > 0 ? hotelList[0].id : undefined);
+      if (hotelIdToRefresh) {
+        void loadTimelineData(hotelIdToRefresh);
       } else {
         loadData();
         roomInstanceService.filter({ pageSize: 500 }).then((res) => {
@@ -788,10 +822,13 @@ export const BookingListPage: React.FC = () => {
           bookings={timelineBookings.length > 0 ? timelineBookings : bookings}
           isLoading={isLoadingTimeline || isLoading || isHotelsLoading}
           onRefresh={() => {
-            if (selectedHotelId) {
-              void loadTimelineData(selectedHotelId);
+            loadData();
+            const hotelIdToRefresh =
+              selectedHotelId ||
+              (hotelList.length > 0 ? hotelList[0].id : undefined);
+            if (hotelIdToRefresh) {
+              void loadTimelineData(hotelIdToRefresh);
             } else {
-              loadData();
               roomInstanceService.filter({ pageSize: 500 }).then((res) => {
                 if (res.result) setAvailableRooms(res.result.content || []);
               });
@@ -1089,6 +1126,8 @@ export const BookingListPage: React.FC = () => {
           bookingId={stayGuestsTarget.bookingId}
           roomId={stayGuestsTarget.roomId}
           roomNumber={stayGuestsTarget.roomNumber}
+          leadGuestName={stayGuestsTarget.leadGuestName}
+          leadGuestPhone={stayGuestsTarget.leadGuestPhone}
         />
       )}
 
@@ -1333,6 +1372,13 @@ export const BookingListPage: React.FC = () => {
             `Check-out thành công cho đơn ${bookingNumber}! Phòng đã chuyển sang trạng thái DIRTY (Chờ dọn dẹp), hóa đơn và các đơn dịch vụ đã được đóng PAID.`
           );
           loadData();
+          const hotelIdToRefresh =
+            selectedHotelId ||
+            selectedBooking?.hotelId ||
+            (hotelList.length > 0 ? hotelList[0].id : undefined);
+          if (hotelIdToRefresh) {
+            void loadTimelineData(hotelIdToRefresh);
+          }
           if (selectedBooking) {
             const updated = await bookingService.getById(selectedBooking.id);
             if (updated.result) {
@@ -1352,6 +1398,12 @@ export const BookingListPage: React.FC = () => {
             `Tạo đơn Walk-in thành công cho đơn ${bookingNumber}! Các phòng đã được check-in trực tiếp sang trạng thái In-house.`
           );
           loadData();
+          const hotelIdToRefresh =
+            selectedHotelId ||
+            (hotelList.length > 0 ? hotelList[0].id : undefined);
+          if (hotelIdToRefresh) {
+            void loadTimelineData(hotelIdToRefresh);
+          }
         }}
       />
 
@@ -1424,6 +1476,13 @@ export const BookingListPage: React.FC = () => {
             `Hủy thành công cho ${cancelRes.bookingNumber}! Đã hoàn trả kho phòng và giải phóng lịch giữ phòng.`
           );
           loadData();
+          const hotelIdToRefresh =
+            selectedHotelId ||
+            selectedBooking?.hotelId ||
+            (hotelList.length > 0 ? hotelList[0].id : undefined);
+          if (hotelIdToRefresh) {
+            void loadTimelineData(hotelIdToRefresh);
+          }
           if (selectedBooking) {
             const updated = await bookingService.getById(selectedBooking.id);
             if (updated.result) {

@@ -22,6 +22,9 @@ public interface GuestService {
 
     BookingGuest getOrCreateGuest(String phone, String fullName, String email, String nationality);
 
+    BookingGuest getOrCreateGuest(String phone, String fullName, String email, String nationality,
+                                  String identityType, String identityNumber, java.time.LocalDate birthDate);
+
     GuestResponse getByPublicId(UUID publicId);
 
     GuestResponse getByPhone(String phone);

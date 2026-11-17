@@ -19,4 +19,13 @@ public class BookingCancelRequest {
 
     @Schema(description = "Ghi chú chi tiết thêm", example = "Khách liên hệ qua hotline xin hủy do lịch trình thay đổi")
     String note;
+
+    @Schema(description = "Tên ngân hàng nhận hoàn tiền", example = "Vietcombank")
+    String bankName;
+
+    @Schema(description = "Số tài khoản ngân hàng nhận hoàn tiền", example = "1012345678")
+    String bankAccountNumber;
+
+    @Schema(description = "Tên chủ tài khoản nhận hoàn tiền", example = "NGUYEN VAN A")
+    String accountHolderName;
 }

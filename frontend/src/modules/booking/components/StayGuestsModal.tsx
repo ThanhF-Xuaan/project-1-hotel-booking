@@ -35,6 +35,8 @@ export interface StayGuestsModalProps {
   bookingId?: number;
   roomId?: number;
   roomNumber?: string;
+  leadGuestName?: string;
+  leadGuestPhone?: string;
 }
 
 // A committed context change mounts fresh state, so old room data is never rendered under a new title.
@@ -50,6 +52,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   bookingId,
   roomId,
   roomNumber,
+  leadGuestName,
   initialEditGuestId,
 }) => {
   const [guests, setGuests] = useState<StayGuestResponse[]>([]);
@@ -424,6 +427,26 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
                 Hủy bỏ
               </button>
             </div>
+
+            {leadGuestName && (
+              <div className="flex items-center justify-between p-2.5 bg-blue-50/70 border border-blue-200 rounded-lg text-xs">
+                <span className="text-blue-900 font-medium">
+                  Người đặt phòng: <strong>{leadGuestName}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    manualOcrFields.current.add('fullName');
+                    setHumanVerified(false);
+                    setFullName(leadGuestName.toUpperCase());
+                  }}
+                  className="px-2.5 py-1 text-xs font-semibold bg-white text-blue-700 border border-blue-300 rounded hover:bg-blue-50 cursor-pointer shadow-2xs transition"
+                  title="Điền nhanh họ tên người đặt phòng làm khách ở phòng này"
+                >
+                  👤 Điền nhanh người đặt
+                </button>
+              </div>
+            )}
 
             <fieldset disabled={isReadingImage || isSubmitting} className="space-y-3">
               <label className="block text-sm font-semibold">

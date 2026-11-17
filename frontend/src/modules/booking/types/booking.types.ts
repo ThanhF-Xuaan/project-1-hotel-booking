@@ -1,3 +1,5 @@
+import type { StayGuestResponse } from '../../operation/types/stayGuest.types';
+
 export type BookingType = 'FIT' | 'GIT' | 'CORPORATE';
 
 export type BookingStatus = 'CONFIRMED' | 'CANCELLED' | 'NO_SHOW';
@@ -140,6 +142,7 @@ export interface BookingRoomResponse {
   actualCheckOutAt?: string;
   assignedAt?: string;
   bookingGuests: BookingGuestResponse[];
+  stayGuests?: StayGuestResponse[];
   dailyRates: BookingDailyRateResponse[];
   charges: BookingChargeResponse[];
 }

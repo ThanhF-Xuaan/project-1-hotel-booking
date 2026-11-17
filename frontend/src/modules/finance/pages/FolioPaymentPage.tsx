@@ -13,6 +13,7 @@ import {
   ChevronRight,
   History,
   RotateCcw,
+  CreditCard,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import Input from '../../../core/components/ui/Input';
@@ -698,16 +699,36 @@ export const FolioPaymentPage: React.FC = () => {
         // ignore
       }
     }
-    if (p.transactionReference?.startsWith('REFUND-SURPLUS')) {
+    if (p.transactionReference?.startsWith('REFUND-SURPLUS') || p.transactionReference?.startsWith('REFUND-NOSHOW')) {
       return 'Hoàn cọc dôi dư (Khách No-Show)';
     }
     if (p.transactionReference?.startsWith('REFUND-CANCEL')) {
-      return 'Hoàn tiền cọc dôi dư (Hủy phòng)';
+      return 'Hoàn tiền cọc dôi dư (Hủy đơn)';
+    }
+    if (p.transactionReference?.startsWith('REFUND-ROOM')) {
+      return 'Hoàn tiền cọc dôi dư (Hủy phòng lẻ)';
     }
     if (p.transactionReference?.startsWith('REFUND-NETTING')) {
       return 'Hoàn cọc thừa sau bù trừ check-out';
     }
     return 'Yêu cầu hoàn tiền';
+  };
+
+  const getRefundBankInfo = (p?: PaymentResponse | null) => {
+    if (!p?.rawCallbackPayload) return null;
+    try {
+      const data = JSON.parse(p.rawCallbackPayload);
+      if (data.bankAccountNumber || data.bankName || data.accountHolderName) {
+        return {
+          bankName: data.bankName as string | undefined,
+          bankAccountNumber: data.bankAccountNumber as string | undefined,
+          accountHolderName: data.accountHolderName as string | undefined,
+        };
+      }
+    } catch {
+      // ignore
+    }
+    return null;
   };
 
   const handleOpenProcessRefundModal = (payment: PaymentResponse) => {
@@ -2173,6 +2194,34 @@ export const FolioPaymentPage: React.FC = () => {
                 <span>{new Date(processRefundTarget.createdAt).toLocaleString('vi-VN')}</span>
               </div>
             </div>
+
+            {/* Box thông tin ngân hàng do khách hàng cung cấp (nếu có từ luồng Hủy phòng) */}
+            {(() => {
+              const bankInfo = getRefundBankInfo(processRefundTarget);
+              if (!bankInfo) return null;
+              return (
+                <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-1.5 text-xs text-blue-900">
+                  <div className="font-bold flex items-center gap-1.5 text-blue-800">
+                    <CreditCard className="w-4 h-4 text-blue-600" />
+                    <span>Thông tin tài khoản nhận tiền (khách cung cấp):</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 font-mono text-[11px]">
+                    <div>
+                      <span className="text-blue-600 font-sans block text-[10px]">Ngân hàng</span>
+                      <span className="font-bold text-neutral-900">{bankInfo.bankName || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-sans block text-[10px]">Số tài khoản</span>
+                      <span className="font-bold text-neutral-900 select-all">{bankInfo.bankAccountNumber || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-blue-600 font-sans block text-[10px]">Chủ tài khoản</span>
+                      <span className="font-bold text-neutral-900">{bankInfo.accountHolderName || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Chọn hành động: APPROVE vs REJECT */}
             <div>

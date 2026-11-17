@@ -152,11 +152,11 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
               </div>
             </div>
 
-            {/* Cột 2: Thông tin khách hàng */}
+            {/* Cột 2: Thông tin khách hàng đặt phòng */}
             <div className="pt-3 md:pt-0 md:pl-5 space-y-1.5">
               <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-neutral-400" />
-                Khách hàng
+                Người đặt phòng / Đại diện
               </span>
               <p className="font-semibold text-neutral-900 text-sm truncate">{booking.guestName || 'Khách vãng lai'}</p>
               <div className="flex items-center gap-1.5 text-xs text-neutral-700">
@@ -499,6 +499,35 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
 
                           {/* DROPDOWN MENU THAO TÁC PHỤ */}
                           {moreActions.length > 0 && <RoomActionDropdown items={moreActions} />}
+                        </div>
+                      </div>
+
+                      {/* KHÁCH LƯU TRÚ THỰC TẾ TRONG PHÒNG */}
+                      <div className="border-t border-neutral-100 pt-2 text-xs flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-neutral-600 flex items-center gap-1">
+                            <Users className="w-3.5 h-3.5 text-neutral-400" />
+                            Khách lưu trú:
+                          </span>
+                          {room.bookingGuests && room.bookingGuests.length > 0 ? (
+                            room.bookingGuests.map((g, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-neutral-200 text-neutral-800 font-medium text-[11px]"
+                              >
+                                <span>{g.fullName}</span>
+                                {g.identityNumber && (
+                                  <span className="text-neutral-400 font-mono text-[10px]">
+                                    ({g.identityNumber})
+                                  </span>
+                                )}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[11px] text-neutral-400 italic">
+                              Chưa khai báo khách lưu trú (Sẽ cập nhật khi Check-in)
+                            </span>
+                          )}
                         </div>
                       </div>
 

@@ -592,7 +592,7 @@ class BookingServiceTest {
                 .build();
 
         when(objectMapper.readValue(mockJson, BookingDraftSession.class)).thenReturn(draftSession);
-        when(guestService.getOrCreateGuest(eq("0912345678"), eq("Trần Thị B"), eq("guest@example.com"), eq("VN"))).thenReturn(testGuest);
+        when(guestService.getOrCreateGuest(eq("0912345678"), eq("Trần Thị B"), eq("guest@example.com"), any(), any(), any(), any())).thenReturn(testGuest);
         when(hotelService.getEntityById((short) 1)).thenReturn(testHotel);
         when(hotelRoomTypeService.getEntityById(5)).thenReturn(testHotelRoomType);
         when(bookingPolicyResolverService.resolvePolicyForBooking(eq((short) 1), eq(5), eq(BookingType.FIT)))
@@ -630,6 +630,19 @@ class BookingServiceTest {
         verify(roomAvailabilityService, times(1)).commitHoldInventory(sessionId);
         // Verify Redis draft key deleted
         verify(redisTemplate, times(1)).delete(redisKey);
+
+        // Verify that Booker is saved in booking.guest and stayGuests in rooms remain empty until check-in
+        org.mockito.ArgumentCaptor<Booking> bookingCaptor = org.mockito.ArgumentCaptor.forClass(Booking.class);
+        verify(bookingRepository).save(bookingCaptor.capture());
+        Booking captured = bookingCaptor.getValue();
+        assertThat(captured.getGuest()).isEqualTo(testGuest);
+        assertThat(captured.getBookingDetails()).isNotEmpty();
+        for (BookingDetail bd : captured.getBookingDetails()) {
+            for (BookingRoom br : bd.getBookingRooms()) {
+                assertThat(br.getStatus()).isEqualTo(BookingRoomStatus.EXPECTED);
+                assertThat(br.getStayGuests()).isEmpty();
+            }
+        }
     }
 
     @Test
@@ -2499,12 +2512,17 @@ class BookingServiceTest {
 
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Payment pendingPayment = Payment.builder().id(999L).status(PaymentStatus.PENDING).totalAmount(BigDecimal.valueOf(500000)).build();
         when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(
-                Payment.builder().status(PaymentStatus.SUCCESS).totalAmount(BigDecimal.valueOf(10000000)).build()
+                Payment.builder().status(PaymentStatus.SUCCESS).totalAmount(BigDecimal.valueOf(10000000)).build(),
+                pendingPayment
         ));
 
         BookingCancelRequest request = BookingCancelRequest.builder()
                 .reason("Khách hủy đặt trước và yêu cầu hoàn về tài khoản VCB")
+                .bankName("Vietcombank")
+                .bankAccountNumber("001122334455")
+                .accountHolderName("NGUYEN VAN A")
                 .note("Hoàn về tài khoản Vietcombank 001122334455 NGUYEN VAN A")
                 .build();
 
@@ -2513,13 +2531,24 @@ class BookingServiceTest {
         assertThat(response).isNotNull();
         assertThat(response.getRefundAmount()).isEqualByComparingTo("10000000.00");
         assertThat(response.getRefundRouting()).isEqualTo("WAITING_FINANCE_APPROVAL");
+        assertThat(pendingPayment.getStatus()).isEqualTo(PaymentStatus.CANCELLED);
 
-        // Kiểm tra Payment record được lưu với PENDING
-        verify(paymentRepository).save(argThat(payment ->
-                payment.getPaymentPurpose() == PaymentPurpose.REFUND &&
-                payment.getStatus() == PaymentStatus.PENDING &&
-                payment.getTotalAmount().compareTo(new BigDecimal("10000000.00")) == 0
-        ));
+        // Kiểm tra Payment record được lưu với PENDING và chứa thông tin ngân hàng trong rawCallbackPayload
+        org.mockito.ArgumentCaptor<Payment> paymentCaptor = org.mockito.ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository, atLeastOnce()).save(paymentCaptor.capture());
+
+        List<Payment> savedPayments = paymentCaptor.getAllValues();
+        Payment savedRefundPayment = savedPayments.stream()
+                .filter(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND)
+                .findFirst()
+                .orElse(null);
+
+        assertThat(savedRefundPayment).isNotNull();
+        assertThat(savedRefundPayment.getStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(savedRefundPayment.getTotalAmount()).isEqualByComparingTo("10000000.00");
+        assertThat(savedRefundPayment.getRawCallbackPayload()).contains("001122334455");
+        assertThat(savedRefundPayment.getRawCallbackPayload()).contains("Vietcombank");
+        assertThat(savedRefundPayment.getRawCallbackPayload()).contains("NGUYEN VAN A");
     }
 
     @Test
