@@ -496,11 +496,14 @@ public class BookingServiceImpl implements BookingService {
                 for (ServiceOrderResponse o : orders) {
                     if (o.getStatus() != ServiceOrderStatus.CANCELLED && o.getDetails() != null) {
                         for (var d : o.getDetails()) {
+                            int qty = d.getQuantity() != null && d.getQuantity() > 0 ? d.getQuantity() : 1;
+                            BigDecimal total = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
+                            BigDecimal unitGross = total.divide(BigDecimal.valueOf(qty), 0, RoundingMode.HALF_UP);
                             emailServices.add(ServiceItemEmailDto.builder()
                                     .name(d.getItemName())
-                                    .quantity(d.getQuantity() != null ? d.getQuantity() : 1)
-                                    .unitPrice(d.getUnitPrice() != null ? d.getUnitPrice() : BigDecimal.ZERO)
-                                    .totalPrice(d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO)
+                                    .quantity(qty)
+                                    .unitPrice(unitGross)
+                                    .totalPrice(total)
                                     .build());
                         }
                     }
@@ -2532,6 +2535,11 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // 3. Tính toán chi phí sơ bộ để kiểm tra quy tắc thanh toán
+        BigDecimal hotelServiceFee = BigDecimal.valueOf(5.00);
+        if (hotel != null && hotel.getServiceFeePercent() != null) {
+            hotelServiceFee = hotel.getServiceFeePercent();
+        }
+
         BigDecimal calculatedRoomTotal = BigDecimal.ZERO;
         for (WalkInBookingRequest.WalkInRoomItemRequest rReq : sortedRooms) {
             PriceCalculationRequest priceReq = PriceCalculationRequest.builder()
@@ -2592,6 +2600,7 @@ public class BookingServiceImpl implements BookingService {
                 .status(BookingStatus.CONFIRMED)
                 .issuedAt(OffsetDateTime.now())
                 .notes(request.getNotes())
+                .serviceFeeRate(hotelServiceFee)
                 .subtotalAmount(BigDecimal.ZERO)
                 .serviceFeeAmount(BigDecimal.ZERO)
                 .totalVatAmount(BigDecimal.ZERO)
@@ -2856,9 +2865,13 @@ public class BookingServiceImpl implements BookingService {
 
         // 8. Ghi nhận Thanh toán Payment
         PaymentPurpose pPurpose = "DEPOSIT".equalsIgnoreCase(paymentPurposeStr) ? PaymentPurpose.DEPOSIT : PaymentPurpose.FULL_PAYMENT;
+        BigDecimal actualPaymentAmount = paidAmount;
+        if (pPurpose == PaymentPurpose.FULL_PAYMENT || isSmallOrFit) {
+            actualPaymentAmount = finalBookingTotal;
+        }
         Payment payment = Payment.builder()
                 .booking(savedBooking)
-                .totalAmount(paidAmount)
+                .totalAmount(actualPaymentAmount)
                 .paymentMethod(request.getPayment().getPaymentMethod())
                 .paymentPurpose(pPurpose)
                 .status(PaymentStatus.SUCCESS)
@@ -2868,7 +2881,7 @@ public class BookingServiceImpl implements BookingService {
         Payment savedPayment = paymentRepository.save(payment);
 
         // 9. Sinh hóa đơn & Quyết toán nếu đủ tiền
-        if (paidAmount.compareTo(savedBooking.getTotalAmount()) >= 0) {
+        if (actualPaymentAmount.compareTo(savedBooking.getTotalAmount()) >= 0) {
             invoiceService.settleAndCloseInvoice(savedBooking.getId());
         } else {
             invoiceService.createInvoice(InvoiceCreateRequest.builder()
@@ -2879,7 +2892,7 @@ public class BookingServiceImpl implements BookingService {
 
         // Tự động gửi Email xác nhận đặt phòng và Biên lai thanh toán
         publishBookingConfirmationEmail(savedBooking);
-        if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+        if (actualPaymentAmount.compareTo(BigDecimal.ZERO) > 0) {
             publishPaymentReceiptEmail(savedPayment, savedBooking);
         }
 

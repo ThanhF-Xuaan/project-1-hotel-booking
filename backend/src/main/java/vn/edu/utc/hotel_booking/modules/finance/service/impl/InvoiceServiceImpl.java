@@ -143,9 +143,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                                 lineVat = (dr.getVatAmount() != null && dr.getVatAmount().compareTo(BigDecimal.ZERO) >= 0)
                                         ? dr.getVatAmount()
                                         : lineSubtotal.add(lineServiceFee).multiply(vatPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                                lineTotal = (dr.getNetPrice() != null && dr.getNetPrice().compareTo(BigDecimal.ZERO) > 0)
-                                        ? dr.getNetPrice()
-                                        : lineSubtotal.add(lineServiceFee).add(lineVat);
+                                lineTotal = lineSubtotal.add(lineServiceFee).add(lineVat);
                             } else {
                                 // Dữ liệu cũ / fixture đơn giản chỉ truyền netPrice làm đơn giá trước thuế
                                 lineSubtotal = dr.getNetPrice() != null ? dr.getNetPrice() : BigDecimal.ZERO;

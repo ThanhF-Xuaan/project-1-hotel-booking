@@ -1245,7 +1245,7 @@ export const FolioPaymentPage: React.FC = () => {
                       unitPrice: Number(d.unitPrice),
                       vatRate: Number(d.vatRate),
                       vatAmount: Number(d.vatAmount),
-                      totalAmount: Number(d.totalAmount),
+                      totalAmount: Number(d.subtotal ?? (Number(d.unitPrice) * d.quantity)),
                     }))
                   : bookingFallbackRows;
 
