@@ -73,6 +73,18 @@ public class GuestServiceImpl implements GuestService {
     public BookingGuest getOrCreateGuest(String phone, String fullName, String email, String nationality) {
         String cleanPhone = phone != null ? phone.trim() : "";
         return guestRepository.findByPhoneAndIsDeletedFalse(cleanPhone)
+                .map(existing -> {
+                    boolean changed = false;
+                    if (StringUtils.hasText(email) && !email.trim().equalsIgnoreCase(existing.getEmail())) {
+                        existing.setEmail(email.trim());
+                        changed = true;
+                    }
+                    if (StringUtils.hasText(fullName) && (existing.getFullName() == null || existing.getFullName().isBlank())) {
+                        existing.setFullName(fullName.trim());
+                        changed = true;
+                    }
+                    return changed ? guestRepository.save(existing) : existing;
+                })
                 .orElseGet(() -> {
                     BookingGuest newGuest = BookingGuest.builder()
                             .fullName(fullName != null ? fullName.trim() : "")

@@ -30,6 +30,8 @@ import vn.edu.utc.hotel_booking.modules.booking.service.BookingService;
 import vn.edu.utc.hotel_booking.modules.identity.entity.Company;
 import org.springframework.context.ApplicationEventPublisher;
 import vn.edu.utc.hotel_booking.modules.notification.event.BookingConfirmationEmailEvent;
+import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEvent;
+import vn.edu.utc.hotel_booking.modules.notification.dto.ServiceItemEmailDto;
 import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
 import vn.edu.utc.hotel_booking.modules.identity.service.CompanyService;
 import vn.edu.utc.hotel_booking.modules.identity.service.GuestService;
@@ -87,6 +89,8 @@ import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentPurpose;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.DocumentType;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.StayGuestCreateRequest;
@@ -106,6 +110,7 @@ import vn.edu.utc.hotel_booking.modules.booking.dto.response.BookingCancelRespon
 import org.springframework.util.StringUtils;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.SurchargeRule;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
@@ -127,6 +132,7 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.BookingGuestType;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
 import vn.edu.utc.hotel_booking.modules.booking.repository.StayGuestRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.ExcelParserService;
+import vn.edu.utc.hotel_booking.modules.identity.repository.GuestRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -176,6 +182,7 @@ public class BookingServiceImpl implements BookingService {
     StayGuestMapper stayGuestMapper;
     RoomInstanceMapper roomInstanceMapper;
     ApplicationEventPublisher eventPublisher;
+    GuestRepository guestRepository;
 
 
     @Override
@@ -478,6 +485,64 @@ public class BookingServiceImpl implements BookingService {
         return bookingMapper.toResponse(saved);
     }
 
+    private List<ServiceItemEmailDto> extractEmailServices(Long bookingId) {
+        List<ServiceItemEmailDto> emailServices = new ArrayList<>();
+        if (bookingId == null || serviceOrderService == null) {
+            return emailServices;
+        }
+        try {
+            List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(bookingId);
+            if (orders != null) {
+                for (ServiceOrderResponse o : orders) {
+                    if (o.getStatus() != ServiceOrderStatus.CANCELLED && o.getDetails() != null) {
+                        for (var d : o.getDetails()) {
+                            emailServices.add(ServiceItemEmailDto.builder()
+                                    .name(d.getItemName())
+                                    .quantity(d.getQuantity() != null ? d.getQuantity() : 1)
+                                    .unitPrice(d.getUnitPrice() != null ? d.getUnitPrice() : BigDecimal.ZERO)
+                                    .totalPrice(d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO)
+                                    .build());
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Lỗi trích xuất dịch vụ gửi email: {}", ex.getMessage());
+        }
+        return emailServices;
+    }
+
+    private List<ServiceItemEmailDto> extractEmailSurcharges(Booking booking) {
+        List<ServiceItemEmailDto> emailSurcharges = new ArrayList<>();
+        if (booking == null || booking.getBookingDetails() == null) {
+            return emailSurcharges;
+        }
+        try {
+            for (BookingDetail bd : booking.getBookingDetails()) {
+                if (bd.getBookingRooms() != null) {
+                    for (BookingRoom br : bd.getBookingRooms()) {
+                        List<BookingCharge> charges = (br.getId() != null && bookingChargeService != null)
+                                ? bookingChargeService.findByBookingRoomId(br.getId())
+                                : (br.getCharges() != null ? br.getCharges() : List.of());
+                        for (BookingCharge c : charges) {
+                            if (c.getTotalAmount() != null && c.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                                emailSurcharges.add(ServiceItemEmailDto.builder()
+                                        .name(c.getItemName() != null ? c.getItemName() : c.getChargeType().name())
+                                        .quantity(c.getQuantity() != null ? c.getQuantity() : 1)
+                                        .unitPrice(c.getUnitPrice() != null ? c.getUnitPrice() : BigDecimal.ZERO)
+                                        .totalPrice(c.getTotalAmount())
+                                        .build());
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Lỗi trích xuất phụ thu gửi email: {}", ex.getMessage());
+        }
+        return emailSurcharges;
+    }
+
     private void publishBookingConfirmationEmail(Booking booking) {
         if (eventPublisher == null || booking == null || booking.getGuest() == null) {
             return;
@@ -521,10 +586,52 @@ public class BookingServiceImpl implements BookingService {
                     .totalAmount(booking.getTotalAmount())
                     .currency("VND")
                     .portalUrl("http://localhost:3000/my-bookings")
+                    .services(extractEmailServices(booking.getId()))
+                    .surcharges(extractEmailSurcharges(booking))
                     .build();
             eventPublisher.publishEvent(event);
         } catch (Exception ex) {
             log.error("Failed to publish BookingConfirmationEmailEvent for booking {}: {}", booking.getBookingNumber(), ex.getMessage());
+        }
+    }
+
+    private void publishPaymentReceiptEmail(Payment payment, Booking booking) {
+        if (eventPublisher == null || payment == null || booking == null || booking.getGuest() == null) {
+            return;
+        }
+        String email = booking.getGuest().getEmail();
+        if (email == null || email.isBlank()) {
+            return;
+        }
+
+        try {
+            BigDecimal totalBookingAmount = booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal amountPaid = payment.getTotalAmount() != null ? payment.getTotalAmount() : BigDecimal.ZERO;
+            BigDecimal remainingBalance = totalBookingAmount.subtract(amountPaid);
+            if (remainingBalance.compareTo(BigDecimal.ZERO) < 0) {
+                remainingBalance = BigDecimal.ZERO;
+            }
+
+            PaymentReceiptEmailEvent event = PaymentReceiptEmailEvent.builder()
+                    .paymentId(payment.getId())
+                    .bookingCode(booking.getBookingNumber())
+                    .recipientEmail(email.trim())
+                    .customerName(booking.getGuest().getFullName())
+                    .hotelName(booking.getHotel() != null ? booking.getHotel().getName() : "SmartStay Hotel")
+                    .amount(amountPaid)
+                    .paymentMethod(payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : "OTHER")
+                    .transactionReference(payment.getTransactionReference())
+                    .paidAt(payment.getPaidAt() != null ? payment.getPaidAt() : OffsetDateTime.now())
+                    .totalBookingAmount(totalBookingAmount)
+                    .remainingBalance(remainingBalance)
+                    .currency("VND")
+                    .services(extractEmailServices(booking.getId()))
+                    .surcharges(extractEmailSurcharges(booking))
+                    .build();
+            eventPublisher.publishEvent(event);
+            log.info("[EMAIL] Published PaymentReceiptEmailEvent for booking {} and payment {}", booking.getBookingNumber(), payment.getId());
+        } catch (Exception ex) {
+            log.error("Failed to publish PaymentReceiptEmailEvent for payment {}: {}", payment.getId(), ex.getMessage());
         }
     }
 
@@ -946,6 +1053,7 @@ public class BookingServiceImpl implements BookingService {
 
         BookingDetail detail = bookingRoom.getBookingDetail();
         roomSlotService.occupySlots(roomInstance.getId(), detail.getCheckInDate(), detail.getCheckOutDate());
+        roomInstanceService.updateRoomStatusEntity(roomInstance.getId(), "OCCUPIED");
 
         stayGuestService.syncLodgingQueueForBookingRoom(bookingRoomId);
 
@@ -1097,30 +1205,33 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        // 3. Đơn dịch vụ phòng POS (service_orders) dạng POST_TO_ROOM
+        // 3. Đơn dịch vụ phòng POS (service_orders)
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
-                // Chỉ tính đơn POST_TO_ROOM và chưa thanh toán trực tiếp
-                if (order.getPaymentMethod() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM
-                        && order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.UNPAID) {
-                    if (order.getDetails() != null) {
-                        for (var item : order.getDetails()) {
-                            lineItems.add(SettlementLineItemDto.builder()
-                                    .lineType("SERVICE")
-                                    .referenceId(item.getId())
-                                    .description(item.getItemName() + " (" + order.getOrderNumber() + ")")
-                                    .quantity(item.getQuantity())
-                                    .unitPrice(item.getUnitPrice())
-                                    .subtotal(item.getSubtotal())
-                                    .serviceFeeRate(item.getServiceFeeRate())
-                                    .serviceFeeAmount(item.getServiceFeeAmount())
-                                    .vatRate(item.getVatRate())
-                                    .vatAmount(item.getVatAmount())
-                                    .totalAmount(item.getTotalAmount())
-                                    .build());
-                        }
+                // Bỏ qua đơn dịch vụ đã bị hủy
+                if (order.getStatus() == ServiceOrderStatus.CANCELLED) {
+                    continue;
+                }
+
+                if (order.getDetails() != null) {
+                    for (var item : order.getDetails()) {
+                        lineItems.add(SettlementLineItemDto.builder()
+                                .lineType("SERVICE")
+                                .referenceId(item.getId())
+                                .description(item.getItemName() + " (" + order.getOrderNumber() + ")")
+                                .quantity(item.getQuantity())
+                                .unitPrice(item.getUnitPrice())
+                                .subtotal(item.getSubtotal())
+                                .serviceFeeRate(item.getServiceFeeRate())
+                                .serviceFeeAmount(item.getServiceFeeAmount())
+                                .vatRate(item.getVatRate())
+                                .vatAmount(item.getVatAmount())
+                                .totalAmount(item.getTotalAmount())
+                                .build());
                     }
+                }
+                if (order.getTotalAmount() != null) {
                     totalServiceCharges = totalServiceCharges.add(order.getTotalAmount());
                 }
             }
@@ -1434,6 +1545,16 @@ public class BookingServiceImpl implements BookingService {
 
         log.info("Successfully confirmed online booking {} for session {} (Payment ID: {})",
                 savedBooking.getBookingNumber(), sessionId, paymentId);
+
+        // Tự động gửi Email xác nhận đặt phòng và biên lai thanh toán
+        publishBookingConfirmationEmail(savedBooking);
+        if (paymentId != null) {
+            paymentRepository.findById(paymentId).ifPresent(p -> {
+                if (p.getStatus() == PaymentStatus.SUCCESS) {
+                    publishPaymentReceiptEmail(p, savedBooking);
+                }
+            });
+        }
 
         return bookingMapper.toResponse(savedBooking);
     }
@@ -2361,6 +2482,12 @@ public class BookingServiceImpl implements BookingService {
                     request.getNewGuest().getEmail(),
                     request.getNewGuest().getNationality() != null ? request.getNewGuest().getNationality() : "Việt Nam"
             );
+            if (request.getNewGuest().getEmail() != null && !request.getNewGuest().getEmail().isBlank()) {
+                bookingGuest.setEmail(request.getNewGuest().getEmail().trim());
+            }
+            if (request.getNewGuest().getFullName() != null && !request.getNewGuest().getFullName().isBlank()) {
+                bookingGuest.setFullName(request.getNewGuest().getFullName().trim());
+            }
             if (request.getNewGuest().getIdentityNumber() != null) {
                 bookingGuest.setIdentityNumber(request.getNewGuest().getIdentityNumber());
             }
@@ -2370,6 +2497,7 @@ public class BookingServiceImpl implements BookingService {
             if (request.getNewGuest().getBirthDate() != null) {
                 bookingGuest.setBirthDate(request.getNewGuest().getBirthDate());
             }
+            bookingGuest = guestRepository.save(bookingGuest);
         } else {
             throw new AppException(ErrorCode.INVALID_BOOKING_STATUS, "Vui lòng cung cấp thông tin người đặt / đại diện thanh toán");
         }
@@ -2627,6 +2755,7 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // 7. Ghi nhận Phụ thu đã xác nhận
+        BigDecimal totalConfirmedCharges = BigDecimal.ZERO;
         if (request.getConfirmedCharges() != null && !request.getConfirmedCharges().isEmpty()) {
             for (WalkInBookingRequest.WalkInConfirmedChargeRequest c : request.getConfirmedCharges()) {
                 BookingRoom targetRoom = allCreatedBookingRooms.get(0);
@@ -2656,8 +2785,74 @@ public class BookingServiceImpl implements BookingService {
                         .vatRate(BigDecimal.ZERO)
                         .build();
                 bookingChargeService.createCharge(targetRoom, chReq);
+                if (!isWaived) {
+                    totalConfirmedCharges = totalConfirmedCharges.add(unitPrice);
+                }
             }
         }
+
+        // 7.5. Ghi nhận Tiện ích / Dịch vụ đi kèm (serviceItems)
+        BigDecimal totalServiceOrdersAmount = BigDecimal.ZERO;
+        if (request.getServiceItems() != null && !request.getServiceItems().isEmpty()) {
+            Map<Integer, List<WalkInBookingRequest.WalkInServiceItemRequest>> itemsByRoom = request.getServiceItems().stream()
+                    .filter(item -> item.getMenuItemId() != null && item.getQuantity() != null && item.getQuantity() > 0)
+                    .collect(Collectors.groupingBy(
+                            item -> item.getRoomInstanceId() != null ? item.getRoomInstanceId() : 0,
+                            LinkedHashMap::new,
+                            Collectors.toList()
+                    ));
+
+            for (Map.Entry<Integer, List<WalkInBookingRequest.WalkInServiceItemRequest>> entry : itemsByRoom.entrySet()) {
+                Integer roomInstId = entry.getKey();
+                List<WalkInBookingRequest.WalkInServiceItemRequest> rItems = entry.getValue();
+
+                BookingRoom targetRoom = null;
+                if (roomInstId != 0) {
+                    for (BookingRoom br : allCreatedBookingRooms) {
+                        if (br.getRoomInstance() != null && br.getRoomInstance().getId().equals(roomInstId)) {
+                            targetRoom = br;
+                            break;
+                        }
+                    }
+                }
+                if (targetRoom == null && !allCreatedBookingRooms.isEmpty()) {
+                    targetRoom = allCreatedBookingRooms.get(0);
+                }
+
+                ServiceOrderReferenceType refType = targetRoom != null
+                        ? ServiceOrderReferenceType.BOOKING_ROOM
+                        : ServiceOrderReferenceType.BOOKING;
+                Long refId = targetRoom != null ? targetRoom.getId() : savedBooking.getId();
+
+                List<ServiceOrderCreateRequest.OrderItemRequest> orderItems = rItems.stream()
+                        .map(i -> ServiceOrderCreateRequest.OrderItemRequest.builder()
+                                .menuId(i.getMenuItemId().intValue())
+                                .quantity(i.getQuantity())
+                                .build())
+                        .toList();
+
+                ServiceOrderCreateRequest orderReq = ServiceOrderCreateRequest.builder()
+                        .hotelId(hotel.getId())
+                        .referenceType(refType)
+                        .referenceId(refId)
+                        .paymentMethod(ServiceOrderPaymentMethod.POST_TO_ROOM)
+                        .paymentStatus(paidAmount.compareTo(savedBooking.getTotalAmount()) >= 0
+                                ? ServiceOrderPaymentStatus.PAID
+                                : ServiceOrderPaymentStatus.UNPAID)
+                        .items(orderItems)
+                        .build();
+
+                ServiceOrderResponse orderRes = serviceOrderService.createOrder(orderReq);
+                if (orderRes != null && orderRes.getTotalAmount() != null) {
+                    totalServiceOrdersAmount = totalServiceOrdersAmount.add(orderRes.getTotalAmount());
+                }
+            }
+        }
+
+        // Cập nhật tổng tiền đơn đặt phòng gồm: Tiền phòng + Phụ thu + Tiện ích/Dịch vụ
+        BigDecimal finalBookingTotal = savedBooking.getTotalAmount().add(totalConfirmedCharges).add(totalServiceOrdersAmount);
+        savedBooking.setTotalAmount(finalBookingTotal);
+        savedBooking = bookingRepository.save(savedBooking);
 
         // 8. Ghi nhận Thanh toán Payment
         PaymentPurpose pPurpose = "DEPOSIT".equalsIgnoreCase(paymentPurposeStr) ? PaymentPurpose.DEPOSIT : PaymentPurpose.FULL_PAYMENT;
@@ -2670,16 +2865,22 @@ public class BookingServiceImpl implements BookingService {
                 .transactionReference(request.getPayment().getTransactionReference())
                 .paidAt(OffsetDateTime.now())
                 .build();
-        paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
 
         // 9. Sinh hóa đơn & Quyết toán nếu đủ tiền
-        invoiceService.createInvoice(InvoiceCreateRequest.builder()
-                .bookingId(savedBooking.getId())
-                .serviceFeeRate(savedBooking.getServiceFeeRate())
-                .build());
-
         if (paidAmount.compareTo(savedBooking.getTotalAmount()) >= 0) {
             invoiceService.settleAndCloseInvoice(savedBooking.getId());
+        } else {
+            invoiceService.createInvoice(InvoiceCreateRequest.builder()
+                    .bookingId(savedBooking.getId())
+                    .serviceFeeRate(savedBooking.getServiceFeeRate())
+                    .build());
+        }
+
+        // Tự động gửi Email xác nhận đặt phòng và Biên lai thanh toán
+        publishBookingConfirmationEmail(savedBooking);
+        if (paidAmount.compareTo(BigDecimal.ZERO) > 0) {
+            publishPaymentReceiptEmail(savedPayment, savedBooking);
         }
 
         return bookingMapper.toResponse(savedBooking);

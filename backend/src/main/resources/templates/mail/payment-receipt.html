@@ -70,6 +70,46 @@
                 </tr>
             </table>
 
+            <div th:if="${services != null and not #lists.isEmpty(services)}">
+                <div class="section-title">Dịch Vụ & Tiện Ích Đã Thanh Toán</div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+                            <th style="text-align: left; padding: 6px 0;">Dịch vụ</th>
+                            <th style="text-align: center; padding: 6px 0; width: 40px;">SL</th>
+                            <th style="text-align: right; padding: 6px 0;">Đơn giá</th>
+                            <th style="text-align: right; padding: 6px 0;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="svc : ${services}" style="border-bottom: 1px dashed #f3f4f6;">
+                            <td style="padding: 8px 0; font-size: 13px; font-weight: 600; color: #111827;" th:text="${svc.name}">Ăn sáng Buffet</td>
+                            <td style="text-align: center; padding: 8px 0; font-size: 13px; color: #4b5563;" th:text="${svc.quantity}">1</td>
+                            <td style="text-align: right; padding: 8px 0; font-size: 13px; color: #4b5563;" th:text="${svc.unitPriceFormatted}">150,000 VND</td>
+                            <td style="text-align: right; padding: 8px 0; font-size: 13px; font-weight: 700; color: #047857;" th:text="${svc.totalPriceFormatted}">150,000 VND</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div th:if="${surcharges != null and not #lists.isEmpty(surcharges)}">
+                <div class="section-title">Phụ Thu Lưu Trú Đã Thanh Toán</div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+                            <th style="text-align: left; padding: 6px 0;">Khoản mục</th>
+                            <th style="text-align: right; padding: 6px 0;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="sc : ${surcharges}" style="border-bottom: 1px dashed #f3f4f6;">
+                            <td style="padding: 8px 0; font-size: 13px; font-weight: 600; color: #111827;" th:text="${sc.name}">Phụ thu nhận phòng sớm</td>
+                            <td style="text-align: right; padding: 8px 0; font-size: 13px; font-weight: 700; color: #b91c1c;" th:text="${sc.totalPriceFormatted}">270,000 VND</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
             <div style="margin-top: 24px; padding: 12px; background-color: #f0fdf4; border-radius: 8px; border-left: 4px solid #10b981; font-size: 12px; color: #065f46;">
                 Biên lai này có giá trị xác nhận quý khách đã hoàn thành nghĩa vụ thanh toán cho đơn đặt phòng tương ứng.
             </div>
