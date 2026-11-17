@@ -19,6 +19,7 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
+import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 
 import java.net.URI;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 public class PaymentCallbackController {
 
     PaymentService paymentService;
+    PaymentRepository paymentRepository;
 
     /** FE result page (redirect cuối cùng sau khi BE verify xong) */
     String feResultUrl;
@@ -49,8 +51,10 @@ public class PaymentCallbackController {
     // vào constructor parameter nên Spring không inject được cấu hình từ application.yaml
     public PaymentCallbackController(
             PaymentService paymentService,
+            PaymentRepository paymentRepository,
             @Value("${payment.gateway.vnpay.fe-result-url}") String feResultUrl) {
         this.paymentService = paymentService;
+        this.paymentRepository = paymentRepository;
         this.feResultUrl = feResultUrl;
     }
 
@@ -99,6 +103,19 @@ public class PaymentCallbackController {
         }
         String status = paid ? "PAID" : "FAILED";
         String txnRef = params.get("vnp_TxnRef") != null ? params.get("vnp_TxnRef") : "";
+
+        if ((paymentIdPart.isBlank() || bookingIdPart.isBlank()) && !txnRef.isBlank() && paymentRepository != null) {
+            var optPayment = paymentRepository.findByGatewayTxnId(txnRef);
+            if (optPayment.isPresent()) {
+                var p = optPayment.get();
+                if (paymentIdPart.isBlank()) {
+                    paymentIdPart = "&paymentId=" + p.getId();
+                }
+                if (bookingIdPart.isBlank() && p.getBooking() != null) {
+                    bookingIdPart = "&bookingId=" + p.getBooking().getId();
+                }
+            }
+        }
 
         StringBuilder queryParams = new StringBuilder();
         queryParams.append("?status=").append(status);

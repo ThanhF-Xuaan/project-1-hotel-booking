@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import vn.edu.utc.hotel_booking.modules.notification.dto.InvoiceItemEmailDto;
 import vn.edu.utc.hotel_booking.modules.notification.dto.ServiceItemEmailDto;
 
 import java.math.BigDecimal;
@@ -32,6 +33,19 @@ public class PaymentReceiptEmailEvent {
     BigDecimal totalBookingAmount;
     BigDecimal remainingBalance;
     String currency;
+
+    // Full Folio / Invoice GTGT information
+    String invoiceNumber;
+    String roomNumber;
+    OffsetDateTime invoiceDate;
+    BigDecimal subtotalAmount;
+    BigDecimal serviceFeeRate;
+    BigDecimal serviceFeeAmount;
+    BigDecimal vatAmount;
+    BigDecimal grandTotal;
+
+    @Builder.Default
+    List<InvoiceItemEmailDto> invoiceDetails = new ArrayList<>();
 
     @Builder.Default
     List<ServiceItemEmailDto> services = new ArrayList<>();

@@ -139,11 +139,47 @@ public class EmailServiceImpl implements EmailService {
             context.setVariable("paidAtFormatted", event.getPaidAt() != null ? event.getPaidAt().format(DATE_TIME_FMT) : "N/A");
             context.setVariable("totalBookingFormatted", formatMoney(event.getTotalBookingAmount()));
 
-            String rem = "0 VND (Đã hoàn tất)";
+            String rem = "0 đ (Đã hoàn tất)";
             if (event.getRemainingBalance() != null && event.getRemainingBalance().compareTo(BigDecimal.ZERO) > 0) {
                 rem = formatMoney(event.getRemainingBalance()) + " (Còn phải thanh toán tại quầy)";
             }
             context.setVariable("remainingBalanceFormatted", rem);
+
+            // Thông tin hóa đơn GTGT / Folio chi tiết
+            context.setVariable("invoiceNumber", event.getInvoiceNumber());
+            context.setVariable("roomNumber", event.getRoomNumber());
+            String invoiceDateStr = event.getInvoiceDate() != null
+                    ? event.getInvoiceDate().format(DATE_FMT)
+                    : (event.getPaidAt() != null ? event.getPaidAt().format(DATE_FMT) : "");
+            context.setVariable("invoiceDateFormatted", invoiceDateStr);
+
+            context.setVariable("subtotalFormatted", formatMoney(event.getSubtotalAmount()));
+            String serviceFeeRateStr = (event.getServiceFeeRate() != null && event.getServiceFeeRate().compareTo(BigDecimal.ZERO) > 0)
+                    ? event.getServiceFeeRate().stripTrailingZeros().toPlainString() + "%"
+                    : "5%";
+            context.setVariable("serviceFeeRate", serviceFeeRateStr);
+            context.setVariable("serviceFeeFormatted", formatMoney(event.getServiceFeeAmount()));
+            context.setVariable("vatAmountFormatted", formatMoney(event.getVatAmount()));
+            context.setVariable("grandTotalFormatted", formatMoney(event.getGrandTotal() != null ? event.getGrandTotal() : event.getAmount()));
+
+            if (event.getInvoiceDetails() != null && !event.getInvoiceDetails().isEmpty()) {
+                for (var item : event.getInvoiceDetails()) {
+                    if (item.getUnitPriceFormatted() == null && item.getUnitPrice() != null) {
+                        item.setUnitPriceFormatted(formatMoney(item.getUnitPrice()));
+                    }
+                    if (item.getSubtotalFormatted() == null && item.getSubtotal() != null) {
+                        item.setSubtotalFormatted(formatMoney(item.getSubtotal()));
+                    }
+                    if (item.getVatRateFormatted() == null) {
+                        String rate = item.getVatRate() != null ? item.getVatRate().stripTrailingZeros().toPlainString() : "8";
+                        item.setVatRateFormatted(rate + "%");
+                    }
+                    if (item.getVatAmountFormatted() == null && item.getVatAmount() != null) {
+                        item.setVatAmountFormatted(formatMoney(item.getVatAmount()));
+                    }
+                }
+                context.setVariable("invoiceDetails", event.getInvoiceDetails());
+            }
 
             BigDecimal totalServices = BigDecimal.ZERO;
             if (event.getServices() != null) {
@@ -190,7 +226,7 @@ public class EmailServiceImpl implements EmailService {
 
             helper.setFrom(fromAddress, fromName);
             helper.setTo(event.getRecipientEmail().trim());
-            helper.setSubject("Biên lai xác nhận thanh toán - Đơn " + event.getBookingCode());
+            helper.setSubject("Hóa đơn GTGT & Biên lai thanh toán - Đơn " + event.getBookingCode());
             helper.setText(htmlBody, true);
 
             mailSender.send(message);
@@ -201,9 +237,9 @@ public class EmailServiceImpl implements EmailService {
     }
 
     private String formatMoney(BigDecimal amount) {
-        if (amount == null) return "0 VND";
+        if (amount == null) return "0 đ";
         NumberFormat nf = NumberFormat.getInstance(new Locale("vi", "VN"));
-        return nf.format(amount) + " VND";
+        return nf.format(amount) + " đ";
     }
 
     private String safe(String str, String defaultVal) {
