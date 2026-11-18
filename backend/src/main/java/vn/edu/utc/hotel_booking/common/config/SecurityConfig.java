@@ -50,7 +50,7 @@ public class SecurityConfig {
                                 "/api/public/**",
                                 "/api/v1/public/**",
                                 "/api/v1/payments/vnpay-return",
-                                "/api/v1/payments/vnpay/**"
+                                "/api/v1/payments/vnpay/return"
                         ).permitAll()
 
                         // OCR giấy tờ chỉ dành cho nhân viên có vai trò tiếp nhận khách.
@@ -73,7 +73,8 @@ public class SecurityConfig {
                         String uri = request.getRequestURI();
                         // Với API công khai hoặc tài liệu Swagger, bỏ qua việc trích xuất token để tránh bị BearerTokenAuthenticationFilter chặn 401 khi token rác hoặc hết hạn
                         if (uri.startsWith("/api/v1/public/") || uri.startsWith("/api/public/")
-                                || uri.startsWith("/api/v1/payments/vnpay")
+                                || uri.startsWith("/api/v1/payments/vnpay-return")
+                                || uri.startsWith("/api/v1/payments/vnpay/return")
                                 || uri.startsWith("/swagger-ui") || uri.startsWith("/v3/api-docs")) {
                             return null;
                         }
