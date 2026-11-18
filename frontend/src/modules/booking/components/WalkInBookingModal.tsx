@@ -25,7 +25,6 @@ import OcrIdentityScannerModal, {
 } from '../../operation/components/OcrIdentityScannerModal';
 import hotelService from '../../organization/services/hotel.service';
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service';
-import roomInstanceService from '../../inventory/services/roomInstance.service';
 import bookingService from '../services/booking.service';
 import publicMenuService from '../../booking-portal/services/publicMenuService';
 import { apiClient } from '../../../core/api/client';
@@ -239,12 +238,12 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
     Promise.all([
       hotelRoomTypeService.filter({ hotelId: selectedHotelId, pageSize: 50, status: 'ACTIVE' }),
-      roomInstanceService.filter({ hotelId: selectedHotelId, currentStatus: 'READY', pageSize: 100 }),
+      bookingService.getVacantRooms(selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate),
       publicMenuService.getAddonServicesByHotel(selectedHotelId).catch(() => null),
     ])
       .then(([roomTypesRes, roomsRes, servicesRes]) => {
         if (roomTypesRes.result?.content) setRoomTypes(roomTypesRes.result.content);
-        if (roomsRes.result?.content) setReadyRooms(roomsRes.result.content);
+        if (roomsRes.result) setReadyRooms(roomsRes.result);
         if (servicesRes?.result?.content && servicesRes.result.content.length > 0) {
           const items: AddonServiceItem[] = servicesRes.result.content.map((m) => ({
             id: m.id,
@@ -260,6 +259,16 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       })
       .catch((err) => console.error('Lỗi tải dữ liệu phòng & dịch vụ:', err));
   }, [selectedHotelId]);
+
+  useEffect(() => {
+    if (!selectedHotelId || !stayPeriod.checkInDate || !stayPeriod.checkOutDate) return;
+    bookingService
+      .getVacantRooms(selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate)
+      .then((res) => {
+        if (res.result) setReadyRooms(res.result);
+      })
+      .catch((err) => console.error('Lỗi cập nhật phòng trống theo ngày:', err));
+  }, [selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate]);
 
   // --------------------------------------------------------------------------
   // ROOM HANDLERS
@@ -1289,6 +1298,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               })}
             </div>
 
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
+
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(1)} className="flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" /> Quay lại
@@ -1412,6 +1428,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               )}
             </div>
 
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
+
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(2)} className="flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" /> Quay lại
@@ -1471,6 +1494,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 </div>
               ))}
             </div>
+
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
 
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(3)} className="flex items-center gap-1.5">
@@ -1709,6 +1739,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 </div>
               )}
             </div>
+
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
 
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(4)} className="flex items-center gap-1.5">

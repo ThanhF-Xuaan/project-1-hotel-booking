@@ -4005,7 +4005,13 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public List<vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse> getVacantRooms(Short hotelId) {
-        List<RoomInstance> vacantRooms = roomInstanceRepository.findVacantRooms(hotelId);
+        return getVacantRooms(hotelId, null, null);
+    }
+
+    @Override
+    public List<vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse> getVacantRooms(
+            Short hotelId, LocalDate checkInDate, LocalDate checkOutDate) {
+        List<RoomInstance> vacantRooms = roomInstanceRepository.findVacantRooms(hotelId, checkInDate, checkOutDate);
         return roomInstanceMapper.toResponseList(vacantRooms);
     }
 }

@@ -108,4 +108,6 @@ public interface BookingService {
     RoomingListImportResultResponse confirmRoomingList(Long bookingId, RoomingListConfirmRequest request);
 
     List<RoomInstanceResponse> getVacantRooms(Short hotelId);
+
+    List<RoomInstanceResponse> getVacantRooms(Short hotelId, LocalDate checkInDate, LocalDate checkOutDate);
 }
