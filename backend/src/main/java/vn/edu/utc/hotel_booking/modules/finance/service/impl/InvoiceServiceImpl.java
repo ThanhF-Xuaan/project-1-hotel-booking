@@ -100,7 +100,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private void populateInvoiceData(Invoice invoice, Booking booking, BigDecimal serviceFeeRate) {
-        if (invoice.getId() != null) {
+        if (invoice.getId() != null && invoiceDetailRepository != null) {
             invoiceDetailRepository.deleteByInvoiceId(invoice.getId());
             invoiceDetailRepository.flush();
         }
@@ -315,6 +315,12 @@ public class InvoiceServiceImpl implements InvoiceService {
             for (ServiceOrderResponse order : orders) {
                 // Bỏ qua các đơn dịch vụ đã bị hủy
                 if (order.getStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus.CANCELLED) {
+                    continue;
+                }
+                // Chống thu tiền 2 lần: Bỏ qua các đơn đã thanh toán tại POS (không ghi nợ phòng POST_TO_ROOM)
+                if (order.getPaymentMethod() != null
+                        && order.getPaymentMethod() != vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM
+                        && order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID) {
                     continue;
                 }
 

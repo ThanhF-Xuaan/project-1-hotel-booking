@@ -19,6 +19,7 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceStatus;
 import vn.edu.utc.hotel_booking.modules.finance.entity.Payment;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
+import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceDetailRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.impl.InvoiceServiceImpl;
@@ -39,6 +40,9 @@ class InvoiceServiceTest {
 
     @Mock
     private InvoiceRepository invoiceRepository;
+
+    @Mock
+    private InvoiceDetailRepository invoiceDetailRepository;
 
     @Mock
     private PaymentRepository paymentRepository;
