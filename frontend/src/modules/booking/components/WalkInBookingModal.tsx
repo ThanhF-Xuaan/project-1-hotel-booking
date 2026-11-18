@@ -40,9 +40,7 @@ import type {
   WalkInStayGuestRequest,
 } from '../types/booking.types';
 import Select, { type SelectOption } from '@/core/components/ui/Select';
-import CheckoutModal from '../../finance/components/payment/CheckoutModal';
 import financeService from '../../finance/services/finance.service';
-import type { PaymentUrlResponse } from '../../finance/types/finance.types';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -207,10 +205,6 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [gatewaySession, setGatewaySession] = useState<PaymentUrlResponse | null>(null);
-  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
-  const [createdBookingNumber, setCreatedBookingNumber] = useState<string | null>(null);
-  const [isCancellingPayment, setIsCancellingPayment] = useState(false);
 
   // HTML IDs
   const checkInDateId = useId();
@@ -1555,7 +1549,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     const rm = readyRooms.find((x) => x.id === rInstId);
                     const rType = roomTypes.find((x) => x.id === Number(rooms[idx]?.hotelRoomTypeId));
                     const label = rm?.roomNumber ? `P.${rm.roomNumber}` : `Phòng #${idx + 1}`;
-                    const typeName = rType?.name || 'Phòng';
+                    const typeName = rType?.roomTypeName || 'Phòng';
                     const lineNet = qr.netPrice ?? qr.totalPrice ?? 0;
                     return (
                       <div key={idx} className="flex justify-between text-xs text-neutral-600">
@@ -1725,9 +1719,10 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   variant="primary"
                   onClick={handleCompleteWalkIn}
                   isLoading={isSubmitting}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-colors"
+                  className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <CreditCard className="w-5 h-5" /> Thanh toán qua VNPAY
+                  <span>Thanh toán qua VNPay Sandbox</span>
+                  <ChevronRight className="w-4 h-4" />
                 </Button>
               ) : (
                 <Button
@@ -1764,41 +1759,6 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             : 'Trích xuất thông tin người lưu trú để đồng bộ khai báo tạm trú BCA.'
         }
       />
-
-      {/* MODAL PHIÊN THANH TOÁN GATEWAY VNPAY SANDBOX (tuần tự y hệt FolioPaymentPage) */}
-      {isCheckoutModalOpen && gatewaySession && (
-        <CheckoutModal
-          isOpen={isCheckoutModalOpen}
-          onClose={() => {
-            setIsCheckoutModalOpen(false);
-            if (createdBookingNumber) {
-              onSuccess(createdBookingNumber);
-              onClose();
-            }
-          }}
-          gateway="VNPAY"
-          session={gatewaySession}
-          amount={payment.customAmount > 0 ? payment.customAmount : grandTotal}
-          onCancelAndRetry={async () => {
-            if (gatewaySession?.paymentId) {
-              try {
-                setIsCancellingPayment(true);
-                await financeService.cancelPayment(gatewaySession.paymentId);
-              } catch (cErr) {
-                console.warn('Lỗi khi hủy phiên payment:', cErr);
-              } finally {
-                setIsCancellingPayment(false);
-              }
-            }
-            setIsCheckoutModalOpen(false);
-            if (createdBookingNumber) {
-              onSuccess(createdBookingNumber);
-              onClose();
-            }
-          }}
-          isCancelling={isCancellingPayment}
-        />
-      )}
     </Modal>
   );
 };

@@ -137,19 +137,20 @@ export const BookingListPage: React.FC = () => {
   const [isSubmittingRoomNoShow, setIsSubmittingRoomNoShow] = useState(false);
 
   // Action status message
-  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const urlSuccessBooking = searchParams.get('successBooking');
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(() =>
+    urlSuccessBooking
+      ? `Thanh toán qua VNPAY thành công! Đã đặt phòng và Check-in In-house thành công cho đơn ${urlSuccessBooking}.`
+      : null
+  );
 
   useEffect(() => {
-    const successBooking = searchParams.get('successBooking');
-    if (successBooking) {
-      setActionSuccessMessage(
-        `Thanh toán qua VNPAY thành công! Đã đặt phòng và Check-in In-house thành công cho đơn ${successBooking}.`
-      );
+    if (urlSuccessBooking) {
       searchParams.delete('successBooking');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [urlSuccessBooking, searchParams, setSearchParams]);
 
   // Walk-in Booking Modal
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
