@@ -2967,13 +2967,13 @@ public class BookingServiceImpl implements BookingService {
             Payment savedPayment = paymentRepository.save(payment);
 
             // 9. Sinh hóa đơn & Quyết toán nếu đủ tiền
+            invoiceService.createInvoice(InvoiceCreateRequest.builder()
+                    .bookingId(savedBooking.getId())
+                    .serviceFeeRate(savedBooking.getServiceFeeRate())
+                    .build());
+
             if (actualPaymentAmount.compareTo(savedBooking.getTotalAmount()) >= 0) {
                 invoiceService.settleAndCloseInvoice(savedBooking.getId());
-            } else {
-                invoiceService.createInvoice(InvoiceCreateRequest.builder()
-                        .bookingId(savedBooking.getId())
-                        .serviceFeeRate(savedBooking.getServiceFeeRate())
-                        .build());
             }
 
             // Tự động gửi Email xác nhận đặt phòng và Biên lai thanh toán
