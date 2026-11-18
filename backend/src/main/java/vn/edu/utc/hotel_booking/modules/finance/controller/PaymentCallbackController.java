@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 @RestController
-@RequestMapping({"/api/v1/public/payments", "/api/v1/payments"})
+@RequestMapping("/api/v1/public/payments")
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Tag(name = "Payment Callback Controller", description = "Webhook công khai từ VNPay/MoMo (không JWT)")
 public class PaymentCallbackController {
