@@ -17,6 +17,8 @@ import {
   Search,
   FileText,
   Clock,
+  RotateCcw,
+  List,
 } from 'lucide-react';
 import Button from '../../../core/components/ui/Button';
 import { formatCurrency } from '../../../core/utils/currency';
@@ -209,6 +211,43 @@ export const PaymentResultPage: React.FC = () => {
     ? Number(amountParam) / 100
     : 0;
 
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
+
+  const handleRetryPayment = async () => {
+    const bId = payment?.bookingId || (bookingIdParam ? Number(bookingIdParam) : null);
+    if (!bId) {
+      navigate('/finance/folios');
+      return;
+    }
+    setIsRetrying(true);
+    setRetryError(null);
+    try {
+      const res = await financeService.createVnPayPayment({
+        bookingId: bId,
+        method: 'VNPAY',
+        bankCode: 'NCB',
+        amount: displayAmount > 0 ? displayAmount : undefined,
+      });
+      if (res.result?.paymentUrl) {
+        window.location.assign(res.result.paymentUrl);
+        return;
+      }
+      throw new Error('Không nhận được liên kết thanh toán từ cổng VNPay Sandbox.');
+    } catch (err: unknown) {
+      console.error('Lỗi thử lại thanh toán VNPay:', err);
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Không thể khởi tạo lại phiên VNPay. Đang chuyển hướng về trang Quản lý Folio...';
+      setRetryError(msg);
+      setTimeout(() => {
+        navigate(`/finance/folios?bookingId=${bId}`);
+      }, 1500);
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
@@ -231,11 +270,15 @@ export const PaymentResultPage: React.FC = () => {
                 <CheckCircle2 className="w-12 h-12" aria-hidden="true" />
               </div>
               <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Đã đặt phòng thành công
+                </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">
-                  Thanh Toán Thành Công!
+                  Đặt Phòng & Thanh Toán Thành Công!
                 </h1>
                 <p className="text-sm text-neutral-600 max-w-md mx-auto">
-                  Cảm ơn quý khách. Đơn đặt phòng của quý khách đã được thanh toán và xác nhận thành công qua cổng VNPAY.
+                  Cảm ơn quý khách. Đơn đặt phòng {payment?.bookingNumber ? <strong className="text-neutral-900 font-mono">{payment.bookingNumber}</strong> : (bookingIdParam ? <strong className="text-neutral-900 font-mono">#{bookingIdParam}</strong> : '')} đã được thanh toán và xác nhận thành công qua cổng VNPAY. Hóa đơn GTGT và biên lai đã được gửi về Gmail của quý khách.
                 </p>
                 <div className="flex justify-center pt-1">
                   <PaymentStatusBadge status="SUCCESS" />
@@ -274,11 +317,15 @@ export const PaymentResultPage: React.FC = () => {
                 <XCircle className="w-12 h-12" aria-hidden="true" />
               </div>
               <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-800 text-xs font-bold rounded-full">
+                  <XCircle className="w-4 h-4 text-red-600" />
+                  Chưa đặt phòng thành công
+                </div>
                 <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 tracking-tight">
                   Thanh Toán Chưa Hoàn Tất
                 </h1>
                 <p className="text-sm text-neutral-600 max-w-md mx-auto">
-                  {responseInfo.message || 'Giao dịch chưa được hoàn tất (khách hủy, sai OTP hoặc phiên thanh toán hết hạn).'}
+                  {responseInfo.message || 'Giao dịch chưa được hoàn tất (khách hủy, sai OTP hoặc phiên thanh toán hết hạn). Đơn đặt phòng chưa được xác nhận thanh toán.'}
                 </p>
                 <div className="flex justify-center pt-1">
                   <PaymentStatusBadge status={displayStatus === 'CANCELLED' ? 'CANCELLED' : 'FAILED'} />
@@ -352,33 +399,107 @@ export const PaymentResultPage: React.FC = () => {
             </div>
           )}
 
-          {/* CỤM NÚT ĐIỀU HƯỚNG CHÍNH DÀNH CHO KHÁCH HÀNG */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Button
-              variant="primary"
-              className="w-full sm:flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
-              onClick={() => navigate('/portal/search')}
-              leftIcon={<Search className="w-5 h-5" />}
-            >
-              Tiếp Tục Đặt Phòng
-            </Button>
+          {/* CỤM NÚT ĐIỀU HƯỚNG CHÍNH DÀNH CHO KHÁCH HÀNG & THU NGÂN */}
+          {isFailed ? (
+            <div className="space-y-3 pt-2">
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3.5 text-xs text-red-700 font-medium text-left">
+                ⚠️ Giao dịch chưa được ghi nhận thanh toán. Đơn đặt phòng chưa được quyết toán thanh toán. Vui lòng bấm <strong>Thực hiện thanh toán lại</strong> bên dưới để tiếp tục giao dịch qua VNPAY, hoặc quay lại trang Quản lý Folio.
+              </div>
+              {retryError && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 text-xs text-amber-700 font-medium text-left">
+                  {retryError}
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  variant="primary"
+                  isLoading={isRetrying}
+                  className="w-full sm:flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                  onClick={handleRetryPayment}
+                  leftIcon={<RotateCcw className="w-5 h-5" />}
+                >
+                  Thực Hiện Thanh Toán Lại (VNPAY)
+                </Button>
 
-            <Button
-              variant="outline"
-              className="w-full sm:flex-1 h-12 border-neutral-300 text-neutral-800 hover:bg-neutral-50 font-semibold rounded-xl"
-              onClick={() => {
-                const bNum = payment?.bookingNumber;
-                if (bNum) {
-                  navigate(`/portal/my-bookings?bookingNumber=${encodeURIComponent(bNum)}`);
-                } else {
-                  navigate('/portal/my-bookings');
-                }
-              }}
-              leftIcon={<FileText className="w-5 h-5" />}
-            >
-              Tra Cứu Đơn Đặt Phòng
-            </Button>
-          </div>
+                <Button
+                  variant="outline"
+                  className="w-full sm:flex-1 h-12 border-neutral-300 text-neutral-800 hover:bg-neutral-50 font-semibold rounded-xl"
+                  onClick={() => {
+                    const bId = payment?.bookingId || (bookingIdParam ? Number(bookingIdParam) : null);
+                    if (bId) {
+                      navigate(`/finance/folios?bookingId=${bId}`);
+                    } else {
+                      navigate('/finance/folios');
+                    }
+                  }}
+                  leftIcon={<FileText className="w-5 h-5" />}
+                >
+                  Về Quản Lý Folio / Thu Ngân
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              {(payment?.bookingId || bookingIdParam) && (
+                <Button
+                  variant="primary"
+                  className="w-full sm:flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                  onClick={() => {
+                    const bId = payment?.bookingId || (bookingIdParam ? Number(bookingIdParam) : null);
+                    navigate(`/finance/folios?bookingId=${bId}`);
+                  }}
+                  leftIcon={<FileText className="w-5 h-5" />}
+                >
+                  Xem Hóa Đơn & Quản Lý Folio
+                </Button>
+              )}
+
+              <Button
+                variant={payment?.bookingId || bookingIdParam ? 'outline' : 'primary'}
+                className={`w-full sm:flex-1 h-12 font-bold rounded-xl shadow-md hover:shadow-lg transition-all ${
+                  payment?.bookingId || bookingIdParam
+                    ? 'border-neutral-300 text-neutral-800 hover:bg-neutral-50'
+                    : 'bg-red-600 hover:bg-red-700 text-white'
+                }`}
+                onClick={() => navigate('/portal/search')}
+                leftIcon={<Search className="w-5 h-5" />}
+              >
+                Tiếp Tục Đặt Phòng
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full sm:flex-1 h-12 border-neutral-300 text-neutral-800 hover:bg-neutral-50 font-semibold rounded-xl"
+                onClick={() => {
+                  const bNum = payment?.bookingNumber;
+                  if (bNum) {
+                    navigate(`/booking/list?successBooking=${encodeURIComponent(bNum)}`);
+                  } else {
+                    navigate('/booking/list');
+                  }
+                }}
+                leftIcon={<List className="w-5 h-5" />}
+              >
+                Về Danh Sách Đặt Phòng
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full sm:flex-1 h-12 border-neutral-300 text-neutral-800 hover:bg-neutral-50 font-semibold rounded-xl"
+                onClick={() => {
+                  const bNum = payment?.bookingNumber;
+                  if (bNum) {
+                    navigate(`/portal/my-bookings?bookingNumber=${encodeURIComponent(bNum)}`);
+                  } else {
+                    navigate('/portal/my-bookings');
+                  }
+                }}
+                leftIcon={<FileText className="w-5 h-5" />}
+              >
+                Tra Cứu Đơn Đặt Phòng
+              </Button>
+            </div>
+          )}
         </section>
 
         {/* ========================================================================= */}

@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingChargeRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.FolioLineItemDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.FolioPaymentDto;
@@ -22,6 +23,8 @@ import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetai
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
 import vn.edu.utc.hotel_booking.modules.operation.service.ServiceOrderService;
 
 import java.math.BigDecimal;
@@ -41,6 +44,7 @@ public class FolioServiceImpl implements FolioService {
     MasterFolioRepository masterFolioRepository;
     BillingRoutingRuleRepository billingRoutingRuleRepository;
     MasterFolioItemAdjustmentRepository masterFolioItemAdjustmentRepository;
+    BookingChargeRepository bookingChargeRepository;
 
     @Override
     public FolioResponse getFolioByBookingId(Long bookingId) {
@@ -203,8 +207,11 @@ public class FolioServiceImpl implements FolioService {
                     }
 
                     // 2. Phụ phí & Phạt (BookingCharge -> SURCHARGE / PENALTY)
-                    if (br.getCharges() != null) {
-                        for (BookingCharge charge : br.getCharges()) {
+                    List<BookingCharge> charges = (bookingChargeRepository != null && br.getId() != null)
+                            ? bookingChargeRepository.findByBookingRoomId(br.getId())
+                            : (br.getCharges() != null ? br.getCharges() : List.of());
+                    if (charges != null) {
+                        for (BookingCharge charge : charges) {
                             String chargeType = (charge.getChargeType() == BookingChargeType.PENALTY)
                                     ? "PENALTY"
                                     : "SURCHARGE";
@@ -257,23 +264,27 @@ public class FolioServiceImpl implements FolioService {
         }
 
         // 3. Đơn dịch vụ phòng POS (ServiceOrder ghi nợ phòng POST_TO_ROOM)
-        if (targetBookingRoomId == null) {
-            List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
-            if (orders != null) {
-                for (ServiceOrderResponse order : orders) {
-                    if (order.getPaymentMethod() != null && order.getPaymentMethod() != ServiceOrderPaymentMethod.POST_TO_ROOM) {
+        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
+        if (orders != null) {
+            for (ServiceOrderResponse order : orders) {
+                if (targetBookingRoomId != null) {
+                    if (order.getReferenceType() != ServiceOrderReferenceType.BOOKING_ROOM || !targetBookingRoomId.equals(order.getReferenceId())) {
                         continue;
                     }
-                    if (order.getPaymentStatus() == ServiceOrderPaymentStatus.PAID) {
-                        continue;
-                    }
+                }
+                if (order.getStatus() == ServiceOrderStatus.CANCELLED) {
+                    continue;
+                }
+                if (order.getPaymentMethod() != null && order.getPaymentMethod() != ServiceOrderPaymentMethod.POST_TO_ROOM) {
+                    continue;
+                }
 
-                    LocalDate orderDate = order.getIssuedAt() != null
-                            ? order.getIssuedAt().toLocalDate()
-                            : (order.getCreatedAt() != null ? order.getCreatedAt().toLocalDate() : LocalDate.now());
+                LocalDate orderDate = order.getIssuedAt() != null
+                        ? order.getIssuedAt().toLocalDate()
+                        : (order.getCreatedAt() != null ? order.getCreatedAt().toLocalDate() : LocalDate.now());
 
-                    if (order.getDetails() != null) {
-                        for (ServiceOrderDetailResponse item : order.getDetails()) {
+                if (order.getDetails() != null) {
+                    for (ServiceOrderDetailResponse item : order.getDetails()) {
                             String itemLineType = "PRODUCT".equalsIgnoreCase(item.getItemType())
                                     ? "PRODUCT"
                                     : "SERVICE";
@@ -326,7 +337,6 @@ public class FolioServiceImpl implements FolioService {
                     }
                 }
             }
-        }
 
         BigDecimal totalDebits = subTotal.add(serviceFeeAmount).add(vatAmount);
 

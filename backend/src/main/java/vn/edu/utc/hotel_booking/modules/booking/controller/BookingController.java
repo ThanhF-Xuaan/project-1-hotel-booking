@@ -298,8 +298,10 @@ public class BookingController {
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
     @Operation(summary = "Xem danh sách các phòng vật lý đang còn trống (READY) kèm sức chứa")
     public ApiResponse<List<RoomInstanceResponse>> getVacantRooms(
-            @RequestParam(value = "hotelId", required = false) Short hotelId) {
-        return ApiResponse.success("Lấy danh sách phòng trống thành công", bookingService.getVacantRooms(hotelId));
+            @RequestParam(value = "hotelId", required = false) Short hotelId,
+            @RequestParam(value = "checkInDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate checkInDate,
+            @RequestParam(value = "checkOutDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate checkOutDate) {
+        return ApiResponse.success("Lấy danh sách phòng trống thành công", bookingService.getVacantRooms(hotelId, checkInDate, checkOutDate));
     }
 }
 

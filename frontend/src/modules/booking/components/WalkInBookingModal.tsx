@@ -25,8 +25,8 @@ import OcrIdentityScannerModal, {
 } from '../../operation/components/OcrIdentityScannerModal';
 import hotelService from '../../organization/services/hotel.service';
 import hotelRoomTypeService from '../../inventory/services/hotelRoomType.service';
-import roomInstanceService from '../../inventory/services/roomInstance.service';
 import bookingService from '../services/booking.service';
+import publicMenuService from '../../booking-portal/services/publicMenuService';
 import { apiClient } from '../../../core/api/client';
 import { isValidVietnamesePhone, cleanPhoneNumber } from '../../../core/utils/phone';
 import type { HotelDto } from '../../organization/types/organization.types';
@@ -39,6 +39,7 @@ import type {
   WalkInStayGuestRequest,
 } from '../types/booking.types';
 import Select, { type SelectOption } from '@/core/components/ui/Select';
+import financeService from '../../finance/services/finance.service';
 
 // ============================================================================
 // TYPES & CONSTANTS
@@ -196,7 +197,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
   // Bước 5: Quyết toán
   const [payment, setPayment] = useState({
-    method: 'CASH' as 'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY',
+    method: 'CASH' as 'CASH' | 'VNPAY',
     purpose: 'FULL_PAYMENT' as 'FULL_PAYMENT' | 'DEPOSIT',
     customAmount: 0,
     transactionRef: '',
@@ -237,14 +238,35 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
     Promise.all([
       hotelRoomTypeService.filter({ hotelId: selectedHotelId, pageSize: 50, status: 'ACTIVE' }),
-      roomInstanceService.filter({ hotelId: selectedHotelId, currentStatus: 'READY', pageSize: 100 }),
+      publicMenuService.getAddonServicesByHotel(selectedHotelId).catch(() => null),
     ])
-      .then(([roomTypesRes, roomsRes]) => {
+      .then(([roomTypesRes, servicesRes]) => {
         if (roomTypesRes.result?.content) setRoomTypes(roomTypesRes.result.content);
-        if (roomsRes.result?.content) setReadyRooms(roomsRes.result.content);
+        if (servicesRes?.result?.content && servicesRes.result.content.length > 0) {
+          const items: AddonServiceItem[] = servicesRes.result.content.map((m) => ({
+            id: m.id,
+            name: m.name,
+            price: Number(m.basePrice) || 0,
+            quantity: 0,
+            roomIndex: 0,
+          }));
+          setSelectedServices(items);
+        } else {
+          setSelectedServices(DEFAULT_SERVICES);
+        }
       })
-      .catch((err) => console.error('Lỗi tải dữ liệu phòng:', err));
+      .catch((err) => console.error('Lỗi tải dữ liệu loại phòng & dịch vụ:', err));
   }, [selectedHotelId]);
+
+  useEffect(() => {
+    if (!selectedHotelId || !stayPeriod.checkInDate || !stayPeriod.checkOutDate) return;
+    bookingService
+      .getVacantRooms(selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate)
+      .then((res) => {
+        if (res.result) setReadyRooms(res.result);
+      })
+      .catch((err) => console.error('Lỗi cập nhật phòng trống theo ngày:', err));
+  }, [selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate]);
 
   // --------------------------------------------------------------------------
   // ROOM HANDLERS
@@ -547,7 +569,12 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     }
   };
 
+  const hotelServiceFeeRate = hotels.find((h) => h.id === selectedHotelId)?.serviceFeePercent ?? 5;
+  const roomNet = quoteResponse?.subtotalAmount || 0;
+  const roomServiceFee = quoteResponse?.totalServiceFeeAmount || 0;
+  const roomVat = quoteResponse?.totalVatAmount || 0;
   const totalRoomGross = quoteResponse?.totalAmount || 0;
+
   const totalApprovedCharges = useMemo(
     () =>
       confirmedCharges.reduce((acc, c) => {
@@ -556,11 +583,19 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       }, 0),
     [confirmedCharges]
   );
-  const totalServices = useMemo(
+  const totalServicesNet = useMemo(
     () => selectedServices.reduce((acc, s) => acc + s.price * s.quantity, 0),
     [selectedServices]
   );
-  const grandTotal = totalRoomGross + totalApprovedCharges + totalServices;
+  const servicesFee = Math.round(totalServicesNet * (hotelServiceFeeRate / 100));
+  const servicesTaxable = totalServicesNet + servicesFee;
+  const servicesVat = Math.round(servicesTaxable * 0.08);
+  const totalServicesGross = servicesTaxable + servicesVat;
+
+  const subtotalNet = roomNet + totalApprovedCharges + totalServicesNet;
+  const grandServiceFee = roomServiceFee + servicesFee;
+  const grandVat = roomVat + servicesVat;
+  const grandTotal = totalRoomGross + totalApprovedCharges + totalServicesGross;
   const isSmallOrFit = rooms.length <= 2 && bookingType === 'FIT';
 
   useEffect(() => {
@@ -652,7 +687,32 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
       const res = await bookingService.createWalkInBooking(payload);
       if (res.result) {
-        onSuccess(res.result.bookingNumber);
+        const createdBooking = res.result;
+        if (payment.method === 'VNPAY') {
+          try {
+            // Khởi tạo phiên thanh toán VNPay Sandbox và chuyển hướng trực tiếp
+            const vnpayRes = await financeService.createVnPayPayment({
+              bookingId: createdBooking.id,
+              method: 'VNPAY',
+              bankCode: 'NCB',
+              amount: finalAmount,
+            });
+            if (vnpayRes.result?.paymentUrl) {
+              window.location.assign(vnpayRes.result.paymentUrl);
+              return;
+            }
+            throw new Error('Không nhận được liên kết thanh toán từ Cổng VNPay Sandbox');
+          } catch (vnpayErr: unknown) {
+            console.error('Lỗi khởi tạo phiên VNPay Sandbox:', vnpayErr);
+            const msg =
+              (vnpayErr as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+              'Đơn đặt phòng đã được tạo thành công nhưng chưa thể mở phiên VNPay Sandbox. Vui lòng thanh toán tại trang Quản lý Folio.';
+            setFormError(msg);
+            return;
+          }
+        }
+
+        onSuccess(createdBooking.bookingNumber);
         onClose();
       }
     } catch (err: unknown) {
@@ -1236,6 +1296,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               })}
             </div>
 
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
+
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(1)} className="flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" /> Quay lại
@@ -1359,6 +1426,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               )}
             </div>
 
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
+
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(2)} className="flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" /> Quay lại
@@ -1419,6 +1493,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               ))}
             </div>
 
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
+
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(3)} className="flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" /> Quay lại
@@ -1437,19 +1518,133 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         {/* STEP 5: QUYẾT TOÁN & THANH TOÁN */}
         {step === 5 && (
           <div className="space-y-6">
+            {/* Tóm tắt thông tin khách hàng & phòng lưu trú */}
+            <div className="p-4 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-neutral-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-red-600" />
+                  <span className="font-bold text-sm text-neutral-900">
+                    {leadGuest.fullName || 'Khách vãng lai'}
+                  </span>
+                  <span className="text-xs bg-red-50 text-red-700 font-semibold px-2 py-0.5 rounded-full border border-red-200">
+                    {bookingType === 'CORPORATE' ? 'Khách doanh nghiệp' : 'Khách cá nhân (FIT)'}
+                  </span>
+                </div>
+                <div className="text-xs text-neutral-500 font-mono">
+                  SĐT: <span className="font-semibold text-neutral-800">{leadGuest.phone || 'Chưa có'}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span className="text-neutral-500">Email nhận hóa đơn:</span>
+                  <p className="font-semibold text-neutral-800 truncate" title={leadGuest.email || ''}>
+                    {leadGuest.email || 'Chưa cung cấp'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Số CCCD / Hộ chiếu:</span>
+                  <p className="font-semibold text-neutral-800">
+                    {leadGuest.identityNumber || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Phòng chỉ định:</span>
+                  <p className="font-semibold text-red-600">
+                    {rooms.map((r, i) => {
+                      const roomObj = readyRooms.find((rm) => rm.id === Number(r.roomInstanceId));
+                      return roomObj ? `P.${roomObj.roomNumber}` : `#${i + 1}`;
+                    }).join(', ')}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-neutral-500">Thời gian lưu trú:</span>
+                  <p className="font-semibold text-neutral-800">
+                    {stayPeriod.checkInDate} ➔ {stayPeriod.checkOutDate}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600">Tiền phòng ({rooms.length} phòng):</span>
-                <span className="font-bold">{totalRoomGross.toLocaleString('vi-VN')} đ</span>
+                <span className="font-bold">{roomNet.toLocaleString('vi-VN')} đ</span>
               </div>
+              {quoteResponse?.rooms && quoteResponse.rooms.length > 0 && (
+                <div className="pl-3 border-l-2 border-neutral-300 space-y-1.5 py-1 bg-neutral-100/60 rounded-r-lg">
+                  {quoteResponse.rooms.map((qr, idx) => {
+                    const rInstId = Number(rooms[idx]?.roomInstanceId);
+                    const rm = readyRooms.find((x) => x.id === rInstId);
+                    const rType = roomTypes.find((x) => x.id === Number(rooms[idx]?.hotelRoomTypeId));
+                    const label = rm?.roomNumber ? `P.${rm.roomNumber}` : `Phòng #${idx + 1}`;
+                    const typeName = rType?.roomTypeName || 'Phòng';
+                    const lineNet = qr.netPrice ?? qr.totalPrice ?? 0;
+                    return (
+                      <div key={idx} className="flex justify-between text-xs text-neutral-600">
+                        <span>• {label} - {typeName} ({stayPeriod.checkInDate} ➔ {stayPeriod.checkOutDate})</span>
+                        <span className="font-semibold text-neutral-800">
+                          {lineNet.toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600">Phụ thu:</span>
                 <span className="font-bold">{totalApprovedCharges.toLocaleString('vi-VN')} đ</span>
               </div>
+              {confirmedCharges.filter((c) => c.action !== 'WAIVE').length > 0 && (
+                <div className="pl-3 border-l-2 border-amber-300 space-y-1.5 py-1 bg-amber-50/50 rounded-r-lg">
+                  {confirmedCharges
+                    .filter((c) => c.action !== 'WAIVE')
+                    .map((c, idx) => (
+                      <div key={idx} className="flex justify-between text-xs text-neutral-600">
+                        <span>• {c.title}</span>
+                        <span className="font-semibold text-neutral-800">
+                          {(c.action === 'CUSTOM' ? c.amount : c.suggestedAmount).toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
               <div className="flex justify-between text-sm">
                 <span className="text-neutral-600">Dịch vụ đi kèm:</span>
-                <span className="font-bold">{totalServices.toLocaleString('vi-VN')} đ</span>
+                <span className="font-bold">{totalServicesNet.toLocaleString('vi-VN')} đ</span>
               </div>
+              {selectedServices.filter((s) => s.quantity > 0).length > 0 && (
+                <div className="pl-3 border-l-2 border-red-300 space-y-1.5 py-1 bg-red-50/50 rounded-r-lg">
+                  {selectedServices
+                    .filter((s) => s.quantity > 0)
+                    .map((s) => (
+                      <div key={s.id} className="flex justify-between text-xs text-neutral-600">
+                        <span>• {s.name} (x{s.quantity})</span>
+                        <span className="font-semibold text-neutral-800">
+                          {(s.price * s.quantity).toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              <div className="border-t border-dashed border-neutral-300 pt-2.5 space-y-1.5 text-xs text-neutral-600">
+                <div className="flex justify-between">
+                  <span>Tạm tính (Trước thuế &amp; phí):</span>
+                  <span className="font-semibold text-neutral-800">{subtotalNet.toLocaleString('vi-VN')} đ</span>
+                </div>
+                {grandServiceFee > 0 && (
+                  <div className="flex justify-between">
+                    <span>Phí dịch vụ ({hotelServiceFeeRate}%):</span>
+                    <span className="font-semibold text-neutral-800">+{grandServiceFee.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Thuế GTGT (VAT 8%):</span>
+                  <span className="font-semibold text-neutral-800">+{grandVat.toLocaleString('vi-VN')} đ</span>
+                </div>
+              </div>
+
               <div className="border-t border-neutral-200 pt-3 flex justify-between items-center">
                 <span className="text-base font-extrabold text-neutral-900">TỔNG CẦN THANH TOÁN:</span>
                 <span className="text-2xl font-black text-red-600">{grandTotal.toLocaleString('vi-VN')} đ</span>
@@ -1488,7 +1683,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   className={`p-3 rounded-xl border text-left ${isSmallOrFit
                     ? 'opacity-40 cursor-not-allowed bg-neutral-100'
                     : payment.purpose === 'DEPOSIT'
-                      ? 'border-red-600 bg-red-50/50'
+                      ? 'border-red-600 bg-red-50/50 shadow-xs'
                       : 'border-neutral-200'
                     }`}
                 >
@@ -1513,44 +1708,67 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-neutral-700 mb-1">Hình thức thanh toán</label>
-                  <Select<'CASH' | 'CREDIT_CARD' | 'BANK_TRANSFER' | 'VNPAY'>
-                    value={payment.method}
+                  <Select<'CASH' | 'VNPAY'>
+                    value={payment.method as 'CASH' | 'VNPAY'}
                     onChange={(val) => setPayment((p) => ({ ...p, method: val }))}
                     options={[
                       { value: 'CASH', label: 'Tiền mặt tại quầy (CASH)' },
-                      { value: 'CREDIT_CARD', label: 'Quẹt thẻ POS (CREDIT_CARD)' },
-                      { value: 'BANK_TRANSFER', label: 'Chuyển khoản (BANK_TRANSFER)' },
-                      { value: 'VNPAY', label: 'VNPAY-QR' },
+                      { value: 'VNPAY', label: 'Thẻ ATM nội địa (Cổng VNPAY Sandbox)' },
                     ]}
                     size="sm"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">Mã tham chiếu / Số biên lai</label>
-                <input
-                  type="text"
-                  placeholder="VD: POS-998822..."
-                  value={payment.transactionRef}
-                  onChange={(e) => setPayment((p) => ({ ...p, transactionRef: e.target.value }))}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
-                />
-              </div>
+              {payment.method === 'VNPAY' ? (
+                <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-xl p-3 text-xs leading-relaxed">
+                  Thanh toán qua <b>Cổng VNPay Sandbox</b>: giao dịch thanh toán điện tử qua thẻ ATM test (NCB). Mã giao dịch sẽ được ghi nhận vào hệ thống.
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Mã tham chiếu / Số biên lai (tùy chọn)</label>
+                  <input
+                    type="text"
+                    placeholder="VD: PT-001..."
+                    value={payment.transactionRef}
+                    onChange={(e) => setPayment((p) => ({ ...p, transactionRef: e.target.value }))}
+                    className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
+                  />
+                </div>
+              )}
             </div>
+
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+                <span className="font-semibold">{formError}</span>
+              </div>
+            )}
 
             <div className="flex justify-between pt-4 border-t border-neutral-200">
               <Button variant="secondary" onClick={() => setStep(4)} className="flex items-center gap-1.5">
                 <ChevronLeft className="w-4 h-4" /> Quay lại
               </Button>
-              <Button
-                variant="primary"
-                onClick={handleCompleteWalkIn}
-                isLoading={isSubmitting}
-                className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2"
-              >
-                <CheckCircle2 className="w-5 h-5" /> Hoàn tất Check-in (IN-HOUSE)
-              </Button>
+              {payment.method === 'VNPAY' ? (
+                <Button
+                  variant="primary"
+                  onClick={handleCompleteWalkIn}
+                  isLoading={isSubmitting}
+                  className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <span>Thanh toán qua VNPay Sandbox</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={handleCompleteWalkIn}
+                  isLoading={isSubmitting}
+                  className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm px-6 py-2.5 rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <CheckCircle2 className="w-5 h-5" /> Hoàn tất Check-in (IN-HOUSE)
+                </Button>
+              )}
             </div>
           </div>
         )}

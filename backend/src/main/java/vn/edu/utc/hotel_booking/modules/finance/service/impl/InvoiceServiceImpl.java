@@ -14,6 +14,7 @@ import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.*;
+import vn.edu.utc.hotel_booking.modules.booking.service.BookingChargeService;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceSearchDto;
@@ -25,6 +26,7 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceStatus;
 import vn.edu.utc.hotel_booking.modules.finance.entity.Payment;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
+import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceDetailRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
@@ -45,8 +47,10 @@ import java.util.List;
 public class InvoiceServiceImpl implements InvoiceService {
 
     InvoiceRepository invoiceRepository;
+    InvoiceDetailRepository invoiceDetailRepository;
     PaymentRepository paymentRepository;
     BookingLookupService bookingLookupService;
+    BookingChargeService bookingChargeService;
     ServiceOrderService serviceOrderService;
     FinanceMapper financeMapper;
 
@@ -96,6 +100,11 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     private void populateInvoiceData(Invoice invoice, Booking booking, BigDecimal serviceFeeRate) {
+        if (invoice.getId() != null && invoiceDetailRepository != null) {
+            invoiceDetailRepository.deleteByInvoiceId(invoice.getId());
+            invoiceDetailRepository.flush();
+        }
+
         List<InvoiceDetail> details = new ArrayList<>();
         BigDecimal subTotal = BigDecimal.ZERO;
         BigDecimal totalServiceFee = BigDecimal.ZERO;
@@ -134,9 +143,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                                 lineVat = (dr.getVatAmount() != null && dr.getVatAmount().compareTo(BigDecimal.ZERO) >= 0)
                                         ? dr.getVatAmount()
                                         : lineSubtotal.add(lineServiceFee).multiply(vatPct).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                                lineTotal = (dr.getNetPrice() != null && dr.getNetPrice().compareTo(BigDecimal.ZERO) > 0)
-                                        ? dr.getNetPrice()
-                                        : lineSubtotal.add(lineServiceFee).add(lineVat);
+                                lineTotal = lineSubtotal.add(lineServiceFee).add(lineVat);
                             } else {
                                 // Dữ liệu cũ / fixture đơn giản chỉ truyền netPrice làm đơn giá trước thuế
                                 lineSubtotal = dr.getNetPrice() != null ? dr.getNetPrice() : BigDecimal.ZERO;
@@ -174,8 +181,10 @@ public class InvoiceServiceImpl implements InvoiceService {
                     }
 
                     // 2. Phụ thu phòng & Phí phạt (BookingCharge -> SURCHARGE / PENALTY)
-                    if (br.getCharges() != null) {
-                        for (BookingCharge charge : br.getCharges()) {
+                    List<BookingCharge> roomCharges = (br.getId() != null && bookingChargeService != null)
+                            ? bookingChargeService.findByBookingRoomId(br.getId())
+                            : (br.getCharges() != null ? br.getCharges() : List.of());
+                    for (BookingCharge charge : roomCharges) {
                             InvoiceLineType chargeLineType = (charge.getChargeType() == BookingChargeType.PENALTY)
                                     ? InvoiceLineType.PENALTY
                                     : InvoiceLineType.SURCHARGE;
@@ -207,7 +216,6 @@ public class InvoiceServiceImpl implements InvoiceService {
                     }
                 }
             }
-        }
 
         // Fallback cho các đơn đặt phòng chưa có bảng giá từng ngày (booking_daily_rates rỗng)
         if (!hasRoomRateDetails) {
@@ -305,11 +313,14 @@ public class InvoiceServiceImpl implements InvoiceService {
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
-                // Chống thu tiền 2 lần: Bỏ qua các đơn đã thanh toán tại POS hoặc không ghi nợ phòng
-                if (order.getPaymentMethod() != null && order.getPaymentMethod() != vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM) {
+                // Bỏ qua các đơn dịch vụ đã bị hủy
+                if (order.getStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus.CANCELLED) {
                     continue;
                 }
-                if (order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID) {
+                // Chống thu tiền 2 lần: Bỏ qua các đơn đã thanh toán tại POS (không ghi nợ phòng POST_TO_ROOM)
+                if (order.getPaymentMethod() != null
+                        && order.getPaymentMethod() != vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM
+                        && order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID) {
                     continue;
                 }
 

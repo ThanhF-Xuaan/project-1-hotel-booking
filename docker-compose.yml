@@ -179,14 +179,15 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-hotelbooking123}
       S3_BUCKET_NAME: ${S3_BUCKET_NAME:-hotel-booking-storage}
       S3_PATH_STYLE_ACCESS: ${S3_PATH_STYLE_ACCESS:-true}
-      # =========================================================================
-      # CẤU HÌNH AI DEMO MODULES (U22 Forecast, Group Assignment, Utility)
-      # =========================================================================
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-m1-demo}
-      HOTEL_AI_DEMO_DATA_SOURCE: ${HOTEL_AI_DEMO_DATA_SOURCE:-live}
-      HOTEL_AI_DEMO_FORECAST_ENABLED: ${HOTEL_AI_DEMO_FORECAST_ENABLED:-true}
-      HOTEL_AI_DEMO_GROUP_ENABLED: ${HOTEL_AI_DEMO_GROUP_ENABLED:-true}
-      HOTEL_AI_DEMO_UTILITY_ENABLED: ${HOTEL_AI_DEMO_UTILITY_ENABLED:-true}
+      # Cấu hình Email Notification (Mặc định dùng Mailpit nội bộ container)
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-booking@smartstay.utc.edu.vn}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-SmartStay Hotel Booking}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_SMTP_STARTTLS: ${MAIL_SMTP_STARTTLS:-false}
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -196,6 +197,8 @@ services:
         condition: service_healthy
       liquibase:
         condition: service_completed_successfully # Đợi Liquibase container chạy xong 100%
+      mailpit:
+        condition: service_started
       minio:
         condition: service_healthy
 
@@ -281,6 +284,21 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
+
+  # ==========================================
+  # 9. LOCAL SMTP / MAILBOX (MAILPIT)
+  # ==========================================
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: hotel_mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025" # Cổng SMTP nhận thư
+      - "${MAILPIT_WEB_PORT:-8025}:8025"  # Giao diện Web xem thư
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      MP_MAX_MESSAGES: 500
+      MP_DATA_FILE: ""
 
 # Khai báo các Volume dùng chung
 volumes:

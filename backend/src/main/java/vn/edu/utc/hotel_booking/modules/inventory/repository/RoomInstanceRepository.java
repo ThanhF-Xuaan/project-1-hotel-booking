@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -77,7 +78,10 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
             "    JOIN br.bookingDetail bd " +
             "    JOIN bd.booking b " +
             "    WHERE br.roomInstance.id IS NOT NULL " +
-            "    AND b.status = 'CONFIRMED'" +
+            "    AND br.status NOT IN ('CANCELLED', 'CHECKED_OUT') " +
+            "    AND b.status NOT IN ('CANCELLED', 'NO_SHOW') " +
+            "    AND (CAST(:checkOutDate AS java.time.LocalDate) IS NULL OR bd.checkInDate < :checkOutDate) " +
+            "    AND (CAST(:checkInDate AS java.time.LocalDate) IS NULL OR bd.checkOutDate > :checkInDate)" +
             ") " +
             "ORDER BY " +
             "CASE rt.code " +
@@ -89,7 +93,15 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
             "  WHEN 'FAM' THEN 6 " +
             "  ELSE 99 END, " +
             "r.roomNumber ASC")
-    List<RoomInstance> findVacantRooms(@Param("hotelId") Short hotelId);
+    List<RoomInstance> findVacantRooms(
+            @Param("hotelId") Short hotelId,
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate
+    );
+
+    default List<RoomInstance> findVacantRooms(Short hotelId) {
+        return findVacantRooms(hotelId, null, null);
+    }
 
     List<RoomInstance> findByHotelRoomTypeIdAndCurrentStatusAndIsDeletedFalse(Integer hotelRoomTypeId, String status);
 

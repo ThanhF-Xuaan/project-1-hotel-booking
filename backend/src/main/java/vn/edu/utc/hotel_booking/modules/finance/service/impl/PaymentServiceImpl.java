@@ -4,7 +4,9 @@ import jakarta.persistence.criteria.Predicate;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -30,6 +32,12 @@ import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
+import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEvent;
+import vn.edu.utc.hotel_booking.modules.notification.dto.InvoiceItemEmailDto;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -46,7 +54,7 @@ import java.util.concurrent.ThreadLocalRandom;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Transactional(readOnly = true)
-public class PaymentServiceImpl implements PaymentService {
+public class PaymentServiceImpl implements PaymentService, ApplicationEventPublisherAware {
 
     PaymentRepository paymentRepository;
     TransactionRepository transactionRepository;
@@ -54,6 +62,13 @@ public class PaymentServiceImpl implements PaymentService {
     BookingRepository bookingRepository;
     FinanceMapper financeMapper;
     StringRedisTemplate redisTemplate;
+    @NonFinal
+    ApplicationEventPublisher eventPublisher;
+
+    @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher eventPublisher) {
+        this.eventPublisher = eventPublisher;
+    }
     /** Tất cả bean PaymentGateway (VnPayGateway, MoMoGateway) — Strategy Pattern */
     List<PaymentGateway> paymentGateways;
 
@@ -301,6 +316,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .build();
             transactionRepository.save(transaction);
             updateInvoiceStatusIfSettled(saved.getBooking());
+            publishPaymentReceiptEmail(saved);
         } else {
             // Gateway báo thất bại (hủy/đủ hạn mức...) → FAILED để FE hiển thị thử lại
             payment.setStatus(PaymentStatus.FAILED);
@@ -411,9 +427,110 @@ public class PaymentServiceImpl implements PaymentService {
         if (saved.getBooking() != null) {
             updateInvoiceStatusIfSettled(saved.getBooking());
             releaseLock(saved.getBooking().getId());
+            publishPaymentReceiptEmail(saved);
         }
 
         return financeMapper.toResponse(saved);
+    }
+
+    private void publishPaymentReceiptEmail(Payment payment) {
+        if (eventPublisher == null || payment == null || payment.getBooking() == null) {
+            return;
+        }
+        Booking booking = payment.getBooking();
+        if (booking.getGuest() == null || booking.getGuest().getEmail() == null || booking.getGuest().getEmail().isBlank()) {
+            return;
+        }
+
+        try {
+            BigDecimal grandTotal = getGrandTotal(booking);
+            BigDecimal remainingBalance = getRemainingBalance(booking, grandTotal);
+            if (remainingBalance.compareTo(BigDecimal.ZERO) < 0) {
+                remainingBalance = BigDecimal.ZERO;
+            }
+
+            // Trích xuất số phòng
+            String roomNumber = null;
+            if (booking.getBookingDetails() != null) {
+                for (BookingDetail bd : booking.getBookingDetails()) {
+                    if (bd.getBookingRooms() != null) {
+                        for (BookingRoom br : bd.getBookingRooms()) {
+                            if (br.getRoomInstance() != null && br.getRoomInstance().getRoomNumber() != null) {
+                                roomNumber = br.getRoomInstance().getRoomNumber();
+                                break;
+                            }
+                        }
+                    }
+                    if (roomNumber != null) break;
+                }
+            }
+
+            // Trích xuất hóa đơn GTGT / Folio mới nhất nếu có
+            Invoice invoice = null;
+            try {
+                if (invoiceRepository != null && booking.getId() != null) {
+                    List<Invoice> invoices = invoiceRepository.findByBookingId(booking.getId());
+                    if (invoices != null && !invoices.isEmpty()) {
+                        invoice = invoices.get(invoices.size() - 1);
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("Chưa tìm thấy hóa đơn cho đơn {}: {}", booking.getId(), ex.getMessage());
+            }
+
+            String invoiceNumber = (invoice != null && invoice.getInvoiceNumber() != null)
+                    ? invoice.getInvoiceNumber()
+                    : null;
+            OffsetDateTime invoiceDate = (invoice != null && invoice.getIssuedAt() != null)
+                    ? invoice.getIssuedAt()
+                    : (invoice != null && invoice.getCreatedAt() != null ? invoice.getCreatedAt() : payment.getPaidAt());
+            BigDecimal subtotalAmount = invoice != null ? invoice.getSubTotal() : booking.getSubtotalAmount();
+            BigDecimal serviceFeeRate = invoice != null ? invoice.getServiceFeeRate() : booking.getServiceFeeRate();
+            BigDecimal serviceFeeAmount = invoice != null ? invoice.getServiceFeeAmount() : booking.getServiceFeeAmount();
+            BigDecimal vatAmount = invoice != null ? invoice.getVatAmount() : booking.getTotalVatAmount();
+            BigDecimal invoiceGrandTotal = invoice != null ? invoice.getGrandTotal() : grandTotal;
+
+            List<InvoiceItemEmailDto> invoiceDetails = new ArrayList<>();
+            if (invoice != null && invoice.getDetails() != null && !invoice.getDetails().isEmpty()) {
+                for (InvoiceDetail d : invoice.getDetails()) {
+                    invoiceDetails.add(InvoiceItemEmailDto.builder()
+                            .description(d.getDescription())
+                            .quantity(d.getQuantity() != null ? d.getQuantity() : 1)
+                            .unitPrice(d.getUnitPrice())
+                            .vatRate(d.getVatRate())
+                            .vatAmount(d.getVatAmount())
+                            .subtotal(d.getSubtotal() != null ? d.getSubtotal() : d.getTotalAmount())
+                            .build());
+                }
+            }
+
+            PaymentReceiptEmailEvent event = PaymentReceiptEmailEvent.builder()
+                    .paymentId(payment.getId())
+                    .bookingCode(booking.getBookingNumber())
+                    .recipientEmail(booking.getGuest().getEmail().trim())
+                    .customerName(booking.getGuest().getFullName())
+                    .hotelName(booking.getHotel() != null ? booking.getHotel().getName() : "SmartStay Hotel")
+                    .amount(payment.getTotalAmount())
+                    .paymentMethod(payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : "Thanh toán")
+                    .transactionReference(payment.getTransactionReference())
+                    .paidAt(payment.getPaidAt() != null ? payment.getPaidAt() : OffsetDateTime.now())
+                    .totalBookingAmount(grandTotal)
+                    .remainingBalance(remainingBalance)
+                    .currency("VND")
+                    .invoiceNumber(invoiceNumber)
+                    .roomNumber(roomNumber)
+                    .invoiceDate(invoiceDate)
+                    .subtotalAmount(subtotalAmount)
+                    .serviceFeeRate(serviceFeeRate)
+                    .serviceFeeAmount(serviceFeeAmount)
+                    .vatAmount(vatAmount)
+                    .grandTotal(invoiceGrandTotal)
+                    .invoiceDetails(invoiceDetails)
+                    .build();
+            eventPublisher.publishEvent(event);
+        } catch (Exception ex) {
+            log.error("Failed to publish PaymentReceiptEmailEvent for payment {}: {}", payment.getId(), ex.getMessage());
+        }
     }
 
     @Override

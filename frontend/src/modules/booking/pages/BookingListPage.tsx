@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Search,
   RefreshCw,
@@ -136,7 +137,20 @@ export const BookingListPage: React.FC = () => {
   const [isSubmittingRoomNoShow, setIsSubmittingRoomNoShow] = useState(false);
 
   // Action status message
-  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlSuccessBooking = searchParams.get('successBooking');
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(() =>
+    urlSuccessBooking
+      ? `Thanh toán qua VNPAY thành công! Đã đặt phòng và Check-in In-house thành công cho đơn ${urlSuccessBooking}.`
+      : null
+  );
+
+  useEffect(() => {
+    if (urlSuccessBooking) {
+      searchParams.delete('successBooking');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [urlSuccessBooking, searchParams, setSearchParams]);
 
   // Walk-in Booking Modal
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
@@ -905,9 +919,10 @@ export const BookingListPage: React.FC = () => {
                           </td>
                           <td className="p-4 text-neutral-800">{booking.hotelName}</td>
                           <td className="p-4 whitespace-nowrap">
-                            <div className="font-medium text-neutral-900">{booking.guestPhone}</div>
+                            <div className="font-semibold text-neutral-900">{booking.guestName || 'Khách vãng lai'}</div>
+                            <div className="text-xs text-neutral-500 font-medium">{booking.guestPhone}</div>
                             {booking.companyName && (
-                              <div className="text-xs text-neutral-500">{booking.companyName}</div>
+                              <div className="text-xs text-blue-600 font-medium mt-0.5">{booking.companyName}</div>
                             )}
                           </td>
                           <td className="p-4 text-neutral-700">
@@ -1009,7 +1024,9 @@ export const BookingListPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-xs text-neutral-500">Khách hàng</span>
-                <p className="font-semibold text-neutral-900 text-sm">{selectedBooking.guestPhone}</p>
+                <p className="font-semibold text-neutral-900 text-sm">
+                  {selectedBooking.guestName ? `${selectedBooking.guestName} (${selectedBooking.guestPhone})` : selectedBooking.guestPhone}
+                </p>
               </div>
               <div>
                 <span className="text-xs text-neutral-500">Trạng thái</span>
@@ -1459,7 +1476,9 @@ export const BookingListPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-neutral-500">Khách hàng:</span>
-                <p className="font-semibold text-neutral-900">{noShowBooking.guestPhone || 'N/A'}</p>
+                <p className="font-semibold text-neutral-900">
+                  {noShowBooking.guestName ? `${noShowBooking.guestName} (${noShowBooking.guestPhone})` : (noShowBooking.guestPhone || 'N/A')}
+                </p>
               </div>
               <div>
                 <span className="text-neutral-500">Thời gian lưu trú:</span>

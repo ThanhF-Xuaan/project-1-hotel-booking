@@ -128,10 +128,14 @@ export const bookingService = {
       data
     ),
 
-  getVacantRooms: (hotelId?: number) =>
-    apiClient.get<RoomInstanceDto[]>(
-      `${BASE_URL}/vacant-rooms${hotelId ? `?hotelId=${hotelId}` : ''}`
-    ),
+  getVacantRooms: (hotelId?: number, checkInDate?: string, checkOutDate?: string) => {
+    const params = new URLSearchParams();
+    if (hotelId) params.append('hotelId', hotelId.toString());
+    if (checkInDate) params.append('checkInDate', checkInDate);
+    if (checkOutDate) params.append('checkOutDate', checkOutDate);
+    const qs = params.toString();
+    return apiClient.get<RoomInstanceDto[]>(`${BASE_URL}/vacant-rooms${qs ? `?${qs}` : ''}`);
+  },
 };
 
 export default bookingService;

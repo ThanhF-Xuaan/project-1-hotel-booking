@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biên lai thanh toán & Hóa đơn GTGT - SmartStay</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; line-height: 1.5; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f3f4f6; padding: 30px 0; }
+        .main-card { max-width: 680px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); border: 1px solid #e5e7eb; }
+        .header { background: linear-gradient(135deg, #059669 0%, #047857 100%); padding: 28px 24px; text-align: center; color: #ffffff; }
+        .brand-badge { display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+        .header h1 { margin: 6px 0 4px; font-size: 22px; font-weight: 700; }
+        .header p { margin: 0; font-size: 13px; opacity: 0.9; }
+        .content { padding: 24px 24px; }
+        .invoice-box { border: 1.5px solid #10b981; border-radius: 12px; padding: 20px; background-color: #ffffff; margin-bottom: 20px; }
+        .invoice-header-title { font-size: 18px; font-weight: 800; color: #111827; }
+        .badge-success { display: inline-block; background-color: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-left: 6px; }
+        .badge-paid { display: inline-block; background-color: #d1fae5; color: #047857; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; margin-left: 6px; }
+        .badge-room { display: inline-block; background-color: #f3f4f6; color: #374151; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-left: 6px; }
+        .invoice-meta { font-size: 13px; color: #4b5563; margin-top: 8px; }
+        .invoice-table { width: 100%; border-collapse: collapse; margin-top: 18px; font-size: 13px; }
+        .invoice-table th { background-color: #f9fafb; color: #374151; font-weight: 700; padding: 10px 8px; border-bottom: 2px solid #e5e7eb; }
+        .invoice-table td { padding: 12px 8px; border-bottom: 1px solid #f3f4f6; color: #374151; }
+        .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 16px; }
+        .summary-table td { padding: 6px 4px; }
+        .summary-label { text-align: right; color: #6b7280; }
+        .summary-value { text-align: right; font-weight: 600; color: #111827; width: 150px; }
+        .footer { background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="main-card">
+        <div class="header">
+            <div class="brand-badge">SMARTSTAY FINANCE & BILLING</div>
+            <h1>Biên Lai Xác Nhận Thanh Toán</h1>
+            <p>Hóa đơn GTGT điện tử đã được phát hành và quyết toán thành công</p>
+        </div>
+
+        <div class="content">
+            <p style="margin-top: 0;">Kính gửi quý khách <strong th:text="${customerName}">Quý khách</strong>,</p>
+            <p style="font-size: 14px; color: #4b5563; margin-bottom: 20px;">
+                Hệ thống SmartStay xin gửi tới quý khách chi tiết Hóa đơn Giá trị Gia tăng (GTGT) và Biên lai xác nhận thanh toán cho giao dịch lưu trú:
+            </p>
+
+            <!-- Hộp Hóa Đơn GTGT y hệt giao diện màn hình -->
+            <div class="invoice-box">
+                <div>
+                    <span class="invoice-header-title">
+                        Hóa đơn GTGT: <span th:text="${invoiceNumber != null ? invoiceNumber : bookingCode}">INV1794911462278737</span>
+                    </span>
+                    <span class="badge-success">&#10004; Đã thanh toán thành công</span>
+                    <span class="badge-paid">Đã thanh toán (PAID)</span>
+                    <span th:if="${roomNumber != null}" class="badge-room">Phòng <span th:text="${roomNumber}">204D</span></span>
+                </div>
+                <div class="invoice-meta">
+                    Đơn đặt phòng: <strong style="color: #111827;" th:text="${bookingCode}">BK1794911461763389</strong>
+                    &nbsp;|&nbsp; Khách hàng: <strong style="color: #111827;" th:text="${customerName}">UTT</strong>
+                    &nbsp;|&nbsp; Ngày lập: <span th:text="${invoiceDateFormatted}">17/11/2026</span>
+                </div>
+
+                <!-- Bảng 6 cột chi tiết nếu có invoiceDetails -->
+                <div th:if="${invoiceDetails != null and not #lists.isEmpty(invoiceDetails)}">
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left;">Khoản mục / Dịch vụ</th>
+                                <th style="text-align: center; width: 35px;">SL</th>
+                                <th style="text-align: right;">Đơn giá</th>
+                                <th style="text-align: center; width: 65px;">VAT (%)</th>
+                                <th style="text-align: right;">Tiền thuế</th>
+                                <th style="text-align: right;">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="item : ${invoiceDetails}">
+                                <td style="text-align: left; font-weight: 600; color: #111827;" th:text="${item.description}">Phòng 204D - Suite (2026-11-17)</td>
+                                <td style="text-align: center; color: #4b5563;" th:text="${item.quantity}">1</td>
+                                <td style="text-align: right;" th:text="${item.unitPriceFormatted}">3.825.000 đ</td>
+                                <td style="text-align: center; color: #4b5563;" th:text="${item.vatRateFormatted}">8%</td>
+                                <td style="text-align: right;" th:text="${item.vatAmountFormatted}">321.300 đ</td>
+                                <td style="text-align: right; font-weight: 700; color: #111827;" th:text="${item.subtotalFormatted}">3.825.000 đ</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Bảng thay thế nếu không có chi tiết hóa đơn (Fallback) -->
+                <div th:if="${invoiceDetails == null or #lists.isEmpty(invoiceDetails)}">
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px;">
+                        <tr>
+                            <td style="color: #6b7280; padding: 6px 0;">Mã đơn đặt phòng:</td>
+                            <td style="text-align: right; font-weight: 600; font-family: monospace;" th:text="${bookingCode}">BK-001</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #6b7280; padding: 6px 0;">Phương thức thanh toán:</td>
+                            <td style="text-align: right; font-weight: 600;" th:text="${paymentMethod}">Tiền mặt</td>
+                        </tr>
+                        <tr th:if="${transactionRef}">
+                            <td style="color: #6b7280; padding: 6px 0;">Mã tham chiếu:</td>
+                            <td style="text-align: right; font-family: monospace;" th:text="${transactionRef}">REF123</td>
+                        </tr>
+                        <tr>
+                            <td style="color: #6b7280; padding: 6px 0;">Thời gian ghi nhận:</td>
+                            <td style="text-align: right;" th:text="${paidAtFormatted}">17/11/2026 10:00:00</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Bảng tổng hợp quyết toán (Accounting Summary) -->
+                <div style="border-top: 1px solid #e5e7eb; margin-top: 16px; padding-top: 12px;">
+                    <table class="summary-table">
+                        <tr>
+                            <td style="width: 45%;"></td>
+                            <td class="summary-label">Tạm tính (Trước thuế & phí):</td>
+                            <td class="summary-value" th:text="${subtotalFormatted}">3.875.000 đ</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td class="summary-label">Phí dịch vụ (<span th:text="${serviceFeeRate}">5%</span>):</td>
+                            <td class="summary-value" style="color: #4b5563;" th:text="'+' + ${serviceFeeFormatted}">+193.750 đ</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td class="summary-label">Thuế GTGT (VAT):</td>
+                            <td class="summary-value" style="color: #4b5563;" th:text="'+' + ${vatAmountFormatted}">+325.500 đ</td>
+                        </tr>
+                        <tr style="border-top: 1.5px solid #e5e7eb;">
+                            <td></td>
+                            <td class="summary-label" style="padding-top: 12px; font-weight: 700; color: #111827; font-size: 14px;">
+                                Tổng hóa đơn (Đã thanh toán thành công):
+                            </td>
+                            <td class="summary-value" style="padding-top: 12px; font-weight: 800; color: #047857; font-size: 16px;" th:text="${grandTotalFormatted}">
+                                4.394.250 đ
+                            </td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td class="summary-label">Đã thanh toán:</td>
+                            <td class="summary-value" style="color: #dc2626; font-weight: 700;" th:text="'-' + ${amountFormatted}">-4.394.250 đ</td>
+                        </tr>
+                        <tr>
+                            <td></td>
+                            <td class="summary-label">Còn lại cần thu:</td>
+                            <td class="summary-value" style="color: #059669; font-weight: 700;" th:text="${remainingBalanceFormatted}">0 đ</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Ghi chú pháp lý và hỗ trợ -->
+            <div style="margin-top: 20px; padding: 14px 16px; background-color: #f0fdf4; border-radius: 8px; border-left: 4px solid #10b981; font-size: 13px; color: #065f46; line-height: 1.6;">
+                <strong>Lưu ý:</strong> Biên lai và Hóa đơn điện tử này có giá trị xác nhận quý khách đã hoàn thành 100% nghĩa vụ thanh toán cho kỳ lưu trú tương ứng. Quý khách có thể xuất trình email này hoặc tra cứu mã đơn tại quầy lễ tân để được hỗ trợ tốt nhất.
+            </div>
+        </div>
+
+        <div class="footer">
+            <p style="margin: 0 0 6px; font-weight: 600; color: #4b5563;">Hệ Thống Quản Lý Khách Sạn Thông Minh SmartStay</p>
+            <p style="margin: 0;">Trường Đại Học Giao Thông Vận Tải (UTC) &bull; Hotline hỗ trợ 24/7: 1900 8888 &bull; Email: cskh@smartstay.vn</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>

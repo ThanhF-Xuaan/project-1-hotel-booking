@@ -113,6 +113,17 @@ public class PaymentController {
                 paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
     }
 
+    @GetMapping({"/vnpay/return", "/vnpay-return"})
+    @Operation(summary = "VNPay redirect alias — chuyển tiếp về public return callback")
+    public void vnPayReturnAlias(@RequestParam java.util.Map<String, String> params, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        StringBuilder query = new StringBuilder("/api/v1/public/payments/vnpay/return?");
+        params.forEach((k, v) -> query.append(java.net.URLEncoder.encode(k, java.nio.charset.StandardCharsets.UTF_8))
+                .append("=")
+                .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8))
+                .append("&"));
+        response.sendRedirect(query.toString());
+    }
+
     /** Lấy IP thật của khách (qua proxy/load-balancer nếu có) — VNPay yêu cầu vnp_IpAddr chuẩn IPv4 */
     private String resolveClientIp(HttpServletRequest request) {
         String ip = null;

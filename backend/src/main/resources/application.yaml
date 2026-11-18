@@ -53,6 +53,29 @@ spring:
         max-size: 20
         queue-capacity: 500
         thread-name-prefix: "async-iam-task-"
+
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
+            required: ${MAIL_SMTP_STARTTLS:false}
+          connectiontimeout: 15000
+          timeout: 15000
+          writetimeout: 15000
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
       
   servlet:
     multipart:
@@ -168,5 +191,10 @@ springdoc:
     persistAuthorization: true
     displayRequestDuration: true
     tryItOutEnabled: true
+
+app:
+  mail:
+    from-address: ${MAIL_FROM_ADDRESS:booking@smartstay.utc.edu.vn}
+    from-name: ${MAIL_FROM_NAME:SmartStay Hotel Booking}
 
 

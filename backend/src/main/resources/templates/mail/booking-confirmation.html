@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác nhận đặt phòng - SmartStay</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #f5f7fa; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; line-height: 1.5; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f5f7fa; padding: 30px 0; }
+        .main-card { max-width: 620px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06); border: 1px solid #e5e7eb; }
+        .header { background: linear-gradient(135deg, #EE0000 0%, #b80000 100%); padding: 32px 24px; text-align: center; color: #ffffff; }
+        .brand-badge { display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+        .header h1 { margin: 8px 0 4px; font-size: 22px; font-weight: 700; }
+        .header p { margin: 0; font-size: 13px; opacity: 0.9; }
+        .content { padding: 28px 24px; }
+        .booking-code-box { background-color: #fef2f2; border: 1px dashed #ef4444; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 24px; }
+        .booking-code-label { font-size: 12px; text-transform: uppercase; color: #991b1b; font-weight: 600; letter-spacing: 0.5px; }
+        .booking-code { font-family: "Courier New", Courier, monospace; font-size: 24px; font-weight: 800; color: #b91c1c; margin-top: 4px; letter-spacing: 2px; }
+        .section-title { font-size: 14px; font-weight: 700; text-transform: uppercase; color: #4b5563; letter-spacing: 0.5px; border-bottom: 1px solid #f3f4f6; padding-bottom: 6px; margin: 24px 0 12px; }
+        .info-grid { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .info-grid td { padding: 8px 0; font-size: 14px; vertical-align: top; }
+        .info-label { color: #6b7280; width: 38%; }
+        .info-value { color: #111827; font-weight: 600; text-align: right; }
+        .price-summary { background-color: #fafafa; border-radius: 12px; padding: 16px; border: 1px solid #f3f4f6; margin-top: 16px; }
+        .price-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; color: #4b5563; }
+        .total-row { border-top: 2px solid #e5e7eb; margin-top: 8px; padding-top: 10px; font-size: 16px; font-weight: 800; color: #EE0000; }
+        .action-container { text-align: center; margin-top: 28px; }
+        .btn-action { display: inline-block; background-color: #EE0000; color: #ffffff !important; text-decoration: none; padding: 12px 32px; border-radius: 10px; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(238, 0, 0, 0.25); }
+        .footer { background-color: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #f3f4f6; }
+        .footer a { color: #EE0000; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <div class="main-card">
+        <div class="header">
+            <div class="brand-badge">SMARTSTAY SYSTEM</div>
+            <h1>Xác Nhận Đặt Phòng Thành Công</h1>
+            <p>Cảm ơn quý khách đã tin tưởng lựa chọn dịch vụ của chúng tôi!</p>
+        </div>
+
+        <div class="content">
+            <p>Kính gửi quý khách <strong th:text="${customerName}">Nguyễn Văn An</strong>,</p>
+            <p style="font-size: 14px; color: #4b5563;">Đơn đặt phòng của quý khách đã được tiếp nhận và xác nhận giữ chỗ thành công trên hệ thống. Dưới đây là thông tin chi tiết đơn đặt phòng:</p>
+
+            <div class="booking-code-box">
+                <div class="booking-code-label">Mã Đặt Phòng (Booking Code)</div>
+                <div class="booking-code" th:text="${bookingCode}">BK-20261115-001</div>
+            </div>
+
+            <div class="section-title">Thông Tin Khách Sạn & Lưu Trú</div>
+            <table class="info-grid">
+                <tr>
+                    <td class="info-label">Khách sạn:</td>
+                    <td class="info-value" th:text="${hotelName}">SmartStay Cầu Giấy Grand</td>
+                </tr>
+                <tr th:if="${hotelAddress}">
+                    <td class="info-label">Địa chỉ:</td>
+                    <td class="info-value" style="font-size: 12px; font-weight: normal; color: #4b5563;" th:text="${hotelAddress}">Số 3 Cầu Giấy, Láng Thượng, Đống Đa, Hà Nội</td>
+                </tr>
+                <tr th:if="${hotelPhone}">
+                    <td class="info-label">Hotline:</td>
+                    <td class="info-value" th:text="${hotelPhone}">1900 8888</td>
+                </tr>
+                <tr>
+                    <td class="info-label">Hạng phòng:</td>
+                    <td class="info-value" th:text="${roomTypeName}">Deluxe King City View</td>
+                </tr>
+                <tr>
+                    <td class="info-label">Số lượng phòng:</td>
+                    <td class="info-value"><span th:text="${totalRooms}">1</span> phòng (<span th:text="${totalGuests}">2</span> khách)</td>
+                </tr>
+                <tr>
+                    <td class="info-label">Ngày nhận phòng:</td>
+                    <td class="info-value" style="color: #047857;" th:text="${checkInDate}">15/11/2026 (Từ 14:00)</td>
+                </tr>
+                <tr>
+                    <td class="info-label">Ngày trả phòng:</td>
+                    <td class="info-value" style="color: #b91c1c;" th:text="${checkOutDate}">18/11/2026 (Trước 12:00)</td>
+                </tr>
+            </table>
+
+            <div th:if="${services != null and not #lists.isEmpty(services)}">
+                <div class="section-title">Dịch Vụ & Tiện Ích Sử Dụng</div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+                            <th style="text-align: left; padding: 6px 0;">Dịch vụ</th>
+                            <th style="text-align: center; padding: 6px 0; width: 40px;">SL</th>
+                            <th style="text-align: right; padding: 6px 0;">Đơn giá</th>
+                            <th style="text-align: right; padding: 6px 0;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="svc : ${services}" style="border-bottom: 1px dashed #f3f4f6;">
+                            <td style="padding: 8px 0; font-size: 13px; font-weight: 600; color: #111827;" th:text="${svc.name}">Ăn sáng Buffet</td>
+                            <td style="text-align: center; padding: 8px 0; font-size: 13px; color: #4b5563;" th:text="${svc.quantity}">1</td>
+                            <td style="text-align: right; padding: 8px 0; font-size: 13px; color: #4b5563;" th:text="${svc.unitPriceFormatted}">150,000 VND</td>
+                            <td style="text-align: right; padding: 8px 0; font-size: 13px; font-weight: 700; color: #047857;" th:text="${svc.totalPriceFormatted}">150,000 VND</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div th:if="${surcharges != null and not #lists.isEmpty(surcharges)}">
+                <div class="section-title">Phụ Thu Lưu Trú</div>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                    <thead>
+                        <tr style="border-bottom: 1px solid #e5e7eb; font-size: 12px; color: #6b7280;">
+                            <th style="text-align: left; padding: 6px 0;">Khoản mục</th>
+                            <th style="text-align: right; padding: 6px 0;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="sc : ${surcharges}" style="border-bottom: 1px dashed #f3f4f6;">
+                            <td style="padding: 8px 0; font-size: 13px; font-weight: 600; color: #111827;" th:text="${sc.name}">Phụ thu nhận phòng sớm</td>
+                            <td style="text-align: right; padding: 8px 0; font-size: 13px; font-weight: 700; color: #b91c1c;" th:text="${sc.totalPriceFormatted}">270,000 VND</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section-title">Chi Tiết Thanh Toán</div>
+            <div class="price-summary">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Tiền phòng:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${subtotalFormatted}">3,000,000 VND</td>
+                    </tr>
+                    <tr th:if="${serviceFeeFormatted}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Phí dịch vụ:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${serviceFeeFormatted}">150,000 VND</td>
+                    </tr>
+                    <tr th:if="${vatFormatted}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Thuế VAT:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${vatFormatted}">252,000 VND</td>
+                    </tr>
+                    <tr th:if="${totalSurchargesFormatted}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Phụ thu lưu trú:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${totalSurchargesFormatted}">270,000 VND</td>
+                    </tr>
+                    <tr th:if="${totalServicesFormatted}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Dịch vụ & tiện ích:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${totalServicesFormatted}">248,600 VND</td>
+                    </tr>
+                    <tr style="border-top: 1px solid #e5e7eb;">
+                        <td style="padding: 10px 0 4px; font-weight: 700; color: #111827; font-size: 15px;">Tổng cộng:</td>
+                        <td style="text-align: right; padding: 10px 0 4px; font-weight: 800; color: #EE0000; font-size: 17px;" th:text="${totalFormatted}">3,402,000 VND</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="action-container" th:if="${portalUrl}">
+                <a th:href="${portalUrl}" class="btn-action">Xem Đơn & Tra Cứu Trực Tuyến</a>
+            </div>
+
+            <div style="margin-top: 24px; padding: 12px; background-color: #fffbeb; border-radius: 8px; border-left: 4px solid #f59e0b; font-size: 12px; color: #92400e;">
+                <strong>Lưu ý nhận phòng:</strong> Quý khách vui lòng xuất trình CCCD/Hộ chiếu bản gốc tại quầy lễ tân khi làm thủ tục nhận phòng.
+            </div>
+        </div>
+
+        <div class="footer">
+            <p style="margin: 0 0 6px;">Hệ Thống Quản Lý Khách Sạn Thông Minh & Cố Vấn AI SmartStay</p>
+            <p style="margin: 0;">Trường Đại Học Giao Thông Vận Tải (UTC) &bull; Hotline hỗ trợ 24/7: 1900 8888</p>
+        </div>
+    </div>
+</div>
+</body>
+</html>
