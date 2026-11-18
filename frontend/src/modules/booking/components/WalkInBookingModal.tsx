@@ -238,12 +238,10 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
     Promise.all([
       hotelRoomTypeService.filter({ hotelId: selectedHotelId, pageSize: 50, status: 'ACTIVE' }),
-      bookingService.getVacantRooms(selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate),
       publicMenuService.getAddonServicesByHotel(selectedHotelId).catch(() => null),
     ])
-      .then(([roomTypesRes, roomsRes, servicesRes]) => {
+      .then(([roomTypesRes, servicesRes]) => {
         if (roomTypesRes.result?.content) setRoomTypes(roomTypesRes.result.content);
-        if (roomsRes.result) setReadyRooms(roomsRes.result);
         if (servicesRes?.result?.content && servicesRes.result.content.length > 0) {
           const items: AddonServiceItem[] = servicesRes.result.content.map((m) => ({
             id: m.id,
@@ -257,7 +255,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           setSelectedServices(DEFAULT_SERVICES);
         }
       })
-      .catch((err) => console.error('Lỗi tải dữ liệu phòng & dịch vụ:', err));
+      .catch((err) => console.error('Lỗi tải dữ liệu loại phòng & dịch vụ:', err));
   }, [selectedHotelId]);
 
   useEffect(() => {
