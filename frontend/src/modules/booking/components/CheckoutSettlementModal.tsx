@@ -76,22 +76,20 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
     };
   }, []);
 
-  // Reset state khi đóng modal
-  useEffect(() => {
-    if (!isOpen) {
-      setIsWaitingVnPay(false);
-      setVnpayPaymentId(null);
-      setVnpayPaymentUrl(null);
-      if (vnpayPollRef.current) {
-        clearInterval(vnpayPollRef.current);
-        vnpayPollRef.current = null;
-      }
-      if (vnpayChannelRef.current) {
-        vnpayChannelRef.current.close();
-        vnpayChannelRef.current = null;
-      }
+  const handleModalClose = useCallback(() => {
+    setIsWaitingVnPay(false);
+    setVnpayPaymentId(null);
+    setVnpayPaymentUrl(null);
+    if (vnpayPollRef.current) {
+      clearInterval(vnpayPollRef.current);
+      vnpayPollRef.current = null;
     }
-  }, [isOpen]);
+    if (vnpayChannelRef.current) {
+      vnpayChannelRef.current.close();
+      vnpayChannelRef.current = null;
+    }
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -164,7 +162,9 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
     try {
       localStorage.removeItem('vnpay_active_session');
       localStorage.removeItem('vnpay_payment_sync_event');
-    } catch {}
+    } catch {
+      void 0;
+    }
 
     setIsWaitingVnPay(false);
     setPaymentSuccessMsg('Thanh toán qua cổng VNPay Sandbox thành công! Số dư nợ đã được tất toán.');
@@ -272,7 +272,9 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                 returnUrl: window.location.href,
               })
             );
-          } catch {}
+          } catch {
+            void 0;
+          }
 
           window.open(pUrl, '_blank');
           startVnPaySync(pId);
@@ -346,7 +348,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
     try {
       await bookingService.checkOut(bookingRoomId);
       onCheckOutSuccess(settlement.bookingNumber);
-      onClose();
+      handleModalClose();
     } catch (err: unknown) {
       console.error('Lỗi khi xác nhận check-out:', err);
       const msg =
@@ -378,7 +380,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleModalClose}
       title="Quyết toán & Đóng sổ Check-out"
       maxWidth="2xl"
     >
@@ -786,7 +788,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onClose}
+                onClick={handleModalClose}
                 disabled={isProcessingCheckout}
               >
                 Đóng / Thoát

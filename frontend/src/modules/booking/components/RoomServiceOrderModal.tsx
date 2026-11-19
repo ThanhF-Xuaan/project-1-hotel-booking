@@ -90,22 +90,21 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setIsWaitingVnPay(false);
-      setVnpayPaymentId(null);
-      setVnpayPaymentUrl(null);
-      setVnpayOrderNumber(null);
-      if (vnpayPollRef.current) {
-        clearInterval(vnpayPollRef.current);
-        vnpayPollRef.current = null;
-      }
-      if (vnpayChannelRef.current) {
-        vnpayChannelRef.current.close();
-        vnpayChannelRef.current = null;
-      }
+  const handleModalClose = useCallback(() => {
+    setIsWaitingVnPay(false);
+    setVnpayPaymentId(null);
+    setVnpayPaymentUrl(null);
+    setVnpayOrderNumber(null);
+    if (vnpayPollRef.current) {
+      clearInterval(vnpayPollRef.current);
+      vnpayPollRef.current = null;
     }
-  }, [isOpen]);
+    if (vnpayChannelRef.current) {
+      vnpayChannelRef.current.close();
+      vnpayChannelRef.current = null;
+    }
+    onClose();
+  }, [onClose]);
 
   const fetchMenuItems = useCallback(async () => {
     if (!isOpen) return;
@@ -257,11 +256,13 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
       try {
         localStorage.removeItem('vnpay_active_session');
         localStorage.removeItem('vnpay_payment_sync_event');
-      } catch (e) {}
+      } catch {
+        void 0;
+      }
 
       setIsWaitingVnPay(false);
       setCart([]);
-      onClose();
+      handleModalClose();
 
       const successMsg = `Thanh toán VNPay thành công cho đơn phòng ${
         roomNumber || roomInstanceId
@@ -270,7 +271,7 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
         onOrderSuccess(successMsg);
       }
     },
-    [grandTotal, onClose, onOrderSuccess, roomInstanceId, roomNumber, vnpayOrderNumber]
+    [grandTotal, handleModalClose, onOrderSuccess, roomInstanceId, roomNumber, vnpayOrderNumber]
   );
 
   const startVnPaySync = (paymentId: number, orderNum?: string) => {
@@ -329,8 +330,9 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
               'Giao dịch VNPay Sandbox không thành công hoặc đã bị hủy.'
           );
         }
-      } catch (err) {
+      } catch {
         // Tiếp tục poll ở chu kỳ sau
+        void 0;
       }
     }, 2000);
   };
@@ -353,7 +355,9 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
     }
     try {
       localStorage.removeItem('vnpay_active_session');
-    } catch {}
+    } catch {
+      void 0;
+    }
     setIsWaitingVnPay(false);
     setErrorMessage('Đã hủy phiên thanh toán VNPay Sandbox. Bạn có thể chọn phương thức khác.');
   };
@@ -484,7 +488,7 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
       }
 
       setTimeout(() => {
-        onClose();
+        handleModalClose();
       }, 1500);
     } catch (err: unknown) {
       const msg =
@@ -499,7 +503,7 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
   return (
     <Modal
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={handleModalClose}
         title={`Gọi Món & Dịch Vụ: Phòng ${roomNumber || roomInstanceId} (Đơn #${bookingNumber || bookingId})`}
         maxWidth="5xl"
       >
@@ -1036,7 +1040,7 @@ export const RoomServiceOrderModal: React.FC<RoomServiceOrderModalProps> = ({
 
                 {/* Action buttons */}
                 <div className="flex gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
+                  <Button variant="outline" size="sm" onClick={handleModalClose} disabled={isSubmitting}>
                     Đóng
                   </Button>
                   <Button

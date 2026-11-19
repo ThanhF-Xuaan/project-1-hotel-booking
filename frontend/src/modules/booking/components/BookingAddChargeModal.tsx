@@ -52,7 +52,6 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
   onClose,
   bookingId,
   bookingNumber,
-  hotelId: _hotelId,
   room,
   detail,
   guestName,
@@ -61,18 +60,33 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
   onChargeSuccess,
 }) => {
   // Form states
-  const [chargeType, setChargeType] = useState<BookingChargeType>('PENALTY');
-  const [itemName, setItemName] = useState('');
+  const initialType: BookingChargeType =
+    initialChargeType ||
+    initialProposal?.chargeType ||
+    (room?.status === 'CHECKED_IN' ? 'LATE_CHECKOUT' : 'EARLY_CHECKIN');
+
+  const [chargeType, setChargeType] = useState<BookingChargeType>(initialType);
+  const [itemName, setItemName] = useState(
+    () => initialProposal?.suggestedItemName || initialProposal?.policyRule || ''
+  );
   const [quantity, setQuantity] = useState(1);
-  const [unitPrice, setUnitPrice] = useState(0);
-  const [serviceFeeRate, setServiceFeeRate] = useState(5);
-  const [vatRate, setVatRate] = useState(8);
+  const [unitPrice, setUnitPrice] = useState(() => initialProposal?.suggestedAmount || 0);
+  const [serviceFeeRate, setServiceFeeRate] = useState(
+    () => Number(initialProposal?.defaultServiceFeeRate) || 5
+  );
+  const [vatRate, setVatRate] = useState(
+    () => Number(initialProposal?.defaultVatRate) || 8
+  );
   const [note, setNote] = useState('');
 
   // Surcharge policy previews from backend
   const [isLoadingPreviews, setIsLoadingPreviews] = useState(false);
-  const [earlyProposal, setEarlyProposal] = useState<SurchargeProposalResponse | null>(null);
-  const [lateProposal, setLateProposal] = useState<SurchargeProposalResponse | null>(null);
+  const [earlyProposal, setEarlyProposal] = useState<SurchargeProposalResponse | null>(() =>
+    initialProposal?.chargeType === 'EARLY_CHECKIN' ? initialProposal : null
+  );
+  const [lateProposal, setLateProposal] = useState<SurchargeProposalResponse | null>(() =>
+    initialProposal?.chargeType === 'LATE_CHECKOUT' ? initialProposal : null
+  );
   const [configuredRules, setConfiguredRules] = useState<SurchargeRuleDto[]>([]);
 
   // Submission state
@@ -86,9 +100,6 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
   const evaluateSurchargePolicies = useCallback(async () => {
     if (!room || !isOpen) return;
 
-    setIsLoadingPreviews(true);
-    setErrorMessage('');
-
     try {
       // 1.1 Tải song song đề xuất Nhận phòng sớm và Trả phòng muộn từ previewSurcharge API
       const [earlyRes, lateRes] = await Promise.allSettled([
@@ -101,6 +112,19 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
 
       setEarlyProposal(earlyData);
       setLateProposal(lateData);
+
+      // Điền giá trị gợi ý nếu người dùng chưa nhập hoặc đang khớp loại phụ thu
+      if (chargeType === 'EARLY_CHECKIN' && earlyData) {
+        setItemName(earlyData.suggestedItemName || earlyData.policyRule || 'Phụ thu nhận phòng sớm');
+        setUnitPrice(earlyData.suggestedAmount || 0);
+        setServiceFeeRate(Number(earlyData.defaultServiceFeeRate) || 5);
+        setVatRate(Number(earlyData.defaultVatRate) || 8);
+      } else if (chargeType === 'LATE_CHECKOUT' && lateData) {
+        setItemName(lateData.suggestedItemName || lateData.policyRule || 'Phụ thu trả phòng muộn');
+        setUnitPrice(lateData.suggestedAmount || 0);
+        setServiceFeeRate(Number(lateData.defaultServiceFeeRate) || 5);
+        setVatRate(Number(lateData.defaultVatRate) || 8);
+      }
 
       // 1.2 Tải các cấu hình quy tắc phụ thu hạng phòng từ pricing module
       if (detail?.hotelRoomTypeId) {
@@ -122,17 +146,16 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
     } finally {
       setIsLoadingPreviews(false);
     }
-  }, [room, isOpen, detail?.hotelRoomTypeId]);
+  }, [room, isOpen, detail, chargeType]);
 
   useEffect(() => {
-    if (isOpen && room) {
-      if (initialProposal) {
-        if (initialProposal.chargeType === 'EARLY_CHECKIN') setEarlyProposal(initialProposal);
-        if (initialProposal.chargeType === 'LATE_CHECKOUT') setLateProposal(initialProposal);
+    const timer = setTimeout(() => {
+      if (isOpen && room) {
+        void evaluateSurchargePolicies();
       }
-      evaluateSurchargePolicies();
-    }
-  }, [isOpen, room, initialProposal, evaluateSurchargePolicies]);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [isOpen, room, evaluateSurchargePolicies]);
 
   // 2. Tính toán tính hợp lệ (Eligibility) của từng loại phụ thu
   const isRoomCheckedIn = room?.status === 'CHECKED_IN';
@@ -262,30 +285,10 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
     extraBedRule,
   ]);
 
-  // 4. Khởi tạo và auto-select option hợp lệ khi mở modal
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (initialChargeType) {
-      setChargeType(initialChargeType);
-      return;
-    }
-
-    // Nếu không có initial, tự động chọn option đầu tiên khả dụng theo logic thực tế
-    if (isLateCheckOutEligible) {
-      setChargeType('LATE_CHECKOUT');
-    } else if (isEarlyCheckInEligible) {
-      setChargeType('EARLY_CHECKIN');
-    } else {
-      setChargeType('PENALTY');
-    }
-  }, [isOpen, initialChargeType, isEarlyCheckInEligible, isLateCheckOutEligible]);
-
-  // 5. Tự động điền (Auto-fill) biểu phí khi chuyển loại phụ thu
-  useEffect(() => {
-    if (!isOpen) return;
-
-    if (chargeType === 'EARLY_CHECKIN' && earlyProposal) {
+  // 4. Xử lý chuyển loại phụ thu và tự động điền biểu phí
+  const handleSelectChargeType = (newType: BookingChargeType) => {
+    setChargeType(newType);
+    if (newType === 'EARLY_CHECKIN' && earlyProposal) {
       setItemName(
         earlyProposal.suggestedItemName ||
           earlyProposal.policyRule ||
@@ -295,7 +298,7 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
       setServiceFeeRate(Number(earlyProposal.defaultServiceFeeRate) || 5);
       setVatRate(Number(earlyProposal.defaultVatRate) || 8);
       setQuantity(1);
-    } else if (chargeType === 'LATE_CHECKOUT' && lateProposal) {
+    } else if (newType === 'LATE_CHECKOUT' && lateProposal) {
       setItemName(
         lateProposal.suggestedItemName ||
           lateProposal.policyRule ||
@@ -305,34 +308,34 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
       setServiceFeeRate(Number(lateProposal.defaultServiceFeeRate) || 5);
       setVatRate(Number(lateProposal.defaultVatRate) || 8);
       setQuantity(1);
-    } else if (chargeType === 'EXTRA_PERSON') {
+    } else if (newType === 'EXTRA_PERSON') {
       setItemName('Phụ thu thêm người lưu trú');
       const val = extraPersonRule?.adjustmentValue || 200000;
       setUnitPrice(val);
       setServiceFeeRate(5);
       setVatRate(8);
       setQuantity(1);
-    } else if (chargeType === 'EXTRA_BED') {
+    } else if (newType === 'EXTRA_BED') {
       setItemName('Phụ thu giường phụ (Extra Bed)');
       const val = extraBedRule?.adjustmentValue || 300000;
       setUnitPrice(val);
       setServiceFeeRate(5);
       setVatRate(8);
       setQuantity(1);
-    } else if (chargeType === 'PENALTY') {
+    } else if (newType === 'PENALTY') {
       setItemName('Bồi thường hư hỏng trang thiết bị');
       setUnitPrice(100000);
       setServiceFeeRate(0); // Bồi thường thường không tính phí phục vụ
       setVatRate(8);
       setQuantity(1);
-    } else if (chargeType === 'OTHER') {
+    } else if (newType === 'OTHER') {
       setItemName('Phụ phí phát sinh');
       setUnitPrice(100000);
       setServiceFeeRate(5);
       setVatRate(8);
       setQuantity(1);
     }
-  }, [chargeType, earlyProposal, lateProposal, extraPersonRule, extraBedRule, isOpen]);
+  };
 
   // 6. Tính toán tài chính trực tiếp (Live Financial Summary)
   const subTotal = useMemo(() => {
@@ -491,7 +494,7 @@ export const BookingAddChargeModal: React.FC<BookingAddChargeModalProps> = ({
 
           <Select<BookingChargeType>
             value={chargeType}
-            onChange={(val) => setChargeType(val)}
+            onChange={(val) => handleSelectChargeType(val)}
             options={selectOptions}
             size="lg"
           />
