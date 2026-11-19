@@ -150,4 +150,51 @@ class RoomSlotServiceImplTest {
         roomSlotService.updateTodaySlotStatus(101, null);
         verifyNoInteractions(roomSlotRepository);
     }
+
+    @Test
+    @DisplayName("updateTodaySlotStatus - Khi chuyển sang READY, xóa bookingRoomId")
+    void updateTodaySlotStatus_WhenReady_ClearsBookingRoomId() {
+        LocalDate today = LocalDate.now();
+        RoomSlot slot = RoomSlot.builder()
+                .id(1L)
+                .roomInstance(sampleRoom)
+                .slotDate(today)
+                .status("DIRTY")
+                .bookingRoomId(20L)
+                .build();
+
+        when(roomSlotRepository.findByRoomInstanceIdAndSlotDate(101, today))
+                .thenReturn(Optional.of(slot));
+
+        roomSlotService.updateTodaySlotStatus(101, "READY");
+
+        assertThat(slot.getStatus()).isEqualTo("READY");
+        assertThat(slot.getBookingRoomId()).isNull();
+        verify(roomSlotRepository, times(1)).save(slot);
+    }
+
+    @Test
+    @DisplayName("swapSlots - Giải phóng bookingRoomId trên slot phòng cũ vào ngày effectiveDate")
+    void swapSlots_ClearsBookingRoomIdOnOldRoomSlot() {
+        LocalDate effectiveDate = LocalDate.of(2026, 11, 17);
+        LocalDate checkOutDate = LocalDate.of(2026, 11, 19);
+        RoomInstance newRoom = RoomInstance.builder().id(201).roomNumber("201B").build();
+
+        RoomSlot oldSlot = RoomSlot.builder()
+                .id(4L)
+                .roomInstance(sampleRoom)
+                .slotDate(effectiveDate)
+                .status("OCCUPIED")
+                .bookingRoomId(20L)
+                .build();
+
+        when(roomSlotRepository.findByRoomInstanceIdAndSlotDate(101, effectiveDate))
+                .thenReturn(Optional.of(oldSlot));
+
+        roomSlotService.swapSlots(101, newRoom, effectiveDate, checkOutDate, 20L, true);
+
+        assertThat(oldSlot.getStatus()).isEqualTo("DIRTY");
+        assertThat(oldSlot.getBookingRoomId()).isNull();
+        verify(roomSlotRepository).save(oldSlot);
+    }
 }

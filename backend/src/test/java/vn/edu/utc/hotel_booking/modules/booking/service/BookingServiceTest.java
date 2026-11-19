@@ -69,7 +69,11 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 import vn.edu.utc.hotel_booking.modules.operation.entity.enums.Gender;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
+import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
 import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder;
 import vn.edu.utc.hotel_booking.modules.booking.dto.response.CheckoutSettlementResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -101,6 +105,7 @@ class BookingServiceTest {
     @Mock ServiceOrderService serviceOrderService;
     @Mock vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService stayGuestService;
     @Mock vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService invoiceService;
+    @Mock vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService folioLedgerService;
     @Mock vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository paymentRepository;
     @Mock vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper financeMapper;
     @Mock vn.edu.utc.hotel_booking.modules.pricing.repository.SurchargeRuleRepository surchargeRuleRepository;
@@ -2207,6 +2212,178 @@ class BookingServiceTest {
         assertThat(settlement.isCanCheckOut()).isTrue();
         // Khoản cọc thừa dôi dư chờ hoàn = 1,000,000 đ
         assertThat(settlement.getNetOverpaymentAmount()).isEqualByComparingTo("1000000.00");
+    }
+
+    @Test
+    @DisplayName("getCheckoutSettlement: Đơn có phụ thu nhận phòng sớm và 2 đơn gọi rượu VNPay -> Chi phí khớp đúng Sổ cái Folio, xóa hoàn toàn dôi dư cọc ảo")
+    void checkoutSettlement_WithServiceOrdersAndVnPay_MatchesFolioLedger() {
+        Long bookingId = 18L;
+        LocalDate checkIn = LocalDate.of(2026, 11, 18);
+
+        RoomInstance roomInstance = RoomInstance.builder().roomNumber("101A").build();
+        roomInstance.setId(101);
+
+        BookingRoom room = BookingRoom.builder()
+                .id(888L)
+                .status(BookingRoomStatus.CHECKED_IN)
+                .roomInstance(roomInstance)
+                .build();
+
+        // 1. Tiền phòng 1 đêm: 600,000 + DV 5% (30,000) + VAT 8% (50,400) = 680,400 đ
+        BookingDailyRate dr = BookingDailyRate.builder()
+                .id(1L)
+                .stayDate(checkIn)
+                .basePrice(new BigDecimal("600000.00"))
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .serviceFeeAmount(new BigDecimal("30000.00"))
+                .vatPercent(new BigDecimal("8.00"))
+                .vatAmount(new BigDecimal("50400.00"))
+                .netPrice(new BigDecimal("600000.00"))
+                .build();
+        room.setDailyRates(List.of(dr));
+
+        // 2. Phụ thu nhận phòng sớm: 180,000 + DV 5% (9,000) + VAT 8% (15,120) = 204,120 đ (Chưa thanh toán!)
+        BookingCharge earlyCheckInCharge = BookingCharge.builder()
+                .id(6L)
+                .chargeType(BookingChargeType.EARLY_CHECKIN)
+                .itemName("Phụ thu nhận phòng sớm (30% giá phòng)")
+                .quantity(1)
+                .unitPrice(new BigDecimal("180000.00"))
+                .subtotal(new BigDecimal("180000.00"))
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .serviceFeeAmount(new BigDecimal("9000.00"))
+                .vatRate(new BigDecimal("8.00"))
+                .vatAmount(new BigDecimal("15120.00"))
+                .totalAmount(new BigDecimal("204120.00"))
+                .build();
+        room.setCharges(new ArrayList<>(List.of(earlyCheckInCharge)));
+
+        BookingDetail detail = BookingDetail.builder()
+                .id(777L)
+                .roomTypeName("Standard Room")
+                .hotelRoomType(testHotelRoomType)
+                .bookingRooms(List.of(room))
+                .build();
+        room.setBookingDetail(detail);
+
+        Booking booking = Booking.builder()
+                .id(bookingId)
+                .bookingNumber("BK1794972398109239")
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .bookingDetails(List.of(detail))
+                .build();
+        detail.setBooking(booking);
+
+        // 3. Hai đơn gọi rượu vang đỏ, mỗi đơn 404,250 đ qua VNPay
+        ServiceOrder soEntity1 = ServiceOrder.builder().id(501L).orderNumber("SO-15741610").build();
+        ServiceOrder soEntity2 = ServiceOrder.builder().id(502L).orderNumber("SO-15741041").build();
+
+        ServiceOrderDetailResponse item1 = ServiceOrderDetailResponse.builder()
+                .id(1001L)
+                .itemType("PRODUCT")
+                .itemName("Rượu Vang Đỏ Đà Lạt")
+                .quantity(1)
+                .unitPrice(new BigDecimal("350000.00"))
+                .subtotal(new BigDecimal("350000.00"))
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .serviceFeeAmount(new BigDecimal("17500.00"))
+                .vatRate(new BigDecimal("10.00"))
+                .vatAmount(new BigDecimal("36750.00"))
+                .totalAmount(new BigDecimal("404250.00"))
+                .build();
+
+        ServiceOrderResponse so1 = ServiceOrderResponse.builder()
+                .id(501L)
+                .orderNumber("SO-15741610")
+                .paymentMethod(ServiceOrderPaymentMethod.VNPAY)
+                .paymentStatus(ServiceOrderPaymentStatus.PAID)
+                .totalAmount(new BigDecimal("404250.00"))
+                .details(List.of(item1))
+                .build();
+
+        ServiceOrderDetailResponse item2 = ServiceOrderDetailResponse.builder()
+                .id(1002L)
+                .itemType("PRODUCT")
+                .itemName("Rượu Vang Đỏ Đà Lạt")
+                .quantity(1)
+                .unitPrice(new BigDecimal("350000.00"))
+                .subtotal(new BigDecimal("350000.00"))
+                .serviceFeeRate(new BigDecimal("5.00"))
+                .serviceFeeAmount(new BigDecimal("17500.00"))
+                .vatRate(new BigDecimal("10.00"))
+                .vatAmount(new BigDecimal("36750.00"))
+                .totalAmount(new BigDecimal("404250.00"))
+                .build();
+
+        ServiceOrderResponse so2 = ServiceOrderResponse.builder()
+                .id(502L)
+                .orderNumber("SO-15741041")
+                .paymentMethod(ServiceOrderPaymentMethod.VNPAY)
+                .paymentStatus(ServiceOrderPaymentStatus.PAID)
+                .totalAmount(new BigDecimal("404250.00"))
+                .details(List.of(item2))
+                .build();
+
+        // 4. Các thanh toán thực tế đã ghi nhận trong payments:
+        // Cọc tiền phòng ban đầu: 680,400 đ
+        Payment deposit = Payment.builder()
+                .id(10L)
+                .booking(booking)
+                .status(PaymentStatus.SUCCESS)
+                .paymentPurpose(PaymentPurpose.DEPOSIT)
+                .paymentMethod(PaymentMethod.VNPAY)
+                .totalAmount(new BigDecimal("680400.00"))
+                .build();
+
+        // Thanh toán rượu 1: 404,250 đ
+        Payment winePayment1 = Payment.builder()
+                .id(11L)
+                .booking(booking)
+                .serviceOrder(soEntity1)
+                .status(PaymentStatus.SUCCESS)
+                .paymentPurpose(PaymentPurpose.FULL_PAYMENT)
+                .paymentMethod(PaymentMethod.VNPAY)
+                .totalAmount(new BigDecimal("404250.00"))
+                .build();
+
+        // Thanh toán rượu 2: 404,250 đ
+        Payment winePayment2 = Payment.builder()
+                .id(12L)
+                .booking(booking)
+                .serviceOrder(soEntity2)
+                .status(PaymentStatus.SUCCESS)
+                .paymentPurpose(PaymentPurpose.FULL_PAYMENT)
+                .paymentMethod(PaymentMethod.VNPAY)
+                .totalAmount(new BigDecimal("404250.00"))
+                .build();
+
+        when(bookingRoomService.getEntityById(888L)).thenReturn(room);
+        when(serviceOrderService.getOrdersByBookingId(bookingId)).thenReturn(List.of(so1, so2));
+        when(paymentRepository.findByBookingId(bookingId)).thenReturn(List.of(deposit, winePayment1, winePayment2));
+
+        // Act
+        CheckoutSettlementResponse settlement = bookingService.getCheckoutSettlement(888L);
+
+        // Assert
+        assertThat(settlement).isNotNull();
+        // Tiền phòng: 680,400 đ
+        assertThat(settlement.getTotalRoomCharges()).isEqualByComparingTo("680400.00");
+        // Phụ thu nhận phòng sớm: 204,120 đ
+        assertThat(settlement.getTotalSurcharges()).isEqualByComparingTo("204120.00");
+        // Tiền 2 chai rượu: 808,500 đ
+        assertThat(settlement.getTotalServiceCharges()).isEqualByComparingTo("808500.00");
+        // Tổng chi phí phát sinh = 680,400 + 204,120 + 808,500 = 1,693,020 đ
+        assertThat(settlement.getGrandTotal()).isEqualByComparingTo("1693020.00");
+        // Tổng đã thanh toán = 680,400 + 404,250 + 404,250 = 1,488,900 đ
+        assertThat(settlement.getTotalPaid()).isEqualByComparingTo("1488900.00");
+        // Số dư còn nợ (Balance Due) = 1,693,020 - 1,488,900 = 204,120 đ (Chính là phụ thu sớm chưa trả!)
+        assertThat(settlement.getBalanceDue()).isEqualByComparingTo("204120.00");
+        // Không thể check-out khi chưa trả nợ
+        assertThat(settlement.isCanCheckOut()).isFalse();
+        // Dôi dư tiền cọc ảo = 0 đ (KHÔNG CÒN HOÀN TIỀN NHẦM CHO KHÁCH)
+        assertThat(settlement.getNetOverpaymentAmount()).isEqualByComparingTo("0.00");
+        // Bảng kê chi tiết có đủ 4 dòng (1 tiền phòng, 1 phụ thu, 2 sản phẩm rượu vang)
+        assertThat(settlement.getLineItems()).hasSize(4);
     }
 
     // =========================================================================

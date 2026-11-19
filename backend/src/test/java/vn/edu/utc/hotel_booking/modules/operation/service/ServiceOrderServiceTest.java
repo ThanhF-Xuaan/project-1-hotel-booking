@@ -50,6 +50,7 @@ class ServiceOrderServiceTest {
     @Mock MenuService menuService;
     @Mock VatRuleService vatRuleService;
     @Mock OperationMapper operationMapper;
+    @Mock vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService folioLedgerService;
 
     @InjectMocks
     ServiceOrderServiceImpl serviceOrderService;

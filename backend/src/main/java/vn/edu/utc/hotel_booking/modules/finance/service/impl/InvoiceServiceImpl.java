@@ -19,6 +19,8 @@ import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceSearchDto;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
+import vn.edu.utc.hotel_booking.modules.finance.entity.Folio;
+import vn.edu.utc.hotel_booking.modules.finance.entity.FolioTransaction;
 import vn.edu.utc.hotel_booking.modules.finance.entity.Invoice;
 import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceDetail;
 import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceLineType;
@@ -26,6 +28,8 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.InvoiceStatus;
 import vn.edu.utc.hotel_booking.modules.finance.entity.Payment;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
+import vn.edu.utc.hotel_booking.modules.finance.repository.FolioRepository;
+import vn.edu.utc.hotel_booking.modules.finance.repository.FolioTransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceDetailRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
@@ -53,6 +57,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     BookingChargeService bookingChargeService;
     ServiceOrderService serviceOrderService;
     FinanceMapper financeMapper;
+    FolioRepository folioRepository;
+    FolioTransactionRepository folioTransactionRepository;
 
     @Override
     @Transactional
@@ -110,6 +116,72 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal totalServiceFee = BigDecimal.ZERO;
         BigDecimal totalVat = BigDecimal.ZERO;
         boolean hasRoomRateDetails = false;
+
+        // Ưu tiên đọc trực tiếp từ Sổ cái Folio Ledger nếu đã có bút toán DEBIT
+        if (folioRepository != null && folioTransactionRepository != null && booking.getId() != null) {
+            try {
+                List<Folio> folios = folioRepository.findByBookingId(booking.getId());
+                if (folios != null && !folios.isEmpty()) {
+                    List<FolioTransaction> debitTxs = new ArrayList<>();
+                    for (Folio f : folios) {
+                        List<FolioTransaction> txs = folioTransactionRepository.findByFolioIdAndTransactionType(f.getId(), "DEBIT");
+                        if (txs != null) {
+                            debitTxs.addAll(txs);
+                        }
+                    }
+                    if (!debitTxs.isEmpty()) {
+                        for (FolioTransaction tx : debitTxs) {
+                            InvoiceLineType lineType;
+                            String cat = tx.getCategory() != null ? tx.getCategory().toUpperCase() : "";
+                            if (cat.contains("ROOM_RATE")) {
+                                lineType = InvoiceLineType.ROOM_RATE;
+                            } else if (cat.contains("PENALTY")) {
+                                lineType = InvoiceLineType.PENALTY;
+                            } else if (cat.contains("SURCHARGE") || cat.contains("EXTRA_BED")) {
+                                lineType = InvoiceLineType.SURCHARGE;
+                            } else if (cat.contains("PRODUCT")) {
+                                lineType = InvoiceLineType.PRODUCT;
+                            } else {
+                                lineType = InvoiceLineType.SERVICE;
+                            }
+
+                            BigDecimal txSub = tx.getSubtotal() != null ? tx.getSubtotal() : tx.getAmount();
+                            BigDecimal txFee = tx.getServiceFeeAmount() != null ? tx.getServiceFeeAmount() : BigDecimal.ZERO;
+                            BigDecimal txVat = tx.getVatAmount() != null ? tx.getVatAmount() : BigDecimal.ZERO;
+                            BigDecimal txTotal = tx.getAmount() != null ? tx.getAmount() : txSub.add(txFee).add(txVat);
+
+                            InvoiceDetail invDetail = InvoiceDetail.builder()
+                                    .invoice(invoice)
+                                    .referenceId(tx.getSourceId())
+                                    .lineType(lineType)
+                                    .description(tx.getDescription())
+                                    .quantity(tx.getQuantity() != null ? tx.getQuantity() : 1)
+                                    .unitPrice(tx.getUnitPrice() != null ? tx.getUnitPrice() : txSub)
+                                    .subtotal(txSub)
+                                    .serviceFeeRate(tx.getServiceFeeRate() != null ? tx.getServiceFeeRate() : BigDecimal.ZERO)
+                                    .serviceFeeAmount(txFee)
+                                    .vatRate(tx.getVatRate() != null ? tx.getVatRate() : BigDecimal.ZERO)
+                                    .vatAmount(txVat)
+                                    .totalAmount(txTotal)
+                                    .build();
+
+                            details.add(invDetail);
+                            subTotal = subTotal.add(txSub);
+                            totalServiceFee = totalServiceFee.add(txFee);
+                            totalVat = totalVat.add(txVat);
+                        }
+
+                        invoice.setDetails(details);
+                        invoice.setSubTotal(subTotal);
+                        invoice.setServiceFeeAmount(totalServiceFee);
+                        invoice.setVatAmount(totalVat);
+                        invoice.setGrandTotal(subTotal.add(totalServiceFee).add(totalVat));
+                        return;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
 
         // 1. Tiền phòng lưu trú (BookingDailyRate -> ROOM_RATE)
         if (booking.getBookingDetails() != null) {
@@ -313,14 +385,18 @@ public class InvoiceServiceImpl implements InvoiceService {
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
-                // Bỏ qua các đơn dịch vụ đã bị hủy
+                // Bỏ qua đơn đã hủy
                 if (order.getStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus.CANCELLED) {
                     continue;
                 }
-                // Chống thu tiền 2 lần: Bỏ qua các đơn đã thanh toán tại POS (không ghi nợ phòng POST_TO_ROOM)
-                if (order.getPaymentMethod() != null
-                        && order.getPaymentMethod() != vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.POST_TO_ROOM
+                // Bỏ qua các đơn bán lẻ thanh toán tiền mặt trực tiếp tại quầy POS (đã xuất hóa đơn bán lẻ tại quầy)
+                if (order.getPaymentMethod() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.CASH
                         && order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID) {
+                    continue;
+                }
+                // Bỏ qua các đơn khách đặt qua VNPAY nhưng chưa thanh toán/bỏ dở phiên
+                if (order.getPaymentMethod() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.VNPAY
+                        && order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.UNPAID) {
                     continue;
                 }
 

@@ -30,11 +30,13 @@ import RoomSwapModal, { type RoomSwapTarget } from '../components/RoomSwapModal'
 import TimelineRackView from '../components/TimelineRackView';
 import BookingDetailModal from '../components/BookingDetailModal';
 import RoomAssignModal, { type RoomAssignTarget } from '../components/RoomAssignModal';
+import BookingAddChargeModal from '../components/BookingAddChargeModal';
 import type {
   BookingResponse,
   BookingStatus,
   BookingChargeType,
   BookingRoomResponse,
+  BookingDetailResponse,
   SurchargeProposalResponse,
   RoomSwapResponse,
 } from '../types/booking.types';
@@ -73,17 +75,14 @@ export const BookingListPage: React.FC = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState<RoomAssignTarget | null>(null);
   const [availableRooms, setAvailableRooms] = useState<RoomInstanceDto[]>([]);
-  const [targetBookingRoomId, setTargetBookingRoomId] = useState<number | null>(null);
 
   // Add Charge Modal
   const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
-  const [chargeType, setChargeType] = useState<BookingChargeType>('EARLY_CHECKIN');
-  const [chargeItemName, setChargeItemName] = useState('');
-  const [chargeQuantity, setChargeQuantity] = useState(1);
-  const [chargeUnitPrice, setChargeUnitPrice] = useState<number>(100000);
-  const [chargeServiceFeeRate, setChargeServiceFeeRate] = useState<number>(5);
-  const [chargeVatRate, setChargeVatRate] = useState<number>(8);
-  const [isSubmittingCharge, setIsSubmittingCharge] = useState(false);
+  const [chargeTargetBooking, setChargeTargetBooking] = useState<BookingResponse | null>(null);
+  const [chargeTargetRoom, setChargeTargetRoom] = useState<BookingRoomResponse | null>(null);
+  const [chargeTargetDetail, setChargeTargetDetail] = useState<BookingDetailResponse | null>(null);
+  const [chargeInitialType, setChargeInitialType] = useState<BookingChargeType | undefined>(undefined);
+  const [chargeInitialProposal, setChargeInitialProposal] = useState<SurchargeProposalResponse | null>(null);
 
   // Surcharge Proposal Modal
   const [isSurchargeProposalModalOpen, setIsSurchargeProposalModalOpen] = useState(false);
@@ -97,6 +96,7 @@ export const BookingListPage: React.FC = () => {
   const [serviceOrderTarget, setServiceOrderTarget] = useState<{
     bookingId: number;
     bookingNumber?: string;
+    bookingRoomId?: number;
     roomInstanceId: number;
     roomNumber?: string;
     hotelId: number;
@@ -330,41 +330,17 @@ export const BookingListPage: React.FC = () => {
     setIsStayGuestsModalOpen(true);
   };
 
-  const handleOpenChargeModal = (bookingRoomId: number) => {
-    setTargetBookingRoomId(bookingRoomId);
-    setChargeItemName('Phụ phí phát sinh');
-    setChargeQuantity(1);
-    setChargeUnitPrice(100000);
+  const handleOpenChargeModal = (
+    booking: BookingResponse,
+    room: BookingRoomResponse,
+    detail: BookingDetailResponse
+  ) => {
+    setChargeTargetBooking(booking);
+    setChargeTargetRoom(room);
+    setChargeTargetDetail(detail);
+    setChargeInitialType(undefined);
+    setChargeInitialProposal(null);
     setIsChargeModalOpen(true);
-  };
-
-  const handleConfirmAddCharge = async () => {
-    if (!targetBookingRoomId) return;
-    setIsSubmittingCharge(true);
-    try {
-      await bookingService.addCharge(targetBookingRoomId, {
-        chargeType,
-        itemName: chargeItemName,
-        quantity: chargeQuantity,
-        unitPrice: chargeUnitPrice,
-        serviceFeeRate: chargeServiceFeeRate,
-        vatRate: chargeVatRate,
-      });
-      setIsChargeModalOpen(false);
-      setActionSuccessMessage('Thêm phụ phí thành công!');
-      loadData();
-      if (selectedBooking) {
-        const updated = await bookingService.getById(selectedBooking.id);
-        if (updated.result) {
-          setSelectedBooking(updated.result);
-        }
-      }
-    } catch (err) {
-      console.error('Lỗi thêm phụ phí:', err);
-      alert('Không thể thêm phụ phí. Vui lòng kiểm tra lại.');
-    } finally {
-      setIsSubmittingCharge(false);
-    }
   };
 
   const handleCheckIn = async (bookingRoomId: number) => {
@@ -489,17 +465,28 @@ export const BookingListPage: React.FC = () => {
   const handleCustomAdjustSurcharge = () => {
     if (!surchargeTargetRoom || !surchargeProposal) return;
     setIsSurchargeProposalModalOpen(false);
-    setTargetBookingRoomId(surchargeTargetRoom.id);
-    setChargeType(surchargeActionType === 'CHECK_IN' ? 'EARLY_CHECKIN' : 'LATE_CHECKOUT');
-    setChargeItemName(
-      surchargeProposal.suggestedItemName ||
-      surchargeProposal.policyRule ||
-      (surchargeActionType === 'CHECK_IN' ? 'Phụ thu nhận phòng sớm' : 'Phụ thu trả phòng muộn')
-    );
-    setChargeQuantity(1);
-    setChargeUnitPrice(surchargeProposal.suggestedAmount || 100000);
-    setChargeServiceFeeRate(surchargeProposal.defaultServiceFeeRate || 5);
-    setChargeVatRate(surchargeProposal.defaultVatRate || 8);
+
+    // Tìm booking và detail tương ứng với surchargeTargetRoom
+    const targetBooking =
+      bookings.find((b) =>
+        b.bookingDetails.some((d) => d.bookingRooms.some((r) => r.id === surchargeTargetRoom.id))
+      ) || selectedBooking;
+
+    let targetDetail: BookingDetailResponse | null = null;
+    if (targetBooking) {
+      for (const d of targetBooking.bookingDetails) {
+        if (d.bookingRooms.some((r) => r.id === surchargeTargetRoom.id)) {
+          targetDetail = d;
+          break;
+        }
+      }
+    }
+
+    setChargeTargetBooking(targetBooking || null);
+    setChargeTargetRoom(surchargeTargetRoom);
+    setChargeTargetDetail(targetDetail);
+    setChargeInitialType(surchargeActionType === 'CHECK_IN' ? 'EARLY_CHECKIN' : 'LATE_CHECKOUT');
+    setChargeInitialProposal(surchargeProposal);
     setIsChargeModalOpen(true);
   };
 
@@ -511,6 +498,7 @@ export const BookingListPage: React.FC = () => {
     setServiceOrderTarget({
       bookingId: booking.id,
       bookingNumber: booking.bookingNumber,
+      bookingRoomId: room.id,
       roomInstanceId: room.roomInstanceId,
       roomNumber: room.roomNumber,
       hotelId: booking.hotelId,
@@ -663,6 +651,7 @@ export const BookingListPage: React.FC = () => {
   const handleOpenServiceOrderFromTimeline = (target: {
     bookingId: number;
     bookingNumber?: string;
+    bookingRoomId?: number;
     roomInstanceId: number;
     roomNumber: string;
     hotelId: number;
@@ -1142,89 +1131,36 @@ export const BookingListPage: React.FC = () => {
         onSuccess={handleAssignSuccess}
       />
 
-      {/* MODAL THÊM PHỤ PHÍ */}
-      <Modal
+      {/* MODAL THÊM PHỤ PHÍ NÂNG CẤP (TÍCH HỢP SURCHARGE SERVICE & THẨM ĐỊNH TỰ ĐỘNG) */}
+      <BookingAddChargeModal
         isOpen={isChargeModalOpen}
-        onClose={() => setIsChargeModalOpen(false)}
-        title="Thêm phụ phí (Early Check-in / Late Check-out / Minibar)"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">Loại phụ phí</label>
-            <Select<BookingChargeType>
-              value={chargeType}
-              onChange={(val) => setChargeType(val)}
-              options={[
-                { value: 'EARLY_CHECKIN', label: 'Nhận phòng sớm (Early Check-in)' },
-                { value: 'LATE_CHECKOUT', label: 'Trả phòng muộn (Late Check-out)' },
-                { value: 'PENALTY', label: 'Phạt vi phạm / Hỏng hóc' },
-                { value: 'OTHER', label: 'Dịch vụ khác' },
-              ]}
-              size="lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 mb-1">Tên khoản phụ thu</label>
-            <Input
-              value={chargeItemName}
-              onChange={(e) => setChargeItemName(e.target.value)}
-              placeholder="VD: Phụ thu nhận phòng sớm 09:00"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Số lượng</label>
-              <Input
-                type="number"
-                value={chargeQuantity}
-                onChange={(e) => setChargeQuantity(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Đơn giá (VNĐ)</label>
-              <Input
-                type="number"
-                value={chargeUnitPrice}
-                onChange={(e) => setChargeUnitPrice(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Phí dịch vụ (%)</label>
-              <Input
-                type="number"
-                value={chargeServiceFeeRate}
-                onChange={(e) => setChargeServiceFeeRate(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-neutral-700 mb-1">Thuế VAT (%)</label>
-              <Input
-                type="number"
-                value={chargeVatRate}
-                onChange={(e) => setChargeVatRate(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100">
-            <Button variant="outline" onClick={() => setIsChargeModalOpen(false)}>
-              Hủy
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleConfirmAddCharge}
-              disabled={isSubmittingCharge || !chargeItemName}
-            >
-              {isSubmittingCharge ? 'Đang lưu...' : 'Thêm phụ phí'}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onClose={() => {
+          setIsChargeModalOpen(false);
+          setChargeTargetRoom(null);
+          setChargeTargetBooking(null);
+          setChargeTargetDetail(null);
+          setChargeInitialProposal(null);
+          setChargeInitialType(undefined);
+        }}
+        bookingId={chargeTargetBooking?.id}
+        bookingNumber={chargeTargetBooking?.bookingNumber}
+        hotelId={chargeTargetBooking?.hotelId}
+        room={chargeTargetRoom}
+        detail={chargeTargetDetail}
+        guestName={chargeTargetBooking?.guestName}
+        initialChargeType={chargeInitialType}
+        initialProposal={chargeInitialProposal}
+        onChargeSuccess={async (msg) => {
+          if (msg) setActionSuccessMessage(msg);
+          loadData();
+          if (selectedBooking) {
+            const updated = await bookingService.getById(selectedBooking.id);
+            if (updated.result) {
+              setSelectedBooking(updated.result);
+            }
+          }
+        }}
+      />
 
 
       {/* NO-SHOW CONFIRMATION & PENALTY PIPELINE MODAL */}
@@ -1330,10 +1266,14 @@ export const BookingListPage: React.FC = () => {
           }}
           bookingId={serviceOrderTarget.bookingId}
           bookingNumber={serviceOrderTarget.bookingNumber}
+          bookingRoomId={serviceOrderTarget.bookingRoomId}
           roomInstanceId={serviceOrderTarget.roomInstanceId}
           roomNumber={serviceOrderTarget.roomNumber}
           hotelId={serviceOrderTarget.hotelId}
-          onOrderSuccess={() => {
+          onOrderSuccess={(msg?: string) => {
+            if (msg) {
+              setActionSuccessMessage(msg);
+            }
             loadData();
             if (selectedBooking) {
               bookingService.getById(selectedBooking.id).then((res) => {

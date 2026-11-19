@@ -100,7 +100,7 @@ export const RoomSwapModal: React.FC<RoomSwapModalProps> = ({
                 roomTypeCode: r.roomTypeCode,
                 hotelId: r.hotelId,
                 hotelName: r.hotelName,
-                currentStatus: (r.currentStatus || 'READY') as 'READY' | 'OCCUPIED' | 'CLEANING' | 'MAINTENANCE',
+                currentStatus: (r.currentStatus || 'READY') as 'READY' | 'OCCUPIED' | 'CLEANING' | 'DIRTY' | 'MAINTENANCE',
                 createdAt: '',
                 updatedAt: '',
               }));

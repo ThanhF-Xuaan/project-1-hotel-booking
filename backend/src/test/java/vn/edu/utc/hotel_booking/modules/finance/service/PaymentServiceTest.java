@@ -27,6 +27,10 @@ import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.impl.PaymentServiceImpl;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
+import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderRepository;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -47,7 +51,9 @@ class PaymentServiceTest {
     @Mock TransactionRepository transactionRepository;
     @Mock InvoiceRepository invoiceRepository;
     @Mock BookingRepository bookingRepository;
+    @Mock ServiceOrderRepository serviceOrderRepository;
     @Mock FinanceMapper financeMapper;
+    @Mock FolioLedgerService folioLedgerService;
     @Mock StringRedisTemplate redisTemplate;
     @Mock ValueOperations<String, String> valueOperations;
     @Mock List<PaymentGateway> paymentGateways;
@@ -711,5 +717,82 @@ class PaymentServiceTest {
         assertThatThrownBy(() -> paymentService.processRefund(102L, request))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.PAYMENT_NOT_PENDING));
+    }
+
+    @Test
+    @DisplayName("createGatewayPayment với serviceOrderId: tạo phiên VNPay cho đơn Room Service POS bỏ qua số dư booking")
+    void createGatewayPayment_WithServiceOrderId_HappyPath() {
+        VnPayGateway realGateway = new VnPayGateway(
+                "TESTTMN01", "test-secret",
+                "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                "http://localhost:3000/payment/result");
+
+        ServiceOrder serviceOrder = ServiceOrder.builder()
+                .id(55L)
+                .orderNumber("SO-1794972398")
+                .totalAmount(new BigDecimal("404250.00"))
+                .paymentStatus(ServiceOrderPaymentStatus.UNPAID)
+                .build();
+
+        when(bookingRepository.findById(1L)).thenReturn(Optional.of(testBooking));
+        when(serviceOrderRepository.findById(55L)).thenReturn(Optional.of(serviceOrder));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(paymentGateways.stream()).thenReturn(Stream.of(realGateway));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreatePaymentRequest request = CreatePaymentRequest.builder()
+                .bookingId(1L)
+                .serviceOrderId(55L)
+                .method(PaymentMethod.VNPAY)
+                .build();
+
+        PaymentUrlResponse response = paymentService.createGatewayPayment(request, "127.0.0.1");
+
+        assertThat(response.getTxnRef()).startsWith("VNP");
+        assertThat(response.getPaymentUrl()).contains("vnp_TxnRef=", response.getTxnRef());
+
+        ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
+        verify(paymentRepository).save(paymentCaptor.capture());
+        Payment captured = paymentCaptor.getValue();
+        assertThat(captured.getStatus()).isEqualTo(PaymentStatus.PENDING);
+        assertThat(captured.getTotalAmount()).isEqualByComparingTo(new BigDecimal("404250.00"));
+        assertThat(captured.getServiceOrder()).isEqualTo(serviceOrder);
+    }
+
+    @Test
+    @DisplayName("createGatewayPayment: Booking có Folio Ledger với số dư nợ 812.490 đ -> Cho phép tạo phiên VNPAY thành công")
+    void createGatewayPayment_WithFolioLedgerBalance_Success() {
+        VnPayGateway realGateway = new VnPayGateway(
+                "TESTTMN01", "test-secret",
+                "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html",
+                "http://localhost:3000/payment/result");
+
+        Booking booking18 = Booking.builder()
+                .id(18L)
+                .bookingNumber("BK1794972398109239")
+                .totalAmount(new BigDecimal("1088640.00"))
+                .build();
+
+        when(bookingRepository.findById(18L)).thenReturn(Optional.of(booking18));
+        when(folioLedgerService.getTotalDebitsByBookingId(18L)).thenReturn(new BigDecimal("2301390.00"));
+        when(folioLedgerService.getRemainingBalanceByBookingId(18L)).thenReturn(new BigDecimal("812490.00"));
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(paymentGateways.stream()).thenReturn(Stream.of(realGateway));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CreatePaymentRequest request = CreatePaymentRequest.builder()
+                .bookingId(18L)
+                .method(PaymentMethod.VNPAY)
+                .amount(new BigDecimal("812490.00"))
+                .bankCode("NCB")
+                .build();
+
+        PaymentUrlResponse response = paymentService.createGatewayPayment(request, "127.0.0.1");
+
+        assertThat(response).isNotNull();
+        assertThat(response.getPaymentUrl()).contains("vnp_TxnRef=");
+        verify(paymentRepository).save(any(Payment.class));
     }
 }

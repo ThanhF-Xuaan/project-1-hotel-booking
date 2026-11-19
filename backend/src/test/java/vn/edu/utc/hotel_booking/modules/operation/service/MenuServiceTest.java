@@ -28,6 +28,7 @@ import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
 import vn.edu.utc.hotel_booking.modules.pricing.service.TaxCategoryService;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,6 +45,7 @@ class MenuServiceTest {
     @Mock MasterItemService masterItemService;
     @Mock HotelService hotelService;
     @Mock TaxCategoryService taxCategoryService;
+    @Mock VatRuleService vatRuleService;
     @Mock OperationMapper operationMapper;
 
     @InjectMocks

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261119-100000-create-folio-ledger-schema" author="utc-hotel-team">
+        <comment>Tao schema So cai phong folios va folio_transactions chuan Opera PMS, sinh ma khong trung lap theo Cach 1 va backfill du lieu lich su</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261119-100000-create-folio-ledger-schema.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="false"
+                 stripComments="false"/>
+        <rollback>
+            <sql>
+                DROP TABLE IF EXISTS folio_transactions CASCADE;
+                DROP TRIGGER IF EXISTS trigger_generate_folio_number ON folios;
+                DROP FUNCTION IF EXISTS generate_folio_number();
+                DROP TABLE IF EXISTS folios CASCADE;
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
+

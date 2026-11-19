@@ -110,6 +110,10 @@ public class RoomSlotServiceImpl implements RoomSlotService {
         LocalDate today = LocalDate.now();
         roomSlotRepository.findByRoomInstanceIdAndSlotDate(roomInstanceId, today).ifPresent(slot -> {
             slot.setStatus(status);
+            if (vn.edu.utc.hotel_booking.modules.inventory.entity.RoomSlotStatus.READY.name().equalsIgnoreCase(status)) {
+                slot.setBookingRoomId(null);
+                slot.setReservedAt(null);
+            }
             roomSlotRepository.save(slot);
         });
     }
@@ -127,6 +131,8 @@ public class RoomSlotServiceImpl implements RoomSlotService {
         if (oldEffectiveSlot.isPresent()) {
             RoomSlot slot = oldEffectiveSlot.get();
             slot.setStatus("DIRTY");
+            slot.setBookingRoomId(null);
+            slot.setReservedAt(null);
             roomSlotRepository.save(slot);
         }
 

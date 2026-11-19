@@ -58,6 +58,7 @@ export interface TimelineRackViewProps {
   onOpenServiceOrder?: (target: {
     bookingId: number;
     bookingNumber?: string;
+    bookingRoomId?: number;
     roomInstanceId: number;
     roomNumber: string;
     hotelId: number;
@@ -304,7 +305,8 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
       } else if (
         r.currentStatus === 'MAINTENANCE' ||
         (r.currentStatus as string) === 'BLOCKED' ||
-        r.currentStatus === 'CLEANING'
+        r.currentStatus === 'CLEANING' ||
+        r.currentStatus === 'DIRTY'
       ) {
         outOfServiceCount++;
       }
@@ -372,6 +374,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
         const isOutOfService =
           room.currentStatus === 'MAINTENANCE' ||
           room.currentStatus === 'CLEANING' ||
+          room.currentStatus === 'DIRTY' ||
           (room.currentStatus as string) === 'BLOCKED' ||
           (room.currentStatus as string) === 'OUT_OF_SERVICE';
 
@@ -421,6 +424,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
             day.isToday &&
             (r.currentStatus === 'MAINTENANCE' ||
               r.currentStatus === 'CLEANING' ||
+              r.currentStatus === 'DIRTY' ||
               (r.currentStatus as string) === 'BLOCKED' ||
               (r.currentStatus as string) === 'OUT_OF_SERVICE')
           ) {
@@ -1101,10 +1105,10 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                                   }
                                 } else if (day.isToday) {
                                   // Only apply current physical room status for TODAY
-                                  if (room.currentStatus === 'CLEANING') {
+                                  if (room.currentStatus === 'CLEANING' || room.currentStatus === 'DIRTY') {
                                     statusType = 'CLEANING';
                                     cellBgClass = 'bg-[#E9D5FF] text-purple-950 hover:bg-purple-200 font-bold';
-                                    cellText = 'ĐANG DỌN';
+                                    cellText = room.currentStatus === 'DIRTY' ? 'CHỜ DỌN' : 'ĐANG DỌN';
                                   } else if (room.currentStatus === 'MAINTENANCE') {
                                     statusType = 'MAINTENANCE';
                                     cellBgClass = 'bg-[#9CA3AF] text-white hover:bg-neutral-500 font-bold';
@@ -1244,7 +1248,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                         : activeCellInfo.statusType === 'RESERVED'
                         ? 'Đã đặt trước'
                         : activeCellInfo.statusType === 'CLEANING'
-                        ? 'Đang dọn'
+                        ? (activeCellInfo.room.currentStatus === 'DIRTY' ? 'Chờ dọn' : 'Đang dọn')
                         : activeCellInfo.statusType === 'MAINTENANCE'
                         ? 'Bảo trì'
                         : activeCellInfo.statusType === 'BLOCKED'
@@ -1349,6 +1353,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                           const target = {
                             bookingId: activeCellInfo.booking!.id,
                             bookingNumber: activeCellInfo.booking!.bookingNumber,
+                            bookingRoomId: activeCellInfo.bookingRoom?.id,
                             roomInstanceId: activeCellInfo.room.id,
                             roomNumber: activeCellInfo.room.roomNumber,
                             hotelId:
@@ -1727,11 +1732,36 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                     </>
                   )}
 
-                  {/* CASE 4: CLEANING / MAINTENANCE / BLOCKED */}
+                  {/* CASE 4: CLEANING / DIRTY / MAINTENANCE / BLOCKED */}
                   {(activeCellInfo.statusType === 'CLEANING' ||
                     activeCellInfo.statusType === 'MAINTENANCE' ||
                     activeCellInfo.statusType === 'BLOCKED') && (
                     <>
+                      {/* Nếu là DIRTY (Chờ dọn) -> Có nút Chuyển sang Đang dọn dẹp (CLEANING) */}
+                      {activeCellInfo.room.currentStatus === 'DIRTY' && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const roomId = activeCellInfo.room.id;
+                            setActiveCellInfo(null);
+                            await onUpdateRoomStatus?.(roomId, 'CLEANING');
+                          }}
+                          className="flex items-center gap-3 p-3.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-950 transition-all font-bold text-left cursor-pointer group shadow-2xs col-span-1"
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                            <Sparkles className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-black leading-tight">
+                              Bắt Đầu Dọn Dẹp
+                            </div>
+                            <div className="text-[11px] text-purple-700 font-medium truncate">
+                              Chuyển sang Đang dọn (CLEANING)
+                            </div>
+                          </div>
+                        </button>
+                      )}
+
                       {/* Xác nhận phòng sạch / READY */}
                       <button
                         type="button"
@@ -1740,7 +1770,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                           setActiveCellInfo(null);
                           await onUpdateRoomStatus?.(roomId, 'READY');
                         }}
-                        className="flex items-center gap-3.5 p-3.5 rounded-xl border border-emerald-300 bg-emerald-600 hover:bg-emerald-700 text-white transition-all font-bold text-left cursor-pointer group shadow-sm col-span-2"
+                        className={`flex items-center gap-3.5 p-3.5 rounded-xl border border-emerald-300 bg-emerald-600 hover:bg-emerald-700 text-white transition-all font-bold text-left cursor-pointer group shadow-sm ${activeCellInfo.room.currentStatus === 'DIRTY' ? 'col-span-1' : 'col-span-2'}`}
                       >
                         <div className="w-9 h-9 rounded-lg bg-white/20 text-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                           <CheckCircle2 className="w-5 h-5" />

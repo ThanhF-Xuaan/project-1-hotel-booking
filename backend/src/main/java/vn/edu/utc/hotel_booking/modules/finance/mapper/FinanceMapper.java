@@ -16,6 +16,12 @@ public interface FinanceMapper {
 
     @Mapping(target = "bookingId", source = "booking.id")
     @Mapping(target = "bookingNumber", source = "booking.bookingNumber")
+    @Mapping(target = "serviceOrderId", source = "serviceOrder.id")
+    @Mapping(target = "gatewayResponseDescription", ignore = true)
+    @Mapping(target = "bankCode", ignore = true)
+    @Mapping(target = "cardType", ignore = true)
+    @Mapping(target = "bankTranNo", ignore = true)
+    @Mapping(target = "payDate", ignore = true)
     PaymentResponse toResponse(Payment entity);
 
     @org.mapstruct.AfterMapping

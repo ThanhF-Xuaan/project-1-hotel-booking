@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="20261119-140000-sync-folio-room-rate-and-surcharge-breakdown" author="utc-hotel-team">
+        <comment>Chuan hoa va dong bo so tien phong ROOM_RATE va chi tiet phu thu SURCHARGE trong Folio Ledger</comment>
+        <sqlFile path="db/sqlFile/incremental/2026/20261119-140000-sync-folio-room-rate-and-surcharge-breakdown.sql"
+                 relativeToChangelogFile="false"
+                 splitStatements="true"
+                 stripComments="true"/>
+    </changeSet>
+
+</databaseChangeLog>
+

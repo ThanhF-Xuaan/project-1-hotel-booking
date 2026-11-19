@@ -65,6 +65,9 @@ class MasterFolioServiceTest {
     @Mock
     private AuditLogService auditLogService;
 
+    @Mock
+    private FolioLedgerService folioLedgerService;
+
     @InjectMocks
     private MasterFolioServiceImpl masterFolioService;
 

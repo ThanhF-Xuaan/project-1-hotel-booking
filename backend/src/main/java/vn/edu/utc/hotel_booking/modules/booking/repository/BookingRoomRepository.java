@@ -27,8 +27,10 @@ public interface BookingRoomRepository extends JpaRepository<BookingRoom, Long> 
 
     @Query("SELECT br FROM BookingRoom br " +
             "JOIN br.bookingDetail bd " +
+            "JOIN bd.booking b " +
             "WHERE br.roomInstance.id = :roomInstanceId " +
-            "AND br.status NOT IN ('CANCELLED', 'CHECKED_OUT') " +
+            "AND b.status NOT IN ('CANCELLED', 'NO_SHOW') " +
+            "AND br.status IN ('EXPECTED', 'CHECKED_IN') " +
             "AND bd.checkInDate < :checkOutDate AND bd.checkOutDate > :checkInDate")
     List<BookingRoom> findOverlappingAssignedRooms(
             @Param("roomInstanceId") Integer roomInstanceId,
@@ -41,7 +43,8 @@ public interface BookingRoomRepository extends JpaRepository<BookingRoom, Long> 
             "JOIN bd.booking b " +
             "WHERE b.hotel.id = :hotelId " +
             "AND br.roomInstance IS NOT NULL " +
-            "AND br.status NOT IN ('CANCELLED', 'CHECKED_OUT') " +
+            "AND b.status NOT IN ('CANCELLED', 'NO_SHOW') " +
+            "AND br.status IN ('EXPECTED', 'CHECKED_IN') " +
             "AND bd.checkInDate < :checkOutDate AND bd.checkOutDate > :checkInDate")
     List<BookingRoom> findOverlappingAssignedRoomsInHotel(
             @Param("hotelId") Short hotelId,

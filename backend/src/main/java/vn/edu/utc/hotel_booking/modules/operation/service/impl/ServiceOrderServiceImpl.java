@@ -4,6 +4,7 @@ import jakarta.persistence.criteria.Predicate;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -18,6 +19,8 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoomStatus;
 import vn.edu.utc.hotel_booking.modules.booking.entity.StayGuest;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingLookupService;
+import vn.edu.utc.hotel_booking.modules.finance.entity.Folio;
+import vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderCreateRequest;
 import vn.edu.utc.hotel_booking.modules.operation.dto.request.ServiceOrderSearchDto;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderResponse;
@@ -38,6 +41,7 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -51,6 +55,7 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
     MenuService menuService;
     VatRuleService vatRuleService;
     OperationMapper operationMapper;
+    FolioLedgerService folioLedgerService;
 
     @Override
     @Transactional
@@ -133,7 +138,7 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
 
         ServiceOrderPaymentStatus paymentStatus = request.getPaymentStatus() != null
                 ? request.getPaymentStatus()
-                : (paymentMethod == ServiceOrderPaymentMethod.POST_TO_ROOM ? ServiceOrderPaymentStatus.UNPAID : ServiceOrderPaymentStatus.PAID);
+                : (paymentMethod == ServiceOrderPaymentMethod.CASH ? ServiceOrderPaymentStatus.PAID : ServiceOrderPaymentStatus.UNPAID);
 
         ServiceOrder order = ServiceOrder.builder()
                 .hotel(hotel)
@@ -216,14 +221,15 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
         order.setTotalAmount(orderGrandTotal);
 
         ServiceOrder saved = serviceOrderRepository.save(order);
-        return operationMapper.toResponse(saved);
+        syncServiceOrderToFolio(saved);
+        return toEnrichedOrderResponse(saved);
     }
 
     @Override
     public ServiceOrderResponse getById(Long id) {
         ServiceOrder order = serviceOrderRepository.findById(id)
                 .orElseThrow(() -> new AppException(ErrorCode.SERVICE_ORDER_NOT_FOUND, "Không tìm thấy đơn dịch vụ ID: " + id));
-        return operationMapper.toResponse(order);
+        return toEnrichedOrderResponse(order);
     }
 
     @Override
@@ -243,7 +249,7 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
 
         return orders.stream()
                 .filter(so -> so.getStatus() != ServiceOrderStatus.CANCELLED)
-                .map(operationMapper::toResponse)
+                .map(this::toEnrichedOrderResponse)
                 .toList();
     }
 
@@ -292,16 +298,18 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             throw new AppException(ErrorCode.INVALID_SERVICE_ORDER_STATUS, "Đơn dịch vụ đã bị hủy trước đó");
         }
 
-        // Hoàn trả tồn kho qua MenuService nếu hủy đơn hàng
+        // Hoàn trả tồn kho qua MenuService và hoàn tác Folio nếu hủy đơn hàng
         if (status == ServiceOrderStatus.CANCELLED) {
             for (ServiceOrderDetail detail : order.getDetails()) {
                 menuService.restoreStock(detail.getMenu().getId(), detail.getQuantity());
             }
+            voidServiceOrderOnFolio(order);
         }
 
         order.setStatus(status);
         ServiceOrder saved = serviceOrderRepository.save(order);
-        return operationMapper.toResponse(saved);
+        syncServiceOrderToFolio(saved);
+        return toEnrichedOrderResponse(saved);
     }
 
     @Override
@@ -350,6 +358,139 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
             return List.of();
         }
         return serviceOrderRepository.findActiveOrdersForHotelsAndDateRange(hotelIds, startDateTime, endDateTime);
+    }
+
+    private ServiceOrderResponse toEnrichedOrderResponse(ServiceOrder entity) {
+        ServiceOrderResponse response = operationMapper.toResponse(entity);
+        if (response != null && entity.getReferenceType() != null && entity.getReferenceId() != null) {
+            if (entity.getReferenceType() == ServiceOrderReferenceType.BOOKING_ROOM) {
+                try {
+                    BookingRoom bookingRoom = bookingLookupService.getBookingRoomEntityById(entity.getReferenceId());
+                    if (bookingRoom != null) {
+                        if (bookingRoom.getBookingDetail() != null && bookingRoom.getBookingDetail().getBooking() != null) {
+                            response.setBookingId(bookingRoom.getBookingDetail().getBooking().getId());
+                            response.setBookingNumber(bookingRoom.getBookingDetail().getBooking().getBookingNumber());
+                        }
+                        if (bookingRoom.getRoomInstance() != null) {
+                            response.setRoomInstanceId(bookingRoom.getRoomInstance().getId());
+                            response.setRoomNumber(bookingRoom.getRoomInstance().getRoomNumber());
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            } else if (entity.getReferenceType() == ServiceOrderReferenceType.BOOKING) {
+                try {
+                    Booking booking = bookingLookupService.getBookingEntityById(entity.getReferenceId());
+                    if (booking != null) {
+                        response.setBookingId(booking.getId());
+                        response.setBookingNumber(booking.getBookingNumber());
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return response;
+    }
+
+    private void syncServiceOrderToFolio(ServiceOrder order) {
+        if (folioLedgerService == null || order == null) {
+            return;
+        }
+        if (order.getStatus() == ServiceOrderStatus.CANCELLED) {
+            return;
+        }
+        // Chỉ ghi nợ (DEBIT) vào Folio nếu ghi nợ phòng (POST_TO_ROOM) hoặc đã thanh toán (PAID)
+        // Không ghi nợ nếu là khách online chọn VNPay nhưng chưa thanh toán (UNPAID)
+        boolean shouldPostToFolio = order.getPaymentMethod() == ServiceOrderPaymentMethod.POST_TO_ROOM
+                || order.getPaymentStatus() == ServiceOrderPaymentStatus.PAID;
+        if (!shouldPostToFolio) {
+            return;
+        }
+
+        try {
+            Long bookingId = null;
+            Long bookingRoomId = null;
+
+            if (order.getReferenceType() == ServiceOrderReferenceType.BOOKING_ROOM && order.getReferenceId() != null) {
+                bookingRoomId = order.getReferenceId();
+                try {
+                    BookingRoom br = bookingLookupService.getBookingRoomEntityById(bookingRoomId);
+                    if (br != null && br.getBookingDetail() != null && br.getBookingDetail().getBooking() != null) {
+                        bookingId = br.getBookingDetail().getBooking().getId();
+                    }
+                } catch (Exception ignored) {
+                }
+            } else if (order.getReferenceType() == ServiceOrderReferenceType.BOOKING && order.getReferenceId() != null) {
+                bookingId = order.getReferenceId();
+            }
+
+            if (bookingId != null) {
+                Folio folio = folioLedgerService.getOrCreateFolio(bookingId, bookingRoomId);
+                if (folio != null) {
+                    String itemSummary = (order.getDetails() != null && !order.getDetails().isEmpty())
+                            ? order.getDetails().get(0).getItemName() + (order.getDetails().size() > 1 ? " (+" + (order.getDetails().size() - 1) + " món)" : "")
+                            : "Dịch vụ/Sản phẩm";
+                    String desc = order.getOrderNumber() + ": " + itemSummary;
+
+                    folioLedgerService.postDebit(
+                            folio.getId(),
+                            "SERVICE_ORDER",
+                            "SERVICE_ORDER",
+                            order.getId(),
+                            desc,
+                            1,
+                            order.getSubTotal(),
+                            order.getSubTotal(),
+                            order.getServiceFeeRate(),
+                            order.getServiceFeeAmount(),
+                            BigDecimal.ZERO,
+                            order.getVatAmount(),
+                            order.getTotalAmount()
+                    );
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể đồng bộ ServiceOrder ID {} vào Folio Ledger: {}", order.getId(), e.getMessage());
+        }
+    }
+
+    private void voidServiceOrderOnFolio(ServiceOrder order) {
+        if (folioLedgerService == null || order == null) {
+            return;
+        }
+        try {
+            Long bookingId = null;
+            Long bookingRoomId = null;
+
+            if (order.getReferenceType() == ServiceOrderReferenceType.BOOKING_ROOM && order.getReferenceId() != null) {
+                bookingRoomId = order.getReferenceId();
+                try {
+                    BookingRoom br = bookingLookupService.getBookingRoomEntityById(bookingRoomId);
+                    if (br != null && br.getBookingDetail() != null && br.getBookingDetail().getBooking() != null) {
+                        bookingId = br.getBookingDetail().getBooking().getId();
+                    }
+                } catch (Exception ignored) {
+                }
+            } else if (order.getReferenceType() == ServiceOrderReferenceType.BOOKING && order.getReferenceId() != null) {
+                bookingId = order.getReferenceId();
+            }
+
+            if (bookingId != null) {
+                Folio folio = folioLedgerService.getOrCreateFolio(bookingId, bookingRoomId);
+                if (folio != null) {
+                    folioLedgerService.postCredit(
+                            folio.getId(),
+                            "ADJUSTMENT",
+                            "SERVICE_ORDER_VOID",
+                            order.getId(),
+                            "Hủy đơn dịch vụ: " + order.getOrderNumber(),
+                            order.getTotalAmount()
+                    );
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể hoàn trả ServiceOrder ID {} trên Folio Ledger: {}", order.getId(), e.getMessage());
+        }
     }
 }
 

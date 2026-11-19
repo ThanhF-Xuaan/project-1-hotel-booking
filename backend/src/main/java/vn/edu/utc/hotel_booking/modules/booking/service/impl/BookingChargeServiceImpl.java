@@ -12,6 +12,9 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingChargeRepository;
 import vn.edu.utc.hotel_booking.modules.booking.service.BookingChargeService;
 
+import vn.edu.utc.hotel_booking.modules.finance.entity.Folio;
+import vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService;
+
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
@@ -24,6 +27,7 @@ import java.util.List;
 public class BookingChargeServiceImpl implements BookingChargeService {
 
     BookingChargeRepository bookingChargeRepository;
+    FolioLedgerService folioLedgerService;
 
     @Override
     @Transactional
@@ -70,7 +74,37 @@ public class BookingChargeServiceImpl implements BookingChargeService {
                 .issuedAt(OffsetDateTime.now())
                 .build();
 
-        return bookingChargeRepository.save(charge);
+        BookingCharge saved = bookingChargeRepository.save(charge);
+
+        // Đồng bộ ghi Nợ (DEBIT) vào Folio Ledger
+        try {
+            Long bookingId = null;
+            if (bookingRoom != null && bookingRoom.getBookingDetail() != null && bookingRoom.getBookingDetail().getBooking() != null) {
+                bookingId = bookingRoom.getBookingDetail().getBooking().getId();
+            }
+            if (bookingId != null && bookingRoom != null) {
+                Folio folio = folioLedgerService.getOrCreateFolio(bookingId, bookingRoom.getId());
+                folioLedgerService.postDebit(
+                        folio.getId(),
+                        saved.getChargeType() != null ? saved.getChargeType().name() : "SURCHARGE",
+                        "BOOKING_CHARGE",
+                        saved.getId(),
+                        saved.getItemName() != null ? saved.getItemName() : "Phụ thu phòng",
+                        saved.getQuantity() != null ? saved.getQuantity() : 1,
+                        saved.getUnitPrice(),
+                        saved.getSubtotal(),
+                        saved.getServiceFeeRate(),
+                        saved.getServiceFeeAmount(),
+                        saved.getVatRate(),
+                        saved.getVatAmount(),
+                        saved.getTotalAmount()
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to post booking charge {} to folio ledger: {}", saved.getId(), e.getMessage());
+        }
+
+        return saved;
     }
 
     @Override
@@ -87,5 +121,27 @@ public class BookingChargeServiceImpl implements BookingChargeService {
     public void deleteById(Long id) {
         BookingCharge charge = getById(id);
         bookingChargeRepository.delete(charge);
+
+        // Hạch toán bút toán điều chỉnh hoàn trả/hủy (ADJUSTMENT CREDIT) vào Folio Ledger
+        try {
+            BookingRoom br = charge.getBookingRoom();
+            Long bookingId = null;
+            if (br != null && br.getBookingDetail() != null && br.getBookingDetail().getBooking() != null) {
+                bookingId = br.getBookingDetail().getBooking().getId();
+            }
+            if (bookingId != null && br != null) {
+                Folio folio = folioLedgerService.getOrCreateFolio(bookingId, br.getId());
+                folioLedgerService.postCredit(
+                        folio.getId(),
+                        "ADJUSTMENT",
+                        "BOOKING_CHARGE_VOID",
+                        charge.getId(),
+                        "Hủy phụ thu: " + (charge.getItemName() != null ? charge.getItemName() : "Charge #" + charge.getId()),
+                        charge.getTotalAmount()
+                );
+            }
+        } catch (Exception e) {
+            log.error("Failed to post booking charge void {} to folio ledger: {}", id, e.getMessage());
+        }
     }
 }

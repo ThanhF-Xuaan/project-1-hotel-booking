@@ -28,6 +28,7 @@ import type { RoomAssignTarget } from './RoomAssignModal';
 import type {
   BookingResponse,
   BookingRoomResponse,
+  BookingDetailResponse,
   BookingStatus,
 } from '../types/booking.types';
 
@@ -55,7 +56,11 @@ export interface BookingDetailModalProps {
     hotelId: number;
   }) => void;
   onServiceOrder: (booking: BookingResponse, room: BookingRoomResponse) => void;
-  onAddCharge: (bookingRoomId: number) => void;
+  onAddCharge: (
+    booking: BookingResponse,
+    room: BookingRoomResponse,
+    detail: BookingDetailResponse
+  ) => void;
   onDeleteCharge: (chargeId: number, itemName: string) => void;
   onNoShowBooking: (booking: BookingResponse) => void;
 }
@@ -294,7 +299,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                       key: 'add-charge',
                       label: 'Thêm phụ phí',
                       icon: <DollarSign className="w-4 h-4" />,
-                      onClick: () => onAddCharge(room.id),
+                      onClick: () => onAddCharge(booking, room, detail),
                       title: 'Thêm phụ phí nhận phòng sớm, thêm người...',
                     });
 
@@ -370,7 +375,7 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                       key: 'add-charge',
                       label: 'Thêm phụ phí',
                       icon: <DollarSign className="w-4 h-4" />,
-                      onClick: () => onAddCharge(room.id),
+                      onClick: () => onAddCharge(booking, room, detail),
                       title: 'Thêm phụ phí phát sinh',
                     });
                   }

@@ -117,7 +117,20 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng id: " + id));
 
         roomInstance.setCurrentStatus(status);
-        return roomInstanceRepository.save(roomInstance);
+        RoomInstance saved = roomInstanceRepository.save(roomInstance);
+
+        // Đồng bộ trạng thái vào RoomSlot hôm nay
+        LocalDate today = LocalDate.now();
+        roomSlotRepository.findByRoomInstanceIdAndSlotDate(id, today).ifPresent(slot -> {
+            slot.setStatus(status);
+            if (RoomSlotStatus.READY.name().equalsIgnoreCase(status)) {
+                slot.setBookingRoomId(null);
+                slot.setReservedAt(null);
+            }
+            roomSlotRepository.save(slot);
+        });
+
+        return saved;
     }
 
     @Override
@@ -244,6 +257,16 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
             } else if (RoomSlotStatus.RESERVED.name().equals(status) || RoomSlotStatus.OCCUPIED.name().equals(status)) {
                 reason = "Đã có khách đặt / lưu trú";
             } else if (RoomSlotStatus.DIRTY.name().equals(status) || RoomSlotStatus.CLEANING.name().equals(status)) {
+                // Self-healing: Nếu slot bị đánh dấu DIRTY/CLEANING trong ngày hôm nay nhưng phòng vật lý thực tế đã được xác nhận READY
+                RoomInstance physRoom = slot.getRoomInstance();
+                if (slot.getSlotDate() != null && slot.getSlotDate().equals(LocalDate.now())
+                        && physRoom != null && RoomInstanceStatus.READY.name().equalsIgnoreCase(physRoom.getCurrentStatus())) {
+                    slot.setStatus(RoomSlotStatus.READY.name());
+                    slot.setBookingRoomId(null);
+                    slot.setReservedAt(null);
+                    roomSlotRepository.save(slot);
+                    continue; // Phòng đã sẵn sàng, không đưa vào danh sách bận
+                }
                 reason = "Phòng chưa dọn dẹp xong";
             } else {
                 reason = "Phòng không khả dụng (" + status + ")";

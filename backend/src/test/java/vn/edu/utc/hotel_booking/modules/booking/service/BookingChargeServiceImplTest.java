@@ -26,6 +26,9 @@ class BookingChargeServiceImplTest {
     @Mock
     BookingChargeRepository bookingChargeRepository;
 
+    @Mock
+    vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService folioLedgerService;
+
     @InjectMocks
     BookingChargeServiceImpl bookingChargeService;
 
@@ -66,9 +69,11 @@ class BookingChargeServiceImplTest {
     }
 
     @Test
-    @DisplayName("createCharge - Tính toán subtotal, VAT, service fee và lưu thành công")
+    @DisplayName("createCharge - Tính toán subtotal, VAT, service fee và lưu thành công, đồng bộ đầy đủ các trường vào Folio")
     void createCharge_Success() {
-        BookingRoom bookingRoom = BookingRoom.builder().id(20L).build();
+        vn.edu.utc.hotel_booking.modules.booking.entity.Booking booking = vn.edu.utc.hotel_booking.modules.booking.entity.Booking.builder().id(99L).build();
+        vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail detail = vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail.builder().booking(booking).build();
+        BookingRoom bookingRoom = BookingRoom.builder().id(20L).bookingDetail(detail).build();
         BookingChargeCreateRequest request = BookingChargeCreateRequest.builder()
                 .chargeType(BookingChargeType.EXTRA_BED)
                 .itemName("Giường phụ")
@@ -79,6 +84,8 @@ class BookingChargeServiceImplTest {
                 .build();
 
         when(bookingChargeRepository.save(any(BookingCharge.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(folioLedgerService.getOrCreateFolio(99L, 20L))
+                .thenReturn(vn.edu.utc.hotel_booking.modules.finance.entity.Folio.builder().id(123L).build());
 
         BookingCharge result = bookingChargeService.createCharge(bookingRoom, request);
 
@@ -88,5 +95,20 @@ class BookingChargeServiceImplTest {
         assertThat(result.getVatAmount()).isEqualByComparingTo(new BigDecimal("21000.00")); // (200000 + 10000) * 10%
         assertThat(result.getTotalAmount()).isEqualByComparingTo(new BigDecimal("231000.00")); // 210000 + 21000
         verify(bookingChargeRepository).save(any(BookingCharge.class));
+        verify(folioLedgerService).postDebit(
+                eq(123L),
+                eq("EXTRA_BED"),
+                eq("BOOKING_CHARGE"),
+                any(),
+                eq("Giường phụ"),
+                eq(1),
+                eq(new BigDecimal("200000")),
+                eq(new BigDecimal("200000")),
+                eq(new BigDecimal("5.00")),
+                eq(new BigDecimal("10000.00")),
+                eq(new BigDecimal("10.00")),
+                eq(new BigDecimal("21000.00")),
+                eq(new BigDecimal("231000.00"))
+        );
     }
 }

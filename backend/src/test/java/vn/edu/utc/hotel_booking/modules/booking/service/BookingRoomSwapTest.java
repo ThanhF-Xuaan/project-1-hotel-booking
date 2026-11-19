@@ -25,6 +25,7 @@ import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomSlotService;
 import vn.edu.utc.hotel_booking.modules.operation.service.StayGuestService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,6 +50,7 @@ class BookingRoomSwapTest {
     @Mock StayGuestService stayGuestService;
     @Mock RoomSwapRecordService roomSwapRecordService;
     @Mock AuditLogService auditLogService;
+    @Mock VatRuleService vatRuleService;
 
     @InjectMocks
     BookingServiceImpl bookingService;
@@ -86,6 +88,7 @@ class BookingRoomSwapTest {
                 .hotel(hotel)
                 .roomType(suiteType)
                 .basePrice(BigDecimal.valueOf(1800000))
+                .taxCategoryId(1)
                 .build();
         suiteRoomType.setId(20);
 
@@ -229,6 +232,8 @@ class BookingRoomSwapTest {
         when(roomInstanceService.getEntityById(201)).thenReturn(room201Suite);
         when(bookingRoomService.findOverlappingAssignedRooms(eq(201), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(Collections.emptyList());
+        when(vatRuleService.getActiveVatPercent(eq(1), any(LocalDate.class)))
+                .thenReturn(BigDecimal.valueOf(8));
 
         // Chênh lệch đơn giá = 1.800.000 - 1.000.000 = 800.000 VNĐ.
         // Còn 2 đêm (từ plusDays(1) đến checkOutDate plusDays(3)) -> 1.600.000 VNĐ subtotal.
@@ -271,6 +276,7 @@ class BookingRoomSwapTest {
         ArgumentCaptor<BookingChargeCreateRequest> chargeCaptor = ArgumentCaptor.forClass(BookingChargeCreateRequest.class);
         verify(bookingChargeService).createCharge(eq(bookingRoom), chargeCaptor.capture());
         assertThat(chargeCaptor.getValue().getUnitPrice()).isEqualByComparingTo(BigDecimal.valueOf(1600000));
+        assertThat(chargeCaptor.getValue().getVatRate()).isEqualByComparingTo(BigDecimal.valueOf(8));
 
         // Verify booking tổng tiền được cộng dồn
         verify(bookingRepository).save(booking);

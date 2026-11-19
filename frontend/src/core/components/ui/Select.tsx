@@ -21,6 +21,7 @@ export interface SelectProps<T = string | number> {
   disabled?: boolean;
   prefixIcon?: React.ReactNode;
   className?: string;
+  triggerClassName?: string;
   size?: 'sm' | 'md' | 'lg';
   fullWidth?: boolean;
   isLoading?: boolean;
@@ -41,6 +42,7 @@ export const Select = <T extends string | number>({
   disabled = false,
   prefixIcon,
   className,
+  triggerClassName,
   size = 'md',
   fullWidth = true,
   isLoading = false,
@@ -165,7 +167,8 @@ export const Select = <T extends string | number>({
             : isOpen
             ? 'border-red-600 ring-2 ring-red-500/20 bg-white'
             : 'border-neutral-300 hover:border-neutral-400',
-          disabled && 'opacity-50 cursor-not-allowed bg-neutral-100 hover:bg-neutral-100'
+          disabled && 'opacity-50 cursor-not-allowed bg-neutral-100 hover:bg-neutral-100',
+          triggerClassName
         )}
       >
         <div className="flex items-center gap-2 truncate">

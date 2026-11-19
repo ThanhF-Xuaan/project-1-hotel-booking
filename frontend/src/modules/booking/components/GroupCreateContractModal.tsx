@@ -343,7 +343,7 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
     0
   );
   const serviceFee = Math.round(subtotal * 0.05);
-  const vat = Math.round((subtotal + serviceFee) * 0.1);
+  const vat = Math.round((subtotal + serviceFee) * 0.08);
   const totalContractValue = subtotal + serviceFee + vat;
   const depositRequired = Math.round(totalContractValue * 0.5);
 
@@ -1102,7 +1102,7 @@ export const GroupCreateContractModal: React.FC<GroupCreateContractModalProps> =
                 <span className="text-neutral-300">{serviceFee.toLocaleString('vi-VN')} đ</span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-neutral-400">Thuế GTGT / VAT (10%):</span>
+                <span className="text-neutral-400">Thuế GTGT / VAT (8%):</span>
                 <span className="text-neutral-300">{vat.toLocaleString('vi-VN')} đ</span>
               </div>
               <div className="border-t border-neutral-800 pt-2 flex items-center justify-between text-xs">

@@ -7,6 +7,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.annotation.Auditable;
@@ -22,6 +23,7 @@ import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -102,6 +104,28 @@ public class PaymentController {
             @Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
         return ApiResponse.success("Tạo phiên thanh toán VNPay thành công",
                 paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
+    }
+
+    @GetMapping({"/vnpay-return", "/vnpay/return"})
+    @Operation(summary = "VNPay redirect alias cho legacy return URL — chuyển tiếp sang public callback")
+    public ResponseEntity<Void> vnPayLegacyReturn(HttpServletRequest request) {
+        String queryString = request.getQueryString();
+        if ((queryString == null || queryString.isBlank()) && !request.getParameterMap().isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            request.getParameterMap().forEach((k, values) -> {
+                for (String val : values) {
+                    if (!sb.isEmpty()) sb.append("&");
+                    sb.append(java.net.URLEncoder.encode(k, java.nio.charset.StandardCharsets.UTF_8))
+                            .append("=")
+                            .append(java.net.URLEncoder.encode(val, java.nio.charset.StandardCharsets.UTF_8));
+                }
+            });
+            queryString = sb.toString();
+        }
+        String qs = (queryString != null && !queryString.isBlank()) ? "?" + queryString : "";
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create("/api/v1/public/payments/vnpay/return" + qs))
+                .build();
     }
 
     @PostMapping("/momo/create")

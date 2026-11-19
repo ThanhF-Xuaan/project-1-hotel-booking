@@ -178,7 +178,7 @@ export interface RoomInstanceDto {
   roomTypeCode: string
   roomTypeName: string
   roomNumber: string
-  currentStatus: 'READY' | 'OCCUPIED' | 'CLEANING' | 'MAINTENANCE' | 'BLOCKED' | string
+  currentStatus: 'READY' | 'OCCUPIED' | 'CLEANING' | 'DIRTY' | 'MAINTENANCE' | 'BLOCKED' | string
   maxAdults?: number
   maxChildren?: number
   maxTotalGuests?: number

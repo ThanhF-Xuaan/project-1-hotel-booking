@@ -67,6 +67,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.HashSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -86,6 +88,8 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
+import vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService;
+import vn.edu.utc.hotel_booking.modules.finance.entity.Folio;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceDetailResponse;
@@ -170,6 +174,7 @@ public class BookingServiceImpl implements BookingService {
     ServiceOrderService serviceOrderService;
     StayGuestService stayGuestService;
     InvoiceService invoiceService;
+    FolioLedgerService folioLedgerService;
     PaymentRepository paymentRepository;
     SurchargeRuleRepository surchargeRuleRepository;
     AuditLogService auditLogService;
@@ -957,7 +962,19 @@ public class BookingServiceImpl implements BookingService {
                     BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
                     BigDecimal serviceFeeDiff = subtotalDiff.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     BigDecimal taxableDiff = subtotalDiff.add(serviceFeeDiff);
-                    BigDecimal vatRate = BigDecimal.valueOf(10);
+                    BigDecimal vatRate = BigDecimal.valueOf(8);
+                    Integer targetTaxCatId = targetRoomType.getTaxCategoryId();
+                    if (targetTaxCatId != null) {
+                        BigDecimal activeVat = vatRuleService.getActiveVatPercent(targetTaxCatId, effectiveDate);
+                        if (activeVat != null && activeVat.compareTo(BigDecimal.ZERO) > 0) {
+                            vatRate = activeVat;
+                        }
+                    } else if (currentRoomType.getTaxCategoryId() != null) {
+                        BigDecimal activeVat = vatRuleService.getActiveVatPercent(currentRoomType.getTaxCategoryId(), effectiveDate);
+                        if (activeVat != null && activeVat.compareTo(BigDecimal.ZERO) > 0) {
+                            vatRate = activeVat;
+                        }
+                    }
                     BigDecimal vatDiff = taxableDiff.multiply(vatRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     String targetRoomTypeName = targetRoomType.getRoomType() != null ? targetRoomType.getRoomType().getName() : "Phòng";
                     BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
@@ -1105,6 +1122,40 @@ public class BookingServiceImpl implements BookingService {
 
         stayGuestService.syncLodgingQueueForBookingRoom(bookingRoomId);
 
+        // Khởi tạo hoặc kích hoạt Folio cho phòng tại thời điểm Check-in và đồng bộ tiền phòng lưu trú
+        try {
+            if (detail != null && detail.getBooking() != null && folioLedgerService != null) {
+                Folio folio = folioLedgerService.getOrCreateFolio(detail.getBooking().getId(), bookingRoomId);
+                if (bookingRoom.getDailyRates() != null) {
+                    String roomLabel = (bookingRoom.getRoomInstance() != null && bookingRoom.getRoomInstance().getRoomNumber() != null)
+                            ? bookingRoom.getRoomInstance().getRoomNumber()
+                            : (detail.getRoomTypeName() != null ? detail.getRoomTypeName() : "");
+                    for (BookingDailyRate dr : bookingRoom.getDailyRates()) {
+                        BigDecimal fee = dr.getServiceFeeAmount() != null ? dr.getServiceFeeAmount() : BigDecimal.ZERO;
+                        BigDecimal vat = dr.getVatAmount() != null ? dr.getVatAmount() : BigDecimal.ZERO;
+                        BigDecimal gross = dr.getBasePrice().add(fee).add(vat);
+                        folioLedgerService.postDebit(
+                                folio.getId(),
+                                "ROOM_RATE",
+                                "DAILY_RATE",
+                                dr.getId(),
+                                "Phòng " + roomLabel + " - Đêm ngày " + dr.getStayDate(),
+                                1,
+                                dr.getBasePrice(),
+                                dr.getBasePrice(),
+                                dr.getServiceFeeRate(),
+                                fee,
+                                dr.getVatPercent(),
+                                vat,
+                                gross
+                        );
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to initialize Folio ledger upon check-in for bookingRoomId {}: {}", bookingRoomId, e.getMessage());
+        }
+
         return bookingMapper.toResponse(bookingRoom.getBookingDetail().getBooking());
     }
 
@@ -1146,6 +1197,9 @@ public class BookingServiceImpl implements BookingService {
 
         // 5. Quyết toán và đóng Hóa đơn Folio -> PAID
         invoiceService.settleAndCloseInvoice(booking.getId());
+        if (folioLedgerService != null) {
+            folioLedgerService.closeFolio(booking.getId());
+        }
 
         // 6. Đồng bộ hàng chờ lưu trú BCA
         stayGuestService.syncLodgingQueueForBookingRoom(bookingRoomId);
@@ -1180,6 +1234,13 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public CheckoutSettlementResponse getCheckoutSettlement(Long bookingRoomId) {
+        if (folioLedgerService != null) {
+            CheckoutSettlementResponse folioSettlement = folioLedgerService.getSettlementByBookingRoomId(bookingRoomId);
+            if (folioSettlement != null && folioSettlement.getLineItems() != null && !folioSettlement.getLineItems().isEmpty()) {
+                return folioSettlement;
+            }
+        }
+
         BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
         BookingDetail detail = bookingRoom.getBookingDetail();
         Booking booking = detail.getBooking();
@@ -1253,19 +1314,46 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        // 3. Đơn dịch vụ phòng POS (service_orders)
+        // 3. Lấy lịch sử thanh toán thành công (payments) trước để đối soát khớp đúng với chi tiêu
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        List<PaymentResponse> paymentResponses = new ArrayList<>();
+        Set<Long> serviceOrderIdsWithPayment = new HashSet<>();
+        if (payments != null) {
+            for (Payment p : payments) {
+                if (p.getStatus() == PaymentStatus.SUCCESS) {
+                    BigDecimal amt = p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount();
+                    totalPaid = totalPaid.add(amt);
+                    if (p.getServiceOrder() != null && p.getServiceOrder().getId() != null) {
+                        serviceOrderIdsWithPayment.add(p.getServiceOrder().getId());
+                    }
+                }
+                paymentResponses.add(financeMapper.toResponse(p));
+            }
+        }
+
+        // 4. Đơn dịch vụ phòng POS (service_orders) - Chuẩn hóa Sổ cái Guest Folio
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
-                // Bỏ qua đơn dịch vụ đã bị hủy
-                if (order.getStatus() == ServiceOrderStatus.CANCELLED) {
+                if (order.getStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus.CANCELLED) {
                     continue;
                 }
 
+                // LOẠI BỎ hoàn toàn đơn thanh toán trực tuyến chưa hoàn tất (VNPAY UNPAID chưa thanh toán / bỏ dở)
+                if (order.getPaymentMethod() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.VNPAY
+                        && order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.UNPAID) {
+                    continue;
+                }
+
+                String pMethodStr = order.getPaymentMethod() != null ? order.getPaymentMethod().name() : "POST_TO_ROOM";
+                String pStatusStr = order.getPaymentStatus() != null ? order.getPaymentStatus().name() : "UNPAID";
+
                 if (order.getDetails() != null) {
                     for (var item : order.getDetails()) {
+                        String lineType = "PRODUCT".equalsIgnoreCase(item.getItemType()) ? "PRODUCT" : "SERVICE";
                         lineItems.add(SettlementLineItemDto.builder()
-                                .lineType("SERVICE")
+                                .lineType(lineType)
                                 .referenceId(item.getId())
                                 .description(item.getItemName() + " (" + order.getOrderNumber() + ")")
                                 .quantity(item.getQuantity())
@@ -1276,30 +1364,41 @@ public class BookingServiceImpl implements BookingService {
                                 .vatRate(item.getVatRate())
                                 .vatAmount(item.getVatAmount())
                                 .totalAmount(item.getTotalAmount())
+                                .paymentMethod(pMethodStr)
+                                .paymentStatus(pStatusStr)
+                                .orderNumber(order.getOrderNumber())
                                 .build());
                     }
                 }
+
                 if (order.getTotalAmount() != null) {
                     totalServiceCharges = totalServiceCharges.add(order.getTotalAmount());
+                }
+
+                // Nếu đơn thanh toán trực tiếp tại quầy POS đã thành công (PAID) nhưng chưa có trong paymentRepository
+                if (order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID
+                        && !serviceOrderIdsWithPayment.contains(order.getId())
+                        && order.getTotalAmount() != null) {
+                    totalPaid = totalPaid.add(order.getTotalAmount());
+                    PaymentMethod pm = PaymentMethod.CASH;
+                    if (order.getPaymentMethod() != null) {
+                        try {
+                            pm = PaymentMethod.valueOf(order.getPaymentMethod().name());
+                        } catch (IllegalArgumentException ignored) {}
+                    }
+                    paymentResponses.add(PaymentResponse.builder()
+                            .paymentMethod(pm)
+                            .paymentPurpose(PaymentPurpose.FULL_PAYMENT)
+                            .transactionReference(order.getOrderNumber())
+                            .totalAmount(order.getTotalAmount())
+                            .status(PaymentStatus.SUCCESS)
+                            .paidAt(order.getIssuedAt() != null ? order.getIssuedAt() : order.getCreatedAt())
+                            .build());
                 }
             }
         }
 
         BigDecimal grandTotal = totalRoomCharges.add(totalSurcharges).add(totalNoShowPenalty).add(totalServiceCharges);
-
-        // 4. Lấy lịch sử thanh toán thành công (payments)
-        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
-        BigDecimal totalPaid = BigDecimal.ZERO;
-        List<PaymentResponse> paymentResponses = new ArrayList<>();
-        if (payments != null) {
-            for (Payment p : payments) {
-                if (p.getStatus() == PaymentStatus.SUCCESS) {
-                    BigDecimal amt = p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount();
-                    totalPaid = totalPaid.add(amt);
-                }
-                paymentResponses.add(financeMapper.toResponse(p));
-            }
-        }
 
         BigDecimal balanceDue = grandTotal.subtract(totalPaid);
         BigDecimal netOverpaymentAmount = BigDecimal.ZERO;
@@ -2241,6 +2340,14 @@ public class BookingServiceImpl implements BookingService {
                 ? "Phụ thu nhận phòng sớm (" + (fixedAmount != null ? (String.format("%,.0f", fixedAmount) + " đ") : (percentage.stripTrailingZeros().toPlainString() + "% giá phòng")) + ")"
                 : "Phụ thu trả phòng muộn (" + (fixedAmount != null ? (String.format("%,.0f", fixedAmount) + " đ") : (percentage.stripTrailingZeros().toPlainString() + "% giá phòng")) + ")";
 
+        BigDecimal dynamicVatRate = new BigDecimal("8.00");
+        if (detail.getHotelRoomType() != null && detail.getHotelRoomType().getTaxCategoryId() != null && vatRuleService != null) {
+            BigDecimal activeVat = vatRuleService.getActiveVatPercent(detail.getHotelRoomType().getTaxCategoryId(), dateOnly);
+            if (activeVat != null) {
+                dynamicVatRate = activeVat;
+            }
+        }
+
         return SurchargeProposalResponse.builder()
                 .applicable(applicable)
                 .chargeType(chargeType)
@@ -2253,7 +2360,7 @@ public class BookingServiceImpl implements BookingService {
                 .suggestedAmount(suggestedAmount)
                 .suggestedItemName(suggestedItemName)
                 .defaultServiceFeeRate(new BigDecimal("5.00"))
-                .defaultVatRate(new BigDecimal("8.00"))
+                .defaultVatRate(dynamicVatRate)
                 .build();
     }
 
@@ -2492,6 +2599,20 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
+        BigDecimal dynamicVatRate = new BigDecimal("8.00");
+        if (hotelRoomTypeId != null && vatRuleService != null) {
+            try {
+                HotelRoomType roomType = hotelRoomTypeService.getEntityById(hotelRoomTypeId);
+                if (roomType != null && roomType.getTaxCategoryId() != null) {
+                    BigDecimal activeVat = vatRuleService.getActiveVatPercent(roomType.getTaxCategoryId(), checkInDate);
+                    if (activeVat != null) {
+                        dynamicVatRate = activeVat;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
         return SurchargeProposalResponse.builder()
                 .applicable(applicable)
                 .chargeType(BookingChargeType.EARLY_CHECKIN)
@@ -2504,7 +2625,7 @@ public class BookingServiceImpl implements BookingService {
                 .suggestedAmount(suggestedAmount)
                 .suggestedItemName(suggestedItemName)
                 .defaultServiceFeeRate(new BigDecimal("5.00"))
-                .defaultVatRate(new BigDecimal("8.00"))
+                .defaultVatRate(dynamicVatRate)
                 .build();
     }
 

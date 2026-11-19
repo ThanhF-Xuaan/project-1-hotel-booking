@@ -20,6 +20,7 @@ public class MenuResponse {
     String hotelName;
     Integer taxCategoryId;
     String taxCategoryName;
+    BigDecimal vatRate;
     MenuType menuType;
     String name;
     String description;

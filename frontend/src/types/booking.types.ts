@@ -4,7 +4,13 @@ export type BookingStatus = 'CONFIRMED' | 'CANCELLED' | 'NO_SHOW';
 
 export type BookingRoomStatus = 'EXPECTED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'NO_SHOW' | 'CANCELLED';
 
-export type BookingChargeType = 'EARLY_CHECKIN' | 'LATE_CHECKOUT' | 'PENALTY' | 'OTHER';
+export type BookingChargeType =
+  | 'EARLY_CHECKIN'
+  | 'LATE_CHECKOUT'
+  | 'EXTRA_PERSON'
+  | 'EXTRA_BED'
+  | 'PENALTY'
+  | 'OTHER';
 
 export type BookingGuestType = 'ADULT' | 'CHILD' | 'INFANT';
 

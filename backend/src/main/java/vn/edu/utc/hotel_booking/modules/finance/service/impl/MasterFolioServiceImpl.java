@@ -21,6 +21,7 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.*;
 import vn.edu.utc.hotel_booking.modules.finance.repository.BillingRoutingRuleRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioItemAdjustmentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioRepository;
+import vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService;
 import vn.edu.utc.hotel_booking.modules.finance.service.MasterFolioService;
 import vn.edu.utc.hotel_booking.modules.identity.service.AuditLogService;
 import vn.edu.utc.hotel_booking.modules.operation.dto.response.ServiceOrderDetailResponse;
@@ -48,6 +49,7 @@ public class MasterFolioServiceImpl implements MasterFolioService {
     BookingLookupService bookingLookupService;
     ServiceOrderService serviceOrderService;
     AuditLogService auditLogService;
+    FolioLedgerService folioLedgerService;
 
     @Override
     @Transactional
@@ -323,6 +325,40 @@ public class MasterFolioServiceImpl implements MasterFolioService {
                 .build();
 
         masterFolioItemAdjustmentRepository.save(adjustment);
+
+        // Đồng bộ bút toán điều chuyển kép sang Folio Ledger
+        try {
+            if (folioLedgerService != null && bookingRoom != null && bookingRoom.getBookingDetail() != null && bookingRoom.getBookingDetail().getBooking() != null) {
+                Long bookingId = bookingRoom.getBookingDetail().getBooking().getId();
+                Folio subFolio = folioLedgerService.getOrCreateFolio(bookingId, bookingRoom.getId());
+                if (subFolio != null) {
+                    if (request.getAdjustedTarget() == RoutingTarget.MASTER) {
+                        // Chuyển sang Master Folio -> Giảm nợ phòng cá nhân (CREDIT)
+                        folioLedgerService.postCredit(
+                                subFolio.getId(),
+                                "ROUTING_TRANSFER",
+                                "MASTER_ROUTING",
+                                adjustment.getId(),
+                                "Điều chuyển sang Master Folio: " + request.getItemDescription(),
+                                request.getAmount(),
+                                "INTERNAL_TRANSFER"
+                        );
+                    } else if (request.getAdjustedTarget() == RoutingTarget.SUB_FOLIO) {
+                        // Chuyển về Sub-Folio -> Tăng nợ phòng cá nhân (DEBIT)
+                        folioLedgerService.postDebit(
+                                subFolio.getId(),
+                                "ROUTING_TRANSFER",
+                                "MASTER_ROUTING",
+                                adjustment.getId(),
+                                "Điều chuyển về phòng từ Master: " + request.getItemDescription(),
+                                request.getAmount()
+                        );
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Không thể đồng bộ MasterFolio routing adjustment sang Folio Ledger: {}", e.getMessage());
+        }
 
         auditLogService.recordLog(
                 null,
