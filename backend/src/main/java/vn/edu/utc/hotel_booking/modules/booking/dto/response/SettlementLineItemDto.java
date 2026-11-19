@@ -66,4 +66,19 @@ public class SettlementLineItemDto {
      * Tổng số tiền dòng chi phí (subtotal + serviceFee + vat)
      */
     BigDecimal totalAmount;
+
+    /**
+     * Phương thức thanh toán (POST_TO_ROOM, VNPAY, CASH, CREDIT_CARD) nếu là dịch vụ
+     */
+    String paymentMethod;
+
+    /**
+     * Trạng thái thanh toán (UNPAID, PAID) nếu là dịch vụ
+     */
+    String paymentStatus;
+
+    /**
+     * Mã đơn dịch vụ tham chiếu (SO-...)
+     */
+    String orderNumber;
 }

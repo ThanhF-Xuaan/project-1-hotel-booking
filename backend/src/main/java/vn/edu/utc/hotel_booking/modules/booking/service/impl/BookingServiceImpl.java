@@ -67,6 +67,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.HashSet;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -86,6 +88,8 @@ import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus;
 import vn.edu.utc.hotel_booking.modules.finance.mapper.FinanceMapper;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.InvoiceService;
+import vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService;
+import vn.edu.utc.hotel_booking.modules.finance.entity.Folio;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.InvoiceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.InvoiceDetailResponse;
@@ -170,6 +174,7 @@ public class BookingServiceImpl implements BookingService {
     ServiceOrderService serviceOrderService;
     StayGuestService stayGuestService;
     InvoiceService invoiceService;
+    FolioLedgerService folioLedgerService;
     PaymentRepository paymentRepository;
     SurchargeRuleRepository surchargeRuleRepository;
     AuditLogService auditLogService;
@@ -201,26 +206,11 @@ public class BookingServiceImpl implements BookingService {
                     request.getCustomerPhone(),
                     request.getCustomerName() != null ? request.getCustomerName() : "Khách đặt Online",
                     request.getCustomerEmail(),
-                    request.getCustomerNationality() != null ? request.getCustomerNationality() : "VN"
+                    request.getCustomerNationality() != null ? request.getCustomerNationality() : "VN",
+                    request.getCustomerIdentityType(),
+                    request.getCustomerIdentityNumber(),
+                    null
             );
-            if (request.getCustomerIdentityNumber() != null && !request.getCustomerIdentityNumber().isBlank()
-                    && (guest.getIdentityNumber() == null || guest.getIdentityNumber().isBlank())) {
-                guest.setIdentityNumber(request.getCustomerIdentityNumber().trim());
-            }
-            if (guest.getIdentityType() == null || guest.getIdentityType().isBlank()) {
-                if (request.getCustomerIdentityType() != null && !request.getCustomerIdentityType().isBlank()) {
-                    guest.setIdentityType(request.getCustomerIdentityType().trim());
-                } else if (guest.getIdentityNumber() != null && !guest.getIdentityNumber().isBlank()) {
-                    String idNum = guest.getIdentityNumber().trim();
-                    if (idNum.matches("^\\d{12}$")) {
-                        guest.setIdentityType("CCCD");
-                    } else if (idNum.matches("^[A-Za-z0-9]{7,9}$")) {
-                        guest.setIdentityType("PASSPORT");
-                    } else if (idNum.matches("^\\d{9}$")) {
-                        guest.setIdentityType("CMND");
-                    }
-                }
-            }
         } else if (request.getCompanyId() == null) {
             throw new AppException(ErrorCode.INVALID_REQUEST_DATA,
                     "Thiếu thông tin người đặt phòng (guestId hoặc customerPhone)");
@@ -360,26 +350,9 @@ public class BookingServiceImpl implements BookingService {
                         .assignedAt(assignedRoom != null ? OffsetDateTime.now() : null)
                         .build();
 
-                // Tạo danh sách khách lưu trú (StayGuest trong bảng stay_guests)
-                List<StayGuest> stayGuests = new ArrayList<>();
-                if (roomReq.getGuests() != null && !roomReq.getGuests().isEmpty()) {
-                    for (BookingCreateRequest.GuestItemRequest gReq : roomReq.getGuests()) {
-                        StayGuest sg = StayGuest.builder()
-                                .bookingRoom(bookingRoom)
-                                .firstName(gReq.getFirstName() != null ? gReq.getFirstName() : "")
-                                .lastName(gReq.getLastName() != null ? gReq.getLastName() : "")
-                                .fullName(gReq.getFullName() != null ? gReq.getFullName() : (gReq.getFirstName() + " " + gReq.getLastName()).trim())
-                                .dateOfBirth(gReq.getBirthDate())
-                                .guestType(gReq.getGuestType() != null ? gReq.getGuestType() : BookingGuestType.ADULT)
-                                .documentNumber(gReq.getIdentityNumber())
-                                .build();
-                        if (gReq.getIdentityType() != null) {
-                            sg.setIdentityType(gReq.getIdentityType());
-                        }
-                        stayGuests.add(sg);
-                    }
-                }
-                bookingRoom.setStayGuests(stayGuests);
+                // Danh sách khách lưu trú thực tế tại phòng (stay_guests) để trống khi tạo đơn đặt trước (EXPECTED)
+                // Khách lưu trú sẽ được khai báo khi Lễ tân làm thủ tục Check-in hoặc import Rooming List
+                bookingRoom.setStayGuests(new ArrayList<>());
 
                 // Tạo Snapshot giá chi tiết từng đêm (BookingDailyRate)
                 List<BookingDailyRate> dailyRates = new ArrayList<>();
@@ -874,6 +847,12 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
+        // Kiểm tra xung đột RoomSlot (khóa bảo trì OOO hoặc slot bận khác)
+        if (roomSlotService.isRoomBusyBetween(roomInstance.getId(), detail.getCheckInDate(), detail.getCheckOutDate(), bookingRoom.getId())) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                    "Phòng " + roomInstance.getRoomNumber() + " đang bận hoặc khóa bảo trì trong khoảng thời gian này");
+        }
+
         // Hủy liên kết phòng cũ nếu có
         if (bookingRoom.getRoomInstance() != null) {
             roomSlotService.releaseSlots(bookingRoom.getRoomInstance().getId(), detail.getCheckInDate(), detail.getCheckOutDate());
@@ -955,6 +934,12 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
+        // Kiểm tra xung đột RoomSlot (khóa bảo trì OOO hoặc slot bận khác)
+        if (roomSlotService.isRoomBusyBetween(targetRoom.getId(), effectiveDate, detail.getCheckOutDate(), bookingRoom.getId())) {
+            throw new AppException(ErrorCode.ROOM_ALREADY_ASSIGNED,
+                    "Phòng đích " + targetRoom.getRoomNumber() + " đang bận hoặc khóa bảo trì trong khoảng thời gian từ " + effectiveDate + " đến " + detail.getCheckOutDate());
+        }
+
         // 3. Phân biệt nâng hạng / đổi hạng phòng
         HotelRoomType currentRoomType = detail.getHotelRoomType();
         HotelRoomType targetRoomType = targetRoom.getHotelRoomType();
@@ -977,7 +962,19 @@ public class BookingServiceImpl implements BookingService {
                     BigDecimal serviceFeeRate = booking.getServiceFeeRate() != null ? booking.getServiceFeeRate() : BigDecimal.ZERO;
                     BigDecimal serviceFeeDiff = subtotalDiff.multiply(serviceFeeRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     BigDecimal taxableDiff = subtotalDiff.add(serviceFeeDiff);
-                    BigDecimal vatRate = BigDecimal.valueOf(10);
+                    BigDecimal vatRate = BigDecimal.valueOf(8);
+                    Integer targetTaxCatId = targetRoomType.getTaxCategoryId();
+                    if (targetTaxCatId != null) {
+                        BigDecimal activeVat = vatRuleService.getActiveVatPercent(targetTaxCatId, effectiveDate);
+                        if (activeVat != null && activeVat.compareTo(BigDecimal.ZERO) > 0) {
+                            vatRate = activeVat;
+                        }
+                    } else if (currentRoomType.getTaxCategoryId() != null) {
+                        BigDecimal activeVat = vatRuleService.getActiveVatPercent(currentRoomType.getTaxCategoryId(), effectiveDate);
+                        if (activeVat != null && activeVat.compareTo(BigDecimal.ZERO) > 0) {
+                            vatRate = activeVat;
+                        }
+                    }
                     BigDecimal vatDiff = taxableDiff.multiply(vatRate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                     String targetRoomTypeName = targetRoomType.getRoomType() != null ? targetRoomType.getRoomType().getName() : "Phòng";
                     BookingChargeCreateRequest chargeReq = BookingChargeCreateRequest.builder()
@@ -1125,6 +1122,40 @@ public class BookingServiceImpl implements BookingService {
 
         stayGuestService.syncLodgingQueueForBookingRoom(bookingRoomId);
 
+        // Khởi tạo hoặc kích hoạt Folio cho phòng tại thời điểm Check-in và đồng bộ tiền phòng lưu trú
+        try {
+            if (detail != null && detail.getBooking() != null && folioLedgerService != null) {
+                Folio folio = folioLedgerService.getOrCreateFolio(detail.getBooking().getId(), bookingRoomId);
+                if (bookingRoom.getDailyRates() != null) {
+                    String roomLabel = (bookingRoom.getRoomInstance() != null && bookingRoom.getRoomInstance().getRoomNumber() != null)
+                            ? bookingRoom.getRoomInstance().getRoomNumber()
+                            : (detail.getRoomTypeName() != null ? detail.getRoomTypeName() : "");
+                    for (BookingDailyRate dr : bookingRoom.getDailyRates()) {
+                        BigDecimal fee = dr.getServiceFeeAmount() != null ? dr.getServiceFeeAmount() : BigDecimal.ZERO;
+                        BigDecimal vat = dr.getVatAmount() != null ? dr.getVatAmount() : BigDecimal.ZERO;
+                        BigDecimal gross = dr.getBasePrice().add(fee).add(vat);
+                        folioLedgerService.postDebit(
+                                folio.getId(),
+                                "ROOM_RATE",
+                                "DAILY_RATE",
+                                dr.getId(),
+                                "Phòng " + roomLabel + " - Đêm ngày " + dr.getStayDate(),
+                                1,
+                                dr.getBasePrice(),
+                                dr.getBasePrice(),
+                                dr.getServiceFeeRate(),
+                                fee,
+                                dr.getVatPercent(),
+                                vat,
+                                gross
+                        );
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to initialize Folio ledger upon check-in for bookingRoomId {}: {}", bookingRoomId, e.getMessage());
+        }
+
         return bookingMapper.toResponse(bookingRoom.getBookingDetail().getBooking());
     }
 
@@ -1166,6 +1197,9 @@ public class BookingServiceImpl implements BookingService {
 
         // 5. Quyết toán và đóng Hóa đơn Folio -> PAID
         invoiceService.settleAndCloseInvoice(booking.getId());
+        if (folioLedgerService != null) {
+            folioLedgerService.closeFolio(booking.getId());
+        }
 
         // 6. Đồng bộ hàng chờ lưu trú BCA
         stayGuestService.syncLodgingQueueForBookingRoom(bookingRoomId);
@@ -1200,6 +1234,13 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public CheckoutSettlementResponse getCheckoutSettlement(Long bookingRoomId) {
+        if (folioLedgerService != null) {
+            CheckoutSettlementResponse folioSettlement = folioLedgerService.getSettlementByBookingRoomId(bookingRoomId);
+            if (folioSettlement != null && folioSettlement.getLineItems() != null && !folioSettlement.getLineItems().isEmpty()) {
+                return folioSettlement;
+            }
+        }
+
         BookingRoom bookingRoom = bookingRoomService.getEntityById(bookingRoomId);
         BookingDetail detail = bookingRoom.getBookingDetail();
         Booking booking = detail.getBooking();
@@ -1273,19 +1314,46 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        // 3. Đơn dịch vụ phòng POS (service_orders)
+        // 3. Lấy lịch sử thanh toán thành công (payments) trước để đối soát khớp đúng với chi tiêu
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        List<PaymentResponse> paymentResponses = new ArrayList<>();
+        Set<Long> serviceOrderIdsWithPayment = new HashSet<>();
+        if (payments != null) {
+            for (Payment p : payments) {
+                if (p.getStatus() == PaymentStatus.SUCCESS) {
+                    BigDecimal amt = p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount();
+                    totalPaid = totalPaid.add(amt);
+                    if (p.getServiceOrder() != null && p.getServiceOrder().getId() != null) {
+                        serviceOrderIdsWithPayment.add(p.getServiceOrder().getId());
+                    }
+                }
+                paymentResponses.add(financeMapper.toResponse(p));
+            }
+        }
+
+        // 4. Đơn dịch vụ phòng POS (service_orders) - Chuẩn hóa Sổ cái Guest Folio
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
-                // Bỏ qua đơn dịch vụ đã bị hủy
-                if (order.getStatus() == ServiceOrderStatus.CANCELLED) {
+                if (order.getStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus.CANCELLED) {
                     continue;
                 }
 
+                // LOẠI BỎ hoàn toàn đơn thanh toán trực tuyến chưa hoàn tất (VNPAY UNPAID chưa thanh toán / bỏ dở)
+                if (order.getPaymentMethod() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentMethod.VNPAY
+                        && order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.UNPAID) {
+                    continue;
+                }
+
+                String pMethodStr = order.getPaymentMethod() != null ? order.getPaymentMethod().name() : "POST_TO_ROOM";
+                String pStatusStr = order.getPaymentStatus() != null ? order.getPaymentStatus().name() : "UNPAID";
+
                 if (order.getDetails() != null) {
                     for (var item : order.getDetails()) {
+                        String lineType = "PRODUCT".equalsIgnoreCase(item.getItemType()) ? "PRODUCT" : "SERVICE";
                         lineItems.add(SettlementLineItemDto.builder()
-                                .lineType("SERVICE")
+                                .lineType(lineType)
                                 .referenceId(item.getId())
                                 .description(item.getItemName() + " (" + order.getOrderNumber() + ")")
                                 .quantity(item.getQuantity())
@@ -1296,30 +1364,41 @@ public class BookingServiceImpl implements BookingService {
                                 .vatRate(item.getVatRate())
                                 .vatAmount(item.getVatAmount())
                                 .totalAmount(item.getTotalAmount())
+                                .paymentMethod(pMethodStr)
+                                .paymentStatus(pStatusStr)
+                                .orderNumber(order.getOrderNumber())
                                 .build());
                     }
                 }
+
                 if (order.getTotalAmount() != null) {
                     totalServiceCharges = totalServiceCharges.add(order.getTotalAmount());
+                }
+
+                // Nếu đơn thanh toán trực tiếp tại quầy POS đã thành công (PAID) nhưng chưa có trong paymentRepository
+                if (order.getPaymentStatus() == vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus.PAID
+                        && !serviceOrderIdsWithPayment.contains(order.getId())
+                        && order.getTotalAmount() != null) {
+                    totalPaid = totalPaid.add(order.getTotalAmount());
+                    PaymentMethod pm = PaymentMethod.CASH;
+                    if (order.getPaymentMethod() != null) {
+                        try {
+                            pm = PaymentMethod.valueOf(order.getPaymentMethod().name());
+                        } catch (IllegalArgumentException ignored) {}
+                    }
+                    paymentResponses.add(PaymentResponse.builder()
+                            .paymentMethod(pm)
+                            .paymentPurpose(PaymentPurpose.FULL_PAYMENT)
+                            .transactionReference(order.getOrderNumber())
+                            .totalAmount(order.getTotalAmount())
+                            .status(PaymentStatus.SUCCESS)
+                            .paidAt(order.getIssuedAt() != null ? order.getIssuedAt() : order.getCreatedAt())
+                            .build());
                 }
             }
         }
 
         BigDecimal grandTotal = totalRoomCharges.add(totalSurcharges).add(totalNoShowPenalty).add(totalServiceCharges);
-
-        // 4. Lấy lịch sử thanh toán thành công (payments)
-        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
-        BigDecimal totalPaid = BigDecimal.ZERO;
-        List<PaymentResponse> paymentResponses = new ArrayList<>();
-        if (payments != null) {
-            for (Payment p : payments) {
-                if (p.getStatus() == PaymentStatus.SUCCESS) {
-                    BigDecimal amt = p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount();
-                    totalPaid = totalPaid.add(amt);
-                }
-                paymentResponses.add(financeMapper.toResponse(p));
-            }
-        }
 
         BigDecimal balanceDue = grandTotal.subtract(totalPaid);
         BigDecimal netOverpaymentAmount = BigDecimal.ZERO;
@@ -1389,7 +1468,15 @@ public class BookingServiceImpl implements BookingService {
         }
 
         String phone = leadReq.getPhone().trim();
-        BookingGuest leadGuest = guestService.getOrCreateGuest(phone, leadReq.getFullName(), leadReq.getEmail(), leadReq.getNationality());
+        BookingGuest leadGuest = guestService.getOrCreateGuest(
+                phone,
+                leadReq.getFullName(),
+                leadReq.getEmail(),
+                leadReq.getNationality(),
+                leadReq.getIdentityType(),
+                leadReq.getIdentityNumber(),
+                leadReq.getBirthDate()
+        );
 
         // 2. Snapshot Hotel
         Hotel hotel = hotelService.getEntityById(draftSession.getHotelId());
@@ -1463,19 +1550,8 @@ public class BookingServiceImpl implements BookingService {
                         .infantCount(infants)
                         .guestCount(totalGuests)
                         .status(BookingRoomStatus.EXPECTED)
+                        .stayGuests(new ArrayList<>())
                         .build();
-
-                List<StayGuest> stayGuests = new ArrayList<>();
-                if (i == 0) {
-                    StayGuest leadStay = StayGuest.builder()
-                            .bookingRoom(bookingRoom)
-                            .hotel(hotel)
-                            .fullName(leadGuest.getFullName())
-                            .guestType(BookingGuestType.ADULT)
-                            .build();
-                    stayGuests.add(leadStay);
-                }
-                bookingRoom.setStayGuests(stayGuests);
 
                 List<BookingDailyRate> dailyRates = new ArrayList<>();
                 TaxCategory taxCategory = null;
@@ -1805,11 +1881,15 @@ public class BookingServiceImpl implements BookingService {
             bookingChargeService.createCharge(firstRoom, chargeReq);
         }
 
-        // 4. Release toàn bộ phòng, lịch phòng và hoàn trả kho bán cho TOÀN BỘ các đêm của đơn
+        // 4. Release toàn bộ phòng, lịch phòng và hoàn trả kho bán cho các phòng còn active của đơn
         if (booking.getBookingDetails() != null) {
             for (BookingDetail detail : booking.getBookingDetails()) {
+                long expectedRoomsCount = 0;
                 if (detail.getBookingRooms() != null) {
                     for (BookingRoom br : detail.getBookingRooms()) {
+                        if (br.getStatus() == BookingRoomStatus.EXPECTED) {
+                            expectedRoomsCount++;
+                        }
                         br.setStatus(BookingRoomStatus.NO_SHOW);
                         bookingRoomService.save(br);
 
@@ -1831,25 +1911,36 @@ public class BookingServiceImpl implements BookingService {
                     }
                 }
 
-                // Hoàn trả kho phòng bán hàng cho các đêm của detail
-                if (detail.getHotelRoomType() != null) {
-                    int roomsCount = detail.getQuantity() != null && detail.getQuantity() > 0 ? detail.getQuantity().intValue() : 1;
+                // Hoàn trả kho phòng bán hàng cho các đêm của detail:
+                // CHỈ release đúng số phòng thực sự chuyển sang NO_SHOW trong đợt này (expectedRoomsCount),
+                // tránh release trùng lặp nếu có phòng đã bị NO_SHOW hoặc CANCELLED trước đó!
+                if (detail.getHotelRoomType() != null && expectedRoomsCount > 0) {
                     roomAvailabilityService.releaseBookedInventory(
                             detail.getHotelRoomType().getId(),
                             detail.getCheckInDate(),
                             detail.getCheckOutDate(),
-                            roomsCount
+                            (int) expectedRoomsCount
                     );
                 }
             }
         }
 
-        // 5. Tính tiền dư và tạo bản ghi cần REFUND ở trạng thái PENDING
+        // 5. Xử lý thanh toán: Hủy các giao dịch PENDING cũ và tạo bản ghi REFUND nếu có cọc dư
         List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        if (payments != null) {
+            for (Payment p : payments) {
+                if (p.getStatus() == PaymentStatus.PENDING && p.getPaymentPurpose() != PaymentPurpose.REFUND) {
+                    p.setStatus(PaymentStatus.CANCELLED);
+                    p.setRawCallbackPayload("{\"reason\": \"Tự động hủy giao dịch thanh toán do đơn chuyển sang No-Show\"}");
+                    paymentRepository.save(p);
+                }
+            }
+        }
+
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -1884,7 +1975,6 @@ public class BookingServiceImpl implements BookingService {
         booking.setNotes(booking.getNotes() != null ? booking.getNotes() + "\n" + noShowNote : noShowNote);
         Booking savedBooking = bookingRepository.save(booking);
 
-        // 7. Ghi nhật ký kiểm toán (AuditLog)
         auditLogService.recordLog(
                 null,
                 "BOOKING_NO_SHOW",
@@ -1971,68 +2061,83 @@ public class BookingServiceImpl implements BookingService {
             );
         }
 
-        // 5. Kiểm tra trạng thái chung của Booking
+        // 5. Kiểm tra trạng thái chung của Booking và xử lý thanh toán
         boolean allRoomsNoShowOrCancelled = booking.getBookingDetails().stream()
                 .flatMap(bd -> bd.getBookingRooms().stream())
                 .allMatch(br -> br.getStatus() == BookingRoomStatus.NO_SHOW
                         || br.getStatus() == BookingRoomStatus.CANCELLED);
 
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        if (payments != null) {
+            totalPaid = payments.stream()
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
+                    .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
         if (allRoomsNoShowOrCancelled) {
             booking.setStatus(BookingStatus.NO_SHOW);
-            // Nếu tất cả các phòng đều không đến, kích hoạt hoàn tiền cọc dôi dư toàn đơn
-            List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
-            BigDecimal totalPaid = BigDecimal.ZERO;
+            // Tự động hủy các khoản thanh toán PENDING cũ (chưa thanh toán) nếu toàn bộ đơn No-Show
             if (payments != null) {
-                totalPaid = payments.stream()
-                        .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
-                        .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+                for (Payment p : payments) {
+                    if (p.getStatus() == PaymentStatus.PENDING && p.getPaymentPurpose() != PaymentPurpose.REFUND) {
+                        p.setStatus(PaymentStatus.CANCELLED);
+                        p.setRawCallbackPayload("{\"reason\": \"Tự động hủy giao dịch thanh toán do tất cả các phòng No-Show\"}");
+                        paymentRepository.save(p);
+                    }
+                }
             }
+        }
 
-            BigDecimal allPenalties = BigDecimal.ZERO;
-            BigDecimal allAddons = BigDecimal.ZERO;
-            for (BookingDetail bd : booking.getBookingDetails()) {
-                if (bd.getBookingRooms() != null) {
-                    for (BookingRoom br : bd.getBookingRooms()) {
-                        if (br.getCharges() != null) {
-                            for (BookingCharge c : br.getCharges()) {
-                                if (c.getChargeType() == BookingChargeType.PENALTY) {
-                                    allPenalties = allPenalties.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
-                                } else {
-                                    allAddons = allAddons.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
-                                }
+        // Tính toán hoàn tiền cọc dôi dư (kể cả khi No-Show 1 phòng trong đơn nhiều phòng)
+        BigDecimal allPenalties = BigDecimal.ZERO;
+        BigDecimal allAddons = BigDecimal.ZERO;
+        BigDecimal activeRoomsTotal = BigDecimal.ZERO;
+        for (BookingDetail bd : booking.getBookingDetails()) {
+            if (bd.getBookingRooms() != null) {
+                for (BookingRoom br : bd.getBookingRooms()) {
+                    if (br.getStatus() == BookingRoomStatus.EXPECTED || br.getStatus() == BookingRoomStatus.CHECKED_IN) {
+                        activeRoomsTotal = activeRoomsTotal.add(calculateSingleRoomTotalAmount(br, bd, booking));
+                    }
+                    if (br.getCharges() != null) {
+                        for (BookingCharge c : br.getCharges()) {
+                            if (c.getChargeType() == BookingChargeType.PENALTY) {
+                                allPenalties = allPenalties.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
+                            } else {
+                                allAddons = allAddons.add(c.getTotalAmount() != null ? c.getTotalAmount() : BigDecimal.ZERO);
                             }
                         }
                     }
                 }
             }
+        }
 
-            List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
-            BigDecimal preorderedTotal = BigDecimal.ZERO;
-            if (orders != null) {
-                preorderedTotal = orders.stream()
-                        .filter(o -> o.getStatus() != ServiceOrderStatus.CANCELLED)
-                        .map(ServiceOrderResponse::getTotalAmount)
-                        .filter(Objects::nonNull)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-            }
+        List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
+        BigDecimal preorderedTotal = BigDecimal.ZERO;
+        if (orders != null) {
+            preorderedTotal = orders.stream()
+                    .filter(o -> o.getStatus() != ServiceOrderStatus.CANCELLED)
+                    .map(ServiceOrderResponse::getTotalAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
 
-            BigDecimal nonRefundableTotal = allPenalties.add(preorderedTotal).add(allAddons);
-            BigDecimal surplus = totalPaid.subtract(nonRefundableTotal);
-            if (surplus.compareTo(BigDecimal.ZERO) > 0) {
-                Payment refundPayment = Payment.builder()
-                        .booking(booking)
-                        .totalAmount(surplus)
-                        .paymentPurpose(PaymentPurpose.REFUND)
-                        .paymentMethod(PaymentMethod.OTHER)
-                        .paymentProvider("SYSTEM_NO_SHOW_REFUND")
-                        .status(PaymentStatus.PENDING)
-                        .transactionReference("REFUND-SURPLUS-" + booking.getBookingNumber())
-                        .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
-                        .rawCallbackPayload("{\"reason\": \"Hoàn tiền cọc dôi dư do tất cả các phòng No-Show\", \"amount\": " + surplus + "}")
-                        .build();
-                paymentRepository.save(refundPayment);
-            }
+        BigDecimal totalObligations = activeRoomsTotal.add(allPenalties).add(preorderedTotal).add(allAddons);
+        BigDecimal surplus = totalPaid.subtract(totalObligations);
+        if (surplus.compareTo(BigDecimal.ZERO) > 0) {
+            Payment refundPayment = Payment.builder()
+                    .booking(booking)
+                    .totalAmount(surplus)
+                    .paymentPurpose(PaymentPurpose.REFUND)
+                    .paymentMethod(PaymentMethod.OTHER)
+                    .paymentProvider("SYSTEM_NO_SHOW_REFUND")
+                    .status(PaymentStatus.PENDING)
+                    .transactionReference("REFUND-NOSHOW-" + bookingRoomId + "-" + System.currentTimeMillis())
+                    .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
+                    .rawCallbackPayload("{\"reason\": \"Hoàn tiền cọc dôi dư do phòng No-Show\", \"amount\": " + surplus + "}")
+                    .build();
+            paymentRepository.save(refundPayment);
         }
 
         String logNote = String.format("[ROOM_NO_SHOW - %s] Phòng ID %s bị No-Show. Lý do: %s. Phạt: %,.0f đ. Bởi: %s",
@@ -2235,6 +2340,14 @@ public class BookingServiceImpl implements BookingService {
                 ? "Phụ thu nhận phòng sớm (" + (fixedAmount != null ? (String.format("%,.0f", fixedAmount) + " đ") : (percentage.stripTrailingZeros().toPlainString() + "% giá phòng")) + ")"
                 : "Phụ thu trả phòng muộn (" + (fixedAmount != null ? (String.format("%,.0f", fixedAmount) + " đ") : (percentage.stripTrailingZeros().toPlainString() + "% giá phòng")) + ")";
 
+        BigDecimal dynamicVatRate = new BigDecimal("8.00");
+        if (detail.getHotelRoomType() != null && detail.getHotelRoomType().getTaxCategoryId() != null && vatRuleService != null) {
+            BigDecimal activeVat = vatRuleService.getActiveVatPercent(detail.getHotelRoomType().getTaxCategoryId(), dateOnly);
+            if (activeVat != null) {
+                dynamicVatRate = activeVat;
+            }
+        }
+
         return SurchargeProposalResponse.builder()
                 .applicable(applicable)
                 .chargeType(chargeType)
@@ -2247,7 +2360,7 @@ public class BookingServiceImpl implements BookingService {
                 .suggestedAmount(suggestedAmount)
                 .suggestedItemName(suggestedItemName)
                 .defaultServiceFeeRate(new BigDecimal("5.00"))
-                .defaultVatRate(new BigDecimal("8.00"))
+                .defaultVatRate(dynamicVatRate)
                 .build();
     }
 
@@ -2486,6 +2599,20 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
+        BigDecimal dynamicVatRate = new BigDecimal("8.00");
+        if (hotelRoomTypeId != null && vatRuleService != null) {
+            try {
+                HotelRoomType roomType = hotelRoomTypeService.getEntityById(hotelRoomTypeId);
+                if (roomType != null && roomType.getTaxCategoryId() != null) {
+                    BigDecimal activeVat = vatRuleService.getActiveVatPercent(roomType.getTaxCategoryId(), checkInDate);
+                    if (activeVat != null) {
+                        dynamicVatRate = activeVat;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
         return SurchargeProposalResponse.builder()
                 .applicable(applicable)
                 .chargeType(BookingChargeType.EARLY_CHECKIN)
@@ -2498,7 +2625,7 @@ public class BookingServiceImpl implements BookingService {
                 .suggestedAmount(suggestedAmount)
                 .suggestedItemName(suggestedItemName)
                 .defaultServiceFeeRate(new BigDecimal("5.00"))
-                .defaultVatRate(new BigDecimal("8.00"))
+                .defaultVatRate(dynamicVatRate)
                 .build();
     }
 
@@ -2544,11 +2671,15 @@ public class BookingServiceImpl implements BookingService {
         if (request.getGuestId() != null) {
             bookingGuest = guestService.getEntityById(request.getGuestId());
         } else if (request.getNewGuest() != null && StringUtils.hasText(request.getNewGuest().getPhone())) {
+            WalkInBookingRequest.NewGuestRequest ng = request.getNewGuest();
             bookingGuest = guestService.getOrCreateGuest(
-                    request.getNewGuest().getPhone(),
-                    request.getNewGuest().getFullName(),
-                    request.getNewGuest().getEmail(),
-                    request.getNewGuest().getNationality() != null ? request.getNewGuest().getNationality() : "Việt Nam"
+                    ng.getPhone(),
+                    ng.getFullName(),
+                    ng.getEmail(),
+                    ng.getNationality() != null ? ng.getNationality() : "Việt Nam",
+                    ng.getIdentityType(),
+                    ng.getIdentityNumber(),
+                    ng.getBirthDate()
             );
             if (request.getNewGuest().getEmail() != null && !request.getNewGuest().getEmail().isBlank()) {
                 bookingGuest.setEmail(request.getNewGuest().getEmail().trim());
@@ -3103,7 +3234,7 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -3166,7 +3297,7 @@ public class BookingServiceImpl implements BookingService {
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -3326,6 +3457,8 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // 3. Kiểm tra điều kiện chuyển Booking sang CANCELLED:
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+
         // CHỈ chuyển CANCELLED khi 100% các phòng trong booking đều đã là CANCELLED
         boolean allRoomsCancelled = booking.getBookingDetails().stream()
                 .flatMap(bd -> bd.getBookingRooms().stream())
@@ -3333,14 +3466,23 @@ public class BookingServiceImpl implements BookingService {
 
         if (allRoomsCancelled) {
             booking.setStatus(BookingStatus.CANCELLED);
+            // Tự động hủy các khoản thanh toán PENDING cũ (chưa thanh toán) nếu toàn bộ đơn bị Hủy
+            if (payments != null) {
+                for (Payment p : payments) {
+                    if (p.getStatus() == PaymentStatus.PENDING && p.getPaymentPurpose() != PaymentPurpose.REFUND) {
+                        p.setStatus(PaymentStatus.CANCELLED);
+                        p.setRawCallbackPayload("{\"reason\": \"Tự động hủy giao dịch thanh toán do toàn bộ đơn đặt phòng đã bị hủy\"}");
+                        paymentRepository.save(p);
+                    }
+                }
+            }
         }
 
         // 4. Tính toán hoàn tiền
-        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -3384,6 +3526,35 @@ public class BookingServiceImpl implements BookingService {
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
             refundRouting = "WAITING_FINANCE_APPROVAL";
             refundRef = "REFUND-CANCEL-" + booking.getBookingNumber() + "-" + System.currentTimeMillis();
+
+            String rawJson = null;
+            try {
+                if (objectMapper != null) {
+                    Map<String, Object> payloadMap = new HashMap<>();
+                    payloadMap.put("reason", request != null && request.getReason() != null ? request.getReason() : "Hủy đơn đặt phòng");
+                    payloadMap.put("amount", refundAmount);
+                    if (request != null && StringUtils.hasText(request.getBankName())) {
+                        payloadMap.put("bankName", request.getBankName().trim());
+                    }
+                    if (request != null && StringUtils.hasText(request.getBankAccountNumber())) {
+                        payloadMap.put("bankAccountNumber", request.getBankAccountNumber().trim());
+                    }
+                    if (request != null && StringUtils.hasText(request.getAccountHolderName())) {
+                        payloadMap.put("accountHolderName", request.getAccountHolderName().trim());
+                    }
+                    rawJson = objectMapper.writeValueAsString(payloadMap);
+                }
+            } catch (Exception e) {
+                log.warn("Không thể serialize rawCallbackPayload cho refund: {}", e.getMessage());
+            }
+            if (rawJson == null) {
+                rawJson = "{\"reason\": \"" + (request != null && request.getReason() != null ? request.getReason() : "") + "\", \"amount\": " + refundAmount +
+                        (request != null && StringUtils.hasText(request.getBankName()) ? ", \"bankName\": \"" + request.getBankName().trim() + "\"" : "") +
+                        (request != null && StringUtils.hasText(request.getBankAccountNumber()) ? ", \"bankAccountNumber\": \"" + request.getBankAccountNumber().trim() + "\"" : "") +
+                        (request != null && StringUtils.hasText(request.getAccountHolderName()) ? ", \"accountHolderName\": \"" + request.getAccountHolderName().trim() + "\"" : "") +
+                        "}";
+            }
+
             Payment refundPayment = Payment.builder()
                     .booking(booking)
                     .totalAmount(refundAmount)
@@ -3393,7 +3564,7 @@ public class BookingServiceImpl implements BookingService {
                     .status(PaymentStatus.PENDING)
                     .transactionReference(refundRef)
                     .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
-                    .rawCallbackPayload("{\"reason\": \"" + request.getReason() + "\", \"amount\": " + refundAmount + "}")
+                    .rawCallbackPayload(rawJson)
                     .build();
             paymentRepository.save(refundPayment);
         }
@@ -3521,7 +3692,9 @@ public class BookingServiceImpl implements BookingService {
         bookingRoom.setStatus(BookingRoomStatus.CANCELLED);
         bookingRoomService.save(bookingRoom);
 
-        // 5. Kiểm tra điều kiện chuyển toàn bộ Booking sang CANCELLED:
+        // 5. Kiểm tra điều kiện chuyển toàn bộ Booking sang CANCELLED & tính toán hoàn tiền:
+        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
+
         // CHỈ chuyển CANCELLED khi 100% các phòng trong booking đều đã là CANCELLED
         boolean allRoomsCancelled = booking.getBookingDetails().stream()
                 .flatMap(bd -> bd.getBookingRooms().stream())
@@ -3529,14 +3702,23 @@ public class BookingServiceImpl implements BookingService {
 
         if (allRoomsCancelled) {
             booking.setStatus(BookingStatus.CANCELLED);
+            // Tự động hủy các khoản thanh toán PENDING cũ (chưa thanh toán) nếu toàn bộ đơn bị Hủy
+            if (payments != null) {
+                for (Payment p : payments) {
+                    if (p.getStatus() == PaymentStatus.PENDING && p.getPaymentPurpose() != PaymentPurpose.REFUND) {
+                        p.setStatus(PaymentStatus.CANCELLED);
+                        p.setRawCallbackPayload("{\"reason\": \"Tự động hủy giao dịch thanh toán do toàn bộ đơn đặt phòng đã bị hủy\"}");
+                        paymentRepository.save(p);
+                    }
+                }
+            }
         }
 
         // 6. Tính toán hoàn tiền
-        List<Payment> payments = paymentRepository.findByBookingId(booking.getId());
         BigDecimal totalPaid = BigDecimal.ZERO;
         if (payments != null) {
             totalPaid = payments.stream()
-                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS || (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND))
                     .map(p -> p.getPaymentPurpose() == PaymentPurpose.REFUND ? p.getTotalAmount().negate() : p.getTotalAmount())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
         }
@@ -3584,6 +3766,35 @@ public class BookingServiceImpl implements BookingService {
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
             refundRouting = "WAITING_FINANCE_APPROVAL";
             refundRef = "REFUND-ROOM-" + bookingRoomId + "-" + System.currentTimeMillis();
+
+            String rawJson = null;
+            try {
+                if (objectMapper != null) {
+                    Map<String, Object> payloadMap = new HashMap<>();
+                    payloadMap.put("reason", request != null && request.getReason() != null ? request.getReason() : "Hủy phòng đơn lẻ");
+                    payloadMap.put("amount", refundAmount);
+                    if (request != null && StringUtils.hasText(request.getBankName())) {
+                        payloadMap.put("bankName", request.getBankName().trim());
+                    }
+                    if (request != null && StringUtils.hasText(request.getBankAccountNumber())) {
+                        payloadMap.put("bankAccountNumber", request.getBankAccountNumber().trim());
+                    }
+                    if (request != null && StringUtils.hasText(request.getAccountHolderName())) {
+                        payloadMap.put("accountHolderName", request.getAccountHolderName().trim());
+                    }
+                    rawJson = objectMapper.writeValueAsString(payloadMap);
+                }
+            } catch (Exception e) {
+                log.warn("Không thể serialize rawCallbackPayload cho refund phòng: {}", e.getMessage());
+            }
+            if (rawJson == null) {
+                rawJson = "{\"reason\": \"" + (request != null && request.getReason() != null ? request.getReason() : "") + "\", \"amount\": " + refundAmount +
+                        (request != null && StringUtils.hasText(request.getBankName()) ? ", \"bankName\": \"" + request.getBankName().trim() + "\"" : "") +
+                        (request != null && StringUtils.hasText(request.getBankAccountNumber()) ? ", \"bankAccountNumber\": \"" + request.getBankAccountNumber().trim() + "\"" : "") +
+                        (request != null && StringUtils.hasText(request.getAccountHolderName()) ? ", \"accountHolderName\": \"" + request.getAccountHolderName().trim() + "\"" : "") +
+                        "}";
+            }
+
             Payment refundPayment = Payment.builder()
                     .booking(booking)
                     .totalAmount(refundAmount)
@@ -3593,7 +3804,7 @@ public class BookingServiceImpl implements BookingService {
                     .status(PaymentStatus.PENDING)
                     .transactionReference(refundRef)
                     .gatewayTxnId("PENDING_FINANCE_SETTLEMENT")
-                    .rawCallbackPayload("{\"reason\": \"" + request.getReason() + "\", \"amount\": " + refundAmount + "}")
+                    .rawCallbackPayload(rawJson)
                     .build();
             paymentRepository.save(refundPayment);
         }
@@ -4011,7 +4222,24 @@ public class BookingServiceImpl implements BookingService {
     @Override
     public List<vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse> getVacantRooms(
             Short hotelId, LocalDate checkInDate, LocalDate checkOutDate) {
-        List<RoomInstance> vacantRooms = roomInstanceRepository.findVacantRooms(hotelId, checkInDate, checkOutDate);
+        if (hotelId != null && checkInDate != null && checkOutDate != null && checkInDate.isBefore(checkOutDate)) {
+            var searchDto = vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAssignmentCandidateSearchDto.builder()
+                    .hotelId(hotelId)
+                    .checkInDate(checkInDate)
+                    .checkOutDate(checkOutDate)
+                    .build();
+            var candidates = roomInstanceService.findAvailableRoomsForAssignment(searchDto);
+            List<Integer> availableRoomIds = candidates.stream()
+                    .filter(vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAssignmentCandidateResponse::isAvailable)
+                    .map(vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAssignmentCandidateResponse::getId)
+                    .toList();
+            if (availableRoomIds.isEmpty()) {
+                return List.of();
+            }
+            List<RoomInstance> rooms = roomInstanceRepository.findAllById(availableRoomIds);
+            return roomInstanceMapper.toResponseList(rooms);
+        }
+        List<RoomInstance> vacantRooms = roomInstanceRepository.findVacantRooms(hotelId);
         return roomInstanceMapper.toResponseList(vacantRooms);
     }
 }

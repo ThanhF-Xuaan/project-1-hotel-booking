@@ -123,4 +123,13 @@ public interface RoomInstanceRepository extends JpaRepository<RoomInstance, Inte
     int softDeleteByIds(@Param("ids") List<Integer> ids);
 
     List<RoomInstance> findByHotelIdInAndIsDeletedFalse(List<Short> hotelIds);
+
+    @Query("SELECT r FROM RoomInstance r " +
+            "JOIN FETCH r.hotel h " +
+            "JOIN FETCH r.hotelRoomType hrt " +
+            "JOIN FETCH hrt.roomType rt " +
+            "WHERE r.isDeleted = false " +
+            "AND r.hotel.id = :hotelId " +
+            "ORDER BY r.roomNumber ASC")
+    List<RoomInstance> findByHotelIdAndIsDeletedFalseWithDetails(@Param("hotelId") Short hotelId);
 }

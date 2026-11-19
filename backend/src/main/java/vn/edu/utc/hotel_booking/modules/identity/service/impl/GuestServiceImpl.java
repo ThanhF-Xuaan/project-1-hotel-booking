@@ -71,30 +71,83 @@ public class GuestServiceImpl implements GuestService {
     @Override
     @Transactional
     public BookingGuest getOrCreateGuest(String phone, String fullName, String email, String nationality) {
-        String cleanPhone = phone != null ? phone.trim() : "";
-        return guestRepository.findByPhoneAndIsDeletedFalse(cleanPhone)
-                .map(existing -> {
-                    boolean changed = false;
-                    if (StringUtils.hasText(email) && !email.trim().equalsIgnoreCase(existing.getEmail())) {
-                        existing.setEmail(email.trim());
-                        changed = true;
-                    }
-                    if (StringUtils.hasText(fullName) && (existing.getFullName() == null || existing.getFullName().isBlank())) {
-                        existing.setFullName(fullName.trim());
-                        changed = true;
-                    }
-                    return changed ? guestRepository.save(existing) : existing;
-                })
-                .orElseGet(() -> {
-                    BookingGuest newGuest = BookingGuest.builder()
-                            .fullName(fullName != null ? fullName.trim() : "")
-                            .email(email != null ? email.trim() : null)
-                            .phone(cleanPhone)
-                            .nationality(nationality != null ? nationality : "VN")
-                            .status("ACTIVE")
-                            .build();
-                    return guestRepository.save(newGuest);
-                });
+        return getOrCreateGuest(phone, fullName, email, nationality, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public BookingGuest getOrCreateGuest(String phone, String fullName, String email, String nationality,
+                                         String identityType, String identityNumber, java.time.LocalDate birthDate) {
+        String cleanPhone = StringUtils.hasText(phone) ? phone.trim() : "";
+        String cleanFullName = StringUtils.hasText(fullName) ? fullName.trim() : "";
+        String cleanEmail = StringUtils.hasText(email) ? email.trim() : null;
+        String cleanIdNumber = StringUtils.hasText(identityNumber) ? identityNumber.trim() : null;
+        String cleanIdType = StringUtils.hasText(identityType) ? identityType.trim() : null;
+        String cleanNationality = StringUtils.hasText(nationality) ? nationality.trim() : "VN";
+
+        List<BookingGuest> candidates = guestRepository.findAllByPhoneAndIsDeletedFalseOrderByCreatedAtDesc(cleanPhone);
+
+        // So sánh các thông tin khác: nếu trùng khớp thông tin thì GIỮ NGUYÊN (không update)
+        for (BookingGuest candidate : candidates) {
+            if (isCandidateMatching(candidate, cleanFullName, cleanIdNumber)) {
+                log.info("Tìm thấy hồ sơ khách hàng trùng khớp (ID: {}, Tên: {}, SĐT: {}). Giữ nguyên bản ghi.",
+                        candidate.getId(), candidate.getFullName(), candidate.getPhone());
+                return candidate;
+            }
+        }
+
+        // Nếu khác hoặc chưa từng tồn tại: cho phép trùng SĐT, INSERT thêm vào booking_guests, KHÔNG update bản ghi cũ
+        log.info("Không trùng khớp với hồ sơ cũ hoặc là SĐT mới. Tạo mới hồ sơ BookingGuest: Tên={}, SĐT={}, CCCD={}",
+                cleanFullName, cleanPhone, cleanIdNumber);
+
+        BookingGuest newGuest = BookingGuest.builder()
+                .fullName(cleanFullName)
+                .email(cleanEmail)
+                .phone(cleanPhone)
+                .nationality(cleanNationality)
+                .identityNumber(cleanIdNumber)
+                .identityType(cleanIdType != null ? cleanIdType : detectIdentityType(cleanIdNumber))
+                .birthDate(birthDate)
+                .status("ACTIVE")
+                .build();
+
+        return guestRepository.save(newGuest);
+    }
+
+    private boolean isCandidateMatching(BookingGuest candidate, String targetFullName, String targetIdNumber) {
+        if (!StringUtils.hasText(targetFullName)) {
+            return false;
+        }
+
+        // 1. So khớp họ tên (không phân biệt hoa thường, bỏ khoảng trắng thừa)
+        String candidateName = candidate.getFullName() != null ? candidate.getFullName().trim() : "";
+        if (!candidateName.equalsIgnoreCase(targetFullName)) {
+            return false;
+        }
+
+        // 2. So khớp số giấy tờ tùy thân (nếu có thông tin ở cả 2 bên)
+        String candidateIdNum = candidate.getIdentityNumber() != null ? candidate.getIdentityNumber().trim() : "";
+        if (StringUtils.hasText(targetIdNumber) && StringUtils.hasText(candidateIdNum)) {
+            return candidateIdNum.equalsIgnoreCase(targetIdNumber);
+        }
+
+        // Nếu một trong 2 bên không có số giấy tờ nhưng họ tên khớp chính xác => coi như cùng 1 người
+        return true;
+    }
+
+    private String detectIdentityType(String idNum) {
+        if (!StringUtils.hasText(idNum)) {
+            return null;
+        }
+        String trimmed = idNum.trim();
+        if (trimmed.matches("^\\d{12}$")) {
+            return "CCCD";
+        } else if (trimmed.matches("^[A-Za-z0-9]{7,9}$")) {
+            return "PASSPORT";
+        } else if (trimmed.matches("^\\d{9}$")) {
+            return "CMND";
+        }
+        return "OTHER";
     }
 
     @Override
@@ -106,7 +159,7 @@ public class GuestServiceImpl implements GuestService {
 
     @Override
     public GuestResponse getByPhone(String phone) {
-        BookingGuest guest = guestRepository.findByPhoneAndIsDeletedFalse(phone.trim())
+        BookingGuest guest = guestRepository.findFirstByPhoneAndIsDeletedFalseOrderByCreatedAtDesc(phone.trim())
                 .orElseThrow(() -> new AppException(ErrorCode.GUEST_NOT_FOUND));
         return guestMapper.toResponse(guest);
     }

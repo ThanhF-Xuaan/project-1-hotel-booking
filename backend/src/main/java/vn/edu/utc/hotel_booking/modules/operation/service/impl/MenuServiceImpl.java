@@ -28,7 +28,10 @@ import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.service.HotelService;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.TaxCategory;
 import vn.edu.utc.hotel_booking.modules.pricing.service.TaxCategoryService;
+import vn.edu.utc.hotel_booking.modules.pricing.service.VatRuleService;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,6 +45,7 @@ public class MenuServiceImpl implements MenuService {
     MasterItemService masterItemService;
     HotelService hotelService;
     TaxCategoryService taxCategoryService;
+    VatRuleService vatRuleService;
     OperationMapper operationMapper;
 
     @Override
@@ -65,7 +69,7 @@ public class MenuServiceImpl implements MenuService {
                 .build();
 
         Menu savedMenu = menuRepository.save(menu);
-        return operationMapper.toResponse(savedMenu);
+        return toEnrichedResponse(savedMenu);
     }
 
     @Override
@@ -108,13 +112,13 @@ public class MenuServiceImpl implements MenuService {
         }
 
         Menu saved = menuRepository.save(menu);
-        return operationMapper.toResponse(saved);
+        return toEnrichedResponse(saved);
     }
 
     @Override
     public MenuResponse getById(Integer id) {
         Menu menu = getEntityById(id);
-        return operationMapper.toResponse(menu);
+        return toEnrichedResponse(menu);
     }
 
     @Override
@@ -177,7 +181,33 @@ public class MenuServiceImpl implements MenuService {
         };
 
         Page<Menu> pageResult = menuRepository.findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt")));
-        return PageResponse.from(pageResult.map(operationMapper::toResponse));
+        return PageResponse.from(pageResult.map(this::toEnrichedResponse));
+    }
+
+    private MenuResponse toEnrichedResponse(Menu menu) {
+        MenuResponse response = operationMapper.toResponse(menu);
+        if (response != null) {
+            Integer taxCatId = null;
+            if (menu.getTaxCategory() != null) {
+                taxCatId = menu.getTaxCategory().getId();
+            } else if (menu.getMasterItem() != null && menu.getMasterItem().getTaxCategory() != null) {
+                taxCatId = menu.getMasterItem().getTaxCategory().getId();
+                if (response.getTaxCategoryId() == null) {
+                    response.setTaxCategoryId(taxCatId);
+                    response.setTaxCategoryName(menu.getMasterItem().getTaxCategory().getCategoryName());
+                }
+            }
+
+            BigDecimal vatRate = BigDecimal.valueOf(8.00); // Mặc định an toàn 8%
+            if (taxCatId != null && vatRuleService != null) {
+                BigDecimal activeVat = vatRuleService.getActiveVatPercent(taxCatId, LocalDate.now());
+                if (activeVat != null) {
+                    vatRate = activeVat;
+                }
+            }
+            response.setVatRate(vatRate);
+        }
+        return response;
     }
 
     @Override

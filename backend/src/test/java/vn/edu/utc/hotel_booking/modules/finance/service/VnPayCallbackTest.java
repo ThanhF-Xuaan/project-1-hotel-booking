@@ -21,6 +21,7 @@ import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.impl.PaymentServiceImpl;
+import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderRepository;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -44,7 +45,9 @@ class VnPayCallbackTest {
     @Mock TransactionRepository transactionRepository;
     @Mock InvoiceRepository invoiceRepository;
     @Mock BookingRepository bookingRepository;
+    @Mock ServiceOrderRepository serviceOrderRepository;
     @Mock FinanceMapper financeMapper;
+    @Mock FolioLedgerService folioLedgerService;
     @Mock StringRedisTemplate redisTemplate;
 
     PaymentServiceImpl paymentService;
@@ -65,7 +68,7 @@ class VnPayCallbackTest {
         List<PaymentGateway> gateways = List.of(vnPayGateway);
         paymentService = new PaymentServiceImpl(
                 paymentRepository, transactionRepository, invoiceRepository, bookingRepository,
-                financeMapper, redisTemplate, gateways);
+                serviceOrderRepository, financeMapper, folioLedgerService, redisTemplate, gateways);
 
         booking = Booking.builder().id(1L).bookingNumber("BK99999")
                 .totalAmount(BigDecimal.valueOf(1500000)).build();

@@ -73,6 +73,12 @@ public class BookingController {
         return ApiResponse.success("Cập nhật trạng thái đơn thành công", bookingService.updateStatus(id, request.getStatus()));
     }
 
+    @Auditable(
+            actionType = "BOOKING_NO_SHOW",
+            entityName = "Booking",
+            entityId = "#id.toString()",
+            description = "'Khách không đến nhận phòng (No-Show). Lý do: ' + #request.reason"
+    )
     @PostMapping("/{id}/no-show")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Lễ tân đánh dấu khách vãng mặt (No-Show) kèm lý do, áp dụng phạt đêm đầu và tạo yêu cầu hoàn cọc dư")
@@ -84,6 +90,12 @@ public class BookingController {
                 bookingService.markBookingAsNoShow(id, request));
     }
 
+    @Auditable(
+            actionType = "BOOKING_ROOM_NO_SHOW",
+            entityName = "BookingRoom",
+            entityId = "#bookingRoomId.toString()",
+            description = "'Phòng No-Show. Lý do: ' + #request.reason"
+    )
     @PostMapping("/rooms/{bookingRoomId}/no-show")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST')")
     @Operation(summary = "Lễ tân đánh dấu một phòng riêng lẻ khách không đến (Room-Level No-Show) kèm lý do, áp dụng phạt đêm đầu và nhả tài nguyên phòng")
@@ -296,7 +308,7 @@ public class BookingController {
 
     @GetMapping("/vacant-rooms")
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'REGION_MANAGER', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'SALES_GROUP')")
-    @Operation(summary = "Xem danh sách các phòng vật lý đang còn trống (READY) kèm sức chứa")
+    @Operation(summary = "Xem danh sách các phòng vật lý đang còn trống kèm sức chứa")
     public ApiResponse<List<RoomInstanceResponse>> getVacantRooms(
             @RequestParam(value = "hotelId", required = false) Short hotelId,
             @RequestParam(value = "checkInDate", required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate checkInDate,

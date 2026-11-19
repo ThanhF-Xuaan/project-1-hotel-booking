@@ -1,9 +1,11 @@
 package vn.edu.utc.hotel_booking.modules.inventory.service;
 
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAssignmentCandidateSearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceSearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceUpdateRequest;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAssignmentCandidateResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse;
 
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
@@ -33,4 +35,6 @@ public interface RoomInstanceService {
     void deleteRoomInstances(List<Integer> ids);
 
     List<RoomInstance> getActiveRoomsByHotelIds(List<Short> hotelIds);
+
+    List<RoomAssignmentCandidateResponse> findAvailableRoomsForAssignment(RoomAssignmentCandidateSearchDto request);
 }

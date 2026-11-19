@@ -343,6 +343,26 @@ public class RoomMaintenanceBlockServiceImpl implements RoomMaintenanceBlockServ
         return overdueBlocks.size();
     }
 
+    @Override
+    @Transactional
+    public int activateBlocksStartingToday() {
+        LocalDate today = LocalDate.now();
+        List<RoomMaintenanceBlock> coveringBlocks = repository.findActiveBlocksCoveringDate(today);
+        int activatedCount = 0;
+        for (RoomMaintenanceBlock block : coveringBlocks) {
+            RoomInstance room = block.getRoomInstance();
+            if (room != null && !"MAINTENANCE".equalsIgnoreCase(room.getCurrentStatus())) {
+                room.setCurrentStatus("MAINTENANCE");
+                roomInstanceRepository.save(room);
+                activatedCount++;
+            }
+        }
+        if (activatedCount > 0) {
+            log.info("Đã đồng bộ trạng thái MAINTENANCE cho {} phòng có lệnh khóa bảo trì hôm nay ({})", activatedCount, today);
+        }
+        return activatedCount;
+    }
+
     private Integer resolveCurrentStaffId() {
         return SecurityUtils.getCurrentUserKeycloakId()
                 .flatMap(staffRepository::findByKeycloakIdAndIsDeletedFalse)

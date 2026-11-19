@@ -15,6 +15,8 @@ import vn.edu.utc.hotel_booking.modules.finance.dto.response.FolioRoomSummaryDto
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.*;
 import vn.edu.utc.hotel_booking.modules.finance.repository.BillingRoutingRuleRepository;
+import vn.edu.utc.hotel_booking.modules.finance.repository.FolioRepository;
+import vn.edu.utc.hotel_booking.modules.finance.repository.FolioTransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioItemAdjustmentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.MasterFolioRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.FolioService;
@@ -45,6 +47,8 @@ public class FolioServiceImpl implements FolioService {
     BillingRoutingRuleRepository billingRoutingRuleRepository;
     MasterFolioItemAdjustmentRepository masterFolioItemAdjustmentRepository;
     BookingChargeRepository bookingChargeRepository;
+    FolioRepository folioRepository;
+    FolioTransactionRepository folioTransactionRepository;
 
     @Override
     public FolioResponse getFolioByBookingId(Long bookingId) {
@@ -263,19 +267,29 @@ public class FolioServiceImpl implements FolioService {
             }
         }
 
-        // 3. Đơn dịch vụ phòng POS (ServiceOrder ghi nợ phòng POST_TO_ROOM)
+        // 3. Đơn dịch vụ phòng POS (ServiceOrder ghi nợ phòng POST_TO_ROOM hoặc qua VNPay)
         List<ServiceOrderResponse> orders = serviceOrderService.getOrdersByBookingId(booking.getId());
         if (orders != null) {
             for (ServiceOrderResponse order : orders) {
                 if (targetBookingRoomId != null) {
-                    if (order.getReferenceType() != ServiceOrderReferenceType.BOOKING_ROOM || !targetBookingRoomId.equals(order.getReferenceId())) {
+                    boolean matchesRoom = (order.getReferenceType() == ServiceOrderReferenceType.BOOKING_ROOM
+                            && targetBookingRoomId.equals(order.getReferenceId()));
+                    if (!matchesRoom) {
                         continue;
                     }
                 }
                 if (order.getStatus() == ServiceOrderStatus.CANCELLED) {
                     continue;
                 }
-                if (order.getPaymentMethod() != null && order.getPaymentMethod() != ServiceOrderPaymentMethod.POST_TO_ROOM) {
+
+                // Bỏ qua các đơn khách đặt qua VNPAY nhưng chưa thanh toán / bỏ dở phiên
+                if (order.getPaymentMethod() == ServiceOrderPaymentMethod.VNPAY
+                        && order.getPaymentStatus() == ServiceOrderPaymentStatus.UNPAID) {
+                    continue;
+                }
+                // Bỏ qua đơn POS tiền mặt thanh toán ngay tại quầy (không qua công nợ phòng)
+                if (order.getPaymentMethod() == ServiceOrderPaymentMethod.CASH
+                        && order.getPaymentStatus() == ServiceOrderPaymentStatus.PAID) {
                     continue;
                 }
 
@@ -366,6 +380,8 @@ public class FolioServiceImpl implements FolioService {
                     } else {
                         totalCredits = totalCredits.add(p.getTotalAmount());
                     }
+                } else if (p.getStatus() == PaymentStatus.REFUNDED && p.getPaymentPurpose() == PaymentPurpose.REFUND) {
+                    totalCredits = totalCredits.subtract(p.getTotalAmount());
                 }
             }
         }

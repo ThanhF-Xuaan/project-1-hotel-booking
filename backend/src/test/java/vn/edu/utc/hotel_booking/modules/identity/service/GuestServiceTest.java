@@ -200,4 +200,94 @@ class GuestServiceTest {
 
         verify(guestRepository, times(1)).softDeleteBatch(ids);
     }
+
+    @Test
+    @DisplayName("getOrCreateGuest: Tạo mới khi SĐT chưa từng tồn tại")
+    void getOrCreateGuest_NewPhone_CreatesNew() {
+        when(guestRepository.findAllByPhoneAndIsDeletedFalseOrderByCreatedAtDesc("0987654321"))
+                .thenReturn(List.of());
+
+        BookingGuest savedGuest = BookingGuest.builder()
+                .id(201L)
+                .fullName("Nguyễn Văn A")
+                .phone("0987654321")
+                .identityNumber("001234001234")
+                .identityType("CCCD")
+                .build();
+
+        when(guestRepository.save(any(BookingGuest.class))).thenReturn(savedGuest);
+
+        BookingGuest result = guestService.getOrCreateGuest(
+                "0987654321", "Nguyễn Văn A", "a@example.com", "VN", "CCCD", "001234001234", null
+        );
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(201L);
+        verify(guestRepository, times(1)).save(any(BookingGuest.class));
+    }
+
+    @Test
+    @DisplayName("getOrCreateGuest: Trùng SĐT nhưng khác thông tin (họ tên/CCCD) -> Insert bản ghi mới, không update bản ghi cũ")
+    void getOrCreateGuest_SamePhone_DifferentInfo_InsertsNewWithoutUpdate() {
+        BookingGuest existingGuest = BookingGuest.builder()
+                .id(5L)
+                .fullName("Trần Thị Mai")
+                .phone("0987654321")
+                .identityNumber("031195009876")
+                .identityType("CCCD")
+                .build();
+
+        when(guestRepository.findAllByPhoneAndIsDeletedFalseOrderByCreatedAtDesc("0987654321"))
+                .thenReturn(List.of(existingGuest));
+
+        BookingGuest newInsertedGuest = BookingGuest.builder()
+                .id(8L)
+                .fullName("N A")
+                .phone("0987654321")
+                .identityNumber("001234001234")
+                .identityType("CCCD")
+                .build();
+
+        when(guestRepository.save(any(BookingGuest.class))).thenReturn(newInsertedGuest);
+
+        BookingGuest result = guestService.getOrCreateGuest(
+                "0987654321", "N A", "na@example.com", "VN", "CCCD", "001234001234", null
+        );
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(8L);
+        assertThat(result.getFullName()).isEqualTo("N A");
+        // Kiểm tra bản ghi cũ không bị sửa
+        assertThat(existingGuest.getFullName()).isEqualTo("Trần Thị Mai");
+        assertThat(existingGuest.getIdentityNumber()).isEqualTo("031195009876");
+        // Kiểm tra đã gọi save để insert bản ghi mới
+        verify(guestRepository, times(1)).save(argThat(g ->
+                "N A".equals(g.getFullName()) && "001234001234".equals(g.getIdentityNumber())
+        ));
+    }
+
+    @Test
+    @DisplayName("getOrCreateGuest: Trùng SĐT và trùng thông tin nhận diện -> Giữ nguyên, không update")
+    void getOrCreateGuest_SamePhone_MatchingInfo_ReusesExistingWithoutUpdate() {
+        BookingGuest existingGuest = BookingGuest.builder()
+                .id(5L)
+                .fullName("Trần Thị Mai")
+                .phone("0987654321")
+                .identityNumber("031195009876")
+                .identityType("CCCD")
+                .build();
+
+        when(guestRepository.findAllByPhoneAndIsDeletedFalseOrderByCreatedAtDesc("0987654321"))
+                .thenReturn(List.of(existingGuest));
+
+        BookingGuest result = guestService.getOrCreateGuest(
+                "0987654321", "Trần Thị Mai", "mai.tran@example.com", "VN", "CCCD", "031195009876", null
+        );
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(5L);
+        assertThat(result.getFullName()).isEqualTo("Trần Thị Mai");
+        // Tuyệt đối không gọi save để update
+        verify(guestRepository, never()).save(any(BookingGuest.class));
+    }
 }

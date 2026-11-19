@@ -2,6 +2,7 @@ import { apiClient } from '../../../core/api/client';
 import type { PageResponse } from '../../../core/api/types';
 import type {
   PaymentCreateRequest,
+  ProcessRefundRequest,
   PaymentSearchDto,
   PaymentResponse,
   InvoiceCreateRequest,
@@ -52,6 +53,9 @@ export const financeService = {
     apiClient.post<PaymentResponse>(`${PAYMENT_URL}/${id}/refund`, null, {
       params: { refundAmount, reason },
     }),
+
+  processRefund: (id: number, data: ProcessRefundRequest) =>
+    apiClient.post<PaymentResponse>(`${PAYMENT_URL}/${id}/process-refund`, data),
 
   // Invoices
   createInvoice: (data: InvoiceCreateRequest) =>

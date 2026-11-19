@@ -35,6 +35,9 @@ public class CreatePaymentRequest {
     /** Tùy chọn: nếu FE đã tạo Payment (qua /payments/create) thì gửi kèm để tái sử dụng */
     Long paymentId;
 
+    /** Tùy chọn: ID của đơn dịch vụ phòng (service_orders) nếu thanh toán cho dịch vụ POS */
+    Long serviceOrderId;
+
     @NotNull(message = "bookingId không được để trống")
     Long bookingId;
 

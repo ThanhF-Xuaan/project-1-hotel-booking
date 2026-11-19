@@ -7,6 +7,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import vn.edu.utc.hotel_booking.common.annotation.Auditable;
@@ -14,6 +15,7 @@ import vn.edu.utc.hotel_booking.common.dto.ApiResponse;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentSearchDto;
+import vn.edu.utc.hotel_booking.modules.finance.dto.request.ProcessRefundRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
@@ -21,6 +23,7 @@ import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -103,6 +106,28 @@ public class PaymentController {
                 paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
     }
 
+    @GetMapping({"/vnpay-return", "/vnpay/return"})
+    @Operation(summary = "VNPay redirect alias cho legacy return URL — chuyển tiếp sang public callback")
+    public ResponseEntity<Void> vnPayLegacyReturn(HttpServletRequest request) {
+        String queryString = request.getQueryString();
+        if ((queryString == null || queryString.isBlank()) && !request.getParameterMap().isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            request.getParameterMap().forEach((k, values) -> {
+                for (String val : values) {
+                    if (!sb.isEmpty()) sb.append("&");
+                    sb.append(java.net.URLEncoder.encode(k, java.nio.charset.StandardCharsets.UTF_8))
+                            .append("=")
+                            .append(java.net.URLEncoder.encode(val, java.nio.charset.StandardCharsets.UTF_8));
+                }
+            });
+            queryString = sb.toString();
+        }
+        String qs = (queryString != null && !queryString.isBlank()) ? "?" + queryString : "";
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(URI.create("/api/v1/public/payments/vnpay/return" + qs))
+                .build();
+    }
+
     @PostMapping("/momo/create")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
@@ -111,17 +136,6 @@ public class PaymentController {
             @Valid @RequestBody CreatePaymentRequest request, HttpServletRequest httpRequest) {
         return ApiResponse.success("Tạo phiên thanh toán MoMo thành công",
                 paymentService.createGatewayPayment(request, resolveClientIp(httpRequest)));
-    }
-
-    @GetMapping({"/vnpay/return", "/vnpay-return"})
-    @Operation(summary = "VNPay redirect alias — chuyển tiếp về public return callback")
-    public void vnPayReturnAlias(@RequestParam java.util.Map<String, String> params, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
-        StringBuilder query = new StringBuilder("/api/v1/public/payments/vnpay/return?");
-        params.forEach((k, v) -> query.append(java.net.URLEncoder.encode(k, java.nio.charset.StandardCharsets.UTF_8))
-                .append("=")
-                .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8))
-                .append("&"));
-        response.sendRedirect(query.toString());
     }
 
     /** Lấy IP thật của khách (qua proxy/load-balancer nếu có) — VNPay yêu cầu vnp_IpAddr chuẩn IPv4 */
@@ -154,5 +168,21 @@ public class PaymentController {
             @RequestParam(required = false) String reason
     ) {
         return ApiResponse.success("Hoàn tiền thành công", paymentService.refundPayment(id, refundAmount, reason));
+    }
+
+    @Auditable(
+            actionType = "PAYMENT_PROCESS_REFUND",
+            entityName = "Payment",
+            entityId = "#id.toString()",
+            description = "'Phê duyệt/Từ chối yêu cầu hoàn tiền ID ' + #id + ': hành động ' + #request.action"
+    )
+    @PostMapping("/{id}/process-refund")
+    @PreAuthorize("hasAnyRole('CHAIN_ADMIN', 'PROPERTY_MANAGER', 'RECEPTIONIST', 'FINANCE')")
+    @Operation(summary = "Xử lý phê duyệt hoặc từ chối yêu cầu hoàn tiền (Refund Workflow)")
+    public ApiResponse<PaymentResponse> processRefund(
+            @PathVariable Long id,
+            @Valid @RequestBody ProcessRefundRequest request
+    ) {
+        return ApiResponse.success("Xử lý yêu cầu hoàn tiền thành công", paymentService.processRefund(id, request));
     }
 }

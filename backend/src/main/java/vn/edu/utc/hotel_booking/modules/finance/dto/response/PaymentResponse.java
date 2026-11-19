@@ -19,6 +19,7 @@ public class PaymentResponse {
     Long id;
     Long bookingId;
     String bookingNumber;
+    Long serviceOrderId;
     BigDecimal totalAmount;
     PaymentPurpose paymentPurpose;
     PaymentMethod paymentMethod;

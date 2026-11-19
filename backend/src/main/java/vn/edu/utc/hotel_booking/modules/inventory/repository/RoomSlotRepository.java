@@ -41,4 +41,15 @@ public interface RoomSlotRepository extends JpaRepository<RoomSlot, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT rs FROM RoomSlot rs WHERE rs.maintenanceBlock.id = :maintenanceBlockId")
     List<RoomSlot> findByMaintenanceBlockIdWithLock(@Param("maintenanceBlockId") Long maintenanceBlockId);
+
+    @Query("SELECT rs FROM RoomSlot rs " +
+            "JOIN FETCH rs.roomInstance ri " +
+            "WHERE ri.hotel.id = :hotelId " +
+            "AND rs.slotDate >= :checkInDate AND rs.slotDate < :checkOutDate " +
+            "AND rs.status IN ('RESERVED', 'OCCUPIED', 'BLOCKED', 'MAINTENANCE', 'DIRTY', 'CLEANING')")
+    List<RoomSlot> findBusySlotsBetween(
+            @Param("hotelId") Short hotelId,
+            @Param("checkInDate") LocalDate checkInDate,
+            @Param("checkOutDate") LocalDate checkOutDate
+    );
 }

@@ -38,6 +38,7 @@ import {
   Coins,
   Layers,
   Ticket,
+  PanelLeftClose,
 } from 'lucide-react'
 import { BranchedMenu, type BranchedMenuItem } from '../ui/BranchedMenu'
 
@@ -431,7 +432,12 @@ const navGroups: NavGroup[] = [
   },
 ]
 
-export const Sidebar: React.FC = () => {
+export interface SidebarProps {
+  isCollapsed?: boolean
+  onToggle?: () => void
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const location = useLocation()
 
   const menuItems = useMemo<BranchedMenuItem[]>(() => {
@@ -457,7 +463,13 @@ export const Sidebar: React.FC = () => {
   }, [])
 
   return (
-    <aside className="w-64 bg-white border-r border-neutral-200 flex flex-col shrink-0 sticky top-16 h-[calc(100vh-4rem)] z-30 select-none overflow-hidden">
+    <aside
+      className={`bg-white border-r border-neutral-200 flex flex-col shrink-0 h-[calc(100vh-4rem)] select-none transition-all duration-300 ease-in-out ${
+        isCollapsed
+          ? 'w-0 min-w-0 border-r-0 opacity-0 overflow-hidden pointer-events-none'
+          : 'w-64 min-w-[16rem] opacity-100'
+      }`}
+    >
       <div className="py-4 px-3 flex-1 overflow-y-auto">
         <BranchedMenu
           items={menuItems}
@@ -473,6 +485,23 @@ export const Sidebar: React.FC = () => {
           fontSize={13}
         />
       </div>
+
+      {onToggle && !isCollapsed && (
+        <div className="p-3 border-t border-neutral-200 bg-neutral-50/60">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+            title="Thu gọn menu bên trái (Alt + S)"
+          >
+            <span className="flex items-center gap-2">
+              <PanelLeftClose className="w-4 h-4 text-neutral-500" />
+              <span>Thu gọn menu</span>
+            </span>
+            <span className="text-[10px] text-neutral-400 font-mono">Alt + S</span>
+          </button>
+        </div>
+      )}
     </aside>
   )
 }

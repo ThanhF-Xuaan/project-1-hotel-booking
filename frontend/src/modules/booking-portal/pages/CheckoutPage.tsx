@@ -587,15 +587,7 @@ export const CheckoutPage: React.FC = () => {
               childCount: firstRoom?.children ?? 0,
               infantCount: firstRoom?.infants ?? 0,
               extraBeds: 0,
-              guests: [
-                {
-                  firstName: firstName.trim(),
-                  lastName: lastName.trim(),
-                  fullName: `${lastName.trim()} ${firstName.trim()}`,
-                  identityType: identityType,
-                  identityNumber: identityNumber.trim(),
-                },
-              ],
+              guests: [],
             };
           })
         : [
@@ -608,15 +600,7 @@ export const CheckoutPage: React.FC = () => {
               childCount: criteria?.childCount || 0,
               infantCount: 0,
               extraBeds: 0,
-              guests: [
-                {
-                  firstName: firstName.trim(),
-                  lastName: lastName.trim(),
-                  fullName: `${lastName.trim()} ${firstName.trim()}`,
-                  identityType: identityType,
-                  identityNumber: identityNumber.trim(),
-                },
-              ],
+              guests: [],
             },
           ];
 

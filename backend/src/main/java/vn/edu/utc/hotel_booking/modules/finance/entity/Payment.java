@@ -8,6 +8,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.type.SqlTypes;
 import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -29,6 +30,10 @@ public class Payment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id", nullable = false)
     Booking booking;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "service_order_id")
+    ServiceOrder serviceOrder;
 
     @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
     BigDecimal totalAmount;

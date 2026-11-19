@@ -178,7 +178,7 @@ export interface RoomInstanceDto {
   roomTypeCode: string
   roomTypeName: string
   roomNumber: string
-  currentStatus: 'READY' | 'OCCUPIED' | 'CLEANING' | 'MAINTENANCE'
+  currentStatus: 'READY' | 'OCCUPIED' | 'CLEANING' | 'DIRTY' | 'MAINTENANCE' | 'BLOCKED' | string
   maxAdults?: number
   maxChildren?: number
   maxTotalGuests?: number
@@ -245,4 +245,31 @@ export interface HotelRoomTypeInclusionRequest {
   customDisplayName?: string
   description?: string
 }
+
+// ==================== ROOM ASSIGNMENT CANDIDATE (SPARSE DATA) ====================
+export interface RoomAssignmentCandidateDto {
+  id: number
+  roomNumber: string
+  hotelId: number
+  hotelName: string
+  hotelRoomTypeId: number
+  roomTypeCode: string
+  roomTypeName: string
+  floorNumber?: number
+  currentStatus: string
+  isAvailable: boolean
+  isSameRoomType: boolean
+  conflictReason?: string | null
+  available?: boolean
+  sameRoomType?: boolean
+}
+
+export interface RoomAssignmentCandidateSearchDto {
+  hotelId: number
+  checkInDate: string
+  checkOutDate: string
+  targetHotelRoomTypeId?: number
+  excludeBookingRoomId?: number
+}
+
 

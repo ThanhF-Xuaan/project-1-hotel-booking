@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DollarSign,
   CreditCard,
@@ -10,6 +10,10 @@ import {
   Receipt,
   FileCheck,
   ShieldCheck,
+  ExternalLink,
+  Copy,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
@@ -17,6 +21,7 @@ import Input from '../../../core/components/ui/Input';
 import Select from '../../../core/components/ui/Select';
 import bookingService from '../services/booking.service';
 import { financeService } from '../../finance/services/finance.service';
+import { VNPAY_ATM_TEST_CARD } from '../../finance/utils/vnpay.utils';
 import { getApiErrorMessage } from '../../../core/api/error';
 import type { CheckoutSettlementResponse, SettlementLineItemDto } from '../types/booking.types';
 import type { PaymentMethod } from '../../finance/types/finance.types';
@@ -47,6 +52,44 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
   const [blockingPendingIds, setBlockingPendingIds] = useState<number[]>([]);
   const [isCancellingSession, setIsCancellingSession] = useState(false);
   const [paymentSuccessMsg, setPaymentSuccessMsg] = useState<string | null>(null);
+
+  // VNPay Sandbox Waiting & Sync State
+  const [isWaitingVnPay, setIsWaitingVnPay] = useState(false);
+  const [vnpayPaymentId, setVnpayPaymentId] = useState<number | null>(null);
+  const [vnpayPaymentUrl, setVnpayPaymentUrl] = useState<string | null>(null);
+  const [vnpayCopiedField, setVnpayCopiedField] = useState<string | null>(null);
+
+  const vnpayPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const vnpayChannelRef = useRef<BroadcastChannel | null>(null);
+
+  // Dọn dẹp listener & timer khi unmount
+  useEffect(() => {
+    return () => {
+      if (vnpayPollRef.current) {
+        clearInterval(vnpayPollRef.current);
+        vnpayPollRef.current = null;
+      }
+      if (vnpayChannelRef.current) {
+        vnpayChannelRef.current.close();
+        vnpayChannelRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleModalClose = useCallback(() => {
+    setIsWaitingVnPay(false);
+    setVnpayPaymentId(null);
+    setVnpayPaymentUrl(null);
+    if (vnpayPollRef.current) {
+      clearInterval(vnpayPollRef.current);
+      vnpayPollRef.current = null;
+    }
+    if (vnpayChannelRef.current) {
+      vnpayChannelRef.current.close();
+      vnpayChannelRef.current = null;
+    }
+    onClose();
+  }, [onClose]);
 
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -101,6 +144,101 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
   const formatVND = (val?: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 
+  const handleCopyVnPayField = (field: string, text: string) => {
+    void navigator.clipboard.writeText(text);
+    setVnpayCopiedField(field);
+    setTimeout(() => setVnpayCopiedField(null), 2000);
+  };
+
+  const handleVnPayPaymentSuccess = useCallback(async () => {
+    if (vnpayPollRef.current) {
+      clearInterval(vnpayPollRef.current);
+      vnpayPollRef.current = null;
+    }
+    if (vnpayChannelRef.current) {
+      vnpayChannelRef.current.close();
+      vnpayChannelRef.current = null;
+    }
+    try {
+      localStorage.removeItem('vnpay_active_session');
+      localStorage.removeItem('vnpay_payment_sync_event');
+    } catch {
+      void 0;
+    }
+
+    setIsWaitingVnPay(false);
+    setPaymentSuccessMsg('Thanh toán qua cổng VNPay Sandbox thành công! Số dư nợ đã được tất toán.');
+    await fetchSettlement();
+  }, [fetchSettlement]);
+
+  const startVnPaySync = useCallback((paymentId: number) => {
+    if (vnpayPollRef.current) clearInterval(vnpayPollRef.current);
+    if (vnpayChannelRef.current) vnpayChannelRef.current.close();
+
+    // 1. BroadcastChannel đồng bộ liên tab
+    try {
+      const bc = new BroadcastChannel('vnpay_payment_sync');
+      vnpayChannelRef.current = bc;
+      bc.onmessage = (event) => {
+        if (
+          event.data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+          (event.data.status === 'PAID' || event.data.status === 'SUCCESS') &&
+          (!event.data.paymentId || event.data.paymentId === paymentId)
+        ) {
+          void handleVnPayPaymentSuccess();
+        }
+      };
+    } catch (e) {
+      console.warn('BroadcastChannel error:', e);
+    }
+
+    // 2. Window message listener
+    const handleWindowMessage = (event: MessageEvent) => {
+      if (
+        event.data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+        (event.data.status === 'PAID' || event.data.status === 'SUCCESS') &&
+        (!event.data.paymentId || event.data.paymentId === paymentId)
+      ) {
+        window.removeEventListener('message', handleWindowMessage);
+        void handleVnPayPaymentSuccess();
+      }
+    };
+    window.addEventListener('message', handleWindowMessage);
+
+    // 3. Polling dự phòng mỗi 2 giây
+    vnpayPollRef.current = setInterval(async () => {
+      try {
+        const pRes = await financeService.getPaymentById(paymentId);
+        if (pRes.result && pRes.result.status === 'SUCCESS') {
+          window.removeEventListener('message', handleWindowMessage);
+          void handleVnPayPaymentSuccess();
+        } else if (
+          pRes.result &&
+          (pRes.result.status === 'FAILED' || pRes.result.status === 'CANCELLED')
+        ) {
+          if (vnpayPollRef.current) clearInterval(vnpayPollRef.current);
+          window.removeEventListener('message', handleWindowMessage);
+          setIsWaitingVnPay(false);
+          setPaymentError('Giao dịch VNPay đã bị hủy hoặc thất bại.');
+        }
+      } catch {
+        // network retry
+      }
+    }, 2000);
+  }, [handleVnPayPaymentSuccess]);
+
+  const handleCancelVnPayWaiting = () => {
+    if (vnpayPollRef.current) {
+      clearInterval(vnpayPollRef.current);
+      vnpayPollRef.current = null;
+    }
+    if (vnpayChannelRef.current) {
+      vnpayChannelRef.current.close();
+      vnpayChannelRef.current = null;
+    }
+    setIsWaitingVnPay(false);
+  };
+
   const handleMakePayment = async () => {
     if (!settlement) return;
     if (paymentAmount <= 0) {
@@ -120,7 +258,26 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
           amount: paymentAmount,
         });
         if (res.result?.paymentUrl) {
-          window.location.assign(res.result.paymentUrl);
+          const pId = res.result.paymentId;
+          const pUrl = res.result.paymentUrl;
+          setVnpayPaymentId(pId);
+          setVnpayPaymentUrl(pUrl);
+          setIsWaitingVnPay(true);
+          try {
+            localStorage.setItem(
+              'vnpay_active_session',
+              JSON.stringify({
+                bookingId: settlement.bookingId,
+                paymentId: pId,
+                returnUrl: window.location.href,
+              })
+            );
+          } catch {
+            void 0;
+          }
+
+          window.open(pUrl, '_blank');
+          startVnPaySync(pId);
           return;
         }
         throw new Error('Không nhận được liên kết chuyển hướng VNPay Sandbox.');
@@ -191,7 +348,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
     try {
       await bookingService.checkOut(bookingRoomId);
       onCheckOutSuccess(settlement.bookingNumber);
-      onClose();
+      handleModalClose();
     } catch (err: unknown) {
       console.error('Lỗi khi xác nhận check-out:', err);
       const msg =
@@ -223,7 +380,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleModalClose}
       title="Quyết toán & Đóng sổ Check-out"
       maxWidth="2xl"
     >
@@ -370,7 +527,22 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                     settlement.lineItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-neutral-50/60 transition-colors">
                         <td className="py-2 px-3">{getLineTypeBadge(item.lineType)}</td>
-                        <td className="py-2 px-3 font-medium text-neutral-900">{item.description}</td>
+                        <td className="py-2 px-3">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium text-neutral-900">{item.description}</span>
+                            {(item.lineType === 'SERVICE' || item.lineType === 'PRODUCT') && (
+                              item.paymentStatus === 'PAID' ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
+                                  ✓ Đã TT ({item.paymentMethod || 'Cổng'})
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">
+                                  Ghi nợ phòng
+                                </span>
+                              )
+                            )}
+                          </div>
+                        </td>
                         <td className="py-2 px-2 text-center text-neutral-600">{item.quantity}</td>
                         <td className="py-2 px-3 text-right text-neutral-600">{formatVND(item.unitPrice)}</td>
                         <td className="py-2 px-3 text-right font-bold text-neutral-900">{formatVND(item.totalAmount)}</td>
@@ -422,11 +594,21 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                 </h4>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
-                    Số tiền thanh toán (VNĐ) <span className="text-red-600">*</span>
-                  </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-start">
+                {/* Ô 1: Số tiền thanh toán */}
+                <div className="flex flex-col">
+                  <div className="flex justify-between items-center mb-1 h-5">
+                    <label className="text-[11px] font-semibold text-neutral-700 truncate">
+                      Số tiền thanh toán (VNĐ) <span className="text-red-600">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setPaymentAmount(settlement.balanceDue)}
+                      className="text-[10px] text-blue-600 hover:text-blue-800 hover:underline font-semibold shrink-0"
+                    >
+                      Tất cả nợ
+                    </button>
+                  </div>
                   <Input
                     type="number"
                     min="1000"
@@ -434,56 +616,145 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
                     value={paymentAmount || ''}
                     onChange={(e) => setPaymentAmount(Number(e.target.value))}
                     placeholder="Nhập số tiền"
+                    className="!h-10 !text-xs !rounded-xl"
                   />
-                  <div className="flex gap-1.5 mt-1">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentAmount(settlement.balanceDue)}
-                      className="text-[10px] text-blue-600 hover:underline font-semibold"
-                    >
-                      Toàn bộ nợ ({formatVND(settlement.balanceDue)})
-                    </button>
-                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
-                    Phương thức thanh toán <span className="text-red-600">*</span>
-                  </label>
+                {/* Ô 2: Phương thức thanh toán */}
+                <div className="flex flex-col">
+                  <div className="flex justify-between items-center mb-1 h-5">
+                    <label className="text-[11px] font-semibold text-neutral-700 truncate">
+                      Phương thức thanh toán <span className="text-red-600">*</span>
+                    </label>
+                  </div>
                   <Select<PaymentMethod>
                     value={paymentMethod}
                     onChange={(val) => setPaymentMethod(val as PaymentMethod)}
                     options={[
                       { value: 'CASH', label: 'Tiền mặt tại quầy (CASH)' },
                       { value: 'CREDIT_CARD', label: 'Thẻ POS quầy (CREDIT_CARD)' },
-                      { value: 'VNPAY', label: 'Cổng thanh toán VNPay Sandbox' },
+                      { value: 'VNPAY', label: 'Cổng VNPAY Sandbox (Quét mã/ATM)' },
                     ]}
                     size="sm"
+                    triggerClassName="!h-10 !text-xs !rounded-xl"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-neutral-700 mb-1">
-                    Mã tham chiếu / Biên lai
-                  </label>
+                {/* Ô 3: Mã tham chiếu / Biên lai */}
+                <div className="flex flex-col">
+                  <div className="flex justify-between items-center mb-1 h-5">
+                    <label className="text-[11px] font-semibold text-neutral-700 truncate">
+                      Mã tham chiếu / Biên lai
+                    </label>
+                  </div>
                   <Input
                     value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
                     placeholder="VD: POS-9988, PT-001..."
+                    className="!h-10 !text-xs !rounded-xl"
                   />
                 </div>
               </div>
+
+              {/* Waiting Card cho VNPay Sandbox */}
+              {isWaitingVnPay && (
+                <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                      <span className="text-xs font-bold text-blue-900">
+                        Đang chờ khách thanh toán trên cổng VNPay Sandbox{vnpayPaymentId ? ` (#${vnpayPaymentId})` : ''}...
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelVnPayWaiting}
+                      className="text-xs text-neutral-600 border-neutral-300 hover:bg-neutral-100 !py-1 !px-2.5"
+                    >
+                      Hủy chờ / Chọn cách khác
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-blue-700 leading-relaxed">
+                    Hệ thống đã mở cổng VNPay Sandbox ở tab mới. Khi hoàn tất thanh toán trên tab đó, tab sẽ tự đóng và màn hình quyết toán tại đây sẽ tự động cập nhật số dư về 0 đ.
+                  </p>
+
+                  {/* Thông tin thẻ ATM Demo để test nhanh */}
+                  <div className="p-2.5 bg-white/90 border border-blue-100 rounded-lg text-xs space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-700">
+                      <span>Thông tin thẻ ATM Test (Ngân hàng NCB):</span>
+                      {vnpayPaymentUrl && (
+                        <a
+                          href={vnpayPaymentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline flex items-center gap-1 font-normal"
+                        >
+                          Mở lại tab VNPay <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                      <div className="flex items-center justify-between bg-neutral-50 px-2 py-1 rounded border border-neutral-200">
+                        <span className="text-neutral-500">Số thẻ:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyVnPayField('card', VNPAY_ATM_TEST_CARD.cardNumber)}
+                          className="font-mono font-bold text-neutral-800 hover:text-blue-600 flex items-center gap-1"
+                          title="Bấm để sao chép"
+                        >
+                          {VNPAY_ATM_TEST_CARD.cardNumber}
+                          {vnpayCopiedField === 'card' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-neutral-400" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between bg-neutral-50 px-2 py-1 rounded border border-neutral-200">
+                        <span className="text-neutral-500">Tên:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyVnPayField('name', VNPAY_ATM_TEST_CARD.cardHolder)}
+                          className="font-mono font-bold text-neutral-800 hover:text-blue-600 flex items-center gap-1"
+                          title="Bấm để sao chép"
+                        >
+                          {VNPAY_ATM_TEST_CARD.cardHolder}
+                          {vnpayCopiedField === 'name' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-neutral-400" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between bg-neutral-50 px-2 py-1 rounded border border-neutral-200">
+                        <span className="text-neutral-500">Ngày phát hành:</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyVnPayField('date', VNPAY_ATM_TEST_CARD.issueDate)}
+                          className="font-mono font-bold text-neutral-800 hover:text-blue-600 flex items-center gap-1"
+                          title="Bấm để sao chép"
+                        >
+                          {VNPAY_ATM_TEST_CARD.issueDate} (OTP: 123456)
+                          {vnpayCopiedField === 'date' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-neutral-400" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end pt-1">
                 <Button
                   variant="primary"
                   size="sm"
                   onClick={handleMakePayment}
-                  disabled={isSubmittingPayment || paymentAmount <= 0}
+                  disabled={isSubmittingPayment || paymentAmount <= 0 || isWaitingVnPay}
                   className="bg-neutral-900 hover:bg-black text-white"
                 >
-                  <DollarSign className="w-3.5 h-3.5 mr-1" />
-                  {isSubmittingPayment ? 'Đang ghi nhận...' : `Ghi nhận thu tiền (${formatVND(paymentAmount)})`}
+                  {paymentMethod === 'VNPAY' ? (
+                    <>
+                      <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                      {isSubmittingPayment ? 'Đang khởi tạo VNPay...' : `Mở Cổng VNPAY Sandbox (${formatVND(paymentAmount)})`}
+                    </>
+                  ) : (
+                    <>
+                      <DollarSign className="w-3.5 h-3.5 mr-1" />
+                      {isSubmittingPayment ? 'Đang ghi nhận...' : `Ghi nhận thu tiền (${formatVND(paymentAmount)})`}
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -517,7 +788,7 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onClose}
+                onClick={handleModalClose}
                 disabled={isProcessingCheckout}
               >
                 Đóng / Thoát

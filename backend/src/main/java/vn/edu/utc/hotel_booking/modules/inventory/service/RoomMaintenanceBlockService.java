@@ -27,4 +27,6 @@ public interface RoomMaintenanceBlockService {
     void completeActiveBlocksForRoom(Integer roomInstanceId);
 
     int autoExpireOverdueBlocks();
+
+    int activateBlocksStartingToday();
 }

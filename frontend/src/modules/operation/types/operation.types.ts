@@ -98,6 +98,7 @@ export interface MenuResponse {
   hotelName?: string;
   taxCategoryId: number;
   taxCategoryName?: string;
+  vatRate?: number;
   menuType: MenuType;
   name: string;
   description?: string;
@@ -123,9 +124,13 @@ export interface OrderItemRequest {
 }
 
 export interface ServiceOrderCreateRequest {
+  hotelId?: number;
+  referenceType?: 'BOOKING' | 'BOOKING_ROOM' | 'STAY_GUEST' | 'WALK_IN';
+  referenceId?: number;
   bookingId?: number;
   roomInstanceId: number;
   paymentMethod?: ServiceOrderPaymentMethod;
+  paymentStatus?: ServiceOrderPaymentStatus;
   items: OrderItemRequest[];
 }
 

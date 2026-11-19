@@ -1,10 +1,18 @@
+import type { StayGuestResponse } from '../../operation/types/stayGuest.types';
+
 export type BookingType = 'FIT' | 'GIT' | 'CORPORATE';
 
 export type BookingStatus = 'CONFIRMED' | 'CANCELLED' | 'NO_SHOW';
 
 export type BookingRoomStatus = 'EXPECTED' | 'CHECKED_IN' | 'CHECKED_OUT' | 'NO_SHOW' | 'CANCELLED';
 
-export type BookingChargeType = 'EARLY_CHECKIN' | 'LATE_CHECKOUT' | 'PENALTY' | 'OTHER';
+export type BookingChargeType =
+  | 'EARLY_CHECKIN'
+  | 'LATE_CHECKOUT'
+  | 'EXTRA_PERSON'
+  | 'EXTRA_BED'
+  | 'PENALTY'
+  | 'OTHER';
 
 export type BookingGuestType = 'ADULT' | 'CHILD' | 'INFANT';
 
@@ -140,6 +148,7 @@ export interface BookingRoomResponse {
   actualCheckOutAt?: string;
   assignedAt?: string;
   bookingGuests: BookingGuestResponse[];
+  stayGuests?: StayGuestResponse[];
   dailyRates: BookingDailyRateResponse[];
   charges: BookingChargeResponse[];
 }
@@ -210,6 +219,9 @@ export interface SettlementLineItemDto {
   vatRate?: number;
   vatAmount?: number;
   totalAmount: number;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  orderNumber?: string;
 }
 
 export interface CheckoutSettlementResponse {

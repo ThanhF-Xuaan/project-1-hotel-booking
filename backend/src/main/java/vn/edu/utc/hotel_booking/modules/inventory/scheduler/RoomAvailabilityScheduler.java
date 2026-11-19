@@ -33,8 +33,12 @@ public class RoomAvailabilityScheduler {
             if (expiredCount > 0) {
                 log.info("Scheduler: Đã tự động giải phóng {} lệnh khóa phòng quá hạn.", expiredCount);
             }
+            int activatedCount = roomMaintenanceBlockService.activateBlocksStartingToday();
+            if (activatedCount > 0) {
+                log.info("Scheduler: Đã kích hoạt trạng thái MAINTENANCE cho {} phòng hôm nay.", activatedCount);
+            }
         } catch (Exception ex) {
-            log.error("Scheduler: Lỗi tự động giải phóng lệnh khóa phòng quá hạn: {}", ex.getMessage(), ex);
+            log.error("Scheduler: Lỗi tự động đồng bộ lệnh khóa phòng bảo trì: {}", ex.getMessage(), ex);
         }
     }
 

@@ -22,6 +22,12 @@ public interface BookingGuestRepository extends JpaRepository<BookingGuest, Long
 
     Optional<BookingGuest> findByPhoneAndIsDeletedFalse(String phone);
 
+    List<BookingGuest> findAllByPhoneAndIsDeletedFalse(String phone);
+
+    List<BookingGuest> findAllByPhoneAndIsDeletedFalseOrderByCreatedAtDesc(String phone);
+
+    Optional<BookingGuest> findFirstByPhoneAndIsDeletedFalseOrderByCreatedAtDesc(String phone);
+
     Optional<BookingGuest> findByIdentityNumberAndIsDeletedFalse(String identityNumber);
 
     boolean existsByPhoneAndIsDeletedFalse(String phone);

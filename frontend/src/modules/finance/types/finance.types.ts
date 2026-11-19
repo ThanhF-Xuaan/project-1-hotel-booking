@@ -27,6 +27,13 @@ export interface PaymentCreateRequest {
   transactionReference?: string;
 }
 
+export interface ProcessRefundRequest {
+  action: 'APPROVE' | 'REJECT';
+  refundMethod?: PaymentMethod;
+  transactionReference?: string;
+  note?: string;
+}
+
 export interface PaymentSearchDto {
   bookingId?: number;
   paymentMethod?: PaymentMethod;
@@ -131,6 +138,8 @@ export type GatewayMethod = 'VNPAY' | 'MOMO';
 export interface GatewayCreateRequest {
   bookingId: number;
   method: GatewayMethod;
+  /** Tùy chọn: ID của đơn dịch vụ phòng (service_orders) nếu thanh toán cho dịch vụ POS */
+  serviceOrderId?: number;
   /** Tùy chọn: tái sử dụng Payment PENDING đã tạo trước đó */
   paymentId?: number;
   /** Tùy chọn: chỉ định số tiền thanh toán (thay vì toàn bộ công nợ) */

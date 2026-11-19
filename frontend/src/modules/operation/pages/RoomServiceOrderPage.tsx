@@ -191,12 +191,26 @@ export const RoomServiceOrderPage: React.FC = () => {
     setCart((prev) => prev.filter((c) => c.item.id !== itemId));
   };
 
-  // Subtotal, Service fee (5%), VAT (8%), Grand Total calculation
+  // Subtotal, Service fee (5%), Dynamic VAT, Grand Total calculation
   const subTotal = cart.reduce((sum, c) => sum + c.item.basePrice * c.quantity, 0);
   const serviceFeeAmount = Math.round(subTotal * 0.05);
   const taxableAmount = subTotal + serviceFeeAmount;
-  const vatAmount = Math.round(taxableAmount * 0.08);
+  const vatAmount = cart.reduce((sum, c) => {
+    const lineSubtotal = c.item.basePrice * c.quantity;
+    const lineServiceFee = Math.round(lineSubtotal * 0.05);
+    const lineTaxable = lineSubtotal + lineServiceFee;
+    const rate = Number(c.item.vatRate ?? 8);
+    return sum + Math.round(lineTaxable * (rate / 100));
+  }, 0);
   const grandTotal = taxableAmount + vatAmount;
+
+  const vatRates = Array.from(new Set(cart.map((c) => Number(c.item.vatRate ?? 8)))).sort((a, b) => a - b);
+  const vatRateLabel =
+    vatRates.length === 1
+      ? `Thuế GTGT (VAT ${vatRates[0]}%):`
+      : vatRates.length > 1
+      ? `Thuế GTGT (VAT ${vatRates.join('%, ')}%):`
+      : 'Thuế GTGT (VAT):';
 
   const selectedRoom = roomList.find((r) => r.id === roomInstanceId);
 
@@ -518,7 +532,7 @@ export const RoomServiceOrderPage: React.FC = () => {
                 <span>{formatVND(serviceFeeAmount)}</span>
               </div>
               <div className="flex justify-between text-neutral-600 text-xs">
-                <span>Thuế GTGT (VAT 8%):</span>
+                <span>{vatRateLabel}</span>
                 <span>{formatVND(vatAmount)}</span>
               </div>
               <div className="flex justify-between font-bold text-neutral-900 pt-2 border-t border-neutral-100 text-base">

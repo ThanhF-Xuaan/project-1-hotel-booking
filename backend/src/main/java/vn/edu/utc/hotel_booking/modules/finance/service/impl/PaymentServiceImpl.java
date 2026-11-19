@@ -21,6 +21,7 @@ import vn.edu.utc.hotel_booking.modules.booking.entity.Booking;
 import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRepository;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentCreateRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.request.PaymentSearchDto;
+import vn.edu.utc.hotel_booking.modules.finance.dto.request.ProcessRefundRequest;
 import vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse;
 import vn.edu.utc.hotel_booking.modules.finance.entity.*;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.PaymentGateway;
@@ -38,6 +39,11 @@ import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEv
 import vn.edu.utc.hotel_booking.modules.notification.dto.InvoiceItemEmailDto;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
+import vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderPaymentStatus;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderReferenceType;
+import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderRepository;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -60,7 +66,9 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
     TransactionRepository transactionRepository;
     InvoiceRepository invoiceRepository;
     BookingRepository bookingRepository;
+    ServiceOrderRepository serviceOrderRepository;
     FinanceMapper financeMapper;
+    FolioLedgerService folioLedgerService;
     StringRedisTemplate redisTemplate;
     @NonFinal
     ApplicationEventPublisher eventPublisher;
@@ -149,6 +157,7 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                     .build();
             transactionRepository.save(transaction);
             updateInvoiceStatusIfSettled(booking);
+            syncPaymentToFolio(savedPayment);
         }
 
         return financeMapper.toResponse(savedPayment);
@@ -191,6 +200,7 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
 
         try {
             Payment payment;
+            String orderInfo;
             if (request.getPaymentId() != null) {
                 // Tái sử dụng Payment đã tạo trước đó (qua POST /payments/create)
                 payment = paymentRepository.findById(request.getPaymentId())
@@ -205,6 +215,32 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                             "Thanh toán đã có phiên gateway, không tạo phiên mới");
                 }
                 payment.setGatewayTxnId(txnRef);
+                orderInfo = payment.getServiceOrder() != null
+                        ? "Thanh toan don POS " + payment.getServiceOrder().getOrderNumber()
+                        : "Thanh toan dat phong " + booking.getBookingNumber();
+            } else if (request.getServiceOrderId() != null) {
+                // Thanh toán riêng cho đơn dịch vụ phòng POS
+                ServiceOrder serviceOrder = serviceOrderRepository.findById(request.getServiceOrderId())
+                        .orElseThrow(() -> new AppException(ErrorCode.SERVICE_ORDER_NOT_FOUND,
+                                "Không tìm thấy đơn dịch vụ ID: " + request.getServiceOrderId()));
+
+                if (serviceOrder.getPaymentStatus() == ServiceOrderPaymentStatus.PAID) {
+                    throw new AppException(ErrorCode.PAYMENT_ALREADY_COMPLETED,
+                            "Đơn dịch vụ #" + serviceOrder.getOrderNumber() + " đã được thanh toán hoàn tất");
+                }
+
+                BigDecimal paymentAmount = serviceOrder.getTotalAmount();
+                payment = Payment.builder()
+                        .booking(booking)
+                        .serviceOrder(serviceOrder)
+                        .totalAmount(paymentAmount)
+                        .paymentPurpose(PaymentPurpose.FULL_PAYMENT)
+                        .paymentMethod(request.getMethod())
+                        .gatewayTxnId(txnRef)
+                        .status(PaymentStatus.PENDING)
+                        .build();
+
+                orderInfo = "Thanh toan don POS " + serviceOrder.getOrderNumber();
             } else {
                 BigDecimal grandTotal = getGrandTotal(booking);
                 BigDecimal remainingBalance = getRemainingBalance(booking, grandTotal);
@@ -236,10 +272,11 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                         .gatewayTxnId(txnRef)
                         .status(PaymentStatus.PENDING)
                         .build();
+
+                orderInfo = "Thanh toan dat phong " + booking.getBookingNumber();
             }
             Payment saved = paymentRepository.save(payment);
 
-            String orderInfo = "Thanh toan dat phong " + booking.getBookingNumber();
             String effectiveBankCode = request.getBankCode();
             if ((effectiveBankCode == null || effectiveBankCode.isBlank()) && request.getMethod() == PaymentMethod.VNPAY) {
                 effectiveBankCode = "VNBANK";
@@ -315,8 +352,18 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                     .issuedAt(OffsetDateTime.now())
                     .build();
             transactionRepository.save(transaction);
-            updateInvoiceStatusIfSettled(saved.getBooking());
-            publishPaymentReceiptEmail(saved);
+
+            // Cập nhật đơn dịch vụ POS nếu giao dịch thanh toán cho ServiceOrder
+            if (saved.getServiceOrder() != null) {
+                ServiceOrder so = saved.getServiceOrder();
+                so.setPaymentStatus(ServiceOrderPaymentStatus.PAID);
+                serviceOrderRepository.save(so);
+                log.info("Cập nhật đơn dịch vụ POS #{} sang PAID qua gateway {}", so.getOrderNumber(), method);
+            } else {
+                updateInvoiceStatusIfSettled(saved.getBooking());
+                publishPaymentReceiptEmail(saved);
+            }
+            syncPaymentToFolio(saved);
         } else {
             // Gateway báo thất bại (hủy/đủ hạn mức...) → FAILED để FE hiển thị thử lại
             payment.setStatus(PaymentStatus.FAILED);
@@ -426,6 +473,7 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
         transactionRepository.save(transaction);
         if (saved.getBooking() != null) {
             updateInvoiceStatusIfSettled(saved.getBooking());
+            syncPaymentToFolio(saved);
             releaseLock(saved.getBooking().getId());
             publishPaymentReceiptEmail(saved);
         }
@@ -591,7 +639,89 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
         return financeMapper.toResponse(saved);
     }
 
+    @Override
+    @Transactional
+    public PaymentResponse processRefund(Long id, ProcessRefundRequest request) {
+        Payment payment = paymentRepository.findById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND, "Không tìm thấy yêu cầu hoàn tiền ID: " + id));
+
+        if (payment.getPaymentPurpose() != PaymentPurpose.REFUND) {
+            throw new AppException(ErrorCode.PAYMENT_NOT_PENDING,
+                    "Giao dịch ID " + id + " không phải là yêu cầu hoàn tiền (Mục đích hiện tại: " + payment.getPaymentPurpose() + ")");
+        }
+
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new AppException(ErrorCode.PAYMENT_NOT_PENDING,
+                    "Chỉ có thể xử lý yêu cầu hoàn tiền đang ở trạng thái chờ duyệt (PENDING) — trạng thái hiện tại: " + payment.getStatus());
+        }
+
+        if (request.getAction() == ProcessRefundRequest.RefundAction.APPROVE) {
+            PaymentMethod method = request.getRefundMethod() != null ? request.getRefundMethod() : PaymentMethod.BANK_TRANSFER;
+            String reference = request.getTransactionReference() != null && !request.getTransactionReference().isBlank()
+                    ? request.getTransactionReference().trim()
+                    : buildReferenceCode(payment.getTransactionReference());
+
+            payment.setStatus(PaymentStatus.REFUNDED);
+            payment.setPaymentMethod(method);
+            payment.setTransactionReference(reference);
+            payment.setPaidAt(OffsetDateTime.now());
+            payment.setGatewayTxnId("INTERNAL_REFUND_SETTLED");
+
+            String note = request.getNote() != null ? request.getNote().replace("\"", "\\\"") : "";
+            payment.setRawCallbackPayload(String.format(
+                    "{\"action\": \"APPROVE\", \"method\": \"%s\", \"reference\": \"%s\", \"note\": \"%s\", \"approvedAt\": \"%s\"}",
+                    method.name(), reference, note, OffsetDateTime.now()
+            ));
+
+            Payment saved = paymentRepository.save(payment);
+
+            Transaction transaction = Transaction.builder()
+                    .payment(saved)
+                    .booking(saved.getBooking())
+                    .transactionType(TransactionType.REFUND)
+                    .amount(saved.getTotalAmount())
+                    .referenceCode(reference)
+                    .status("COMPLETED")
+                    .issuedAt(OffsetDateTime.now())
+                    .build();
+            transactionRepository.save(transaction);
+
+            if (saved.getBooking() != null) {
+                syncInvoiceAfterRefund(saved.getBooking());
+                syncPaymentToFolio(saved);
+                releaseLock(saved.getBooking().getId());
+            }
+
+            log.info("Kế toán đã PHÊ DUYỆT hoàn tiền ID {}: số tiền {} đ, phương thức {}, mã tham chiếu {}",
+                    saved.getId(), saved.getTotalAmount(), method, reference);
+            return financeMapper.toResponse(saved);
+        } else {
+            payment.setStatus(PaymentStatus.CANCELLED);
+            payment.setGatewayTxnId("INTERNAL_REFUND_REJECTED");
+            String note = request.getNote() != null ? request.getNote().replace("\"", "\\\"") : "Kế toán từ chối yêu cầu hoàn tiền";
+            payment.setRawCallbackPayload(String.format(
+                    "{\"action\": \"REJECT\", \"reason\": \"%s\", \"rejectedAt\": \"%s\"}",
+                    note, OffsetDateTime.now()
+            ));
+
+            Payment saved = paymentRepository.save(payment);
+
+            if (saved.getBooking() != null) {
+                releaseLock(saved.getBooking().getId());
+            }
+
+            log.info("Kế toán đã TỪ CHỐI yêu cầu hoàn tiền ID {}: lý do '{}'", saved.getId(), note);
+            return financeMapper.toResponse(saved);
+        }
+    }
+
     private BigDecimal getGrandTotal(Booking booking) {
+        if (folioLedgerService != null) {
+            BigDecimal folioDebits = folioLedgerService.getTotalDebitsByBookingId(booking.getId());
+            if (folioDebits != null && folioDebits.compareTo(BigDecimal.ZERO) > 0) {
+                return folioDebits;
+            }
+        }
         List<Invoice> invoices = invoiceRepository.findByBookingId(booking.getId());
         if (invoices != null && !invoices.isEmpty()) {
             return invoices.get(0).getGrandTotal();
@@ -600,6 +730,12 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
     }
 
     private BigDecimal getRemainingBalance(Booking booking, BigDecimal grandTotal) {
+        if (folioLedgerService != null) {
+            BigDecimal folioBalance = folioLedgerService.getRemainingBalanceByBookingId(booking.getId());
+            if (folioBalance != null) {
+                return folioBalance;
+            }
+        }
         List<Payment> existingPayments = paymentRepository.findByBookingId(booking.getId());
         BigDecimal totalPaid = existingPayments.stream()
                 .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
@@ -661,5 +797,39 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
     private String maskPayload(String payload) {
         if (payload == null) return null;
         return payload.replaceAll("(\"vnp_SecureHash\"\\s*:\\s*\")[^\"]+(\")", "$1****$2");
+    }
+
+    private void syncPaymentToFolio(Payment payment) {
+        if (folioLedgerService == null || payment == null || payment.getBooking() == null) {
+            return;
+        }
+        try {
+            Long bookingId = payment.getBooking().getId();
+            Long bookingRoomId = (payment.getServiceOrder() != null && payment.getServiceOrder().getReferenceType() == ServiceOrderReferenceType.BOOKING_ROOM)
+                    ? payment.getServiceOrder().getReferenceId()
+                    : null;
+
+            Folio folio = folioLedgerService.getOrCreateFolio(bookingId, bookingRoomId);
+            if (folio != null) {
+                boolean isRefund = payment.getPaymentPurpose() == PaymentPurpose.REFUND;
+                String category = isRefund ? "REFUND" : "PAYMENT";
+                String desc = (isRefund ? "Hoàn tiền " : "Thanh toán ") + payment.getPaymentMethod() + " (" +
+                        (payment.getTransactionReference() != null ? payment.getTransactionReference() : payment.getPaymentPurpose()) + ")";
+
+                BigDecimal creditAmount = isRefund ? payment.getTotalAmount().negate() : payment.getTotalAmount();
+
+                folioLedgerService.postCredit(
+                        folio.getId(),
+                        category,
+                        "PAYMENT",
+                        payment.getId(),
+                        desc,
+                        creditAmount,
+                        payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : "CASH"
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Không thể đồng bộ Payment ID {} vào Folio Ledger: {}", payment.getId(), e.getMessage());
+        }
     }
 }

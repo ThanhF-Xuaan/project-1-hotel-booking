@@ -56,6 +56,12 @@ class InvoiceServiceTest {
     @Mock
     private FinanceMapper financeMapper;
 
+    @Mock
+    private vn.edu.utc.hotel_booking.modules.finance.repository.FolioRepository folioRepository;
+
+    @Mock
+    private vn.edu.utc.hotel_booking.modules.finance.repository.FolioTransactionRepository folioTransactionRepository;
+
     @InjectMocks
     private InvoiceServiceImpl invoiceService;
 

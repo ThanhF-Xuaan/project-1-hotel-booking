@@ -57,6 +57,12 @@ public interface RoomMaintenanceBlockRepository extends JpaRepository<RoomMainte
            "WHERE b.status = 'ACTIVE' AND b.endDate < :today")
     List<RoomMaintenanceBlock> findActiveBlocksEndingBefore(@Param("today") LocalDate today);
 
+    @Query("SELECT b FROM RoomMaintenanceBlock b " +
+           "JOIN FETCH b.roomInstance ri " +
+           "WHERE b.status = 'ACTIVE' AND b.startDate <= :today AND b.endDate >= :today")
+    List<RoomMaintenanceBlock> findActiveBlocksCoveringDate(@Param("today") LocalDate today);
+
+
     @Query(value = "SELECT b FROM RoomMaintenanceBlock b " +
            "JOIN FETCH b.roomInstance ri " +
            "JOIN FETCH ri.hotelRoomType hrt " +

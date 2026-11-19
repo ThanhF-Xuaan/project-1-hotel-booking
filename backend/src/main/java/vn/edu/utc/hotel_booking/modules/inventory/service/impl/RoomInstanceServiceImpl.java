@@ -12,20 +12,29 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
+import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
+import vn.edu.utc.hotel_booking.modules.booking.repository.BookingRoomRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomAssignmentCandidateSearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceCreateRequest;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceSearchDto;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.request.RoomInstanceUpdateRequest;
+import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomAssignmentCandidateResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.dto.response.RoomInstanceResponse;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstance;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomInstanceStatus;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomSlot;
+import vn.edu.utc.hotel_booking.modules.inventory.entity.RoomSlotStatus;
 import vn.edu.utc.hotel_booking.modules.inventory.mapper.RoomInstanceMapper;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.HotelRoomTypeRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomInstanceRepository;
+import vn.edu.utc.hotel_booking.modules.inventory.repository.RoomSlotRepository;
 import vn.edu.utc.hotel_booking.modules.inventory.service.RoomInstanceService;
 import vn.edu.utc.hotel_booking.modules.organization.entity.Hotel;
 import vn.edu.utc.hotel_booking.modules.organization.repository.HotelRepository;
 
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +45,8 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
     RoomInstanceRepository roomInstanceRepository;
     HotelRepository hotelRepository;
     HotelRoomTypeRepository hotelRoomTypeRepository;
+    RoomSlotRepository roomSlotRepository;
+    BookingRoomRepository bookingRoomRepository;
     RoomInstanceMapper roomInstanceMapper;
 
     @Override
@@ -106,7 +117,20 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
                 .orElseThrow(() -> new AppException(ErrorCode.ROOM_INSTANCE_NOT_FOUND, "Không tìm thấy phòng id: " + id));
 
         roomInstance.setCurrentStatus(status);
-        return roomInstanceRepository.save(roomInstance);
+        RoomInstance saved = roomInstanceRepository.save(roomInstance);
+
+        // Đồng bộ trạng thái vào RoomSlot hôm nay
+        LocalDate today = LocalDate.now();
+        roomSlotRepository.findByRoomInstanceIdAndSlotDate(id, today).ifPresent(slot -> {
+            slot.setStatus(status);
+            if (RoomSlotStatus.READY.name().equalsIgnoreCase(status)) {
+                slot.setBookingRoomId(null);
+                slot.setReservedAt(null);
+            }
+            roomSlotRepository.save(slot);
+        });
+
+        return saved;
     }
 
     @Override
@@ -196,5 +220,127 @@ public class RoomInstanceServiceImpl implements RoomInstanceService {
             return java.util.Collections.emptyList();
         }
         return roomInstanceRepository.findByHotelIdInAndIsDeletedFalse(hotelIds);
+    }
+
+    @Override
+    public List<RoomAssignmentCandidateResponse> findAvailableRoomsForAssignment(RoomAssignmentCandidateSearchDto request) {
+        if (request.getHotelId() == null) {
+            throw new AppException(ErrorCode.INVALID_REQUEST_DATA, "ID khách sạn không được để trống");
+        }
+        if (request.getCheckInDate() == null || request.getCheckOutDate() == null) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_DATES, "Ngày nhận phòng và ngày trả phòng không được để trống");
+        }
+        if (!request.getCheckInDate().isBefore(request.getCheckOutDate())) {
+            throw new AppException(ErrorCode.INVALID_BOOKING_DATES, "Ngày nhận phòng phải trước ngày trả phòng");
+        }
+
+        // 1. Lấy tất cả phòng vật lý của khách sạn
+        List<RoomInstance> allRooms = roomInstanceRepository.findByHotelIdAndIsDeletedFalseWithDetails(request.getHotelId());
+
+        // 2. Query RoomSlotRepository: Lấy tất cả các slot BẬN trong dải ngày [checkInDate, checkOutDate)
+        // (Chiến lược Sparse Data: Không có bản ghi hoặc bản ghi READY thì coi như TRỐNG)
+        List<RoomSlot> busySlots = roomSlotRepository.findBusySlotsBetween(
+                request.getHotelId(), request.getCheckInDate(), request.getCheckOutDate());
+
+        Map<Integer, String> busySlotReasons = new HashMap<>();
+        for (RoomSlot slot : busySlots) {
+            if (request.getExcludeBookingRoomId() != null
+                    && slot.getBookingRoomId() != null
+                    && slot.getBookingRoomId().equals(request.getExcludeBookingRoomId())) {
+                continue;
+            }
+
+            String status = slot.getStatus() != null ? slot.getStatus().toUpperCase() : "BUSY";
+            String reason;
+            if (RoomSlotStatus.BLOCKED.name().equals(status) || RoomSlotStatus.MAINTENANCE.name().equals(status)) {
+                reason = "Đang khóa bảo trì (OOO)";
+            } else if (RoomSlotStatus.RESERVED.name().equals(status) || RoomSlotStatus.OCCUPIED.name().equals(status)) {
+                reason = "Đã có khách đặt / lưu trú";
+            } else if (RoomSlotStatus.DIRTY.name().equals(status) || RoomSlotStatus.CLEANING.name().equals(status)) {
+                // Self-healing: Nếu slot bị đánh dấu DIRTY/CLEANING trong ngày hôm nay nhưng phòng vật lý thực tế đã được xác nhận READY
+                RoomInstance physRoom = slot.getRoomInstance();
+                if (slot.getSlotDate() != null && slot.getSlotDate().equals(LocalDate.now())
+                        && physRoom != null && RoomInstanceStatus.READY.name().equalsIgnoreCase(physRoom.getCurrentStatus())) {
+                    slot.setStatus(RoomSlotStatus.READY.name());
+                    slot.setBookingRoomId(null);
+                    slot.setReservedAt(null);
+                    roomSlotRepository.save(slot);
+                    continue; // Phòng đã sẵn sàng, không đưa vào danh sách bận
+                }
+                reason = "Phòng chưa dọn dẹp xong";
+            } else {
+                reason = "Phòng không khả dụng (" + status + ")";
+            }
+            busySlotReasons.put(slot.getRoomInstance().getId(), reason);
+        }
+
+        // 3. Query BookingRoomRepository: Lấy tất cả BookingRoom trùng lịch trong khách sạn (bảo vệ 2 tầng)
+        List<BookingRoom> overlappingBookings = bookingRoomRepository.findOverlappingAssignedRoomsInHotel(
+                request.getHotelId(), request.getCheckInDate(), request.getCheckOutDate());
+
+        Map<Integer, String> bookingOverlapReasons = new HashMap<>();
+        for (BookingRoom br : overlappingBookings) {
+            if (request.getExcludeBookingRoomId() != null && br.getId().equals(request.getExcludeBookingRoomId())) {
+                continue;
+            }
+            if (br.getRoomInstance() != null) {
+                bookingOverlapReasons.put(br.getRoomInstance().getId(), "Đã có khách đặt trong khoảng ngày này");
+            }
+        }
+
+        // 4. Kiểm tra điều kiện hôm nay (Housekeeping guard nếu check-in hôm nay)
+        LocalDate today = LocalDate.now();
+        boolean isCheckInToday = !request.getCheckInDate().isAfter(today);
+
+        // 5. Build danh sách Candidate Responses
+        List<RoomAssignmentCandidateResponse> candidates = new ArrayList<>();
+        for (RoomInstance room : allRooms) {
+            boolean isSameRoomType = request.getTargetHotelRoomTypeId() != null
+                    && room.getHotelRoomType() != null
+                    && room.getHotelRoomType().getId().equals(request.getTargetHotelRoomTypeId());
+
+            boolean isAvailable = true;
+            String conflictReason = null;
+
+            if (busySlotReasons.containsKey(room.getId())) {
+                isAvailable = false;
+                conflictReason = busySlotReasons.get(room.getId());
+            } else if (bookingOverlapReasons.containsKey(room.getId())) {
+                isAvailable = false;
+                conflictReason = bookingOverlapReasons.get(room.getId());
+            } else if (isCheckInToday && room.getCurrentStatus() != null && !RoomInstanceStatus.READY.name().equalsIgnoreCase(room.getCurrentStatus())) {
+                isAvailable = false;
+                conflictReason = "Phòng chưa sẵn sàng hôm nay (" + room.getCurrentStatus() + ")";
+            }
+
+            HotelRoomType hrt = room.getHotelRoomType();
+            String roomTypeCode = hrt != null && hrt.getRoomType() != null ? hrt.getRoomType().getCode() : "";
+            String roomTypeName = hrt != null && hrt.getRoomType() != null ? hrt.getRoomType().getName() : "";
+
+            candidates.add(RoomAssignmentCandidateResponse.builder()
+                    .id(room.getId())
+                    .roomNumber(room.getRoomNumber())
+                    .hotelId(room.getHotel() != null ? room.getHotel().getId() : null)
+                    .hotelName(room.getHotel() != null ? room.getHotel().getName() : null)
+                    .hotelRoomTypeId(hrt != null ? hrt.getId() : null)
+                    .roomTypeCode(roomTypeCode)
+                    .roomTypeName(roomTypeName)
+                    .currentStatus(room.getCurrentStatus())
+                    .isAvailable(isAvailable)
+                    .isSameRoomType(isSameRoomType)
+                    .conflictReason(conflictReason)
+                    .build());
+        }
+
+        // Sắp xếp ưu tiên:
+        // 1. isAvailable DESC (phòng trống lên trước)
+        // 2. isSameRoomType DESC (cùng hạng lên trước)
+        // 3. roomNumber ASC
+        candidates.sort(Comparator
+                .comparing(RoomAssignmentCandidateResponse::isAvailable, Comparator.reverseOrder())
+                .thenComparing(RoomAssignmentCandidateResponse::isSameRoomType, Comparator.reverseOrder())
+                .thenComparing(RoomAssignmentCandidateResponse::getRoomNumber, Comparator.nullsLast(String::compareToIgnoreCase)));
+
+        return candidates;
     }
 }
