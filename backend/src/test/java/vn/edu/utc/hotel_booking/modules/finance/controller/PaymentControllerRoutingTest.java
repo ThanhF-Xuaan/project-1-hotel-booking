@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import vn.edu.utc.hotel_booking.modules.finance.entity.PaymentMethod;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.CreatePaymentRequest;
 import vn.edu.utc.hotel_booking.modules.finance.gateway.dto.PaymentUrlResponse;
+import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
 
 import java.math.BigDecimal;
@@ -36,11 +37,14 @@ class PaymentControllerRoutingTest {
     @Mock
     private PaymentService paymentService;
 
+    @Mock
+    private PaymentRepository paymentRepository;
+
     @BeforeEach
     void setUp() {
         PaymentController paymentController = new PaymentController(paymentService);
         PaymentCallbackController paymentCallbackController =
-                new PaymentCallbackController(paymentService, "http://localhost:3000/payment/result");
+                new PaymentCallbackController(paymentService, paymentRepository, "http://localhost:3000/payment/result");
 
         // Đăng ký CẢ 2 Controllers vào cùng 1 MockMvc context.
         // Nếu có ambiguous mapping giữa 2 controllers, Spring MVC sẽ ném IllegalStateException ngay tại đây.
