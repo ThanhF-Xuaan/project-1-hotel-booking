@@ -38,6 +38,8 @@ export interface StayGuestsModalProps {
   roomNumber?: string;
   leadGuestName?: string;
   leadGuestPhone?: string;
+  defaultCheckInTime?: string;
+  defaultExpectedCheckOutTime?: string;
 }
 
 // A committed context change mounts fresh state, so old room data is never rendered under a new title.
@@ -55,6 +57,8 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   roomNumber,
   leadGuestName,
   initialEditGuestId,
+  defaultCheckInTime,
+  defaultExpectedCheckOutTime,
 }) => {
   const [guests, setGuests] = useState<StayGuestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -81,8 +85,8 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   const [ocrDraft, setOcrDraft] = useState<IdentityOcrDraft | null>(null);
   const [isReadingImage, setIsReadingImage] = useState(false);
   const [humanVerified, setHumanVerified] = useState(false);
-  const [checkInTime, setCheckInTime] = useState('');
-  const [expectedCheckOutTime, setExpectedCheckOutTime] = useState('');
+  const [checkInTime, setCheckInTime] = useState(defaultCheckInTime || '');
+  const [expectedCheckOutTime, setExpectedCheckOutTime] = useState(defaultExpectedCheckOutTime || '');
   const ocrRequest = useRef<AbortController | null>(null);
   const listRequest = useRef<AbortController | null>(null);
   const alive = useRef(true);
@@ -144,8 +148,8 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
     setOcrDraft(null);
     setHumanVerified(false);
     manualOcrFields.current.clear();
-    setCheckInTime('');
-    setExpectedCheckOutTime('');
+    setCheckInTime(defaultCheckInTime || '');
+    setExpectedCheckOutTime(defaultExpectedCheckOutTime || '');
     setFullName('');
     setDocumentType('CCCD');
     setDocumentNumber('');
@@ -155,7 +159,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
     setPermanentAddress('');
     setReasonForStay('Du lịch / Nghỉ dưỡng');
     setShowAddForm(false);
-  }, []);
+  }, [defaultCheckInTime, defaultExpectedCheckOutTime]);
 
   const loadGuests = useCallback(async () => {
     if (!bookingRoomId || !alive.current) return;
