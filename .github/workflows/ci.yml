@@ -47,6 +47,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+          cache-dependency-path: backend/pom.xml
       - name: Install local OCR engine
         run: |
           sudo resolvectl dns eth0 8.8.8.8 1.1.1.1 2>/dev/null || echo "nameserver 8.8.8.8" | sudo tee -a /etc/resolv.conf
@@ -200,6 +201,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+          cache-dependency-path: backend/pom.xml
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
@@ -259,6 +261,7 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+          cache-dependency-path: backend/pom.xml
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
@@ -269,7 +272,7 @@ jobs:
         run: >-
           bash ./mvnw --batch-mode --no-transfer-progress
           '-Dtest=UtilityConcurrencyPostgresIT,StayGuestDedupPostgresIT,ActiveStayMigrationPostgresIT,LodgingExportPostgresTest'
-          -DfailIfNoTests=true clean test
+          -DfailIfNoTests=true test
       - name: Require executed PostgreSQL evidence
         if: always()
         run: >-
