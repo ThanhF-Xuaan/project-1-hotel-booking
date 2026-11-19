@@ -10,6 +10,7 @@ import {
   MapPin,
   RefreshCw,
   AlertCircle,
+  Upload,
 } from 'lucide-react';
 import Modal from '../../../core/components/ui/Modal';
 import Button from '../../../core/components/ui/Button';
@@ -37,6 +38,8 @@ export interface StayGuestsModalProps {
   roomNumber?: string;
   leadGuestName?: string;
   leadGuestPhone?: string;
+  defaultCheckInTime?: string;
+  defaultExpectedCheckOutTime?: string;
 }
 
 // A committed context change mounts fresh state, so old room data is never rendered under a new title.
@@ -54,6 +57,8 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   roomNumber,
   leadGuestName,
   initialEditGuestId,
+  defaultCheckInTime,
+  defaultExpectedCheckOutTime,
 }) => {
   const [guests, setGuests] = useState<StayGuestResponse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,8 +85,8 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
   const [ocrDraft, setOcrDraft] = useState<IdentityOcrDraft | null>(null);
   const [isReadingImage, setIsReadingImage] = useState(false);
   const [humanVerified, setHumanVerified] = useState(false);
-  const [checkInTime, setCheckInTime] = useState('');
-  const [expectedCheckOutTime, setExpectedCheckOutTime] = useState('');
+  const [checkInTime, setCheckInTime] = useState(defaultCheckInTime || '');
+  const [expectedCheckOutTime, setExpectedCheckOutTime] = useState(defaultExpectedCheckOutTime || '');
   const ocrRequest = useRef<AbortController | null>(null);
   const listRequest = useRef<AbortController | null>(null);
   const alive = useRef(true);
@@ -143,8 +148,8 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
     setOcrDraft(null);
     setHumanVerified(false);
     manualOcrFields.current.clear();
-    setCheckInTime('');
-    setExpectedCheckOutTime('');
+    setCheckInTime(defaultCheckInTime || '');
+    setExpectedCheckOutTime(defaultExpectedCheckOutTime || '');
     setFullName('');
     setDocumentType('CCCD');
     setDocumentNumber('');
@@ -154,7 +159,7 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
     setPermanentAddress('');
     setReasonForStay('Du lịch / Nghỉ dưỡng');
     setShowAddForm(false);
-  }, []);
+  }, [defaultCheckInTime, defaultExpectedCheckOutTime]);
 
   const loadGuests = useCallback(async () => {
     if (!bookingRoomId || !alive.current) return;
@@ -448,139 +453,267 @@ const StayGuestsModalContent: React.FC<StayGuestsModalProps> = ({
               </div>
             )}
 
-            <fieldset disabled={isReadingImage || isSubmitting} className="space-y-3">
-              <label className="block text-sm font-semibold">
-                Đọc ảnh CCCD / Hộ chiếu (PNG, JPEG, WebP; tối đa 5 MiB)
-                <input aria-label="Ảnh giấy tờ" type="file" accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; void readIdentityImage(file); }} />
-              </label>
-              {ocrDraft && <div role="status" className="text-sm space-y-1">
-                <p>Bản nháp OCR — đối chiếu giấy tờ gốc và sửa các trường trước khi lưu.</p>
-                {Object.entries(ocrFields).map(([key, label]) => {
-                  const field = ocrDraft[key as keyof typeof ocrFields];
-                  return <p key={key}>{label}: {Math.round(field.confidence * 100)}%{!field.valid ? ' — Cần kiểm tra' : ''}</p>;
-                })}
-                {ocrDraft.warnings.map((warning, index) => <p key={index}>{warning}</p>)}
-              </div>}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Họ và tên khách <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  placeholder="NGUYỄN VĂN A"
-                  value={fullName}
-                  onChange={(e) => { manualOcrFields.current.add('fullName'); setHumanVerified(false); setFullName(e.target.value.toUpperCase()); }}
-                  required
+            <fieldset disabled={isReadingImage || isSubmitting} className="space-y-4">
+              {/* VÙNG TẢI ẢNH CCCD / HỘ CHIẾU HIỆN ĐẠI (DROPZONE) */}
+              <div className="relative border-2 border-dashed border-neutral-300 hover:border-red-500 rounded-xl p-4 bg-white hover:bg-red-50/20 transition-all text-center group cursor-pointer shadow-2xs">
+                <input
+                  id="guest-document-upload"
+                  aria-label="Ảnh giấy tờ"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    void readIdentityImage(file);
+                  }}
                 />
+                <div className="flex flex-col items-center justify-center gap-1.5 pointer-events-none">
+                  <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <div className="text-xs font-bold text-neutral-800">
+                    Đọc ảnh CCCD / Hộ chiếu (Tự động điền OCR)
+                  </div>
+                  <div className="text-[11px] text-neutral-500">
+                    Kéo thả ảnh hoặc <span className="text-red-600 font-semibold underline">Chọn tệp từ máy</span> (PNG, JPEG, WebP; tối đa 5 MiB)
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Giới tính
+              {/* TRẠNG THÁI ĐANG ĐỌC ẢNH */}
+              {isReadingImage && (
+                <div role="status" className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-red-700 animate-pulse">
+                  <RefreshCw className="w-4 h-4 animate-spin text-red-600" />
+                  <span>Đang đọc ảnh...</span>
+                </div>
+              )}
+
+              {/* KHỐI XÉT DUYỆT BẢN NHÁP OCR */}
+              {ocrDraft && (
+                <div role="status" className="p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl space-y-2.5 text-xs">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Bản nháp OCR — đối chiếu giấy tờ gốc và sửa các trường trước khi lưu.</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {Object.entries(ocrFields).map(([key, label]) => {
+                      const field = ocrDraft[key as keyof typeof ocrFields];
+                      const conf = Math.round(field.confidence * 100);
+                      return (
+                        <div key={key} className="p-1.5 px-2 bg-white rounded-lg border border-amber-200/80 flex items-center justify-between">
+                          <span className="text-neutral-700 font-medium">{label}: {conf}%</span>
+                          {!field.valid && <span className="text-red-600 font-bold ml-1 shrink-0">— Cần kiểm tra</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {ocrDraft.warnings.length > 0 && (
+                    <div className="border-t border-amber-200 pt-1.5 space-y-0.5 text-amber-800 font-medium">
+                      {ocrDraft.warnings.map((warning, index) => (
+                        <p key={index} className="flex items-center gap-1">⚠️ {warning}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* LƯỚI THÔNG TIN CÁ NHÂN */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="guest-full-name" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Họ và tên khách <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="guest-full-name"
+                    placeholder="NGUYỄN VĂN A"
+                    value={fullName}
+                    onChange={(e) => {
+                      manualOcrFields.current.add('fullName');
+                      setHumanVerified(false);
+                      setFullName(e.target.value.toUpperCase());
+                    }}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="guest-gender" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Giới tính
+                  </label>
+                  <select
+                    id="guest-gender"
+                    className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:outline-none transition-all duration-200"
+                    value={gender}
+                    onChange={(e) => {
+                      manualOcrFields.current.add('gender');
+                      setHumanVerified(false);
+                      setGender(e.target.value as Gender);
+                    }}
+                  >
+                    <option value="MALE">Nam</option>
+                    <option value="FEMALE">Nữ</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="guest-doc-type" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Loại giấy tờ
+                  </label>
+                  <select
+                    id="guest-doc-type"
+                    className="w-full h-10 md:h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-red-600 focus:outline-none transition-all duration-200"
+                    value={documentType}
+                    onChange={(e) => {
+                      manualOcrFields.current.add('documentType');
+                      setHumanVerified(false);
+                      setDocumentType(e.target.value as DocumentType);
+                    }}
+                  >
+                    <option value="CCCD">Căn cước công dân (CCCD)</option>
+                    <option value="PASSPORT">Hộ chiếu (Passport)</option>
+                    <option value="CMND">Chứng minh nhân dân (CMND)</option>
+                    <option value="DRIVER_LICENSE">Giấy phép lái xe</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="guest-doc-number" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Số giấy tờ (CCCD/Passport) <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="guest-doc-number"
+                    required
+                    placeholder="001200001234"
+                    value={documentNumber}
+                    onChange={(e) => {
+                      manualOcrFields.current.add('documentNumber');
+                      setHumanVerified(false);
+                      setDocumentNumber(e.target.value);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="guest-dob" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Ngày sinh
+                  </label>
+                  <Input
+                    id="guest-dob"
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => {
+                      manualOcrFields.current.add('dateOfBirth');
+                      setHumanVerified(false);
+                      setDateOfBirth(e.target.value);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="guest-nationality" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Quốc tịch
+                  </label>
+                  <Input
+                    id="guest-nationality"
+                    placeholder="Việt Nam"
+                    value={nationality}
+                    onChange={(e) => {
+                      manualOcrFields.current.add('nationality');
+                      setHumanVerified(false);
+                      setNationality(e.target.value);
+                    }}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="guest-address" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Địa chỉ thường trú (theo CCCD)
+                  </label>
+                  <Input
+                    id="guest-address"
+                    placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
+                    value={permanentAddress}
+                    onChange={(e) => {
+                      manualOcrFields.current.add('permanentAddress');
+                      setHumanVerified(false);
+                      setPermanentAddress(e.target.value);
+                    }}
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="guest-reason" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Lý do lưu trú
+                  </label>
+                  <Input
+                    id="guest-reason"
+                    placeholder="Du lịch / Nghỉ dưỡng"
+                    value={reasonForStay}
+                    onChange={(e) => setReasonForStay(e.target.value)}
+                  />
+                </div>
+
+                {/* ĐƯA THỜI GIAN NHẬN/TRẢ PHÒNG VÀO LƯỚI 2 CỘT CHUẨN FIGMA DESIGN TOKENS */}
+                <div>
+                  <label htmlFor="guest-check-in-time" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Giờ nhận phòng <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="guest-check-in-time"
+                    aria-label="Giờ nhận phòng"
+                    type="datetime-local"
+                    required
+                    value={checkInTime}
+                    onChange={(e) => setCheckInTime(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="guest-expected-check-out-time" className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Giờ dự kiến trả phòng <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    id="guest-expected-check-out-time"
+                    aria-label="Giờ dự kiến trả phòng"
+                    type="datetime-local"
+                    required
+                    value={expectedCheckOutTime}
+                    onChange={(e) => setExpectedCheckOutTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* HỘP CHECKBOX XÁC NHẬN OCR */}
+              {ocrDraft && (
+                <label className="flex items-start gap-2.5 p-3 bg-white border border-amber-300 rounded-xl cursor-pointer hover:bg-amber-50/50 transition-colors shadow-2xs">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 mt-0.5 rounded border-neutral-300 text-red-600 focus:ring-red-600 cursor-pointer"
+                    checked={humanVerified}
+                    onChange={(e) => setHumanVerified(e.target.checked)}
+                  />
+                  <span className="text-xs font-semibold text-neutral-900 leading-snug">
+                    Tôi đã đối chiếu giấy tờ gốc và kiểm tra, sửa thông tin OCR.
+                  </span>
                 </label>
-                <select
-                  className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-                  value={gender}
-                  onChange={(e) => { manualOcrFields.current.add('gender'); setHumanVerified(false); setGender(e.target.value as Gender); }}
-                >
-                  <option value="MALE">Nam</option>
-                  <option value="FEMALE">Nữ</option>
-                  <option value="OTHER">Khác</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Loại giấy tờ
-                </label>
-                <select
-                  className="w-full h-12 px-3 text-sm bg-white border border-neutral-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:outline-hidden"
-                  value={documentType}
-                  onChange={(e) => { manualOcrFields.current.add('documentType'); setHumanVerified(false); setDocumentType(e.target.value as DocumentType); }}
-                >
-                  <option value="CCCD">Căn cước công dân (CCCD)</option>
-                  <option value="PASSPORT">Hộ chiếu (Passport)</option>
-                  <option value="CMND">Chứng minh nhân dân (CMND)</option>
-                  <option value="DRIVER_LICENSE">Giấy phép lái xe</option>
-                  <option value="OTHER">Khác</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Số giấy tờ (CCCD/Passport)
-                </label>
-                <Input
-                  required
-                  placeholder="001200001234"
-                  value={documentNumber}
-                  onChange={(e) => { manualOcrFields.current.add('documentNumber'); setHumanVerified(false); setDocumentNumber(e.target.value); }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Ngày sinh
-                </label>
-                <Input
-                  type="date"
-                  value={dateOfBirth}
-                  onChange={(e) => { manualOcrFields.current.add('dateOfBirth'); setHumanVerified(false); setDateOfBirth(e.target.value); }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Quốc tịch
-                </label>
-                <Input
-                  placeholder="Việt Nam"
-                  value={nationality}
-                  onChange={(e) => { manualOcrFields.current.add('nationality'); setHumanVerified(false); setNationality(e.target.value); }}
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Địa chỉ thường trú (theo CCCD)
-                </label>
-                <Input
-                  placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành"
-                  value={permanentAddress}
-                  onChange={(e) => { manualOcrFields.current.add('permanentAddress'); setHumanVerified(false); setPermanentAddress(e.target.value); }}
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                  Lý do lưu trú
-                </label>
-                <Input
-                  placeholder="Du lịch / Nghỉ dưỡng"
-                  value={reasonForStay}
-                  onChange={(e) => setReasonForStay(e.target.value)}
-                />
-              </div>
-            </div>
-
-              <label className="block text-sm">Giờ nhận phòng
-                <input aria-label="Giờ nhận phòng" type="datetime-local" required value={checkInTime} onChange={e => setCheckInTime(e.target.value)} />
-              </label>
-              <label className="block text-sm">Giờ dự kiến trả phòng
-                <input aria-label="Giờ dự kiến trả phòng" type="datetime-local" required value={expectedCheckOutTime} onChange={e => setExpectedCheckOutTime(e.target.value)} />
-              </label>
-              {ocrDraft && <label className="block text-sm">
-                <input type="checkbox" checked={humanVerified} onChange={e => setHumanVerified(e.target.checked)} />
-                Tôi đã đối chiếu giấy tờ gốc và kiểm tra, sửa thông tin OCR.
-              </label>}
+              )}
             </fieldset>
-            {isReadingImage && <p role="status">Đang đọc ảnh...</p>}
-            <div className="flex justify-end gap-2 pt-2 border-t border-neutral-200">
-              <Button type="button" variant="outline" size="sm" onClick={resetForm}>
+
+            {/* THANH ĐIỀU KHIỂN HÀNH ĐỘNG FORM */}
+            <div className="flex justify-end gap-2 pt-3 border-t border-neutral-200">
+              <Button type="button" variant="outline" size="sm" onClick={resetForm} disabled={isSubmitting}>
                 Hủy
               </Button>
-              <Button type="submit" variant="primary" size="sm" disabled={isSubmitting || isReadingImage || (!!ocrDraft && !humanVerified)}>
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={isSubmitting || isReadingImage || (!!ocrDraft && !humanVerified)}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs"
+              >
                 {isSubmitting ? 'Đang lưu...' : 'Lưu khách lưu trú'}
               </Button>
             </div>

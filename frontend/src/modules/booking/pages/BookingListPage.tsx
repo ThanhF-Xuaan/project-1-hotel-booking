@@ -69,7 +69,11 @@ export const BookingListPage: React.FC = () => {
     roomNumber?: string;
     leadGuestName?: string;
     leadGuestPhone?: string;
+    defaultCheckInTime?: string;
+    defaultExpectedCheckOutTime?: string;
   } | null>(null);
+  const [isCheckInReminderOpen, setIsCheckInReminderOpen] = useState(false);
+  const [pendingCheckInRoom, setPendingCheckInRoom] = useState<BookingRoomResponse | null>(null);
 
   // Assign Room Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -318,6 +322,40 @@ export const BookingListPage: React.FC = () => {
       alert('Phòng chưa được xếp phòng vật lý. Vui lòng xếp phòng trước khi khai báo khách lưu trú!');
       return;
     }
+    const detail = booking.bookingDetails?.find(d => d.id === room.bookingDetailId)
+      || (booking.bookingDetails && booking.bookingDetails.length > 0 ? booking.bookingDetails[0] : undefined);
+
+    let defCheckIn: string;
+    const nowLocal = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
+    }).format(new Date()).replace(' ', 'T');
+
+    if (room.actualCheckInAt) {
+      try {
+        defCheckIn = new Intl.DateTimeFormat('sv-SE', {
+          timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short', timeStyle: 'short',
+        }).format(new Date(room.actualCheckInAt)).replace(' ', 'T');
+      } catch {
+        defCheckIn = nowLocal;
+      }
+    } else if (detail?.checkInDate) {
+      defCheckIn = `${detail.checkInDate}T14:00`;
+    } else {
+      defCheckIn = nowLocal;
+    }
+
+    let defCheckOut: string;
+    if (detail?.checkOutDate) {
+      defCheckOut = `${detail.checkOutDate}T12:00`;
+    } else {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomDateStr = new Intl.DateTimeFormat('sv-SE', {
+        timeZone: 'Asia/Ho_Chi_Minh', dateStyle: 'short',
+      }).format(tomorrow);
+      defCheckOut = `${tomDateStr}T12:00`;
+    }
+
     setStayGuestsTarget({
       bookingRoomId: room.id,
       hotelId: booking.hotelId,
@@ -326,6 +364,8 @@ export const BookingListPage: React.FC = () => {
       roomNumber: room.roomNumber,
       leadGuestName: booking.guestName,
       leadGuestPhone: booking.guestPhone,
+      defaultCheckInTime: defCheckIn,
+      defaultExpectedCheckOutTime: defCheckOut,
     });
     setIsStayGuestsModalOpen(true);
   };
@@ -376,6 +416,16 @@ export const BookingListPage: React.FC = () => {
   };
 
   const handleInitiateCheckIn = async (room: BookingRoomResponse) => {
+    // Nếu phòng chưa có thông tin CCCD khách lưu trú: Hiển thị cảnh báo mềm
+    if (!room.bookingGuests || room.bookingGuests.length === 0) {
+      setPendingCheckInRoom(room);
+      setIsCheckInReminderOpen(true);
+      return;
+    }
+    await proceedCheckInFlow(room);
+  };
+
+  const proceedCheckInFlow = async (room: BookingRoomResponse) => {
     try {
       const preview = await bookingService.previewSurcharge(room.id, { chargeType: 'EARLY_CHECKIN' });
       if (preview.result && preview.result.applicable) {
@@ -1117,8 +1167,38 @@ export const BookingListPage: React.FC = () => {
           roomNumber={stayGuestsTarget.roomNumber}
           leadGuestName={stayGuestsTarget.leadGuestName}
           leadGuestPhone={stayGuestsTarget.leadGuestPhone}
+          defaultCheckInTime={stayGuestsTarget.defaultCheckInTime}
+          defaultExpectedCheckOutTime={stayGuestsTarget.defaultExpectedCheckOutTime}
         />
       )}
+
+      {/* MODAL NHẮC NHỞ KHAI BÁO LƯU TRÚ TRƯỚC KHI CHECK-IN */}
+      <ConfirmModal
+        isOpen={isCheckInReminderOpen}
+        onClose={() => {
+          setIsCheckInReminderOpen(false);
+          if (pendingCheckInRoom) {
+            const b = selectedBooking || bookings.find(item => item.bookingDetails?.some(d => d.bookingRooms?.some(r => r.id === pendingCheckInRoom.id)));
+            if (b) {
+              handleOpenStayGuestsModal(b, pendingCheckInRoom);
+            }
+          }
+          setPendingCheckInRoom(null);
+        }}
+        onConfirm={async () => {
+          const roomToProcess = pendingCheckInRoom;
+          setIsCheckInReminderOpen(false);
+          setPendingCheckInRoom(null);
+          if (roomToProcess) {
+            await proceedCheckInFlow(roomToProcess);
+          }
+        }}
+        title="Nhắc nhở khai báo khách lưu trú"
+        description="Phòng này hiện chưa có thông tin CCCD/Hộ chiếu khách lưu trú. Theo quy định, thông tin cần được bổ sung trước 23:00 để gửi BCA. Bạn có muốn Check-in ngay để bàn giao phòng cho khách và bổ sung hồ sơ sau không?"
+        confirmText="Check-in ngay (Bổ sung sau)"
+        cancelText="Khai báo CCCD trước"
+        variant="warning"
+      />
 
       {/* MODAL XẾP PHÒNG VẬT LÝ */}
       <RoomAssignModal

@@ -492,6 +492,17 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                               <Button
                                 variant="outline"
                                 size="sm"
+                                onClick={() => onStayGuests(booking, room)}
+                                className="text-blue-700 hover:text-blue-800 border-blue-200 hover:bg-blue-50"
+                                title="Quản lý thông tin khách lưu trú (CCCD/Hộ chiếu)"
+                              >
+                                <Users className="w-3.5 h-3.5 mr-1" />
+                                Khách lưu trú ({room.bookingGuests?.length || 0})
+                              </Button>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
                                 onClick={() => onCheckoutSettlement(room.id)}
                                 className="text-blue-700 border-blue-200 hover:bg-blue-50"
                                 title="Xem bảng kê công nợ và thu tiền tạm ứng / thanh toán"
@@ -528,9 +539,21 @@ export const BookingDetailModal: React.FC<BookingDetailModalProps> = ({
                                 )}
                               </span>
                             ))
+                          ) : room.status === 'CHECKED_IN' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium">
+                              <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                              Chưa bổ sung CCCD khách lưu trú (Cần bổ sung trước 23h)
+                              <button
+                                type="button"
+                                onClick={() => onStayGuests(booking, room)}
+                                className="ml-1 underline text-amber-900 font-bold hover:text-amber-950 cursor-pointer"
+                              >
+                                Khai báo ngay
+                              </button>
+                            </span>
                           ) : (
                             <span className="text-[11px] text-neutral-400 italic">
-                              Chưa khai báo khách lưu trú (Sẽ cập nhật khi Check-in)
+                              Chưa khai báo khách lưu trú (Có thể bổ sung trước hoặc sau Check-in)
                             </span>
                           )}
                         </div>
