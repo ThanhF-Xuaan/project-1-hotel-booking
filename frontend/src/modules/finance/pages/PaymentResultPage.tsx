@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -23,6 +23,7 @@ import {
 import Button from '../../../core/components/ui/Button';
 import { formatCurrency } from '../../../core/utils/currency';
 import { getErrorStatus } from '../../../core/api/client';
+import { getCurrentUser } from '../../../core/auth/auth';
 import financeService from '../services/finance.service';
 import PaymentStatusBadge from '../components/payment/PaymentStatusBadge';
 import type { PaymentResponse, PaymentStatus } from '../types/finance.types';
@@ -81,25 +82,46 @@ export const PaymentResultPage: React.FC = () => {
   // Lấy thông tin phiên vnpay_active_session từ localStorage để nhận diện nguồn và trang quay lại
   const sessionData = useMemo(() => {
     try {
+      if (paymentId) {
+        const byId = localStorage.getItem(`vnpay_session_${paymentId}`);
+        if (byId) return JSON.parse(byId);
+      }
       const raw = localStorage.getItem('vnpay_active_session');
-      return raw ? JSON.parse(raw) : null;
+      if (raw) return JSON.parse(raw);
+      const walkin = localStorage.getItem('vnpay_last_walkin_session');
+      if (walkin) {
+        return JSON.parse(walkin);
+      }
+      return null;
     } catch {
       return null;
     }
-  }, []);
+  }, [paymentId]);
+
+  // Kiểm tra vai trò nội bộ của user hiện tại (Lễ tân, Quản lý, Giám đốc, Buồng phòng...)
+  const currentUser = useMemo(() => getCurrentUser(), []);
+  const isStaffUser = useMemo(() => {
+    if (!currentUser || !currentUser.roles) return false;
+    const staffRoles = [
+      'ROLE_RECEPTIONIST',
+      'ROLE_PROPERTY_MANAGER',
+      'ROLE_CHAIN_ADMIN',
+      'ROLE_REGION_MANAGER',
+      'ROLE_HOUSEKEEPING',
+    ];
+    return currentUser.roles.some((r) => staffRoles.includes(r));
+  }, [currentUser]);
 
   const isWalkInSource = sessionData?.source === 'WALK_IN';
-  const targetReturnUrl = sessionData?.returnUrl || (isWalkInSource ? '/booking/list' : '/portal/search');
+  const isAdminPopup = Boolean(
+    window.opener ||
+    isWalkInSource ||
+    sessionData?.returnUrl?.includes('/booking') ||
+    sessionData?.returnUrl?.includes('/finance') ||
+    isStaffUser
+  );
 
-  // Phát hiện xem trang có được mở trong tab/cửa sổ con từ giao diện quản trị hay không
-  const [isAdminPopup] = useState<boolean>(() => {
-    try {
-      const activeSession = localStorage.getItem('vnpay_active_session');
-      return Boolean(window.opener || activeSession);
-    } catch {
-      return Boolean(window.opener);
-    }
-  });
+  const targetReturnUrl = sessionData?.returnUrl || (isAdminPopup ? '/booking/list' : '/portal/search');
   const [closeCountdown, setCloseCountdown] = useState<number>(20);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -178,7 +200,41 @@ export const PaymentResultPage: React.FC = () => {
   const isConfirming = displayStatus === 'PENDING';
   const isFailed = displayStatus === 'FAILED' || displayStatus === 'CANCELLED';
 
-  // Countdown timer tự động redirect (20 giây)
+  // Handler đóng tab hoặc chuyển hướng fallback về màn hình lễ tân
+  const handleCloseOrReturn = useCallback(() => {
+    try {
+      localStorage.removeItem('vnpay_active_session');
+      if (paymentId) localStorage.removeItem(`vnpay_session_${paymentId}`);
+      window.close();
+    } catch {
+      void 0;
+    }
+    setTimeout(() => {
+      if (!window.closed) {
+        navigate(targetReturnUrl);
+      }
+    }, 200);
+  }, [navigate, paymentId, targetReturnUrl]);
+
+  // Timer 20s tự động đóng tab cho Admin / Walk-in popup
+  useEffect(() => {
+    if (!isAdminPopup || !isPaid || isCountdownPaused) return;
+
+    const timer = setInterval(() => {
+      setCloseCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleCloseOrReturn();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isAdminPopup, isPaid, isCountdownPaused, handleCloseOrReturn]);
+
+  // Countdown timer tự động redirect cho Portal khách hàng (20 giây)
   useEffect(() => {
     if (isAdminPopup || !isPaid || isCountdownPaused) return;
 
@@ -248,32 +304,7 @@ export const PaymentResultPage: React.FC = () => {
     } catch {
       void 0;
     }
-
-    // 4. Nếu là popup mở từ Admin modal: tự động đếm ngược và đóng tab sau 20s
-    if (isAdminPopup && (isPaid || isFailed)) {
-      const timer = setInterval(() => {
-        setCloseCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            try {
-              localStorage.removeItem('vnpay_active_session');
-              window.close();
-            } catch {
-              void 0;
-            }
-            // Fallback nếu window.close() bị trình duyệt chặn không cho đóng tab
-            if (!window.closed) {
-              navigate(targetReturnUrl);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      return () => clearInterval(timer);
-    }
-  }, [isAdminPopup, isPaid, isFailed, isPaidByParams, displayStatus, paymentId, bookingIdParam, txnRef, targetReturnUrl, navigate]);
+  }, [isPaidByParams, displayStatus, paymentId, bookingIdParam, txnRef]);
 
   // Dữ liệu đối chiếu từ backend hoặc params
   const rawPayloadMap = payment?.rawCallbackPayload
@@ -499,33 +530,40 @@ export const PaymentResultPage: React.FC = () => {
           {/* CỤM ĐIỀU HƯỚNG TÙY THEO NGỮ CẢNH: ADMIN MODAL HAY PORTAL KHÁCH */}
           {isAdminPopup ? (
             <div className="space-y-3 pt-2">
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs flex items-center justify-between">
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3.5 text-xs flex flex-wrap items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-emerald-600 animate-spin" />
                   <span>
-                    Đang tự động đóng cửa sổ sau{' '}
+                    Thanh toán thành công! Tự động đóng tab sau{' '}
                     <strong className="text-emerald-700 font-bold text-sm">{closeCountdown}s</strong>{' '}
-                    để đồng bộ về Sơ đồ đặt phòng của Lễ tân...
+                    để quay về Sơ đồ đặt phòng của Lễ tân...
                   </span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setIsCountdownPaused(!isCountdownPaused)}
+                  className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 underline px-2 py-0.5 rounded cursor-pointer"
+                >
+                  {isCountdownPaused ? 'Tiếp tục đếm ngược' : 'Dừng tự đóng'}
+                </button>
               </div>
-              <Button
-                variant="primary"
-                className="w-full h-11 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md cursor-pointer justify-center"
-                onClick={() => {
-                  try {
-                    localStorage.removeItem('vnpay_active_session');
-                    window.close();
-                  } catch {
-                    void 0;
-                  }
-                  if (!window.closed) {
-                    navigate(targetReturnUrl);
-                  }
-                }}
-              >
-                Đóng Cửa Sổ Ngay Để Quay Lại Màn Hình Lễ Tân
-              </Button>
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  variant="primary"
+                  className="w-full sm:flex-1 h-12 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md cursor-pointer justify-center"
+                  onClick={handleCloseOrReturn}
+                >
+                  Đóng Tab & Quay Lại Sơ Đồ Lễ Tân
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full sm:flex-1 h-12 border-neutral-300 text-neutral-800 hover:bg-neutral-50 font-semibold rounded-xl"
+                  onClick={() => navigate('/booking/list')}
+                >
+                  Về Danh Sách Đặt Phòng
+                </Button>
+              </div>
             </div>
           ) : (
             <>

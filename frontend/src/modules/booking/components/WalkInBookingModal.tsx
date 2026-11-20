@@ -234,8 +234,9 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       window.removeEventListener('storage', handleStorageEventRef.current);
       handleStorageEventRef.current = null;
     }
+    // Không xóa vnpay_active_session hay vnpay_session_* tại đây
+    // để tab mới của VNPay đọc thông tin phiên khi redirect về PaymentResultPage!
     try {
-      localStorage.removeItem('vnpay_active_session');
       localStorage.removeItem('vnpay_payment_sync_event');
     } catch {
       void 0;
@@ -842,17 +843,17 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
 
               // 1. Lưu active session để tab kết quả nhận diện nguồn WALK_IN và returnUrl
               try {
-                localStorage.setItem(
-                  'vnpay_active_session',
-                  JSON.stringify({
-                    paymentId: pId,
-                    bookingId: createdBooking.id,
-                    bookingNumber: createdBooking.bookingNumber,
-                    source: 'WALK_IN',
-                    returnUrl: '/booking/list',
-                    time: Date.now(),
-                  })
-                );
+                const sessionPayload = {
+                  paymentId: pId,
+                  bookingId: createdBooking.id,
+                  bookingNumber: createdBooking.bookingNumber,
+                  source: 'WALK_IN',
+                  returnUrl: '/booking/list',
+                  time: Date.now(),
+                };
+                localStorage.setItem('vnpay_active_session', JSON.stringify(sessionPayload));
+                localStorage.setItem(`vnpay_session_${pId}`, JSON.stringify(sessionPayload));
+                localStorage.setItem('vnpay_last_walkin_session', JSON.stringify(sessionPayload));
               } catch (e) {
                 console.warn('Cannot set localStorage', e);
               }
@@ -1409,9 +1410,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Email</label>
+                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                    Email nhận hóa đơn & biên lai
+                    <span className="text-neutral-400 font-normal ml-1">(Khuyên dùng)</span>
+                  </label>
                   <input
                     type="email"
+                    placeholder="vd: khachhang@gmail.com"
                     value={leadGuest.email}
                     onChange={(e) => setLeadGuest((p) => ({ ...p, email: e.target.value }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
@@ -1805,6 +1810,22 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {leadGuest.email ? (
+                <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Email xác nhận đặt phòng & Biên lai quyết toán All-in-One sẽ được tự động gửi đến <strong>{leadGuest.email}</strong> ngay sau khi hoàn tất.
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    Khách chưa cung cấp email. Hệ thống sẽ bỏ qua gửi thư điện tử và hoàn tất nhận phòng trực tiếp tại quầy. (Quý khách có thể quay lại Bước 2 để bổ sung email nếu cần).
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-3">

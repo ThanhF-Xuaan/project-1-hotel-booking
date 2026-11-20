@@ -71,4 +71,42 @@ class PaymentGatewayEmailCallbackTest {
         assertThat(event.getPaymentMethod()).isEqualTo("VNPAY");
         assertThat(event.getTransactionReference()).isEqualTo("15738002");
     }
+
+    @Test
+    @DisplayName("Kiểm tra event builder chứa đầy đủ services và surcharges khi callback thanh toán thành công")
+    void shouldBuildEventWithServicesAndSurcharges() {
+        BookingGuest guest = BookingGuest.builder()
+                .fullName("Nguyễn Văn A")
+                .email("nva@gmail.com")
+                .build();
+
+        BookingConfirmationEmailEvent event = BookingConfirmationEmailEvent.builder()
+                .bookingId(101L)
+                .bookingCode("BK101")
+                .recipientEmail(guest.getEmail())
+                .customerName(guest.getFullName())
+                .isPaid(true)
+                .services(java.util.List.of(
+                        vn.edu.utc.hotel_booking.modules.notification.dto.ServiceItemEmailDto.builder()
+                                .name("Ăn sáng Buffet")
+                                .quantity(2)
+                                .unitPrice(new BigDecimal("150000.00"))
+                                .totalPrice(new BigDecimal("300000.00"))
+                                .build()
+                ))
+                .surcharges(java.util.List.of(
+                        vn.edu.utc.hotel_booking.modules.notification.dto.ServiceItemEmailDto.builder()
+                                .name("Check-in sớm")
+                                .quantity(1)
+                                .unitPrice(new BigDecimal("200000.00"))
+                                .totalPrice(new BigDecimal("200000.00"))
+                                .build()
+                ))
+                .build();
+
+        assertThat(event.getServices()).hasSize(1);
+        assertThat(event.getServices().get(0).getName()).isEqualTo("Ăn sáng Buffet");
+        assertThat(event.getSurcharges()).hasSize(1);
+        assertThat(event.getSurcharges().get(0).getName()).isEqualTo("Check-in sớm");
+    }
 }

@@ -39,6 +39,9 @@ import org.springframework.context.ApplicationEventPublisherAware;
 import vn.edu.utc.hotel_booking.modules.notification.event.BookingConfirmationEmailEvent;
 import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEvent;
 import vn.edu.utc.hotel_booking.modules.notification.dto.InvoiceItemEmailDto;
+import vn.edu.utc.hotel_booking.modules.notification.dto.ServiceItemEmailDto;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
+import java.math.RoundingMode;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingRoom;
 import vn.edu.utc.hotel_booking.modules.finance.service.FolioLedgerService;
@@ -568,6 +571,9 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                 }
             }
 
+            List<ServiceItemEmailDto> emailServices = extractEmailServices(booking);
+            List<ServiceItemEmailDto> emailSurcharges = extractEmailSurcharges(booking);
+
             BookingConfirmationEmailEvent event = BookingConfirmationEmailEvent.builder()
                     .bookingId(booking.getId())
                     .bookingCode(booking.getBookingNumber())
@@ -591,6 +597,8 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                     .transactionReference(payment.getTransactionReference())
                     .invoiceNumber(invoiceNumber)
                     .paidAt(payment.getPaidAt() != null ? payment.getPaidAt() : OffsetDateTime.now())
+                    .services(emailServices)
+                    .surcharges(emailSurcharges)
                     .build();
             eventPublisher.publishEvent(event);
             log.info("[EMAIL] Published unified All-in-One BookingConfirmationEmailEvent for booking {} and payment {}",
@@ -598,6 +606,81 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
         } catch (Exception ex) {
             log.error("Failed to publish BookingConfirmationEmailEvent for payment {}: {}", payment.getId(), ex.getMessage());
         }
+    }
+
+    private List<ServiceItemEmailDto> extractEmailServices(Booking booking) {
+        List<ServiceItemEmailDto> emailServices = new ArrayList<>();
+        if (booking == null || booking.getId() == null || serviceOrderRepository == null) {
+            return emailServices;
+        }
+        try {
+            List<Long> roomIds = new ArrayList<>();
+            if (booking.getBookingDetails() != null) {
+                for (BookingDetail bd : booking.getBookingDetails()) {
+                    if (bd.getBookingRooms() != null) {
+                        for (BookingRoom br : bd.getBookingRooms()) {
+                            if (br.getId() != null) roomIds.add(br.getId());
+                        }
+                    }
+                }
+            }
+            List<ServiceOrder> orders = roomIds.isEmpty()
+                    ? serviceOrderRepository.findByBookingIdAndIsDeletedFalse(booking.getId())
+                    : serviceOrderRepository.findAllOrdersForBookingAndRooms(booking.getId(), roomIds);
+            if (orders != null) {
+                for (ServiceOrder o : orders) {
+                    if (o.getStatus() != ServiceOrderStatus.CANCELLED && o.getDetails() != null) {
+                        for (var d : o.getDetails()) {
+                            int qty = d.getQuantity() != null && d.getQuantity() > 0 ? d.getQuantity() : 1;
+                            BigDecimal total = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
+                            BigDecimal unitGross = total.divide(BigDecimal.valueOf(qty), 0, RoundingMode.HALF_UP);
+                            String itemName = d.getMenu() != null && d.getMenu().getName() != null
+                                    ? d.getMenu().getName()
+                                    : (d.getMasterItem() != null ? d.getMasterItem().getName() : "Dịch vụ");
+                            emailServices.add(ServiceItemEmailDto.builder()
+                                    .name(itemName)
+                                    .quantity(qty)
+                                    .unitPrice(unitGross)
+                                    .totalPrice(total)
+                                    .build());
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Lỗi trích xuất dịch vụ gửi email: {}", ex.getMessage());
+        }
+        return emailServices;
+    }
+
+    private List<ServiceItemEmailDto> extractEmailSurcharges(Booking booking) {
+        List<ServiceItemEmailDto> emailSurcharges = new ArrayList<>();
+        if (booking == null || booking.getBookingDetails() == null) {
+            return emailSurcharges;
+        }
+        try {
+            for (BookingDetail bd : booking.getBookingDetails()) {
+                if (bd.getBookingRooms() != null) {
+                    for (BookingRoom br : bd.getBookingRooms()) {
+                        if (br.getCharges() != null) {
+                            for (var c : br.getCharges()) {
+                                if (c.getTotalAmount() != null && c.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                                    emailSurcharges.add(ServiceItemEmailDto.builder()
+                                            .name(c.getItemName() != null ? c.getItemName() : (c.getChargeType() != null ? c.getChargeType().name() : "Phụ thu"))
+                                            .quantity(c.getQuantity() != null ? c.getQuantity() : 1)
+                                            .unitPrice(c.getUnitPrice() != null ? c.getUnitPrice() : BigDecimal.ZERO)
+                                            .totalPrice(c.getTotalAmount())
+                                            .build());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Lỗi trích xuất phụ thu gửi email: {}", ex.getMessage());
+        }
+        return emailSurcharges;
     }
 
     @Override
