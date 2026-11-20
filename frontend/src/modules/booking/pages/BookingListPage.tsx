@@ -202,7 +202,7 @@ export const BookingListPage: React.FC = () => {
     setIsLoadingTimeline(true);
     try {
       const [roomsRes, bookingsRes] = await Promise.all([
-        roomInstanceService.filter({ hotelId, pageSize: 500 }),
+        roomInstanceService.filter({ hotelId, pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }),
         bookingService.filter({ hotelId, pageSize: 500, page: 1 }),
       ]);
       if (roomsRes.result?.content) {
@@ -260,7 +260,7 @@ export const BookingListPage: React.FC = () => {
     const timer = setTimeout(() => {
       void loadData();
       roomInstanceService
-        .filter({ pageSize: 100 })
+        .filter({ pageSize: 100, sortBy: 'roomNumber', sortDirection: 'ASC' })
         .then((res) => {
           if (res.result) {
             setAvailableRooms(res.result.content || []);
@@ -307,7 +307,7 @@ export const BookingListPage: React.FC = () => {
     if (selectedHotelId) {
       void loadTimelineData(selectedHotelId);
     } else {
-      roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+      roomInstanceService.filter({ pageSize: 100, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
         if (res.result) setAvailableRooms(res.result.content || []);
       });
     }
@@ -756,7 +756,7 @@ export const BookingListPage: React.FC = () => {
         void loadTimelineData(hotelIdToRefresh);
       } else {
         loadData();
-        roomInstanceService.filter({ pageSize: 500 }).then((res) => {
+        roomInstanceService.filter({ pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
           if (res.result) setAvailableRooms(res.result.content || []);
         });
       }
@@ -827,7 +827,7 @@ export const BookingListPage: React.FC = () => {
             onClick={() => {
               setViewMode('TIMELINE');
               if (availableRooms.length === 0) {
-                roomInstanceService.filter({ pageSize: 500 }).then((res) => {
+                roomInstanceService.filter({ pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
                   if (res.result) setAvailableRooms(res.result.content || []);
                 });
               }
@@ -865,7 +865,7 @@ export const BookingListPage: React.FC = () => {
             if (hotelIdToRefresh) {
               void loadTimelineData(hotelIdToRefresh);
             } else {
-              roomInstanceService.filter({ pageSize: 500 }).then((res) => {
+              roomInstanceService.filter({ pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
                 if (res.result) setAvailableRooms(res.result.content || []);
               });
             }

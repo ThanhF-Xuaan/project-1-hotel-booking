@@ -35,6 +35,23 @@ import type {
 } from '../types/booking.types';
 import type { RoomInstanceDto } from '../../inventory/types/inventory.types';
 
+const ROOM_TYPE_PRIORITY: Record<string, number> = {
+  STD: 1,
+  STANDARD: 1,
+  SUP: 2,
+  SUPERIOR: 2,
+  DLX: 3,
+  DELUXE: 3,
+  STE: 4,
+  SUITE: 4,
+  EXE: 5,
+  EXECUTIVE: 5,
+  PRE: 6,
+  PREMIER: 6,
+  FAM: 7,
+  FAMILY: 7,
+};
+
 export interface TimelineRackViewProps {
   rooms: RoomInstanceDto[];
   bookings: BookingResponse[];
@@ -404,7 +421,32 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
       roomList.sort((a, b) => a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true }));
     });
 
-    return Array.from(groups.entries());
+    // Sort room type groups deterministically (STD -> SUP -> DLX -> STE ... then min room number)
+    return Array.from(groups.entries()).sort(([typeA, roomsA], [typeB, roomsB]) => {
+      const codeA = (roomsA[0]?.roomTypeCode || '').toUpperCase();
+      const codeB = (roomsB[0]?.roomTypeCode || '').toUpperCase();
+      const nameA = typeA.toUpperCase();
+      const nameB = typeB.toUpperCase();
+
+      const getPrio = (code: string, name: string) => {
+        if (ROOM_TYPE_PRIORITY[code]) return ROOM_TYPE_PRIORITY[code];
+        for (const [key, prio] of Object.entries(ROOM_TYPE_PRIORITY)) {
+          if (name.includes(key)) return prio;
+        }
+        return 99;
+      };
+
+      const prioA = getPrio(codeA, nameA);
+      const prioB = getPrio(codeB, nameB);
+      if (prioA !== prioB) return prioA - prioB;
+
+      const minRoomA = roomsA[0]?.roomNumber || '';
+      const minRoomB = roomsB[0]?.roomNumber || '';
+      const roomCompare = minRoomA.localeCompare(minRoomB, undefined, { numeric: true });
+      if (roomCompare !== 0) return roomCompare;
+
+      return typeA.localeCompare(typeB);
+    });
   }, [currentHotelRooms, selectedRoomTypeFilter, searchQuery, statusFilter, daysRange, roomBookingMap]);
 
   // Dynamic Occupancy Rollup per Room Type per Date

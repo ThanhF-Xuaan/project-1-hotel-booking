@@ -139,6 +139,7 @@ public class WalkInBookingRequest {
         String identityNumber;
         @Builder.Default
         String nationality = "Việt Nam";
+        String permanentAddress;
         Boolean isPrimaryGuest;
     }
 

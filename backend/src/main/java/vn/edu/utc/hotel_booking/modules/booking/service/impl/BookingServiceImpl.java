@@ -2967,6 +2967,11 @@ public class BookingServiceImpl implements BookingService {
                             docType = DocumentType.valueOf(sg.getIdentityType());
                         } catch (Exception ignored) {}
                     }
+                    String permanentAddr = StringUtils.hasText(sg.getPermanentAddress())
+                            ? sg.getPermanentAddress().trim()
+                            : (request.getLeadGuest() != null && StringUtils.hasText(request.getLeadGuest().getAddress())
+                                ? request.getLeadGuest().getAddress().trim()
+                                : null);
                     StayGuestCreateRequest sgReq = StayGuestCreateRequest.builder()
                             .hotelId(hotel.getId())
                             .bookingId(savedBooking.getId())
@@ -2979,6 +2984,7 @@ public class BookingServiceImpl implements BookingService {
                             .nationality(sg.getNationality() != null ? sg.getNationality() : "Việt Nam")
                             .documentType(docType)
                             .documentNumber(sg.getIdentityNumber() != null ? sg.getIdentityNumber() : "N/A")
+                            .permanentAddress(permanentAddr)
                             .checkInTime(OffsetDateTime.now())
                             .expectedCheckOutTime(request.getCheckOutDate().atTime(12, 0).atOffset(ZoneOffset.ofHours(7)))
                             .build();
@@ -2987,6 +2993,38 @@ public class BookingServiceImpl implements BookingService {
             }
 
             stayGuestService.syncLodgingQueueForBookingRoom(br.getId());
+
+            // Đồng bộ tiền phòng lưu trú vào Folio Ledger
+            try {
+                if (folioLedgerService != null) {
+                    Folio folio = folioLedgerService.getOrCreateFolio(savedBooking.getId(), br.getId());
+                    if (br.getDailyRates() != null) {
+                        String roomLabel = (roomInst.getRoomNumber() != null) ? roomInst.getRoomNumber() : ("Phòng #" + (i + 1));
+                        for (BookingDailyRate dr : br.getDailyRates()) {
+                            BigDecimal fee = dr.getServiceFeeAmount() != null ? dr.getServiceFeeAmount() : BigDecimal.ZERO;
+                            BigDecimal vat = dr.getVatAmount() != null ? dr.getVatAmount() : BigDecimal.ZERO;
+                            BigDecimal gross = dr.getBasePrice().add(fee).add(vat);
+                            folioLedgerService.postDebit(
+                                    folio.getId(),
+                                    "ROOM_RATE",
+                                    "DAILY_RATE",
+                                    dr.getId(),
+                                    "Phòng " + roomLabel + " - Đêm ngày " + dr.getStayDate(),
+                                    1,
+                                    dr.getBasePrice(),
+                                    dr.getBasePrice(),
+                                    dr.getServiceFeeRate(),
+                                    fee,
+                                    dr.getVatPercent(),
+                                    vat,
+                                    gross
+                            );
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Không thể đồng bộ Folio tiền phòng cho Walk-in BookingRoom {}: {}", br.getId(), ex.getMessage());
+            }
         }
 
         // 7. Ghi nhận Phụ thu đã xác nhận
