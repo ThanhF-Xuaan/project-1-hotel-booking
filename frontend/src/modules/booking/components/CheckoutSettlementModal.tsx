@@ -160,7 +160,6 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
       vnpayChannelRef.current = null;
     }
     try {
-      localStorage.removeItem('vnpay_active_session');
       localStorage.removeItem('vnpay_payment_sync_event');
     } catch {
       void 0;
@@ -264,14 +263,15 @@ export const CheckoutSettlementModal: React.FC<CheckoutSettlementModalProps> = (
           setVnpayPaymentUrl(pUrl);
           setIsWaitingVnPay(true);
           try {
-            localStorage.setItem(
-              'vnpay_active_session',
-              JSON.stringify({
-                bookingId: settlement.bookingId,
-                paymentId: pId,
-                returnUrl: window.location.href,
-              })
-            );
+            const sess = {
+              bookingId: settlement.bookingId,
+              paymentId: pId,
+              returnUrl: window.location.href,
+              source: 'CHECKOUT_SETTLEMENT',
+              time: Date.now(),
+            };
+            localStorage.setItem('vnpay_active_session', JSON.stringify(sess));
+            localStorage.setItem(`vnpay_session_${pId}`, JSON.stringify(sess));
           } catch {
             void 0;
           }

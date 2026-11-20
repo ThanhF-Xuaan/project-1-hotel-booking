@@ -112,4 +112,42 @@ class PaymentControllerRoutingTest {
                 .andExpect(status().isFound())
                 .andExpect(header().string("Location", "/api/v1/public/payments/vnpay/return?vnp_TxnRef=VNP123456&vnp_ResponseCode=00"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/public/payments/vnpay/return catches unexpected error and redirects with status=FAILED without 500")
+    void testVnPayReturn_UnexpectedError_RedirectsFailed() throws Exception {
+        when(paymentService.handleGatewayCallback(any(), any()))
+                .thenThrow(new RuntimeException("Simulated unexpected database or server failure"));
+
+        mockMvc.perform(get("/api/v1/public/payments/vnpay/return")
+                        .param("vnp_TxnRef", "VNP20261120195323-8149")
+                        .param("vnp_ResponseCode", "00")
+                        .param("vnp_Amount", "68040000"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("status=FAILED")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("txnRef=VNP20261120195323-8149")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/public/payments/vnpay/return handles success and redirects with status=PAID")
+    void testVnPayReturn_Success_RedirectsPaid() throws Exception {
+        vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse successResponse =
+                vn.edu.utc.hotel_booking.modules.finance.dto.response.PaymentResponse.builder()
+                        .id(18L)
+                        .bookingId(22L)
+                        .status(vn.edu.utc.hotel_booking.modules.finance.entity.PaymentStatus.SUCCESS)
+                        .build();
+
+        when(paymentService.handleGatewayCallback(any(), any()))
+                .thenReturn(successResponse);
+
+        mockMvc.perform(get("/api/v1/public/payments/vnpay/return")
+                        .param("vnp_TxnRef", "VNP20261120195323-8149")
+                        .param("vnp_ResponseCode", "00")
+                        .param("vnp_Amount", "68040000"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("status=PAID")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("paymentId=18")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("bookingId=22")));
+    }
 }

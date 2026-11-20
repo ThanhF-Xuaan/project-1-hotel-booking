@@ -10,6 +10,7 @@ import vn.edu.utc.hotel_booking.modules.notification.dto.ServiceItemEmailDto;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,4 +45,11 @@ public class BookingConfirmationEmailEvent {
 
     @Builder.Default
     List<ServiceItemEmailDto> surcharges = new ArrayList<>();
+
+    // Các trường dữ liệu thanh toán bổ sung cho All-in-One OTA
+    Boolean isPaid;
+    String paymentMethod;
+    String transactionReference;
+    String invoiceNumber;
+    OffsetDateTime paidAt;
 }

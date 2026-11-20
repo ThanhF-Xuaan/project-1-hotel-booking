@@ -339,6 +339,7 @@ export interface WalkInStayGuestRequest {
   identityType?: string;
   identityNumber?: string;
   nationality?: string;
+  permanentAddress?: string;
   isPrimaryGuest?: boolean;
 }
 

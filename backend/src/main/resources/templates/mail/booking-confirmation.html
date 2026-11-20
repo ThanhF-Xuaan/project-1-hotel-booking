@@ -46,6 +46,14 @@
             <div class="booking-code-box">
                 <div class="booking-code-label">Mã Đặt Phòng (Booking Code)</div>
                 <div class="booking-code" th:text="${bookingCode}">BK-20261115-001</div>
+                <div style="margin-top: 10px;">
+                    <span th:if="${isPaid}" style="display: inline-block; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; padding: 4px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">
+                        &#10004; ĐÃ THANH TOÁN (PAID)
+                    </span>
+                    <span th:unless="${isPaid}" style="display: inline-block; background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; padding: 4px 14px; border-radius: 9999px; font-size: 12px; font-weight: 700; letter-spacing: 0.5px;">
+                        &#9203; CHỜ THANH TOÁN KHI NHẬN PHÒNG
+                    </span>
+                </div>
             </div>
 
             <div class="section-title">Thông Tin Khách Sạn & Lưu Trú</div>
@@ -120,12 +128,36 @@
                 </table>
             </div>
 
-            <div class="section-title">Chi Tiết Thanh Toán</div>
+            <div class="section-title">Chi Tiết Quyết Toán & Hóa Đơn</div>
             <div class="price-summary">
                 <table style="width: 100%; border-collapse: collapse;">
-                    <tr>
-                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Tiền phòng:</td>
+                    <tr th:if="${paymentMethod}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Phương thức thanh toán:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 700; font-size: 13px;" th:text="${paymentMethod}">VNPAY</td>
+                    </tr>
+                    <tr th:if="${transactionRef}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Mã giao dịch / Tham chiếu:</td>
+                        <td style="text-align: right; color: #111827; font-family: monospace; font-weight: 700; font-size: 13px;" th:text="${transactionRef}">15738002</td>
+                    </tr>
+                    <tr th:if="${paidAtFormatted}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Thời gian thanh toán:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${paidAtFormatted}">20/11/2026 13:32:55</td>
+                    </tr>
+                    <tr th:if="${invoiceNumber}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Số hóa đơn điện tử:</td>
+                        <td style="text-align: right; color: #111827; font-family: monospace; font-weight: 600; font-size: 13px;" th:text="${invoiceNumber}">INV-001</td>
+                    </tr>
+                    <tr style="border-top: 1px dashed #e5e7eb;">
+                        <td style="padding: 6px 0 4px; color: #4b5563; font-size: 13px;">Tiền phòng:</td>
                         <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${subtotalFormatted}">3,000,000 VND</td>
+                    </tr>
+                    <tr th:if="${totalServicesFormatted}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Dịch vụ & tiện ích:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${totalServicesFormatted}">248,600 VND</td>
+                    </tr>
+                    <tr th:if="${totalSurchargesFormatted}">
+                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Phụ thu lưu trú:</td>
+                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${totalSurchargesFormatted}">270,000 VND</td>
                     </tr>
                     <tr th:if="${serviceFeeFormatted}">
                         <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Phí dịch vụ:</td>
@@ -135,23 +167,19 @@
                         <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Thuế VAT:</td>
                         <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${vatFormatted}">252,000 VND</td>
                     </tr>
-                    <tr th:if="${totalSurchargesFormatted}">
-                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Phụ thu lưu trú:</td>
-                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${totalSurchargesFormatted}">270,000 VND</td>
-                    </tr>
-                    <tr th:if="${totalServicesFormatted}">
-                        <td style="padding: 4px 0; color: #4b5563; font-size: 13px;">Dịch vụ & tiện ích:</td>
-                        <td style="text-align: right; color: #111827; font-weight: 600; font-size: 13px;" th:text="${totalServicesFormatted}">248,600 VND</td>
-                    </tr>
-                    <tr style="border-top: 1px solid #e5e7eb;">
+                    <tr style="border-top: 2px solid #e5e7eb;">
                         <td style="padding: 10px 0 4px; font-weight: 700; color: #111827; font-size: 15px;">Tổng cộng:</td>
                         <td style="text-align: right; padding: 10px 0 4px; font-weight: 800; color: #EE0000; font-size: 17px;" th:text="${totalFormatted}">3,402,000 VND</td>
+                    </tr>
+                    <tr th:if="${isPaid}">
+                        <td style="padding: 4px 0; color: #047857; font-size: 12px; font-weight: 600;">Số tiền còn lại cần trả:</td>
+                        <td style="text-align: right; color: #047857; font-weight: 700; font-size: 12px;">0 đ (Đã quyết toán 100%)</td>
                     </tr>
                 </table>
             </div>
 
             <div class="action-container" th:if="${portalUrl}">
-                <a th:href="${portalUrl}" class="btn-action">Xem Đơn & Tra Cứu Trực Tuyến</a>
+                <a th:href="${portalUrl}" target="_blank" class="btn-action">🏨 Tra Cứu Đơn Đặt Phòng Trên Cổng Khách Hàng</a>
             </div>
 
             <div style="margin-top: 24px; padding: 12px; background-color: #fffbeb; border-radius: 8px; border-left: 4px solid #f59e0b; font-size: 12px; color: #92400e;">

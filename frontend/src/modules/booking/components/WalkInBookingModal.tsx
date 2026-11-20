@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId, useMemo } from 'react';
+import React, { useState, useEffect, useId, useMemo, useCallback, useRef } from 'react';
 import {
   BedDouble,
   CreditCard,
@@ -51,10 +51,20 @@ const getCurrentLocalTime = () => {
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 };
 
+export interface WalkInPrefillData {
+  hotelId?: number;
+  roomInstanceId?: number;
+  roomNumber?: string;
+  hotelRoomTypeId?: number;
+  checkInDate?: string;
+}
+
 export interface WalkInBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (bookingNumber: string) => void;
+  prefill?: WalkInPrefillData | null;
+  hotelId?: number;
 }
 
 interface RoomConfig {
@@ -104,7 +114,34 @@ const INITIAL_GUEST: WalkInStayGuestRequest = {
   identityType: 'CCCD',
   identityNumber: '',
   nationality: 'Việt Nam',
+  permanentAddress: '',
   isPrimaryGuest: true,
+};
+
+const buildStayGuests = (
+  adultCount: number,
+  childCount: number,
+  existing: WalkInStayGuestRequest[] = []
+): WalkInStayGuestRequest[] => {
+  const total = Math.max(1, (adultCount || 0) + (childCount || 0));
+  const result: WalkInStayGuestRequest[] = [];
+  for (let i = 0; i < total; i++) {
+    const isAdult = i < (adultCount || 0);
+    if (existing[i]) {
+      result.push({
+        ...existing[i],
+        guestType: isAdult ? 'ADULT' : 'CHILD',
+        isPrimaryGuest: i === 0,
+      });
+    } else {
+      result.push({
+        ...INITIAL_GUEST,
+        guestType: isAdult ? 'ADULT' : 'CHILD',
+        isPrimaryGuest: i === 0,
+      });
+    }
+  }
+  return result;
 };
 
 const DEFAULT_SERVICES: AddonServiceItem[] = [
@@ -121,12 +158,14 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  prefill,
+  hotelId,
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Master Data
   const [hotels, setHotels] = useState<HotelDto[]>([]);
-  const [selectedHotelId, setSelectedHotelId] = useState<number>(1);
+  const [selectedHotelId, setSelectedHotelId] = useState<number>(() => prefill?.hotelId || hotelId || 1);
   const [roomTypes, setRoomTypes] = useState<HotelRoomTypeDto[]>([]);
   const [readyRooms, setReadyRooms] = useState<RoomInstanceDto[]>([]);
 
@@ -147,7 +186,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       childCount: 0,
       infantCount: 0,
       extraBeds: 0,
-      stayGuests: [{ ...INITIAL_GUEST }],
+      stayGuests: buildStayGuests(2, 0),
     },
   ]);
 
@@ -205,6 +244,235 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Trạng thái phiên chờ thanh toán VNPAY Sandbox ở tab mới
+  const [isWaitingVnPay, setIsWaitingVnPay] = useState(false);
+  const [vnpayPaymentUrl, setVnpayPaymentUrl] = useState<string | null>(null);
+  const [vnpayBookingNumber, setVnpayBookingNumber] = useState<string | null>(null);
+  const [vnpayPaymentId, setVnpayPaymentId] = useState<number | null>(null);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+
+  const vnpayChannelRef = useRef<BroadcastChannel | null>(null);
+  const vnpayPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handleWindowMessageRef = useRef<((event: MessageEvent) => void) | null>(null);
+  const handleStorageEventRef = useRef<((event: StorageEvent) => void) | null>(null);
+
+  const cleanupVnPaySync = useCallback(() => {
+    if (vnpayPollRef.current) {
+      clearInterval(vnpayPollRef.current);
+      vnpayPollRef.current = null;
+    }
+    if (vnpayChannelRef.current) {
+      vnpayChannelRef.current.close();
+      vnpayChannelRef.current = null;
+    }
+    if (handleWindowMessageRef.current) {
+      window.removeEventListener('message', handleWindowMessageRef.current);
+      handleWindowMessageRef.current = null;
+    }
+    if (handleStorageEventRef.current) {
+      window.removeEventListener('storage', handleStorageEventRef.current);
+      handleStorageEventRef.current = null;
+    }
+    // Không xóa vnpay_active_session hay vnpay_session_* tại đây
+    // để tab mới của VNPay đọc thông tin phiên khi redirect về PaymentResultPage!
+    try {
+      localStorage.removeItem('vnpay_payment_sync_event');
+    } catch {
+      void 0;
+    }
+  }, []);
+
+  const resetModalState = useCallback(() => {
+    setStep(1);
+    setFormError(null);
+    setIsSubmitting(false);
+    setIsWaitingVnPay(false);
+    setVnpayPaymentUrl(null);
+    setVnpayBookingNumber(null);
+    setVnpayPaymentId(null);
+    setIsVerifyingPayment(false);
+
+    setQuoteResponse(null);
+    setIsLoadingQuote(false);
+    setConfirmedCharges([]);
+
+    setBookingType('FIT');
+    setCompany({
+      id: undefined,
+      name: '',
+      taxCode: '',
+      address: '',
+      contactName: '',
+      contactPhone: '',
+    });
+    setCompanySuggestions([]);
+    setIsSearchingCompany(false);
+
+    setLeadGuest({
+      id: undefined,
+      phone: '',
+      fullName: '',
+      email: '',
+      identityType: 'CCCD',
+      identityNumber: '',
+      nationality: 'Việt Nam',
+      dateOfBirth: '',
+      gender: 'MALE',
+      address: '',
+    });
+    setIsSearchingGuest(false);
+    setGuestFoundMessage(null);
+
+    setIsOcrModalOpen(false);
+    setOcrTarget(null);
+
+    setPayment({
+      method: 'CASH',
+      purpose: 'FULL_PAYMENT',
+      customAmount: 0,
+      transactionRef: '',
+    });
+
+    cleanupVnPaySync();
+
+    const targetHotelId = prefill?.hotelId || hotelId || (hotels.length > 0 ? hotels[0].id : 1);
+    setSelectedHotelId(targetHotelId);
+
+    const checkIn = prefill?.checkInDate || DEFAULT_TODAY;
+    let checkOut = DEFAULT_TOMORROW;
+    try {
+      const inDate = new Date(checkIn);
+      if (!isNaN(inDate.getTime())) {
+        inDate.setDate(inDate.getDate() + 1);
+        checkOut = inDate.toISOString().split('T')[0];
+      }
+    } catch {
+      checkOut = DEFAULT_TOMORROW;
+    }
+
+    setStayPeriod({
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      actualCheckInTime: getCurrentLocalTime(),
+    });
+
+    setRooms([
+      {
+        id: 'room_1',
+        hotelRoomTypeId: prefill?.hotelRoomTypeId || '',
+        roomInstanceId: prefill?.roomInstanceId || '',
+        adultCount: 2,
+        childCount: 0,
+        infantCount: 0,
+        extraBeds: 0,
+        stayGuests: buildStayGuests(2, 0),
+      },
+    ]);
+  }, [prefill, hotelId, hotels, cleanupVnPaySync]);
+
+  const handleVnPaySuccess = useCallback(
+    (bookingNumber: string) => {
+      cleanupVnPaySync();
+      setIsWaitingVnPay(false);
+      resetModalState();
+      onSuccess(bookingNumber);
+      onClose();
+    },
+    [cleanupVnPaySync, resetModalState, onSuccess, onClose]
+  );
+
+  const startVnPaySync = useCallback(
+    (paymentId: number, bookingNumber: string) => {
+      cleanupVnPaySync();
+
+      // 1. BroadcastChannel đồng bộ liên tab
+      try {
+        const bc = new BroadcastChannel('vnpay_payment_sync');
+        vnpayChannelRef.current = bc;
+        bc.onmessage = (event) => {
+          if (
+            event.data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+            (event.data.status === 'PAID' || event.data.status === 'SUCCESS') &&
+            (!event.data.paymentId || event.data.paymentId === paymentId)
+          ) {
+            handleVnPaySuccess(bookingNumber);
+          }
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel error:', e);
+      }
+
+      // 2. Window message listener
+      const handleWindowMsg = (event: MessageEvent) => {
+        if (
+          event.data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+          (event.data.status === 'PAID' || event.data.status === 'SUCCESS') &&
+          (!event.data.paymentId || event.data.paymentId === paymentId)
+        ) {
+          handleVnPaySuccess(bookingNumber);
+        }
+      };
+      handleWindowMessageRef.current = handleWindowMsg;
+      window.addEventListener('message', handleWindowMsg);
+
+      // 3. Storage event listener (fallback liên tab)
+      const handleStorage = (event: StorageEvent) => {
+        if (event.key === 'vnpay_payment_sync_event' && event.newValue) {
+          try {
+            const data = JSON.parse(event.newValue);
+            if (
+              data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+              (data.status === 'PAID' || data.status === 'SUCCESS') &&
+              (!data.paymentId || data.paymentId === paymentId)
+            ) {
+              handleVnPaySuccess(bookingNumber);
+            }
+          } catch {
+            void 0;
+          }
+        }
+      };
+      handleStorageEventRef.current = handleStorage;
+      window.addEventListener('storage', handleStorage);
+
+      // 4. Polling fallback qua API mỗi 2.5 giây
+      vnpayPollRef.current = setInterval(async () => {
+        try {
+          const checkRes = await financeService.getPaymentById(paymentId);
+          if (checkRes.result && checkRes.result.status === 'SUCCESS') {
+            handleVnPaySuccess(bookingNumber);
+          }
+        } catch {
+          // ignore transient poll error
+        }
+      }, 2500);
+    },
+    [cleanupVnPaySync, handleVnPaySuccess]
+  );
+
+  const checkPaymentStatusManual = async (paymentId: number, bookingNumber: string) => {
+    setIsVerifyingPayment(true);
+    setFormError(null);
+    try {
+      const checkRes = await financeService.getPaymentById(paymentId);
+      if (checkRes.result && checkRes.result.status === 'SUCCESS') {
+        handleVnPaySuccess(bookingNumber);
+        return;
+      }
+      setFormError('Giao dịch chưa được hoàn tất hoặc đang xử lý trên VNPAY. Vui lòng thử lại sau vài giây.');
+    } catch {
+      setFormError('Không thể kiểm tra trạng thái thanh toán lúc này.');
+    } finally {
+      setIsVerifyingPayment(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      cleanupVnPaySync();
+    };
+  }, [cleanupVnPaySync]);
+
   // HTML IDs
   const checkInDateId = useId();
   const checkOutDateId = useId();
@@ -216,10 +484,10 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       Promise.resolve().then(() => {
-        setStayPeriod((prev) => ({ ...prev, actualCheckInTime: getCurrentLocalTime() }));
+        resetModalState();
       });
     }
-  }, [isOpen]);
+  }, [isOpen, resetModalState]);
 
   useEffect(() => {
     hotelService
@@ -227,11 +495,16 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       .then((res) => {
         if (res.result?.content?.length) {
           setHotels(res.result.content);
-          setSelectedHotelId(res.result.content[0].id);
+          setSelectedHotelId((prev) => {
+            if (prefill?.hotelId) return prefill.hotelId;
+            if (hotelId) return hotelId;
+            if (prev && res.result.content.some((h) => h.id === prev)) return prev;
+            return res.result.content[0].id;
+          });
         }
       })
       .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err));
-  }, []);
+  }, [hotelId, prefill?.hotelId]);
 
   useEffect(() => {
     if (!selectedHotelId) return;
@@ -263,10 +536,29 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     bookingService
       .getVacantRooms(selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate)
       .then((res) => {
-        if (res.result) setReadyRooms(res.result);
+        if (res.result) {
+          setReadyRooms(res.result);
+          if (prefill?.roomInstanceId) {
+            const matched = res.result.find((r) => r.id === prefill.roomInstanceId);
+            if (matched) {
+              setRooms((prev) => {
+                if (prev.length > 0 && !prev[0].hotelRoomTypeId) {
+                  const updated = [...prev];
+                  updated[0] = {
+                    ...updated[0],
+                    hotelRoomTypeId: matched.hotelRoomTypeId,
+                    roomInstanceId: matched.id,
+                  };
+                  return updated;
+                }
+                return prev;
+              });
+            }
+          }
+        }
       })
       .catch((err) => console.error('Lỗi cập nhật phòng trống theo ngày:', err));
-  }, [selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate]);
+  }, [selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate, prefill?.roomInstanceId]);
 
   // --------------------------------------------------------------------------
   // ROOM HANDLERS
@@ -283,7 +575,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         childCount: 0,
         infantCount: 0,
         extraBeds: 0,
-        stayGuests: [{ ...INITIAL_GUEST, isPrimaryGuest: false }],
+        stayGuests: buildStayGuests(2, 0),
       },
     ]);
   };
@@ -300,10 +592,17 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   ) => {
     setRooms((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      const currentRoom = updated[index];
+      const nextRoom = { ...currentRoom, [field]: value };
       if (field === 'hotelRoomTypeId') {
-        updated[index].roomInstanceId = '';
+        nextRoom.roomInstanceId = '';
       }
+      if (field === 'adultCount' || field === 'childCount') {
+        const adults = field === 'adultCount' ? Number(value) || 0 : nextRoom.adultCount;
+        const children = field === 'childCount' ? Number(value) || 0 : nextRoom.childCount;
+        nextRoom.stayGuests = buildStayGuests(adults, children, currentRoom.stayGuests);
+      }
+      updated[index] = nextRoom;
       return updated;
     });
   };
@@ -318,6 +617,33 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       const updated = [...prev];
       const guests = [...updated[roomIndex].stayGuests];
       guests[guestIndex] = { ...guests[guestIndex], [field]: value };
+      updated[roomIndex] = { ...updated[roomIndex], stayGuests: guests };
+      return updated;
+    });
+  };
+
+  const addStayGuestToRoom = (roomIndex: number) => {
+    setRooms((prev) => {
+      const updated = [...prev];
+      const guests = [...updated[roomIndex].stayGuests];
+      guests.push({
+        ...INITIAL_GUEST,
+        guestType: 'ADULT',
+        isPrimaryGuest: false,
+      });
+      updated[roomIndex] = { ...updated[roomIndex], stayGuests: guests };
+      return updated;
+    });
+  };
+
+  const removeStayGuestFromRoom = (roomIndex: number, guestIndex: number) => {
+    setRooms((prev) => {
+      const updated = [...prev];
+      if (updated[roomIndex].stayGuests.length <= 1) return prev;
+      const guests = updated[roomIndex].stayGuests.filter((_, idx) => idx !== guestIndex);
+      if (guests[0]) {
+        guests[0] = { ...guests[0], isPrimaryGuest: true };
+      }
       updated[roomIndex] = { ...updated[roomIndex], stayGuests: guests };
       return updated;
     });
@@ -414,6 +740,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           nationality: leadGuest.nationality,
           birthDate: leadGuest.dateOfBirth || guests[0].birthDate,
           gender: leadGuest.gender || guests[0].gender,
+          permanentAddress: leadGuest.address || guests[0].permanentAddress,
           isPrimaryGuest: true,
         };
         next[0].stayGuests = guests;
@@ -453,6 +780,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             birthDate: result.dateOfBirth,
             gender: result.gender,
             nationality: result.nationality || 'Việt Nam',
+            permanentAddress: result.permanentAddress,
             isPrimaryGuest: true,
           };
           next[0] = { ...next[0], stayGuests: guests };
@@ -473,6 +801,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
             birthDate: result.dateOfBirth,
             gender: result.gender,
             nationality: result.nationality || 'Việt Nam',
+            permanentAddress: result.permanentAddress,
           };
           next[roomIndex] = { ...next[roomIndex], stayGuests: guests };
         }
@@ -501,6 +830,35 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       }
       if (company.contactPhone.trim() && !isValidVietnamesePhone(company.contactPhone.trim())) {
         return setFormError('Số điện thoại người liên hệ doanh nghiệp không hợp lệ (VD: 02462556789 hoặc 0912345678).');
+      }
+    }
+
+    // Validate thông tin khai báo lưu trú BCA cho từng khách độc lập
+    for (let rIdx = 0; rIdx < rooms.length; rIdx++) {
+      const r = rooms[rIdx];
+      const roomNum = readyRooms.find((rm) => rm.id === Number(r.roomInstanceId))?.roomNumber || `${rIdx + 1}`;
+      if (!r.stayGuests || r.stayGuests.length === 0) {
+        return setFormError(`Phòng #${rIdx + 1} (P.${roomNum}) chưa có thông tin khách lưu trú.`);
+      }
+      for (let gIdx = 0; gIdx < r.stayGuests.length; gIdx++) {
+        const guest = r.stayGuests[gIdx];
+        const guestLabel = `Phòng #${rIdx + 1} (P.${roomNum}) - Khách #${gIdx + 1}`;
+        if (!guest.fullName?.trim()) {
+          return setFormError(`${guestLabel}: Vui lòng nhập Họ và tên khách lưu trú.`);
+        }
+        if (guest.guestType !== 'CHILD' && !guest.identityNumber?.trim()) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng nhập Số CCCD / Hộ chiếu.`);
+        }
+        if (!guest.birthDate) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng nhập Ngày tháng năm sinh.`);
+        }
+        if (!guest.gender) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng chọn Giới tính.`);
+        }
+        const isVietnamese = !guest.nationality || guest.nationality === 'Việt Nam' || guest.nationality.toLowerCase().includes('viet');
+        if (isVietnamese && guest.guestType !== 'CHILD' && !guest.permanentAddress?.trim()) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng nhập Nơi thường trú / ĐKTT theo CCCD để khai báo lưu trú BCA.`);
+        }
       }
     }
 
@@ -660,7 +1018,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           childCount: r.childCount,
           infantCount: r.infantCount,
           extraBeds: r.extraBeds,
-          stayGuests: r.stayGuests,
+          stayGuests: r.stayGuests.map((sg, sgIdx) => ({
+            ...sg,
+            fullName: sg.fullName.trim(),
+            identityNumber: sg.identityNumber?.trim() || undefined,
+            permanentAddress: sg.permanentAddress?.trim() || undefined,
+            isPrimaryGuest: sgIdx === 0,
+          })),
         })),
         confirmedCharges: confirmedCharges.map((c) => ({
           roomInstanceId: c.roomInstanceId,
@@ -690,7 +1054,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         const createdBooking = res.result;
         if (payment.method === 'VNPAY') {
           try {
-            // Khởi tạo phiên thanh toán VNPay Sandbox và chuyển hướng trực tiếp
+            // Khởi tạo phiên thanh toán VNPay Sandbox và mở tab mới độc lập
             const vnpayRes = await financeService.createVnPayPayment({
               bookingId: createdBooking.id,
               method: 'VNPAY',
@@ -698,7 +1062,38 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               amount: finalAmount,
             });
             if (vnpayRes.result?.paymentUrl) {
-              window.location.assign(vnpayRes.result.paymentUrl);
+              const pUrl = vnpayRes.result.paymentUrl;
+              const pId = vnpayRes.result.paymentId;
+
+              // 1. Lưu active session để tab kết quả nhận diện nguồn WALK_IN và returnUrl
+              try {
+                const sessionPayload = {
+                  paymentId: pId,
+                  bookingId: createdBooking.id,
+                  bookingNumber: createdBooking.bookingNumber,
+                  source: 'WALK_IN',
+                  returnUrl: '/booking/list',
+                  time: Date.now(),
+                };
+                localStorage.setItem('vnpay_active_session', JSON.stringify(sessionPayload));
+                localStorage.setItem(`vnpay_session_${pId}`, JSON.stringify(sessionPayload));
+                localStorage.setItem('vnpay_last_walkin_session', JSON.stringify(sessionPayload));
+              } catch (e) {
+                console.warn('Cannot set localStorage', e);
+              }
+
+              // 2. Mở tab mới độc lập
+              const newTab = window.open(pUrl, '_blank');
+              if (!newTab) {
+                console.warn('Trình duyệt có thể đã chặn popup tab mới');
+              }
+
+              // 3. Chuyển modal sang giao diện chờ và bắt đầu đồng bộ liên tab
+              setIsWaitingVnPay(true);
+              setVnpayPaymentUrl(pUrl);
+              setVnpayBookingNumber(createdBooking.bookingNumber);
+              setVnpayPaymentId(pId);
+              startVnPaySync(pId, createdBooking.bookingNumber);
               return;
             }
             throw new Error('Không nhận được liên kết thanh toán từ Cổng VNPay Sandbox');
@@ -712,6 +1107,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           }
         }
 
+        resetModalState();
         onSuccess(createdBooking.bookingNumber);
         onClose();
       }
@@ -733,12 +1129,86 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title="Tiếp Nhận Khách Vãng Lai & Check-In Ngay (Walk-In)"
-      description="Quy trình đón tiếp, xếp phòng vật lý READY, duyệt phụ thu tự động và chuyển thẳng sang IN-HOUSE"
+      onClose={() => {
+        if (isWaitingVnPay) {
+          cleanupVnPaySync();
+          setIsWaitingVnPay(false);
+        }
+        resetModalState();
+        onClose();
+      }}
+      title={isWaitingVnPay ? 'Thanh Toán Đơn Đặt Phòng Qua VNPay Sandbox' : 'Tiếp Nhận Khách Vãng Lai & Check-In Ngay (Walk-In)'}
+      description={isWaitingVnPay ? `Đang chờ khách hàng hoàn tất giao dịch cho đơn ${vnpayBookingNumber || ''}` : 'Quy trình đón tiếp, xếp phòng vật lý READY, duyệt phụ thu tự động và chuyển thẳng sang IN-HOUSE'}
       maxWidth="5xl"
     >
-      <div className="space-y-6">
+      {isWaitingVnPay ? (
+        <div className="py-8 px-4 text-center space-y-6">
+          <div className="mx-auto w-16 h-16 bg-red-50 border-2 border-red-200 rounded-full flex items-center justify-center animate-pulse">
+            <CreditCard className="w-8 h-8 text-red-600" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-neutral-900">
+              Đang chờ thanh toán qua VNPay Sandbox...
+            </h3>
+            <p className="text-sm text-neutral-600 max-w-md mx-auto">
+              Cổng thanh toán VNPay Sandbox đã được mở tại tab mới cho đơn đặt phòng{' '}
+              <strong className="text-red-600 font-mono font-bold">{vnpayBookingNumber}</strong>. Vui lòng hướng dẫn khách hàng quét mã hoặc nhập thông tin thẻ test NCB để thanh toán.
+            </p>
+          </div>
+
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl max-w-lg mx-auto text-left text-xs space-y-2 text-amber-900">
+            <div className="font-bold flex items-center gap-1.5 text-amber-800">
+              <Clock className="w-4 h-4 animate-spin shrink-0" />
+              <span>Hệ thống đang tự động lắng nghe và đồng bộ kết quả liên tab...</span>
+            </div>
+            <p>
+              Sau khi khách thanh toán thành công tại tab VNPay, tab này sẽ tự động đóng và cập nhật ngay vào Sơ đồ đặt phòng của Lễ tân.
+            </p>
+          </div>
+
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm max-w-lg mx-auto flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+              <span className="font-semibold">{formError}</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            {vnpayPaymentUrl && (
+              <Button
+                variant="outline"
+                onClick={() => window.open(vnpayPaymentUrl, '_blank')}
+                className="text-xs h-10 px-4"
+              >
+                Mở lại tab VNPay Sandbox
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (vnpayPaymentId) void checkPaymentStatusManual(vnpayPaymentId, vnpayBookingNumber || '');
+              }}
+              isLoading={isVerifyingPayment}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs h-10 px-5 shadow-sm"
+            >
+              Kiểm tra thanh toán ngay
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                cleanupVnPaySync();
+                setIsWaitingVnPay(false);
+                resetModalState();
+                onClose();
+              }}
+              className="text-xs h-10 px-4"
+            >
+              Đóng hộp thoại
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
         {/* Stepper Progress Bar */}
         <div className="flex items-center justify-between border-b border-neutral-200 pb-4">
           {[
@@ -788,7 +1258,21 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 <label className="block text-xs font-semibold text-neutral-600 mb-1">Khách sạn cơ sở</label>
                 <Select<number>
                   value={selectedHotelId}
-                  onChange={(val) => setSelectedHotelId(val)}
+                  onChange={(val) => {
+                    setSelectedHotelId(val);
+                    setRooms([
+                      {
+                        id: 'room_1',
+                        hotelRoomTypeId: '',
+                        roomInstanceId: '',
+                        adultCount: 2,
+                        childCount: 0,
+                        infantCount: 0,
+                        extraBeds: 0,
+                        stayGuests: [{ ...INITIAL_GUEST }],
+                      },
+                    ]);
+                  }}
                   options={hotelSelectOptions}
                   placeholder="Chọn khách sạn..."
                 />
@@ -868,6 +1352,30 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     r.hotelRoomTypeId === Number(room.hotelRoomTypeId) &&
                     !otherSelectedRoomInstanceIds.includes(r.id)
                 );
+                const isCurrentRoomInList = availablePhysicalRooms.some((pr) => pr.id === Number(room.roomInstanceId));
+                const physicalRoomOptions = [
+                  ...availablePhysicalRooms.map((pr) => ({
+                    value: pr.id,
+                    label: `Phòng ${pr.roomNumber} (Sạch sẽ, sẵn sàng)`,
+                  })),
+                  ...(!isCurrentRoomInList && room.roomInstanceId ? [{
+                    value: Number(room.roomInstanceId),
+                    label: prefill?.roomNumber ? `Phòng ${prefill.roomNumber} (Chỉ định sẵn)` : `Phòng #${room.roomInstanceId}`,
+                  }] : []),
+                ];
+
+                const isCurrentTypeInList = roomTypes.some((rt) => rt.id === Number(room.hotelRoomTypeId));
+                const roomTypeOptions = [
+                  { value: 0, label: 'Chọn loại phòng', disabled: true },
+                  ...roomTypes.map((rt) => ({
+                    value: rt.id,
+                    label: `${rt.roomTypeName} (Chuẩn: ${rt.standardAdults} lớn, Tối đa: ${rt.maxTotalGuests || 4} khách)`,
+                  })),
+                  ...(!isCurrentTypeInList && room.hotelRoomTypeId ? [{
+                    value: Number(room.hotelRoomTypeId),
+                    label: `Loại phòng #${room.hotelRoomTypeId}`,
+                  }] : []),
+                ];
 
                 return (
                   <div key={room.id} className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
@@ -894,13 +1402,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                           onChange={(val) =>
                             updateRoomField(idx, 'hotelRoomTypeId', val ? Number(val) : '')
                           }
-                          options={[
-                            { value: 0, label: 'Chọn loại phòng', disabled: true },
-                            ...roomTypes.map((rt) => ({
-                              value: rt.id,
-                              label: `${rt.roomTypeName} (Chuẩn: ${rt.standardAdults} lớn, Tối đa: ${rt.maxTotalGuests || 4} khách)`,
-                            })),
-                          ]}
+                          options={roomTypeOptions}
                           size="sm"
                         />
                       </div>
@@ -917,8 +1419,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                           }
                           placeholder={
                             room.hotelRoomTypeId
-                              ? availablePhysicalRooms.length > 0
-                                ? `Chọn phòng (${availablePhysicalRooms.length} phòng sẵn sàng)`
+                              ? physicalRoomOptions.length > 0
+                                ? `Chọn phòng (${physicalRoomOptions.length} phòng sẵn sàng)`
                                 : 'Không có phòng khả dụng'
                               : 'Vui lòng chọn loại phòng trước'
                           }
@@ -926,16 +1428,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                             {
                               value: 0,
                               label: room.hotelRoomTypeId
-                                ? availablePhysicalRooms.length > 0
-                                  ? `Chọn phòng (${availablePhysicalRooms.length}`
+                                ? physicalRoomOptions.length > 0
+                                  ? `Chọn phòng (${physicalRoomOptions.length} phòng sẵn sàng)`
                                   : 'Không có phòng khả dụng'
                                 : 'Vui lòng chọn loại phòng trước',
                               disabled: true,
                             },
-                            ...availablePhysicalRooms.map((pr) => ({
-                              value: pr.id,
-                              label: `Phòng ${pr.roomNumber} (Sạch sẽ, sẵn sàng)`,
-                            })),
+                            ...physicalRoomOptions,
                           ]}
                           size="sm"
                         />
@@ -1167,9 +1666,15 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">Email</label>
+                  <label
+                    className="block text-xs font-semibold text-neutral-700 mb-1 truncate whitespace-nowrap"
+                    title="Email nhận hóa đơn & biên lai (Khuyên dùng)"
+                  >
+                    Email <span className="text-neutral-400 font-normal ml-1">(Khuyên dùng)</span>
+                  </label>
                   <input
                     type="email"
+                    placeholder="vd: khachhang@gmail.com"
                     value={leadGuest.email}
                     onChange={(e) => setLeadGuest((p) => ({ ...p, email: e.target.value }))}
                     className="w-full px-3 py-2 border border-neutral-300 rounded-xl text-sm"
@@ -1235,59 +1740,132 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                       <span className="text-xs font-bold text-neutral-900">
                         Phòng #{rIdx + 1} {roomNum && `(P.${roomNum})`} — {room.adultCount} lớn, {room.childCount} trẻ
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => addStayGuestToRoom(rIdx)}
+                        className="text-[11px] font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Thêm khách
+                      </button>
                     </div>
 
                     {room.stayGuests.map((guest, gIdx) => (
-                      <div key={gIdx} className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center bg-white p-2.5 rounded-xl border border-neutral-200">
-                        <div className="sm:col-span-2">
+                      <div key={gIdx} className="space-y-2 bg-white p-3 rounded-xl border border-neutral-200 shadow-xs">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-500 pb-1.5 border-b border-neutral-100">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded-full bg-neutral-100 text-neutral-700 flex items-center justify-center text-[10px] font-bold">
+                              {gIdx + 1}
+                            </span>
+                            <span className="text-neutral-900 font-bold">
+                              Khách #{gIdx + 1}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                guest.guestType === 'CHILD'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+                              }`}
+                            >
+                              {guest.guestType === 'CHILD' ? 'Trẻ em' : 'Người lớn'}
+                            </span>
+                            {gIdx === 0 && (
+                              <span className="text-[10px] text-neutral-500 font-normal">
+                                (Đại diện phòng)
+                              </span>
+                            )}
+                          </span>
+                          {room.stayGuests.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeStayGuestFromRoom(rIdx, gIdx)}
+                              className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors"
+                              title="Xóa khách này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center pt-1">
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Họ và tên *
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="NGUYỄN VĂN A"
+                              value={guest.fullName}
+                              onChange={(e) => updateStayGuest(rIdx, gIdx, 'fullName', e.target.value.toUpperCase())}
+                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-semibold focus:border-red-600 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              {guest.guestType === 'CHILD' ? 'Mã định danh / CCCD' : 'CCCD / Hộ chiếu *'}
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="001205001582"
+                              value={guest.identityNumber || ''}
+                              onChange={(e) => updateStayGuest(rIdx, gIdx, 'identityNumber', e.target.value)}
+                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs focus:border-red-600 focus:outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Giới tính *
+                            </label>
+                            <Select<'MALE' | 'FEMALE' | 'OTHER'>
+                              value={(guest.gender as 'MALE' | 'FEMALE' | 'OTHER') || 'MALE'}
+                              onChange={(val) => updateStayGuest(rIdx, gIdx, 'gender', val)}
+                              options={[
+                                { value: 'MALE', label: 'Nam' },
+                                { value: 'FEMALE', label: 'Nữ' },
+                                { value: 'OTHER', label: 'Khác' },
+                              ]}
+                              size="sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Ngày sinh *
+                            </label>
+                            <input
+                              type="date"
+                              value={guest.birthDate || ''}
+                              onChange={(e) => updateStayGuest(rIdx, gIdx, 'birthDate', e.target.value)}
+                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs focus:border-red-600 focus:outline-none"
+                            />
+                          </div>
+                          <div className="flex flex-col items-center justify-end">
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Quét CCCD
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOcrTarget({ type: 'STAY_GUEST', roomIndex: rIdx, guestIndex: gIdx });
+                                setIsOcrModalOpen(true);
+                              }}
+                              className="w-full inline-flex items-center justify-center gap-1 text-neutral-600 hover:text-red-600 hover:bg-red-50 border border-neutral-200 rounded-lg py-1.5 text-xs transition-colors"
+                              title="Quét CCCD / Hộ chiếu"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>Quét</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                            Nơi ĐKTT / Thường trú theo CCCD *
+                          </label>
                           <input
                             type="text"
-                            placeholder="Họ và tên khách"
-                            value={guest.fullName}
-                            onChange={(e) => updateStayGuest(rIdx, gIdx, 'fullName', e.target.value.toUpperCase())}
-                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-semibold"
+                            placeholder="Số nhà, đường/thôn, xã/phường, quận/huyện, tỉnh/thành phố (Bắt buộc theo chuẩn BCA)"
+                            value={guest.permanentAddress || ''}
+                            onChange={(e) => updateStayGuest(rIdx, gIdx, 'permanentAddress', e.target.value)}
+                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-red-600 focus:outline-none bg-neutral-50/50 focus:bg-white"
                           />
-                        </div>
-                        <div>
-                          <input
-                            type="text"
-                            placeholder="CCCD / Hộ chiếu"
-                            value={guest.identityNumber || ''}
-                            onChange={(e) => updateStayGuest(rIdx, gIdx, 'identityNumber', e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs"
-                          />
-                        </div>
-                        <div>
-                          <Select<'MALE' | 'FEMALE' | 'OTHER'>
-                            value={(guest.gender as 'MALE' | 'FEMALE' | 'OTHER') || 'MALE'}
-                            onChange={(val) => updateStayGuest(rIdx, gIdx, 'gender', val)}
-                            options={[
-                              { value: 'MALE', label: 'Nam' },
-                              { value: 'FEMALE', label: 'Nữ' },
-                              { value: 'OTHER', label: 'Khác' },
-                            ]}
-                            size="sm"
-                          />
-                        </div>
-                        <div>
-                          <input
-                            type="date"
-                            value={guest.birthDate || ''}
-                            onChange={(e) => updateStayGuest(rIdx, gIdx, 'birthDate', e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs"
-                          />
-                        </div>
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOcrTarget({ type: 'STAY_GUEST', roomIndex: rIdx, guestIndex: gIdx });
-                              setIsOcrModalOpen(true);
-                            }}
-                            className="text-neutral-500 hover:text-red-600 p-1.5"
-                          >
-                            <Camera className="w-4 h-4" />
-                          </button>
                         </div>
                       </div>
                     ))}
@@ -1563,6 +2141,22 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {leadGuest.email ? (
+                <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Email xác nhận đặt phòng & Biên lai quyết toán All-in-One sẽ được tự động gửi đến <strong>{leadGuest.email}</strong> ngay sau khi hoàn tất.
+                  </span>
+                </div>
+              ) : (
+                <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    Khách chưa cung cấp email. Hệ thống sẽ bỏ qua gửi thư điện tử và hoàn tất nhận phòng trực tiếp tại quầy. (Quý khách có thể quay lại Bước 2 để bổ sung email nếu cần).
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="p-5 bg-neutral-50 rounded-2xl border border-neutral-200 space-y-3">
@@ -1773,6 +2367,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           </div>
         )}
       </div>
+      )}
 
       <OcrIdentityScannerModal
         isOpen={isOcrModalOpen}

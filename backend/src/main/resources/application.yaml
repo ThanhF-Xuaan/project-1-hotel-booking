@@ -196,5 +196,6 @@ app:
   mail:
     from-address: ${MAIL_FROM_ADDRESS:booking@smartstay.utc.edu.vn}
     from-name: ${MAIL_FROM_NAME:SmartStay Hotel Booking}
+    portal-url: ${FRONTEND_URL:http://localhost:3000}/my-bookings
 
 

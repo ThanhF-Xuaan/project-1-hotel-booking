@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.notification.service.impl;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,9 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.mail.from-name:SmartStay Hotel Booking}")
     String fromName;
 
+    @Value("${app.mail.portal-url:http://localhost:3000/my-bookings}")
+    String portalUrlConfig;
+
     static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
@@ -64,7 +68,16 @@ public class EmailServiceImpl implements EmailService {
             context.setVariable("vatFormatted", event.getVatAmount() != null && event.getVatAmount().compareTo(BigDecimal.ZERO) > 0
                     ? formatMoney(event.getVatAmount()) : null);
             context.setVariable("totalFormatted", formatMoney(event.getTotalAmount()));
-            context.setVariable("portalUrl", safe(event.getPortalUrl(), "http://localhost:3000/my-bookings"));
+            context.setVariable("isPaid", Boolean.TRUE.equals(event.getIsPaid()));
+            context.setVariable("paymentMethod", safe(event.getPaymentMethod(), null));
+            context.setVariable("transactionRef", safe(event.getTransactionReference(), null));
+            context.setVariable("paidAtFormatted", event.getPaidAt() != null ? event.getPaidAt().format(DATE_TIME_FMT) : null);
+            context.setVariable("invoiceNumber", safe(event.getInvoiceNumber(), null));
+
+            String targetPortalUrl = (event.getPortalUrl() != null && !event.getPortalUrl().isBlank())
+                    ? event.getPortalUrl().trim()
+                    : (portalUrlConfig != null && !portalUrlConfig.isBlank() ? portalUrlConfig : "http://localhost:3000/my-bookings");
+            context.setVariable("portalUrl", targetPortalUrl);
 
             BigDecimal totalServices = BigDecimal.ZERO;
             if (event.getServices() != null) {
@@ -113,6 +126,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setTo(event.getRecipientEmail().trim());
             helper.setSubject("Xác nhận đặt phòng thành công - Mã đơn: " + event.getBookingCode());
             helper.setText(htmlBody, true);
+            applyHighPriorityHeaders(message, helper);
 
             mailSender.send(message);
             log.info("[EMAIL] Sent booking confirmation for code {} to {}", event.getBookingCode(), event.getRecipientEmail());
@@ -228,12 +242,20 @@ public class EmailServiceImpl implements EmailService {
             helper.setTo(event.getRecipientEmail().trim());
             helper.setSubject("Hóa đơn GTGT & Biên lai thanh toán - Đơn " + event.getBookingCode());
             helper.setText(htmlBody, true);
+            applyHighPriorityHeaders(message, helper);
 
             mailSender.send(message);
             log.info("[EMAIL] Sent payment receipt for booking {} to {}", event.getBookingCode(), event.getRecipientEmail());
         } catch (Exception e) {
             log.error("[EMAIL] Failed to send payment receipt for booking {}: {}", event.getBookingCode(), e.getMessage(), e);
         }
+    }
+
+    private void applyHighPriorityHeaders(MimeMessage message, MimeMessageHelper helper) throws MessagingException {
+        helper.setPriority(1); // Thiết lập Header X-Priority: 1
+        message.setHeader("Importance", "high");
+        message.setHeader("X-MSMail-Priority", "High");
+        message.setHeader("Priority", "urgent");
     }
 
     private String formatMoney(BigDecimal amount) {

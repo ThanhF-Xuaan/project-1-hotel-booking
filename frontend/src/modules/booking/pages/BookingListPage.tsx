@@ -24,7 +24,7 @@ import StayGuestBookingLink from '../components/StayGuestBookingLink';
 import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
-import WalkInBookingModal from '../components/WalkInBookingModal';
+import WalkInBookingModal, { type WalkInPrefillData } from '../components/WalkInBookingModal';
 import CancelBookingModal from '../components/CancelBookingModal';
 import RoomSwapModal, { type RoomSwapTarget } from '../components/RoomSwapModal';
 import TimelineRackView from '../components/TimelineRackView';
@@ -151,6 +151,7 @@ export const BookingListPage: React.FC = () => {
 
   // Walk-in Booking Modal
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+  const [walkInPrefill, setWalkInPrefill] = useState<WalkInPrefillData | null>(null);
 
   // Checkout Settlement Modal
   const [isCheckoutSettlementModalOpen, setIsCheckoutSettlementModalOpen] = useState(false);
@@ -201,7 +202,7 @@ export const BookingListPage: React.FC = () => {
     setIsLoadingTimeline(true);
     try {
       const [roomsRes, bookingsRes] = await Promise.all([
-        roomInstanceService.filter({ hotelId, pageSize: 500 }),
+        roomInstanceService.filter({ hotelId, pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }),
         bookingService.filter({ hotelId, pageSize: 500, page: 1 }),
       ]);
       if (roomsRes.result?.content) {
@@ -259,7 +260,7 @@ export const BookingListPage: React.FC = () => {
     const timer = setTimeout(() => {
       void loadData();
       roomInstanceService
-        .filter({ pageSize: 100 })
+        .filter({ pageSize: 100, sortBy: 'roomNumber', sortDirection: 'ASC' })
         .then((res) => {
           if (res.result) {
             setAvailableRooms(res.result.content || []);
@@ -306,7 +307,7 @@ export const BookingListPage: React.FC = () => {
     if (selectedHotelId) {
       void loadTimelineData(selectedHotelId);
     } else {
-      roomInstanceService.filter({ pageSize: 100 }).then((res) => {
+      roomInstanceService.filter({ pageSize: 100, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
         if (res.result) setAvailableRooms(res.result.content || []);
       });
     }
@@ -710,15 +711,11 @@ export const BookingListPage: React.FC = () => {
     setIsServiceOrderModalOpen(true);
   };
 
-  const handleOpenWalkInModal = (prefill?: {
-    hotelId?: number;
-    roomInstanceId?: number;
-    roomNumber?: string;
-    checkInDate?: string;
-  }) => {
+  const handleOpenWalkInModal = (prefill?: WalkInPrefillData) => {
     if (prefill?.hotelId) {
       setSelectedHotelId(prefill.hotelId);
     }
+    setWalkInPrefill(prefill || null);
     setIsWalkInModalOpen(true);
   };
 
@@ -759,7 +756,7 @@ export const BookingListPage: React.FC = () => {
         void loadTimelineData(hotelIdToRefresh);
       } else {
         loadData();
-        roomInstanceService.filter({ pageSize: 500 }).then((res) => {
+        roomInstanceService.filter({ pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
           if (res.result) setAvailableRooms(res.result.content || []);
         });
       }
@@ -830,7 +827,7 @@ export const BookingListPage: React.FC = () => {
             onClick={() => {
               setViewMode('TIMELINE');
               if (availableRooms.length === 0) {
-                roomInstanceService.filter({ pageSize: 500 }).then((res) => {
+                roomInstanceService.filter({ pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
                   if (res.result) setAvailableRooms(res.result.content || []);
                 });
               }
@@ -868,7 +865,7 @@ export const BookingListPage: React.FC = () => {
             if (hotelIdToRefresh) {
               void loadTimelineData(hotelIdToRefresh);
             } else {
-              roomInstanceService.filter({ pageSize: 500 }).then((res) => {
+              roomInstanceService.filter({ pageSize: 500, sortBy: 'roomNumber', sortDirection: 'ASC' }).then((res) => {
                 if (res.result) setAvailableRooms(res.result.content || []);
               });
             }
@@ -984,7 +981,7 @@ export const BookingListPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => setIsWalkInModalOpen(true)}
+                onClick={() => handleOpenWalkInModal({ hotelId: selectedHotelId })}
                 className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs"
               >
                 <UserPlus className="w-4 h-4 mr-1.5" />
@@ -1411,9 +1408,15 @@ export const BookingListPage: React.FC = () => {
       {/* WALK-IN BOOKING & INSTANT CHECK-IN MODAL */}
       <WalkInBookingModal
         isOpen={isWalkInModalOpen}
-        onClose={() => setIsWalkInModalOpen(false)}
+        prefill={walkInPrefill}
+        hotelId={selectedHotelId}
+        onClose={() => {
+          setIsWalkInModalOpen(false);
+          setWalkInPrefill(null);
+        }}
         onSuccess={(bookingNumber) => {
           setIsWalkInModalOpen(false);
+          setWalkInPrefill(null);
           setActionSuccessMessage(
             `Tạo đơn Walk-in thành công cho đơn ${bookingNumber}! Các phòng đã được check-in trực tiếp sang trạng thái In-house.`
           );
