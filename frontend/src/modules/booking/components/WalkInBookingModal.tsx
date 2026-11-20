@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId, useMemo } from 'react';
+import React, { useState, useEffect, useId, useMemo, useCallback, useRef } from 'react';
 import {
   BedDouble,
   CreditCard,
@@ -204,6 +204,145 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Trạng thái phiên chờ thanh toán VNPAY Sandbox ở tab mới
+  const [isWaitingVnPay, setIsWaitingVnPay] = useState(false);
+  const [vnpayPaymentUrl, setVnpayPaymentUrl] = useState<string | null>(null);
+  const [vnpayBookingNumber, setVnpayBookingNumber] = useState<string | null>(null);
+  const [vnpayPaymentId, setVnpayPaymentId] = useState<number | null>(null);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+
+  const vnpayChannelRef = useRef<BroadcastChannel | null>(null);
+  const vnpayPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const handleWindowMessageRef = useRef<((event: MessageEvent) => void) | null>(null);
+  const handleStorageEventRef = useRef<((event: StorageEvent) => void) | null>(null);
+
+  const cleanupVnPaySync = useCallback(() => {
+    if (vnpayPollRef.current) {
+      clearInterval(vnpayPollRef.current);
+      vnpayPollRef.current = null;
+    }
+    if (vnpayChannelRef.current) {
+      vnpayChannelRef.current.close();
+      vnpayChannelRef.current = null;
+    }
+    if (handleWindowMessageRef.current) {
+      window.removeEventListener('message', handleWindowMessageRef.current);
+      handleWindowMessageRef.current = null;
+    }
+    if (handleStorageEventRef.current) {
+      window.removeEventListener('storage', handleStorageEventRef.current);
+      handleStorageEventRef.current = null;
+    }
+    try {
+      localStorage.removeItem('vnpay_active_session');
+      localStorage.removeItem('vnpay_payment_sync_event');
+    } catch {
+      void 0;
+    }
+  }, []);
+
+  const handleVnPaySuccess = useCallback(
+    (bookingNumber: string) => {
+      cleanupVnPaySync();
+      setIsWaitingVnPay(false);
+      onSuccess(bookingNumber);
+      onClose();
+    },
+    [cleanupVnPaySync, onSuccess, onClose]
+  );
+
+  const startVnPaySync = useCallback(
+    (paymentId: number, bookingNumber: string) => {
+      cleanupVnPaySync();
+
+      // 1. BroadcastChannel đồng bộ liên tab
+      try {
+        const bc = new BroadcastChannel('vnpay_payment_sync');
+        vnpayChannelRef.current = bc;
+        bc.onmessage = (event) => {
+          if (
+            event.data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+            (event.data.status === 'PAID' || event.data.status === 'SUCCESS') &&
+            (!event.data.paymentId || event.data.paymentId === paymentId)
+          ) {
+            handleVnPaySuccess(bookingNumber);
+          }
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel error:', e);
+      }
+
+      // 2. Window message listener
+      const handleWindowMsg = (event: MessageEvent) => {
+        if (
+          event.data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+          (event.data.status === 'PAID' || event.data.status === 'SUCCESS') &&
+          (!event.data.paymentId || event.data.paymentId === paymentId)
+        ) {
+          handleVnPaySuccess(bookingNumber);
+        }
+      };
+      handleWindowMessageRef.current = handleWindowMsg;
+      window.addEventListener('message', handleWindowMsg);
+
+      // 3. Storage event listener (fallback liên tab)
+      const handleStorage = (event: StorageEvent) => {
+        if (event.key === 'vnpay_payment_sync_event' && event.newValue) {
+          try {
+            const data = JSON.parse(event.newValue);
+            if (
+              data?.type === 'VNPAY_PAYMENT_COMPLETED' &&
+              (data.status === 'PAID' || data.status === 'SUCCESS') &&
+              (!data.paymentId || data.paymentId === paymentId)
+            ) {
+              handleVnPaySuccess(bookingNumber);
+            }
+          } catch {
+            void 0;
+          }
+        }
+      };
+      handleStorageEventRef.current = handleStorage;
+      window.addEventListener('storage', handleStorage);
+
+      // 4. Polling fallback qua API mỗi 2.5 giây
+      vnpayPollRef.current = setInterval(async () => {
+        try {
+          const checkRes = await financeService.getPaymentById(paymentId);
+          if (checkRes.result && checkRes.result.status === 'SUCCESS') {
+            handleVnPaySuccess(bookingNumber);
+          }
+        } catch {
+          // ignore transient poll error
+        }
+      }, 2500);
+    },
+    [cleanupVnPaySync, handleVnPaySuccess]
+  );
+
+  const checkPaymentStatusManual = async (paymentId: number, bookingNumber: string) => {
+    setIsVerifyingPayment(true);
+    setFormError(null);
+    try {
+      const checkRes = await financeService.getPaymentById(paymentId);
+      if (checkRes.result && checkRes.result.status === 'SUCCESS') {
+        handleVnPaySuccess(bookingNumber);
+        return;
+      }
+      setFormError('Giao dịch chưa được hoàn tất hoặc đang xử lý trên VNPAY. Vui lòng thử lại sau vài giây.');
+    } catch {
+      setFormError('Không thể kiểm tra trạng thái thanh toán lúc này.');
+    } finally {
+      setIsVerifyingPayment(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      cleanupVnPaySync();
+    };
+  }, [cleanupVnPaySync]);
 
   // HTML IDs
   const checkInDateId = useId();
@@ -690,7 +829,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         const createdBooking = res.result;
         if (payment.method === 'VNPAY') {
           try {
-            // Khởi tạo phiên thanh toán VNPay Sandbox và chuyển hướng trực tiếp
+            // Khởi tạo phiên thanh toán VNPay Sandbox và mở tab mới độc lập
             const vnpayRes = await financeService.createVnPayPayment({
               bookingId: createdBooking.id,
               method: 'VNPAY',
@@ -698,7 +837,38 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               amount: finalAmount,
             });
             if (vnpayRes.result?.paymentUrl) {
-              window.location.assign(vnpayRes.result.paymentUrl);
+              const pUrl = vnpayRes.result.paymentUrl;
+              const pId = vnpayRes.result.paymentId;
+
+              // 1. Lưu active session để tab kết quả nhận diện nguồn WALK_IN và returnUrl
+              try {
+                localStorage.setItem(
+                  'vnpay_active_session',
+                  JSON.stringify({
+                    paymentId: pId,
+                    bookingId: createdBooking.id,
+                    bookingNumber: createdBooking.bookingNumber,
+                    source: 'WALK_IN',
+                    returnUrl: '/booking/list',
+                    time: Date.now(),
+                  })
+                );
+              } catch (e) {
+                console.warn('Cannot set localStorage', e);
+              }
+
+              // 2. Mở tab mới độc lập
+              const newTab = window.open(pUrl, '_blank');
+              if (!newTab) {
+                console.warn('Trình duyệt có thể đã chặn popup tab mới');
+              }
+
+              // 3. Chuyển modal sang giao diện chờ và bắt đầu đồng bộ liên tab
+              setIsWaitingVnPay(true);
+              setVnpayPaymentUrl(pUrl);
+              setVnpayBookingNumber(createdBooking.bookingNumber);
+              setVnpayPaymentId(pId);
+              startVnPaySync(pId, createdBooking.bookingNumber);
               return;
             }
             throw new Error('Không nhận được liên kết thanh toán từ Cổng VNPay Sandbox');
@@ -733,12 +903,84 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
-      title="Tiếp Nhận Khách Vãng Lai & Check-In Ngay (Walk-In)"
-      description="Quy trình đón tiếp, xếp phòng vật lý READY, duyệt phụ thu tự động và chuyển thẳng sang IN-HOUSE"
+      onClose={() => {
+        if (isWaitingVnPay) {
+          cleanupVnPaySync();
+          setIsWaitingVnPay(false);
+        }
+        onClose();
+      }}
+      title={isWaitingVnPay ? 'Thanh Toán Đơn Đặt Phòng Qua VNPay Sandbox' : 'Tiếp Nhận Khách Vãng Lai & Check-In Ngay (Walk-In)'}
+      description={isWaitingVnPay ? `Đang chờ khách hàng hoàn tất giao dịch cho đơn ${vnpayBookingNumber || ''}` : 'Quy trình đón tiếp, xếp phòng vật lý READY, duyệt phụ thu tự động và chuyển thẳng sang IN-HOUSE'}
       maxWidth="5xl"
     >
-      <div className="space-y-6">
+      {isWaitingVnPay ? (
+        <div className="py-8 px-4 text-center space-y-6">
+          <div className="mx-auto w-16 h-16 bg-red-50 border-2 border-red-200 rounded-full flex items-center justify-center animate-pulse">
+            <CreditCard className="w-8 h-8 text-red-600" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-neutral-900">
+              Đang chờ thanh toán qua VNPay Sandbox...
+            </h3>
+            <p className="text-sm text-neutral-600 max-w-md mx-auto">
+              Cổng thanh toán VNPay Sandbox đã được mở tại tab mới cho đơn đặt phòng{' '}
+              <strong className="text-red-600 font-mono font-bold">{vnpayBookingNumber}</strong>. Vui lòng hướng dẫn khách hàng quét mã hoặc nhập thông tin thẻ test NCB để thanh toán.
+            </p>
+          </div>
+
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl max-w-lg mx-auto text-left text-xs space-y-2 text-amber-900">
+            <div className="font-bold flex items-center gap-1.5 text-amber-800">
+              <Clock className="w-4 h-4 animate-spin shrink-0" />
+              <span>Hệ thống đang tự động lắng nghe và đồng bộ kết quả liên tab...</span>
+            </div>
+            <p>
+              Sau khi khách thanh toán thành công tại tab VNPay, tab này sẽ tự động đóng và cập nhật ngay vào Sơ đồ đặt phòng của Lễ tân.
+            </p>
+          </div>
+
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm max-w-lg mx-auto flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+              <span className="font-semibold">{formError}</span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            {vnpayPaymentUrl && (
+              <Button
+                variant="outline"
+                onClick={() => window.open(vnpayPaymentUrl, '_blank')}
+                className="text-xs h-10 px-4"
+              >
+                Mở lại tab VNPay Sandbox
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (vnpayPaymentId) void checkPaymentStatusManual(vnpayPaymentId, vnpayBookingNumber || '');
+              }}
+              isLoading={isVerifyingPayment}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs h-10 px-5 shadow-sm"
+            >
+              Kiểm tra thanh toán ngay
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                cleanupVnPaySync();
+                setIsWaitingVnPay(false);
+                onClose();
+              }}
+              className="text-xs h-10 px-4"
+            >
+              Đóng hộp thoại
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
         {/* Stepper Progress Bar */}
         <div className="flex items-center justify-between border-b border-neutral-200 pb-4">
           {[
@@ -1773,6 +2015,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           </div>
         )}
       </div>
+      )}
 
       <OcrIdentityScannerModal
         isOpen={isOcrModalOpen}

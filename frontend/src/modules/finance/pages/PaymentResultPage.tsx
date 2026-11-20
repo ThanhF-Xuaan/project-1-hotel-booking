@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -74,9 +74,22 @@ export const PaymentResultPage: React.FC = () => {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const [showRawPayload, setShowRawPayload] = useState(false);
 
-  // Đếm ngược tự động chuyển hướng về trang chủ tìm kiếm (10 giây)
-  const [countdown, setCountdown] = useState<number>(10);
+  // Đếm ngược tự động chuyển hướng (20 giây theo chuẩn mới)
+  const [countdown, setCountdown] = useState<number>(20);
   const [isCountdownPaused, setIsCountdownPaused] = useState<boolean>(false);
+
+  // Lấy thông tin phiên vnpay_active_session từ localStorage để nhận diện nguồn và trang quay lại
+  const sessionData = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('vnpay_active_session');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const isWalkInSource = sessionData?.source === 'WALK_IN';
+  const targetReturnUrl = sessionData?.returnUrl || (isWalkInSource ? '/booking/list' : '/portal/search');
 
   // Phát hiện xem trang có được mở trong tab/cửa sổ con từ giao diện quản trị hay không
   const [isAdminPopup] = useState<boolean>(() => {
@@ -87,7 +100,7 @@ export const PaymentResultPage: React.FC = () => {
       return Boolean(window.opener);
     }
   });
-  const [closeCountdown, setCloseCountdown] = useState<number>(2);
+  const [closeCountdown, setCloseCountdown] = useState<number>(20);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -165,7 +178,7 @@ export const PaymentResultPage: React.FC = () => {
   const isConfirming = displayStatus === 'PENDING';
   const isFailed = displayStatus === 'FAILED' || displayStatus === 'CANCELLED';
 
-  // Countdown timer tự động redirect về trang tìm kiếm portal
+  // Countdown timer tự động redirect (20 giây)
   useEffect(() => {
     if (isAdminPopup || !isPaid || isCountdownPaused) return;
 
@@ -173,7 +186,7 @@ export const PaymentResultPage: React.FC = () => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          navigate('/portal/search');
+          navigate(targetReturnUrl);
           return 0;
         }
         return prev - 1;
@@ -181,7 +194,7 @@ export const PaymentResultPage: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isAdminPopup, isPaid, isCountdownPaused, navigate]);
+  }, [isAdminPopup, isPaid, isCountdownPaused, navigate, targetReturnUrl]);
 
   // Đồng bộ kết quả thanh toán sang tab quản trị viên (qua BroadcastChannel, postMessage, localStorage)
   useEffect(() => {
@@ -236,7 +249,7 @@ export const PaymentResultPage: React.FC = () => {
       void 0;
     }
 
-    // 4. Nếu là popup mở từ Admin modal: tự động đếm ngược và đóng tab sau 2s
+    // 4. Nếu là popup mở từ Admin modal: tự động đếm ngược và đóng tab sau 20s
     if (isAdminPopup && (isPaid || isFailed)) {
       const timer = setInterval(() => {
         setCloseCountdown((prev) => {
@@ -248,6 +261,10 @@ export const PaymentResultPage: React.FC = () => {
             } catch {
               void 0;
             }
+            // Fallback nếu window.close() bị trình duyệt chặn không cho đóng tab
+            if (!window.closed) {
+              navigate(targetReturnUrl);
+            }
             return 0;
           }
           return prev - 1;
@@ -256,7 +273,7 @@ export const PaymentResultPage: React.FC = () => {
 
       return () => clearInterval(timer);
     }
-  }, [isAdminPopup, isPaid, isFailed, isPaidByParams, displayStatus, paymentId, bookingIdParam, txnRef]);
+  }, [isAdminPopup, isPaid, isFailed, isPaidByParams, displayStatus, paymentId, bookingIdParam, txnRef, targetReturnUrl, navigate]);
 
   // Dữ liệu đối chiếu từ backend hoặc params
   const rawPayloadMap = payment?.rawCallbackPayload
@@ -482,13 +499,13 @@ export const PaymentResultPage: React.FC = () => {
           {/* CỤM ĐIỀU HƯỚNG TÙY THEO NGỮ CẢNH: ADMIN MODAL HAY PORTAL KHÁCH */}
           {isAdminPopup ? (
             <div className="space-y-3 pt-2">
-              <div className="bg-blue-50 border border-blue-200 text-blue-800 rounded-xl p-3 text-xs flex items-center justify-between">
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs flex items-center justify-between">
                 <span className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-blue-600 animate-spin" />
+                  <Clock className="w-4 h-4 text-emerald-600 animate-spin" />
                   <span>
                     Đang tự động đóng cửa sổ sau{' '}
-                    <strong className="text-blue-700 font-bold text-sm">{closeCountdown}s</strong>{' '}
-                    để đồng bộ về Sơ đồ đặt phòng...
+                    <strong className="text-emerald-700 font-bold text-sm">{closeCountdown}s</strong>{' '}
+                    để đồng bộ về Sơ đồ đặt phòng của Lễ tân...
                   </span>
                 </span>
               </div>
@@ -502,9 +519,12 @@ export const PaymentResultPage: React.FC = () => {
                   } catch {
                     void 0;
                   }
+                  if (!window.closed) {
+                    navigate(targetReturnUrl);
+                  }
                 }}
               >
-                Đóng Cửa Sổ Ngay Để Quay Lại
+                Đóng Cửa Sổ Ngay Để Quay Lại Màn Hình Lễ Tân
               </Button>
             </div>
           ) : (
