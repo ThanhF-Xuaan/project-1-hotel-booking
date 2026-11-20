@@ -2969,9 +2969,7 @@ public class BookingServiceImpl implements BookingService {
                     }
                     String permanentAddr = StringUtils.hasText(sg.getPermanentAddress())
                             ? sg.getPermanentAddress().trim()
-                            : (request.getLeadGuest() != null && StringUtils.hasText(request.getLeadGuest().getAddress())
-                                ? request.getLeadGuest().getAddress().trim()
-                                : null);
+                            : null;
                     StayGuestCreateRequest sgReq = StayGuestCreateRequest.builder()
                             .hotelId(hotel.getId())
                             .bookingId(savedBooking.getId())

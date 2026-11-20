@@ -118,6 +118,32 @@ const INITIAL_GUEST: WalkInStayGuestRequest = {
   isPrimaryGuest: true,
 };
 
+const buildStayGuests = (
+  adultCount: number,
+  childCount: number,
+  existing: WalkInStayGuestRequest[] = []
+): WalkInStayGuestRequest[] => {
+  const total = Math.max(1, (adultCount || 0) + (childCount || 0));
+  const result: WalkInStayGuestRequest[] = [];
+  for (let i = 0; i < total; i++) {
+    const isAdult = i < (adultCount || 0);
+    if (existing[i]) {
+      result.push({
+        ...existing[i],
+        guestType: isAdult ? 'ADULT' : 'CHILD',
+        isPrimaryGuest: i === 0,
+      });
+    } else {
+      result.push({
+        ...INITIAL_GUEST,
+        guestType: isAdult ? 'ADULT' : 'CHILD',
+        isPrimaryGuest: i === 0,
+      });
+    }
+  }
+  return result;
+};
+
 const DEFAULT_SERVICES: AddonServiceItem[] = [
   { id: 1, name: 'Ăn sáng Buffet Cao Cấp', price: 150000, quantity: 0, roomIndex: 0 },
   { id: 2, name: 'Gói Chào Mừng Minibar', price: 120000, quantity: 0, roomIndex: 0 },
@@ -160,7 +186,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       childCount: 0,
       infantCount: 0,
       extraBeds: 0,
-      stayGuests: [{ ...INITIAL_GUEST }],
+      stayGuests: buildStayGuests(2, 0),
     },
   ]);
 
@@ -339,7 +365,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         childCount: 0,
         infantCount: 0,
         extraBeds: 0,
-        stayGuests: [{ ...INITIAL_GUEST }],
+        stayGuests: buildStayGuests(2, 0),
       },
     ]);
   }, [prefill, hotelId, hotels, cleanupVnPaySync]);
@@ -549,7 +575,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
         childCount: 0,
         infantCount: 0,
         extraBeds: 0,
-        stayGuests: [{ ...INITIAL_GUEST, isPrimaryGuest: false }],
+        stayGuests: buildStayGuests(2, 0),
       },
     ]);
   };
@@ -566,10 +592,17 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   ) => {
     setRooms((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
+      const currentRoom = updated[index];
+      const nextRoom = { ...currentRoom, [field]: value };
       if (field === 'hotelRoomTypeId') {
-        updated[index].roomInstanceId = '';
+        nextRoom.roomInstanceId = '';
       }
+      if (field === 'adultCount' || field === 'childCount') {
+        const adults = field === 'adultCount' ? Number(value) || 0 : nextRoom.adultCount;
+        const children = field === 'childCount' ? Number(value) || 0 : nextRoom.childCount;
+        nextRoom.stayGuests = buildStayGuests(adults, children, currentRoom.stayGuests);
+      }
+      updated[index] = nextRoom;
       return updated;
     });
   };
@@ -584,6 +617,33 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       const updated = [...prev];
       const guests = [...updated[roomIndex].stayGuests];
       guests[guestIndex] = { ...guests[guestIndex], [field]: value };
+      updated[roomIndex] = { ...updated[roomIndex], stayGuests: guests };
+      return updated;
+    });
+  };
+
+  const addStayGuestToRoom = (roomIndex: number) => {
+    setRooms((prev) => {
+      const updated = [...prev];
+      const guests = [...updated[roomIndex].stayGuests];
+      guests.push({
+        ...INITIAL_GUEST,
+        guestType: 'ADULT',
+        isPrimaryGuest: false,
+      });
+      updated[roomIndex] = { ...updated[roomIndex], stayGuests: guests };
+      return updated;
+    });
+  };
+
+  const removeStayGuestFromRoom = (roomIndex: number, guestIndex: number) => {
+    setRooms((prev) => {
+      const updated = [...prev];
+      if (updated[roomIndex].stayGuests.length <= 1) return prev;
+      const guests = updated[roomIndex].stayGuests.filter((_, idx) => idx !== guestIndex);
+      if (guests[0]) {
+        guests[0] = { ...guests[0], isPrimaryGuest: true };
+      }
       updated[roomIndex] = { ...updated[roomIndex], stayGuests: guests };
       return updated;
     });
@@ -773,6 +833,35 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       }
     }
 
+    // Validate thông tin khai báo lưu trú BCA cho từng khách độc lập
+    for (let rIdx = 0; rIdx < rooms.length; rIdx++) {
+      const r = rooms[rIdx];
+      const roomNum = readyRooms.find((rm) => rm.id === Number(r.roomInstanceId))?.roomNumber || `${rIdx + 1}`;
+      if (!r.stayGuests || r.stayGuests.length === 0) {
+        return setFormError(`Phòng #${rIdx + 1} (P.${roomNum}) chưa có thông tin khách lưu trú.`);
+      }
+      for (let gIdx = 0; gIdx < r.stayGuests.length; gIdx++) {
+        const guest = r.stayGuests[gIdx];
+        const guestLabel = `Phòng #${rIdx + 1} (P.${roomNum}) - Khách #${gIdx + 1}`;
+        if (!guest.fullName?.trim()) {
+          return setFormError(`${guestLabel}: Vui lòng nhập Họ và tên khách lưu trú.`);
+        }
+        if (guest.guestType !== 'CHILD' && !guest.identityNumber?.trim()) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng nhập Số CCCD / Hộ chiếu.`);
+        }
+        if (!guest.birthDate) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng nhập Ngày tháng năm sinh.`);
+        }
+        if (!guest.gender) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng chọn Giới tính.`);
+        }
+        const isVietnamese = !guest.nationality || guest.nationality === 'Việt Nam' || guest.nationality.toLowerCase().includes('viet');
+        if (isVietnamese && guest.guestType !== 'CHILD' && !guest.permanentAddress?.trim()) {
+          return setFormError(`${guestLabel} (${guest.fullName}): Vui lòng nhập Nơi thường trú / ĐKTT theo CCCD để khai báo lưu trú BCA.`);
+        }
+      }
+    }
+
     setFormError(null);
     setIsLoadingQuote(true);
     try {
@@ -931,8 +1020,10 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           extraBeds: r.extraBeds,
           stayGuests: r.stayGuests.map((sg, sgIdx) => ({
             ...sg,
-            permanentAddress: sg.permanentAddress?.trim() || leadGuest.address?.trim() || undefined,
-            isPrimaryGuest: sgIdx === 0 ? true : sg.isPrimaryGuest,
+            fullName: sg.fullName.trim(),
+            identityNumber: sg.identityNumber?.trim() || undefined,
+            permanentAddress: sg.permanentAddress?.trim() || undefined,
+            isPrimaryGuest: sgIdx === 0,
           })),
         })),
         confirmedCharges: confirmedCharges.map((c) => ({
@@ -1649,30 +1740,81 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                       <span className="text-xs font-bold text-neutral-900">
                         Phòng #{rIdx + 1} {roomNum && `(P.${roomNum})`} — {room.adultCount} lớn, {room.childCount} trẻ
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => addStayGuestToRoom(rIdx)}
+                        className="text-[11px] font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded-lg transition-colors flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Thêm khách
+                      </button>
                     </div>
 
                     {room.stayGuests.map((guest, gIdx) => (
-                      <div key={gIdx} className="space-y-2 bg-white p-2.5 rounded-xl border border-neutral-200">
-                        <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center">
+                      <div key={gIdx} className="space-y-2 bg-white p-3 rounded-xl border border-neutral-200 shadow-xs">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-neutral-500 pb-1.5 border-b border-neutral-100">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-5 h-5 rounded-full bg-neutral-100 text-neutral-700 flex items-center justify-center text-[10px] font-bold">
+                              {gIdx + 1}
+                            </span>
+                            <span className="text-neutral-900 font-bold">
+                              Khách #{gIdx + 1}
+                            </span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                                guest.guestType === 'CHILD'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+                              }`}
+                            >
+                              {guest.guestType === 'CHILD' ? 'Trẻ em' : 'Người lớn'}
+                            </span>
+                            {gIdx === 0 && (
+                              <span className="text-[10px] text-neutral-500 font-normal">
+                                (Đại diện phòng)
+                              </span>
+                            )}
+                          </span>
+                          {room.stayGuests.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeStayGuestFromRoom(rIdx, gIdx)}
+                              className="text-neutral-400 hover:text-red-600 p-1 rounded transition-colors"
+                              title="Xóa khách này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-center pt-1">
                           <div className="sm:col-span-2">
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Họ và tên *
+                            </label>
                             <input
                               type="text"
-                              placeholder="Họ và tên khách"
+                              placeholder="NGUYỄN VĂN A"
                               value={guest.fullName}
                               onChange={(e) => updateStayGuest(rIdx, gIdx, 'fullName', e.target.value.toUpperCase())}
-                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-semibold"
+                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs font-semibold focus:border-red-600 focus:outline-none"
                             />
                           </div>
                           <div>
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              {guest.guestType === 'CHILD' ? 'Mã định danh / CCCD' : 'CCCD / Hộ chiếu *'}
+                            </label>
                             <input
                               type="text"
-                              placeholder="CCCD / Hộ chiếu"
+                              placeholder="001205001582"
                               value={guest.identityNumber || ''}
                               onChange={(e) => updateStayGuest(rIdx, gIdx, 'identityNumber', e.target.value)}
-                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs"
+                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs focus:border-red-600 focus:outline-none"
                             />
                           </div>
                           <div>
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Giới tính *
+                            </label>
                             <Select<'MALE' | 'FEMALE' | 'OTHER'>
                               value={(guest.gender as 'MALE' | 'FEMALE' | 'OTHER') || 'MALE'}
                               onChange={(val) => updateStayGuest(rIdx, gIdx, 'gender', val)}
@@ -1685,34 +1827,44 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                             />
                           </div>
                           <div>
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Ngày sinh *
+                            </label>
                             <input
                               type="date"
                               value={guest.birthDate || ''}
                               onChange={(e) => updateStayGuest(rIdx, gIdx, 'birthDate', e.target.value)}
-                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs"
+                              className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs focus:border-red-600 focus:outline-none"
                             />
                           </div>
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex flex-col items-center justify-end">
+                            <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                              Quét CCCD
+                            </label>
                             <button
                               type="button"
                               onClick={() => {
                                 setOcrTarget({ type: 'STAY_GUEST', roomIndex: rIdx, guestIndex: gIdx });
                                 setIsOcrModalOpen(true);
                               }}
-                              className="text-neutral-500 hover:text-red-600 p-1.5"
+                              className="w-full inline-flex items-center justify-center gap-1 text-neutral-600 hover:text-red-600 hover:bg-red-50 border border-neutral-200 rounded-lg py-1.5 text-xs transition-colors"
                               title="Quét CCCD / Hộ chiếu"
                             >
-                              <Camera className="w-4 h-4" />
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>Quét</span>
                             </button>
                           </div>
                         </div>
                         <div>
+                          <label className="block text-[10px] font-semibold text-neutral-600 mb-0.5">
+                            Nơi ĐKTT / Thường trú theo CCCD *
+                          </label>
                           <input
                             type="text"
-                            placeholder="Nơi ĐKTT / Thường trú (Bắt buộc theo chuẩn BCA, để trống sẽ tự lấy từ khách chính)"
+                            placeholder="Số nhà, đường/thôn, xã/phường, quận/huyện, tỉnh/thành phố (Bắt buộc theo chuẩn BCA)"
                             value={guest.permanentAddress || ''}
                             onChange={(e) => updateStayGuest(rIdx, gIdx, 'permanentAddress', e.target.value)}
-                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs text-neutral-600 focus:text-neutral-900 bg-neutral-50/50 focus:bg-white"
+                            className="w-full px-2.5 py-1.5 border border-neutral-200 rounded-lg text-xs text-neutral-800 placeholder:text-neutral-400 focus:border-red-600 focus:outline-none bg-neutral-50/50 focus:bg-white"
                           />
                         </div>
                       </div>
