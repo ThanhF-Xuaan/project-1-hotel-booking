@@ -4,6 +4,8 @@ import jakarta.persistence.criteria.Predicate;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -191,6 +193,10 @@ public class BookingServiceImpl implements BookingService {
     RoomInstanceMapper roomInstanceMapper;
     ApplicationEventPublisher eventPublisher;
     GuestRepository guestRepository;
+
+    @NonFinal
+    @Value("${app.mail.portal-url:http://localhost:3000/my-bookings}")
+    String portalUrlConfig;
 
 
     @Override
@@ -442,7 +448,8 @@ public class BookingServiceImpl implements BookingService {
         }
 
         // Nếu booking đến từ online draft session đã hold phòng trước đó -> commit hold và xóa draft Redis
-        if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
+        boolean isOnlinePortalDraft = (request.getSessionId() != null && !request.getSessionId().isBlank());
+        if (isOnlinePortalDraft) {
             roomAvailabilityService.commitHoldInventory(request.getSessionId().trim());
             redisTemplate.delete("booking:draft:" + request.getSessionId().trim());
         }
@@ -456,7 +463,12 @@ public class BookingServiceImpl implements BookingService {
             }
         }
 
-        publishBookingConfirmationEmail(saved);
+        // Đối với đơn đặt online qua portal (chờ thanh toán gateway VNPAY/MoMo),
+        // KHÔNG gửi email xác nhận đặt phòng ngay lúc này để tránh việc khách chưa thanh toán đã nhận mail thành công.
+        // Email All-in-One sẽ được gửi tự động khi Cổng thanh toán báo SUCCESS.
+        if (!isOnlinePortalDraft) {
+            publishBookingConfirmationEmail(saved);
+        }
 
         return bookingMapper.toResponse(saved);
     }
@@ -523,6 +535,10 @@ public class BookingServiceImpl implements BookingService {
     }
 
     private void publishBookingConfirmationEmail(Booking booking) {
+        publishBookingConfirmationEmail(booking, null);
+    }
+
+    private void publishBookingConfirmationEmail(Booking booking, Payment payment) {
         if (eventPublisher == null || booking == null || booking.getGuest() == null) {
             return;
         }
@@ -546,6 +562,11 @@ public class BookingServiceImpl implements BookingService {
                 }
             }
 
+            boolean isPaid = (payment != null && payment.getStatus() == PaymentStatus.SUCCESS);
+            String effectivePortalUrl = (portalUrlConfig != null && !portalUrlConfig.isBlank())
+                    ? portalUrlConfig
+                    : "http://localhost:3000/my-bookings";
+
             BookingConfirmationEmailEvent event = BookingConfirmationEmailEvent.builder()
                     .bookingId(booking.getId())
                     .bookingCode(booking.getBookingNumber())
@@ -564,9 +585,13 @@ public class BookingServiceImpl implements BookingService {
                     .vatAmount(booking.getTotalVatAmount())
                     .totalAmount(booking.getTotalAmount())
                     .currency("VND")
-                    .portalUrl("http://localhost:3000/my-bookings")
+                    .portalUrl(effectivePortalUrl)
                     .services(extractEmailServices(booking.getId()))
                     .surcharges(extractEmailSurcharges(booking))
+                    .isPaid(isPaid)
+                    .paymentMethod(payment != null && payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : null)
+                    .transactionReference(payment != null ? payment.getTransactionReference() : null)
+                    .paidAt(payment != null ? payment.getPaidAt() : null)
                     .build();
             eventPublisher.publishEvent(event);
         } catch (Exception ex) {
@@ -3076,8 +3101,8 @@ public class BookingServiceImpl implements BookingService {
                     .serviceFeeRate(savedBooking.getServiceFeeRate())
                     .build());
 
-            // Tự động gửi Email xác nhận đặt phòng
-            publishBookingConfirmationEmail(savedBooking);
+            // Đối với online gateway, KHÔNG gửi email xác nhận đặt phòng trước thanh toán.
+            // Email All-in-One sẽ được gửi tự động khi Cổng thanh toán (VNPay) báo SUCCESS.
         } else {
             // Thanh toán tại chỗ (CASH / trực tiếp) -> Ghi nhận thanh toán SUCCESS ngay
             PaymentPurpose pPurpose = "DEPOSIT".equalsIgnoreCase(paymentPurposeStr) ? PaymentPurpose.DEPOSIT : PaymentPurpose.FULL_PAYMENT;
@@ -3107,11 +3132,8 @@ public class BookingServiceImpl implements BookingService {
                 invoiceService.settleAndCloseInvoice(savedBooking.getId());
             }
 
-            // Tự động gửi Email xác nhận đặt phòng và Biên lai thanh toán
-            publishBookingConfirmationEmail(savedBooking);
-            if (actualPaymentAmount.compareTo(BigDecimal.ZERO) > 0) {
-                publishPaymentReceiptEmail(savedPayment, savedBooking);
-            }
+            // Gửi duy nhất 1 email All-in-One (thông tin đặt phòng + biên lai thanh toán đã quyết toán)
+            publishBookingConfirmationEmail(savedBooking, savedPayment);
         }
 
         return bookingMapper.toResponse(savedBooking);

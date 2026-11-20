@@ -33,8 +33,10 @@ import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.PaymentService;
+import java.time.LocalDate;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
+import vn.edu.utc.hotel_booking.modules.notification.event.BookingConfirmationEmailEvent;
 import vn.edu.utc.hotel_booking.modules.notification.event.PaymentReceiptEmailEvent;
 import vn.edu.utc.hotel_booking.modules.notification.dto.InvoiceItemEmailDto;
 import vn.edu.utc.hotel_booking.modules.booking.entity.BookingDetail;
@@ -552,32 +554,49 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                 }
             }
 
-            PaymentReceiptEmailEvent event = PaymentReceiptEmailEvent.builder()
-                    .paymentId(payment.getId())
+            LocalDate checkIn = null;
+            LocalDate checkOut = null;
+            String roomTypeName = null;
+            int totalRooms = 0;
+            if (booking.getBookingDetails() != null && !booking.getBookingDetails().isEmpty()) {
+                BookingDetail first = booking.getBookingDetails().get(0);
+                checkIn = first.getCheckInDate();
+                checkOut = first.getCheckOutDate();
+                roomTypeName = first.getRoomTypeName();
+                for (BookingDetail d : booking.getBookingDetails()) {
+                    totalRooms += (d.getQuantity() != null ? d.getQuantity() : 1);
+                }
+            }
+
+            BookingConfirmationEmailEvent event = BookingConfirmationEmailEvent.builder()
+                    .bookingId(booking.getId())
                     .bookingCode(booking.getBookingNumber())
                     .recipientEmail(booking.getGuest().getEmail().trim())
                     .customerName(booking.getGuest().getFullName())
                     .hotelName(booking.getHotel() != null ? booking.getHotel().getName() : "SmartStay Hotel")
-                    .amount(payment.getTotalAmount())
-                    .paymentMethod(payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : "Thanh toán")
-                    .transactionReference(payment.getTransactionReference())
-                    .paidAt(payment.getPaidAt() != null ? payment.getPaidAt() : OffsetDateTime.now())
-                    .totalBookingAmount(grandTotal)
-                    .remainingBalance(remainingBalance)
+                    .hotelAddress(booking.getHotel() != null ? booking.getHotel().getAddress() : "")
+                    .hotelPhone(booking.getHotel() != null ? booking.getHotel().getPhone() : "")
+                    .checkInDate(checkIn)
+                    .checkOutDate(checkOut)
+                    .roomTypeName(roomTypeName != null ? roomTypeName : "Phòng tiêu chuẩn")
+                    .totalRooms(totalRooms > 0 ? totalRooms : 1)
+                    .totalGuests(1)
+                    .subtotalAmount(subtotalAmount != null ? subtotalAmount : booking.getSubtotalAmount())
+                    .serviceFeeAmount(serviceFeeAmount != null ? serviceFeeAmount : booking.getServiceFeeAmount())
+                    .vatAmount(vatAmount != null ? vatAmount : booking.getTotalVatAmount())
+                    .totalAmount(invoiceGrandTotal != null ? invoiceGrandTotal : grandTotal)
                     .currency("VND")
+                    .isPaid(true)
+                    .paymentMethod(payment.getPaymentMethod() != null ? payment.getPaymentMethod().name() : "VNPAY")
+                    .transactionReference(payment.getTransactionReference())
                     .invoiceNumber(invoiceNumber)
-                    .roomNumber(roomNumber)
-                    .invoiceDate(invoiceDate)
-                    .subtotalAmount(subtotalAmount)
-                    .serviceFeeRate(serviceFeeRate)
-                    .serviceFeeAmount(serviceFeeAmount)
-                    .vatAmount(vatAmount)
-                    .grandTotal(invoiceGrandTotal)
-                    .invoiceDetails(invoiceDetails)
+                    .paidAt(payment.getPaidAt() != null ? payment.getPaidAt() : OffsetDateTime.now())
                     .build();
             eventPublisher.publishEvent(event);
+            log.info("[EMAIL] Published unified All-in-One BookingConfirmationEmailEvent for booking {} and payment {}",
+                    booking.getBookingNumber(), payment.getId());
         } catch (Exception ex) {
-            log.error("Failed to publish PaymentReceiptEmailEvent for payment {}: {}", payment.getId(), ex.getMessage());
+            log.error("Failed to publish BookingConfirmationEmailEvent for payment {}: {}", payment.getId(), ex.getMessage());
         }
     }
 

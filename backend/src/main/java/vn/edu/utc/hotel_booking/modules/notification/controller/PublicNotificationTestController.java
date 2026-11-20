@@ -152,6 +152,10 @@ public class PublicNotificationTestController {
                         .totalAmount(BigDecimal.valueOf(3402000))
                         .currency("VND")
                         .portalUrl("http://localhost:3000/my-bookings")
+                        .isPaid(true)
+                        .paymentMethod("VNPAY")
+                        .transactionReference("15738002")
+                        .paidAt(OffsetDateTime.now())
                         .services(List.of(
                                 ServiceItemEmailDto.builder()
                                         .name("Set Trà chiều Thượng hạng & Bánh ngọt")
@@ -257,6 +261,18 @@ public class PublicNotificationTestController {
             }
         }
 
+        List<Payment> payments = (paymentRepository != null && booking.getId() != null)
+                ? paymentRepository.findByBookingId(booking.getId())
+                : List.of();
+        Payment successfulPayment = null;
+        if (payments != null) {
+            successfulPayment = payments.stream()
+                    .filter(p -> p.getStatus() == PaymentStatus.SUCCESS)
+                    .findFirst()
+                    .orElse(null);
+        }
+        boolean isPaid = successfulPayment != null;
+
         return BookingConfirmationEmailEvent.builder()
                 .bookingId(booking.getId())
                 .bookingCode(booking.getBookingNumber())
@@ -275,9 +291,12 @@ public class PublicNotificationTestController {
                 .vatAmount(booking.getTotalVatAmount() != null ? booking.getTotalVatAmount() : BigDecimal.ZERO)
                 .totalAmount(booking.getTotalAmount() != null ? booking.getTotalAmount() : BigDecimal.ZERO)
                 .currency("VND")
-                .portalUrl("http://localhost:3000/my-bookings")
                 .services(extractEmailServices(booking.getId()))
                 .surcharges(extractEmailSurcharges(booking))
+                .isPaid(isPaid)
+                .paymentMethod(successfulPayment != null && successfulPayment.getPaymentMethod() != null ? successfulPayment.getPaymentMethod().name() : (isPaid ? "VNPAY" : null))
+                .transactionReference(successfulPayment != null ? successfulPayment.getTransactionReference() : null)
+                .paidAt(successfulPayment != null ? successfulPayment.getPaidAt() : null)
                 .build();
     }
 

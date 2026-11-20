@@ -36,6 +36,9 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.mail.from-name:SmartStay Hotel Booking}")
     String fromName;
 
+    @Value("${app.mail.portal-url:http://localhost:3000/my-bookings}")
+    String portalUrlConfig;
+
     static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
 
@@ -64,7 +67,16 @@ public class EmailServiceImpl implements EmailService {
             context.setVariable("vatFormatted", event.getVatAmount() != null && event.getVatAmount().compareTo(BigDecimal.ZERO) > 0
                     ? formatMoney(event.getVatAmount()) : null);
             context.setVariable("totalFormatted", formatMoney(event.getTotalAmount()));
-            context.setVariable("portalUrl", safe(event.getPortalUrl(), "http://localhost:3000/my-bookings"));
+            context.setVariable("isPaid", Boolean.TRUE.equals(event.getIsPaid()));
+            context.setVariable("paymentMethod", safe(event.getPaymentMethod(), null));
+            context.setVariable("transactionRef", safe(event.getTransactionReference(), null));
+            context.setVariable("paidAtFormatted", event.getPaidAt() != null ? event.getPaidAt().format(DATE_TIME_FMT) : null);
+            context.setVariable("invoiceNumber", safe(event.getInvoiceNumber(), null));
+
+            String targetPortalUrl = (event.getPortalUrl() != null && !event.getPortalUrl().isBlank())
+                    ? event.getPortalUrl().trim()
+                    : (portalUrlConfig != null && !portalUrlConfig.isBlank() ? portalUrlConfig : "http://localhost:3000/my-bookings");
+            context.setVariable("portalUrl", targetPortalUrl);
 
             BigDecimal totalServices = BigDecimal.ZERO;
             if (event.getServices() != null) {
