@@ -1410,9 +1410,11 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-700 mb-1">
-                    Email nhận hóa đơn & biên lai
-                    <span className="text-neutral-400 font-normal ml-1">(Khuyên dùng)</span>
+                  <label
+                    className="block text-xs font-semibold text-neutral-700 mb-1 truncate whitespace-nowrap"
+                    title="Email nhận hóa đơn & biên lai (Khuyên dùng)"
+                  >
+                    Email <span className="text-neutral-400 font-normal ml-1">(Khuyên dùng)</span>
                   </label>
                   <input
                     type="email"
