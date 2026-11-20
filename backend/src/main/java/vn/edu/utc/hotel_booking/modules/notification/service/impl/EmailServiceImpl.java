@@ -1,5 +1,6 @@
 package vn.edu.utc.hotel_booking.modules.notification.service.impl;
 
+import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -125,6 +126,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setTo(event.getRecipientEmail().trim());
             helper.setSubject("Xác nhận đặt phòng thành công - Mã đơn: " + event.getBookingCode());
             helper.setText(htmlBody, true);
+            applyHighPriorityHeaders(message, helper);
 
             mailSender.send(message);
             log.info("[EMAIL] Sent booking confirmation for code {} to {}", event.getBookingCode(), event.getRecipientEmail());
@@ -240,12 +242,20 @@ public class EmailServiceImpl implements EmailService {
             helper.setTo(event.getRecipientEmail().trim());
             helper.setSubject("Hóa đơn GTGT & Biên lai thanh toán - Đơn " + event.getBookingCode());
             helper.setText(htmlBody, true);
+            applyHighPriorityHeaders(message, helper);
 
             mailSender.send(message);
             log.info("[EMAIL] Sent payment receipt for booking {} to {}", event.getBookingCode(), event.getRecipientEmail());
         } catch (Exception e) {
             log.error("[EMAIL] Failed to send payment receipt for booking {}: {}", event.getBookingCode(), e.getMessage(), e);
         }
+    }
+
+    private void applyHighPriorityHeaders(MimeMessage message, MimeMessageHelper helper) throws MessagingException {
+        helper.setPriority(1); // Thiết lập Header X-Priority: 1
+        message.setHeader("Importance", "high");
+        message.setHeader("X-MSMail-Priority", "High");
+        message.setHeader("Priority", "urgent");
     }
 
     private String formatMoney(BigDecimal amount) {
