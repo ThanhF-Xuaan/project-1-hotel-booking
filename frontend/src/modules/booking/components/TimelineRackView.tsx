@@ -67,6 +67,7 @@ export interface TimelineRackViewProps {
     hotelId?: number;
     roomInstanceId?: number;
     roomNumber?: string;
+    hotelRoomTypeId?: number;
     checkInDate?: string;
   }) => void;
   onOpenCancel?: (target: {
@@ -1664,6 +1665,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                               selectedHotelId || activeCellInfo.room.hotelId || 1,
                             roomInstanceId: activeCellInfo.room.id,
                             roomNumber: activeCellInfo.room.roomNumber,
+                            hotelRoomTypeId: activeCellInfo.room.hotelRoomTypeId,
                             checkInDate: activeCellInfo.dateStr,
                           };
                           setActiveCellInfo(null);
@@ -1794,6 +1796,7 @@ export const TimelineRackView: React.FC<TimelineRackViewProps> = ({
                               selectedHotelId || activeCellInfo.room.hotelId || 1,
                             roomInstanceId: activeCellInfo.room.id,
                             roomNumber: activeCellInfo.room.roomNumber,
+                            hotelRoomTypeId: activeCellInfo.room.hotelRoomTypeId,
                             checkInDate: activeCellInfo.dateStr,
                           };
                           setActiveCellInfo(null);

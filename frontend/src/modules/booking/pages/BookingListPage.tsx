@@ -24,7 +24,7 @@ import StayGuestBookingLink from '../components/StayGuestBookingLink';
 import SurchargeProposalModal from '../components/SurchargeProposalModal';
 import RoomServiceOrderModal from '../components/RoomServiceOrderModal';
 import CheckoutSettlementModal from '../components/CheckoutSettlementModal';
-import WalkInBookingModal from '../components/WalkInBookingModal';
+import WalkInBookingModal, { type WalkInPrefillData } from '../components/WalkInBookingModal';
 import CancelBookingModal from '../components/CancelBookingModal';
 import RoomSwapModal, { type RoomSwapTarget } from '../components/RoomSwapModal';
 import TimelineRackView from '../components/TimelineRackView';
@@ -151,6 +151,7 @@ export const BookingListPage: React.FC = () => {
 
   // Walk-in Booking Modal
   const [isWalkInModalOpen, setIsWalkInModalOpen] = useState(false);
+  const [walkInPrefill, setWalkInPrefill] = useState<WalkInPrefillData | null>(null);
 
   // Checkout Settlement Modal
   const [isCheckoutSettlementModalOpen, setIsCheckoutSettlementModalOpen] = useState(false);
@@ -710,15 +711,11 @@ export const BookingListPage: React.FC = () => {
     setIsServiceOrderModalOpen(true);
   };
 
-  const handleOpenWalkInModal = (prefill?: {
-    hotelId?: number;
-    roomInstanceId?: number;
-    roomNumber?: string;
-    checkInDate?: string;
-  }) => {
+  const handleOpenWalkInModal = (prefill?: WalkInPrefillData) => {
     if (prefill?.hotelId) {
       setSelectedHotelId(prefill.hotelId);
     }
+    setWalkInPrefill(prefill || null);
     setIsWalkInModalOpen(true);
   };
 
@@ -984,7 +981,7 @@ export const BookingListPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => setIsWalkInModalOpen(true)}
+                onClick={() => handleOpenWalkInModal({ hotelId: selectedHotelId })}
                 className="bg-red-600 hover:bg-red-700 text-white font-semibold shadow-xs"
               >
                 <UserPlus className="w-4 h-4 mr-1.5" />
@@ -1411,9 +1408,15 @@ export const BookingListPage: React.FC = () => {
       {/* WALK-IN BOOKING & INSTANT CHECK-IN MODAL */}
       <WalkInBookingModal
         isOpen={isWalkInModalOpen}
-        onClose={() => setIsWalkInModalOpen(false)}
+        prefill={walkInPrefill}
+        hotelId={selectedHotelId}
+        onClose={() => {
+          setIsWalkInModalOpen(false);
+          setWalkInPrefill(null);
+        }}
         onSuccess={(bookingNumber) => {
           setIsWalkInModalOpen(false);
+          setWalkInPrefill(null);
           setActionSuccessMessage(
             `Tạo đơn Walk-in thành công cho đơn ${bookingNumber}! Các phòng đã được check-in trực tiếp sang trạng thái In-house.`
           );

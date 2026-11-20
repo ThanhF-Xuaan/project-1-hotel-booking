@@ -51,10 +51,20 @@ const getCurrentLocalTime = () => {
   return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 };
 
+export interface WalkInPrefillData {
+  hotelId?: number;
+  roomInstanceId?: number;
+  roomNumber?: string;
+  hotelRoomTypeId?: number;
+  checkInDate?: string;
+}
+
 export interface WalkInBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (bookingNumber: string) => void;
+  prefill?: WalkInPrefillData | null;
+  hotelId?: number;
 }
 
 interface RoomConfig {
@@ -121,12 +131,14 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  prefill,
+  hotelId,
 }) => {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Master Data
   const [hotels, setHotels] = useState<HotelDto[]>([]);
-  const [selectedHotelId, setSelectedHotelId] = useState<number>(1);
+  const [selectedHotelId, setSelectedHotelId] = useState<number>(() => prefill?.hotelId || hotelId || 1);
   const [roomTypes, setRoomTypes] = useState<HotelRoomTypeDto[]>([]);
   const [readyRooms, setReadyRooms] = useState<RoomInstanceDto[]>([]);
 
@@ -243,14 +255,103 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     }
   }, []);
 
+  const resetModalState = useCallback(() => {
+    setStep(1);
+    setFormError(null);
+    setIsSubmitting(false);
+    setIsWaitingVnPay(false);
+    setVnpayPaymentUrl(null);
+    setVnpayBookingNumber(null);
+    setVnpayPaymentId(null);
+    setIsVerifyingPayment(false);
+
+    setQuoteResponse(null);
+    setIsLoadingQuote(false);
+    setConfirmedCharges([]);
+
+    setBookingType('FIT');
+    setCompany({
+      id: undefined,
+      name: '',
+      taxCode: '',
+      address: '',
+      contactName: '',
+      contactPhone: '',
+    });
+    setCompanySuggestions([]);
+    setIsSearchingCompany(false);
+
+    setLeadGuest({
+      id: undefined,
+      phone: '',
+      fullName: '',
+      email: '',
+      identityType: 'CCCD',
+      identityNumber: '',
+      nationality: 'Việt Nam',
+      dateOfBirth: '',
+      gender: 'MALE',
+      address: '',
+    });
+    setIsSearchingGuest(false);
+    setGuestFoundMessage(null);
+
+    setIsOcrModalOpen(false);
+    setOcrTarget(null);
+
+    setPayment({
+      method: 'CASH',
+      purpose: 'FULL_PAYMENT',
+      customAmount: 0,
+      transactionRef: '',
+    });
+
+    cleanupVnPaySync();
+
+    const targetHotelId = prefill?.hotelId || hotelId || (hotels.length > 0 ? hotels[0].id : 1);
+    setSelectedHotelId(targetHotelId);
+
+    const checkIn = prefill?.checkInDate || DEFAULT_TODAY;
+    let checkOut = DEFAULT_TOMORROW;
+    try {
+      const inDate = new Date(checkIn);
+      if (!isNaN(inDate.getTime())) {
+        inDate.setDate(inDate.getDate() + 1);
+        checkOut = inDate.toISOString().split('T')[0];
+      }
+    } catch {
+      checkOut = DEFAULT_TOMORROW;
+    }
+
+    setStayPeriod({
+      checkInDate: checkIn,
+      checkOutDate: checkOut,
+      actualCheckInTime: getCurrentLocalTime(),
+    });
+
+    setRooms([
+      {
+        id: 'room_1',
+        hotelRoomTypeId: prefill?.hotelRoomTypeId || '',
+        roomInstanceId: prefill?.roomInstanceId || '',
+        adultCount: 2,
+        childCount: 0,
+        infantCount: 0,
+        extraBeds: 0,
+        stayGuests: [{ ...INITIAL_GUEST }],
+      },
+    ]);
+  }, [prefill, hotelId, hotels, cleanupVnPaySync]);
+
   const handleVnPaySuccess = useCallback(
     (bookingNumber: string) => {
       cleanupVnPaySync();
       setIsWaitingVnPay(false);
+      resetModalState();
       onSuccess(bookingNumber);
       onClose();
     },
-    [cleanupVnPaySync, onSuccess, onClose]
+    [cleanupVnPaySync, resetModalState, onSuccess, onClose]
   );
 
   const startVnPaySync = useCallback(
@@ -356,10 +457,10 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       Promise.resolve().then(() => {
-        setStayPeriod((prev) => ({ ...prev, actualCheckInTime: getCurrentLocalTime() }));
+        resetModalState();
       });
     }
-  }, [isOpen]);
+  }, [isOpen, resetModalState]);
 
   useEffect(() => {
     hotelService
@@ -367,11 +468,16 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
       .then((res) => {
         if (res.result?.content?.length) {
           setHotels(res.result.content);
-          setSelectedHotelId(res.result.content[0].id);
+          setSelectedHotelId((prev) => {
+            if (prefill?.hotelId) return prefill.hotelId;
+            if (hotelId) return hotelId;
+            if (prev && res.result.content.some((h) => h.id === prev)) return prev;
+            return res.result.content[0].id;
+          });
         }
       })
       .catch((err) => console.error('Lỗi tải danh sách khách sạn:', err));
-  }, []);
+  }, [hotelId, prefill?.hotelId]);
 
   useEffect(() => {
     if (!selectedHotelId) return;
@@ -403,10 +509,29 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
     bookingService
       .getVacantRooms(selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate)
       .then((res) => {
-        if (res.result) setReadyRooms(res.result);
+        if (res.result) {
+          setReadyRooms(res.result);
+          if (prefill?.roomInstanceId) {
+            const matched = res.result.find((r) => r.id === prefill.roomInstanceId);
+            if (matched) {
+              setRooms((prev) => {
+                if (prev.length > 0 && !prev[0].hotelRoomTypeId) {
+                  const updated = [...prev];
+                  updated[0] = {
+                    ...updated[0],
+                    hotelRoomTypeId: matched.hotelRoomTypeId,
+                    roomInstanceId: matched.id,
+                  };
+                  return updated;
+                }
+                return prev;
+              });
+            }
+          }
+        }
       })
       .catch((err) => console.error('Lỗi cập nhật phòng trống theo ngày:', err));
-  }, [selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate]);
+  }, [selectedHotelId, stayPeriod.checkInDate, stayPeriod.checkOutDate, prefill?.roomInstanceId]);
 
   // --------------------------------------------------------------------------
   // ROOM HANDLERS
@@ -883,6 +1008,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           }
         }
 
+        resetModalState();
         onSuccess(createdBooking.bookingNumber);
         onClose();
       }
@@ -909,6 +1035,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
           cleanupVnPaySync();
           setIsWaitingVnPay(false);
         }
+        resetModalState();
         onClose();
       }}
       title={isWaitingVnPay ? 'Thanh Toán Đơn Đặt Phòng Qua VNPay Sandbox' : 'Tiếp Nhận Khách Vãng Lai & Check-In Ngay (Walk-In)'}
@@ -972,6 +1099,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
               onClick={() => {
                 cleanupVnPaySync();
                 setIsWaitingVnPay(false);
+                resetModalState();
                 onClose();
               }}
               className="text-xs h-10 px-4"
@@ -1031,7 +1159,21 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                 <label className="block text-xs font-semibold text-neutral-600 mb-1">Khách sạn cơ sở</label>
                 <Select<number>
                   value={selectedHotelId}
-                  onChange={(val) => setSelectedHotelId(val)}
+                  onChange={(val) => {
+                    setSelectedHotelId(val);
+                    setRooms([
+                      {
+                        id: 'room_1',
+                        hotelRoomTypeId: '',
+                        roomInstanceId: '',
+                        adultCount: 2,
+                        childCount: 0,
+                        infantCount: 0,
+                        extraBeds: 0,
+                        stayGuests: [{ ...INITIAL_GUEST }],
+                      },
+                    ]);
+                  }}
                   options={hotelSelectOptions}
                   placeholder="Chọn khách sạn..."
                 />
@@ -1111,6 +1253,30 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                     r.hotelRoomTypeId === Number(room.hotelRoomTypeId) &&
                     !otherSelectedRoomInstanceIds.includes(r.id)
                 );
+                const isCurrentRoomInList = availablePhysicalRooms.some((pr) => pr.id === Number(room.roomInstanceId));
+                const physicalRoomOptions = [
+                  ...availablePhysicalRooms.map((pr) => ({
+                    value: pr.id,
+                    label: `Phòng ${pr.roomNumber} (Sạch sẽ, sẵn sàng)`,
+                  })),
+                  ...(!isCurrentRoomInList && room.roomInstanceId ? [{
+                    value: Number(room.roomInstanceId),
+                    label: prefill?.roomNumber ? `Phòng ${prefill.roomNumber} (Chỉ định sẵn)` : `Phòng #${room.roomInstanceId}`,
+                  }] : []),
+                ];
+
+                const isCurrentTypeInList = roomTypes.some((rt) => rt.id === Number(room.hotelRoomTypeId));
+                const roomTypeOptions = [
+                  { value: 0, label: 'Chọn loại phòng', disabled: true },
+                  ...roomTypes.map((rt) => ({
+                    value: rt.id,
+                    label: `${rt.roomTypeName} (Chuẩn: ${rt.standardAdults} lớn, Tối đa: ${rt.maxTotalGuests || 4} khách)`,
+                  })),
+                  ...(!isCurrentTypeInList && room.hotelRoomTypeId ? [{
+                    value: Number(room.hotelRoomTypeId),
+                    label: `Loại phòng #${room.hotelRoomTypeId}`,
+                  }] : []),
+                ];
 
                 return (
                   <div key={room.id} className="p-5 bg-white rounded-2xl border border-neutral-200 shadow-xs space-y-4">
@@ -1137,13 +1303,7 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                           onChange={(val) =>
                             updateRoomField(idx, 'hotelRoomTypeId', val ? Number(val) : '')
                           }
-                          options={[
-                            { value: 0, label: 'Chọn loại phòng', disabled: true },
-                            ...roomTypes.map((rt) => ({
-                              value: rt.id,
-                              label: `${rt.roomTypeName} (Chuẩn: ${rt.standardAdults} lớn, Tối đa: ${rt.maxTotalGuests || 4} khách)`,
-                            })),
-                          ]}
+                          options={roomTypeOptions}
                           size="sm"
                         />
                       </div>
@@ -1160,8 +1320,8 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                           }
                           placeholder={
                             room.hotelRoomTypeId
-                              ? availablePhysicalRooms.length > 0
-                                ? `Chọn phòng (${availablePhysicalRooms.length} phòng sẵn sàng)`
+                              ? physicalRoomOptions.length > 0
+                                ? `Chọn phòng (${physicalRoomOptions.length} phòng sẵn sàng)`
                                 : 'Không có phòng khả dụng'
                               : 'Vui lòng chọn loại phòng trước'
                           }
@@ -1169,16 +1329,13 @@ export const WalkInBookingModal: React.FC<WalkInBookingModalProps> = ({
                             {
                               value: 0,
                               label: room.hotelRoomTypeId
-                                ? availablePhysicalRooms.length > 0
-                                  ? `Chọn phòng (${availablePhysicalRooms.length}`
+                                ? physicalRoomOptions.length > 0
+                                  ? `Chọn phòng (${physicalRoomOptions.length} phòng sẵn sàng)`
                                   : 'Không có phòng khả dụng'
                                 : 'Vui lòng chọn loại phòng trước',
                               disabled: true,
                             },
-                            ...availablePhysicalRooms.map((pr) => ({
-                              value: pr.id,
-                              label: `Phòng ${pr.roomNumber} (Sạch sẽ, sẵn sàng)`,
-                            })),
+                            ...physicalRoomOptions,
                           ]}
                           size="sm"
                         />
