@@ -603,8 +603,8 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
             eventPublisher.publishEvent(event);
             log.info("[EMAIL] Published unified All-in-One BookingConfirmationEmailEvent for booking {} and payment {}",
                     booking.getBookingNumber(), payment.getId());
-        } catch (Exception ex) {
-            log.error("Failed to publish BookingConfirmationEmailEvent for payment {}: {}", payment.getId(), ex.getMessage());
+        } catch (Throwable ex) {
+            log.error("Failed to publish BookingConfirmationEmailEvent for payment {}: {}", payment.getId(), ex.getMessage(), ex);
         }
     }
 
@@ -634,9 +634,9 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                             int qty = d.getQuantity() != null && d.getQuantity() > 0 ? d.getQuantity() : 1;
                             BigDecimal total = d.getTotalAmount() != null ? d.getTotalAmount() : BigDecimal.ZERO;
                             BigDecimal unitGross = total.divide(BigDecimal.valueOf(qty), 0, RoundingMode.HALF_UP);
-                            String itemName = d.getMenu() != null && d.getMenu().getName() != null
-                                    ? d.getMenu().getName()
-                                    : (d.getMasterItem() != null ? d.getMasterItem().getName() : "Dịch vụ");
+                            String itemName = (d.getItemName() != null && !d.getItemName().isBlank())
+                                    ? d.getItemName()
+                                    : (d.getMenu() != null && d.getMenu().getName() != null ? d.getMenu().getName() : "Dịch vụ");
                             emailServices.add(ServiceItemEmailDto.builder()
                                     .name(itemName)
                                     .quantity(qty)
@@ -647,7 +647,7 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                     }
                 }
             }
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
             log.warn("Lỗi trích xuất dịch vụ gửi email: {}", ex.getMessage());
         }
         return emailServices;
@@ -666,7 +666,7 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                             for (var c : br.getCharges()) {
                                 if (c.getTotalAmount() != null && c.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
                                     emailSurcharges.add(ServiceItemEmailDto.builder()
-                                            .name(c.getItemName() != null ? c.getItemName() : (c.getChargeType() != null ? c.getChargeType().name() : "Phụ thu"))
+                                             .name(c.getItemName() != null ? c.getItemName() : (c.getChargeType() != null ? c.getChargeType().name() : "Phụ thu"))
                                             .quantity(c.getQuantity() != null ? c.getQuantity() : 1)
                                             .unitPrice(c.getUnitPrice() != null ? c.getUnitPrice() : BigDecimal.ZERO)
                                             .totalPrice(c.getTotalAmount())
@@ -677,7 +677,7 @@ public class PaymentServiceImpl implements PaymentService, ApplicationEventPubli
                     }
                 }
             }
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
             log.warn("Lỗi trích xuất phụ thu gửi email: {}", ex.getMessage());
         }
         return emailSurcharges;

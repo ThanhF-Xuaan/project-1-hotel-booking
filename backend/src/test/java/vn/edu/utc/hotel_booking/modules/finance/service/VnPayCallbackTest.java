@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
@@ -21,6 +22,10 @@ import vn.edu.utc.hotel_booking.modules.finance.repository.InvoiceRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.PaymentRepository;
 import vn.edu.utc.hotel_booking.modules.finance.repository.TransactionRepository;
 import vn.edu.utc.hotel_booking.modules.finance.service.impl.PaymentServiceImpl;
+import vn.edu.utc.hotel_booking.modules.identity.entity.BookingGuest;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrder;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderDetail;
+import vn.edu.utc.hotel_booking.modules.operation.entity.ServiceOrderStatus;
 import vn.edu.utc.hotel_booking.modules.operation.repository.ServiceOrderRepository;
 
 import java.math.BigDecimal;
@@ -49,6 +54,7 @@ class VnPayCallbackTest {
     @Mock FinanceMapper financeMapper;
     @Mock FolioLedgerService folioLedgerService;
     @Mock StringRedisTemplate redisTemplate;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     PaymentServiceImpl paymentService;
     VnPayGateway vnPayGateway;
@@ -69,6 +75,7 @@ class VnPayCallbackTest {
         paymentService = new PaymentServiceImpl(
                 paymentRepository, transactionRepository, invoiceRepository, bookingRepository,
                 serviceOrderRepository, financeMapper, folioLedgerService, redisTemplate, gateways);
+        paymentService.setApplicationEventPublisher(eventPublisher);
 
         booking = Booking.builder().id(1L).bookingNumber("BK99999")
                 .totalAmount(BigDecimal.valueOf(1500000)).build();
@@ -222,5 +229,49 @@ class VnPayCallbackTest {
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.PAYMENT_NOT_FOUND));
+    }
+
+    @Test
+    @DisplayName("Callback thành công khi booking có khách và dịch vụ phòng POS sử dụng itemName an toàn")
+    void callback_ThanhCong_CoEmailVaDichVu_KhongBiLoiBytecode() {
+        BookingGuest guest = BookingGuest.builder()
+                .id(14L)
+                .fullName("Lê Xuân Thành")
+                .email("le227460@gmail.com")
+                .phone("0987654321")
+                .build();
+        booking.setGuest(guest);
+
+        ServiceOrderDetail detail = ServiceOrderDetail.builder()
+                .id(1L)
+                .itemType("SERVICE")
+                .itemName("Nước suối Lavie")
+                .quantity(2)
+                .unitPrice(BigDecimal.valueOf(15000))
+                .subtotal(BigDecimal.valueOf(30000))
+                .totalAmount(BigDecimal.valueOf(30000))
+                .build();
+
+        ServiceOrder order = ServiceOrder.builder()
+                .id(3L)
+                .orderNumber("SO-1794974071423-188")
+                .status(ServiceOrderStatus.COMPLETED)
+                .details(List.of(detail))
+                .build();
+
+        when(paymentRepository.findByGatewayTxnId(TXN_REF)).thenReturn(Optional.of(pendingPayment));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(financeMapper.toResponse(any(Payment.class))).thenReturn(PaymentResponse.builder()
+                .id(10L).status(PaymentStatus.SUCCESS).build());
+        when(serviceOrderRepository.findByBookingIdAndIsDeletedFalse(booking.getId()))
+                .thenReturn(List.of(order));
+
+        PaymentResponse response = paymentService.handleGatewayCallback(
+                PaymentMethod.VNPAY, signedCallback(successData()));
+
+        assertThat(response.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        assertThat(pendingPayment.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
+        verify(transactionRepository).save(any(Transaction.class));
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
     }
 }

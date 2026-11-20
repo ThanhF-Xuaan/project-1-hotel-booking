@@ -76,6 +76,10 @@ public class PaymentCallbackController {
                         .body(Map.of("RspCode", "97", "Message", "Invalid Signature"));
             }
             throw e;
+        } catch (Throwable t) {
+            log.error("VNPay IPN gặp lỗi nghiêm trọng: txnRef={} - {}", params.get("vnp_TxnRef"), t.getMessage(), t);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("RspCode", "99", "Message", "Unknown Error"));
         }
     }
 
@@ -100,20 +104,33 @@ public class PaymentCallbackController {
                 log.warn("VNPay return lỗi: {} — txnRef={}", e.getErrorCode(), params.get("vnp_TxnRef"));
                 paid = false;
             }
+        } catch (Throwable t) {
+            log.error("VNPay return gặp lỗi không mong muốn khi xử lý callback: txnRef={} - {}",
+                    params.get("vnp_TxnRef"), t.getMessage(), t);
+            paid = false;
         }
         String status = paid ? "PAID" : "FAILED";
         String txnRef = params.get("vnp_TxnRef") != null ? params.get("vnp_TxnRef") : "";
 
         if ((paymentIdPart.isBlank() || bookingIdPart.isBlank()) && !txnRef.isBlank() && paymentRepository != null) {
-            var optPayment = paymentRepository.findByGatewayTxnId(txnRef);
-            if (optPayment.isPresent()) {
-                var p = optPayment.get();
-                if (paymentIdPart.isBlank()) {
-                    paymentIdPart = "&paymentId=" + p.getId();
+            try {
+                var optPayment = paymentRepository.findByGatewayTxnId(txnRef);
+                if (optPayment.isPresent()) {
+                    var p = optPayment.get();
+                    if (paymentIdPart.isBlank()) {
+                        paymentIdPart = "&paymentId=" + p.getId();
+                    }
+                    if (bookingIdPart.isBlank()) {
+                        try {
+                            if (p.getBooking() != null && p.getBooking().getId() != null) {
+                                bookingIdPart = "&bookingId=" + p.getBooking().getId();
+                            }
+                        } catch (Throwable ignored) {
+                        }
+                    }
                 }
-                if (bookingIdPart.isBlank() && p.getBooking() != null) {
-                    bookingIdPart = "&bookingId=" + p.getBooking().getId();
-                }
+            } catch (Throwable t) {
+                log.warn("Không thể tra cứu bổ sung Payment ID / Booking ID cho txnRef {}: {}", txnRef, t.getMessage());
             }
         }
 
