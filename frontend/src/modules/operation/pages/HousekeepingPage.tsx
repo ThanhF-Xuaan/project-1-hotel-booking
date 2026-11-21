@@ -25,11 +25,19 @@ import hotelService from '../../organization/services/hotel.service';
 import type { HotelDto } from '../../organization/types/organization.types';
 import MaintenanceBlockFormModal from '../components/maintenance-block/MaintenanceBlockFormModal';
 import MaintenanceBlockList from '../components/maintenance-block/MaintenanceBlockList';
+import { getUserProfile } from '../../auth/utils/token.utils';
 
 export const HousekeepingPage: React.FC = () => {
   const [hotels, setHotels] = useState<HotelDto[]>([]);
   const [isLoadingHotels, setIsLoadingHotels] = useState<boolean>(false);
-  const [hotelId, setHotelId] = useState<number>(1);
+  const [hotelId, setHotelId] = useState<number>(() => {
+    const profile = getUserProfile();
+    const username = profile?.username?.toLowerCase() || '';
+    if (username.includes('_hn') || username.includes('hanoi') || username.includes('ha_noi')) {
+      return 7; // SmartStay Hà Nội Grand
+    }
+    return 7;
+  });
   const [mainTab, setMainTab] = useState<'GRID' | 'BLOCKS'>('GRID');
   const [selectedStatusTab, setSelectedStatusTab] = useState<string>('ALL');
   const [rooms, setRooms] = useState<RoomHousekeepingStatusResponse[]>([]);
@@ -64,20 +72,46 @@ export const HousekeepingPage: React.FC = () => {
   const fetchHotels = useCallback(async () => {
     setIsLoadingHotels(true);
     try {
-      const res = await hotelService.filter({ page: 0, pageSize: 100, status: 'ACTIVE' });
-      if (res && res.result) {
-        const list = res.result.content || [];
-        setHotels(list);
-        if (list.length > 0) {
-          setHotelId((current) => (list.some((h) => h.id === current) ? current : list[0].id));
+      let list: HotelDto[] = [];
+      try {
+        const res = await hotelService.filter({ page: 0, pageSize: 100, status: 'ACTIVE' });
+        if (res && res.result) {
+          list = res.result.content || [];
         }
+      } catch (err) {
+        console.warn('Lỗi tải danh sách khách sạn qua API nội bộ, thử fallback qua API công khai:', err);
+        const fallbackRes = await hotelService.getPublicHotels({ page: 0, pageSize: 100, status: 'ACTIVE' });
+        if (fallbackRes && fallbackRes.result) {
+          list = fallbackRes.result.content || [];
+        }
+      }
+
+      if (list.length > 0) {
+        setHotels(list);
+        const profile = getUserProfile();
+        const username = profile?.username?.toLowerCase() || '';
+        let targetHotel = list[0];
+        if (username.includes('_hn') || username.includes('hanoi') || username.includes('ha_noi')) {
+          const hn = list.find((h) => h.name.toLowerCase().includes('hà nội') || h.regionName?.toLowerCase().includes('hà nội') || h.regionCode === 'HANOI');
+          if (hn) targetHotel = hn;
+        } else if (username.includes('_sg') || username.includes('saigon')) {
+          const sg = list.find((h) => h.name.toLowerCase().includes('sài gòn') || h.name.toLowerCase().includes('hồ chí minh'));
+          if (sg) targetHotel = sg;
+        } else if (username.includes('_dn') || username.includes('danang')) {
+          const dn = list.find((h) => h.name.toLowerCase().includes('đà nẵng'));
+          if (dn) targetHotel = dn;
+        }
+        setHotelId((current) => (list.some((h) => h.id === current) ? current : targetHotel.id));
+      } else {
+        handleApiError(new Error('Không tìm thấy khách sạn cơ sở nào đang hoạt động.'), 'Lỗi tải danh sách khách sạn');
       }
     } catch (err) {
       console.error('Lỗi tải danh sách khách sạn:', err);
+      handleApiError(err, 'Lỗi tải danh sách khách sạn');
     } finally {
       setIsLoadingHotels(false);
     }
-  }, []);
+  }, [handleApiError]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -87,6 +121,7 @@ export const HousekeepingPage: React.FC = () => {
   }, [fetchHotels]);
 
   const fetchRooms = useCallback(async () => {
+    if (!hotelId) return;
     setIsLoading(true);
     try {
       // Luôn tải toàn bộ danh sách phòng của khách sạn để tính toán chính xác số lượng cho tất cả trạng thái

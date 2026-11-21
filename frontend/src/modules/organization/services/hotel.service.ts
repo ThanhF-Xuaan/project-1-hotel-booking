@@ -43,6 +43,9 @@ export const hotelService = {
 
   getPublicHotelImages: (hotelId: number) =>
     apiClient.get<HotelImageDto[]>(`${PUBLIC_BASE_URL}/${hotelId}/images`),
+
+  getPublicHotels: (params?: HotelSearchDto) =>
+    apiClient.post<PageResponse<HotelDto>>(`${PUBLIC_BASE_URL}/filter`, params || { page: 0, pageSize: 100, status: 'ACTIVE' }),
 }
 
 export default hotelService
