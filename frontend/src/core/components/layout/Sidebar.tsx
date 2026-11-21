@@ -435,9 +435,16 @@ const navGroups: NavGroup[] = [
 export interface SidebarProps {
   isCollapsed?: boolean
   onToggle?: () => void
+  isMobile?: boolean
+  onCloseMobile?: () => void
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  isCollapsed,
+  onToggle,
+  isMobile,
+  onCloseMobile,
+}) => {
   const location = useLocation()
 
   const menuItems = useMemo<BranchedMenuItem[]>(() => {
@@ -464,10 +471,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 
   return (
     <aside
-      className={`bg-white border-r border-neutral-200 flex flex-col shrink-0 h-[calc(100vh-4rem)] select-none transition-all duration-300 ease-in-out ${
-        isCollapsed
-          ? 'w-0 min-w-0 border-r-0 opacity-0 overflow-hidden pointer-events-none'
-          : 'w-64 min-w-[16rem] opacity-100'
+      className={`bg-white border-r border-neutral-200 flex flex-col shrink-0 select-none transition-all duration-300 ease-in-out ${
+        isMobile
+          ? 'h-full w-72 max-w-[85vw] shadow-2xl'
+          : isCollapsed
+          ? 'w-0 min-w-0 border-r-0 opacity-0 overflow-hidden pointer-events-none h-[calc(100vh-4rem)]'
+          : 'w-64 min-w-[16rem] opacity-100 h-[calc(100vh-4rem)]'
       }`}
     >
       <div className="py-4 px-3 flex-1 overflow-y-auto">
@@ -486,7 +495,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         />
       </div>
 
-      {onToggle && !isCollapsed && (
+      {isMobile ? (
+        <div className="p-3 border-t border-neutral-200 bg-neutral-50/60 lg:hidden">
+          <button
+            type="button"
+            onClick={onCloseMobile}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-semibold text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-colors cursor-pointer"
+          >
+            <PanelLeftClose className="w-4 h-4 text-neutral-500" />
+            <span>Đóng menu</span>
+          </button>
+        </div>
+      ) : onToggle && !isCollapsed ? (
         <div className="p-3 border-t border-neutral-200 bg-neutral-50/60">
           <button
             type="button"
@@ -501,7 +521,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
             <span className="text-[10px] text-neutral-400 font-mono">Alt + S</span>
           </button>
         </div>
-      )}
+      ) : null}
     </aside>
   )
 }

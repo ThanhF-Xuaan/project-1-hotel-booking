@@ -27,17 +27,57 @@ import MaintenanceBlockFormModal from '../components/maintenance-block/Maintenan
 import MaintenanceBlockList from '../components/maintenance-block/MaintenanceBlockList';
 import { getUserProfile } from '../../auth/utils/token.utils';
 
+export function resolveUserHotelId(
+  hotels: HotelDto[],
+  profile: ReturnType<typeof getUserProfile>
+): number {
+  if (hotels && hotels.length > 0) {
+    if (profile) {
+      const text = `${profile.username || ''} ${profile.name || ''} ${profile.email || ''}`.toLowerCase();
+      for (const h of hotels) {
+        const hName = (h.name || '').toLowerCase();
+        const rName = (h.regionName || '').toLowerCase();
+        const rCode = (h.regionCode || '').toLowerCase();
+        if (text.includes('hà nội') || text.includes('hanoi') || text.includes('_hn')) {
+          if (hName.includes('hà nội') || rName.includes('hà nội') || rCode.includes('hanoi')) return h.id;
+        }
+        if (text.includes('sài gòn') || text.includes('saigon') || text.includes('_sg') || text.includes('hồ chí minh')) {
+          if (hName.includes('sài gòn') || hName.includes('hồ chí minh') || rName.includes('nam')) return h.id;
+        }
+        if (text.includes('đà nẵng') || text.includes('danang') || text.includes('_dn')) {
+          if (hName.includes('đà nẵng') || rName.includes('đà nẵng')) return h.id;
+        }
+        if (text.includes('hội an') || text.includes('hoian')) {
+          if (hName.includes('hội an')) return h.id;
+        }
+        if (text.includes('hạ long') || text.includes('halong')) {
+          if (hName.includes('hạ long')) return h.id;
+        }
+        if (text.includes('phú quốc') || text.includes('phuquoc')) {
+          if (hName.includes('phú quốc')) return h.id;
+        }
+      }
+    }
+    const active = hotels.find((h) => h.status === 'ACTIVE') || hotels[0];
+    if (active) return active.id;
+  }
+
+  if (profile) {
+    const text = `${profile.username || ''} ${profile.name || ''} ${profile.email || ''}`.toLowerCase();
+    if (text.includes('hà nội') || text.includes('hanoi') || text.includes('_hn')) return 7;
+    if (text.includes('sài gòn') || text.includes('saigon') || text.includes('_sg')) return 11;
+    if (text.includes('đà nẵng') || text.includes('danang') || text.includes('_dn')) return 9;
+    if (text.includes('hội an') || text.includes('hoian')) return 10;
+    if (text.includes('hạ long') || text.includes('halong')) return 8;
+    if (text.includes('phú quốc') || text.includes('phuquoc')) return 12;
+  }
+  return 7; // Mặc định khách sạn đang hoạt động
+}
+
 export const HousekeepingPage: React.FC = () => {
   const [hotels, setHotels] = useState<HotelDto[]>([]);
   const [isLoadingHotels, setIsLoadingHotels] = useState<boolean>(false);
-  const [hotelId, setHotelId] = useState<number>(() => {
-    const profile = getUserProfile();
-    const username = profile?.username?.toLowerCase() || '';
-    if (username.includes('_hn') || username.includes('hanoi') || username.includes('ha_noi')) {
-      return 7; // SmartStay Hà Nội Grand
-    }
-    return 7;
-  });
+  const [hotelId, setHotelId] = useState<number>(() => resolveUserHotelId([], getUserProfile()));
   const [mainTab, setMainTab] = useState<'GRID' | 'BLOCKS'>('GRID');
   const [selectedStatusTab, setSelectedStatusTab] = useState<string>('ALL');
   const [rooms, setRooms] = useState<RoomHousekeepingStatusResponse[]>([]);
@@ -89,19 +129,8 @@ export const HousekeepingPage: React.FC = () => {
       if (list.length > 0) {
         setHotels(list);
         const profile = getUserProfile();
-        const username = profile?.username?.toLowerCase() || '';
-        let targetHotel = list[0];
-        if (username.includes('_hn') || username.includes('hanoi') || username.includes('ha_noi')) {
-          const hn = list.find((h) => h.name.toLowerCase().includes('hà nội') || h.regionName?.toLowerCase().includes('hà nội') || h.regionCode === 'HANOI');
-          if (hn) targetHotel = hn;
-        } else if (username.includes('_sg') || username.includes('saigon')) {
-          const sg = list.find((h) => h.name.toLowerCase().includes('sài gòn') || h.name.toLowerCase().includes('hồ chí minh'));
-          if (sg) targetHotel = sg;
-        } else if (username.includes('_dn') || username.includes('danang')) {
-          const dn = list.find((h) => h.name.toLowerCase().includes('đà nẵng'));
-          if (dn) targetHotel = dn;
-        }
-        setHotelId((current) => (list.some((h) => h.id === current) ? current : targetHotel.id));
+        const resolvedId = resolveUserHotelId(list, profile);
+        setHotelId((current) => (current && list.some((h) => h.id === current) ? current : resolvedId || list[0].id));
       } else {
         handleApiError(new Error('Không tìm thấy khách sạn cơ sở nào đang hoạt động.'), 'Lỗi tải danh sách khách sạn');
       }
@@ -184,56 +213,79 @@ export const HousekeepingPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-neutral-200 pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900 tracking-tight flex items-center gap-2">
-            <Brush className="w-7 h-7 text-red-600" />
-            Sơ đồ Buồng phòng & Khóa bảo trì (Housekeeping & Maintenance)
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 tracking-tight flex items-center gap-2.5">
+            <Brush className="w-6 h-6 sm:w-7 sm:h-7 text-red-600 shrink-0" />
+            <span>Sơ đồ Buồng phòng & Khóa bảo trì</span>
           </h1>
-          <p className="text-sm text-neutral-500 mt-1">
+          <p className="text-xs sm:text-sm text-neutral-500 mt-1">
             Theo dõi trạng thái buồng phòng, xử lý vệ sinh và quản lý các lệnh khóa phòng bảo trì (OOO/OOS)
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Khách sạn cơ sở:</label>
-          <div className="w-56">
-            <Select<number>
-              value={hotelId}
-              onChange={(val) => setHotelId(Number(val))}
-              onOpen={fetchHotels}
-              isLoading={isLoadingHotels}
-              options={hotels.map((h) => ({
-                value: h.id,
-                label: h.name,
-              }))}
-              size="md"
-            />
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full lg:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <label className="text-xs font-semibold text-neutral-600 whitespace-nowrap">Khách sạn cơ sở:</label>
+            <div className="flex-1 sm:w-56">
+              <Select<number>
+                value={hotelId}
+                onChange={(val) => setHotelId(Number(val))}
+                onOpen={fetchHotels}
+                isLoading={isLoadingHotels}
+                placeholder="Chọn một tùy chọn..."
+                options={hotels.map((h) => ({
+                  value: h.id,
+                  label: h.name,
+                }))}
+                size="md"
+              />
+            </div>
           </div>
-          <Button
-            variant="primary"
-            onClick={() => {
-              setSelectedRoomForBlock(undefined);
-              setIsBlockModalOpen(true);
-            }}
-            className="h-10 px-3.5 bg-red-600 hover:bg-red-700 text-xs font-semibold flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Khóa phòng (OOO/OOS)
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => {
-              void fetchHotels();
-              void fetchRooms();
-            }}
-            className="h-10 flex items-center gap-1.5 text-xs"
-            disabled={isLoading || isLoadingHotels}
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading || isLoadingHotels ? 'animate-spin' : ''}`} />
-            Làm mới
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              variant="primary"
+              onClick={() => {
+                setSelectedRoomForBlock(undefined);
+                setIsBlockModalOpen(true);
+              }}
+              className="flex-1 sm:flex-none h-10 px-3.5 bg-red-600 hover:bg-red-700 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Khóa phòng (OOO/OOS)
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                void fetchHotels();
+                void fetchRooms();
+              }}
+              className="h-10 flex items-center justify-center gap-1.5 text-xs px-3"
+              disabled={isLoading || isLoadingHotels}
+              title="Làm mới dữ liệu"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading || isLoadingHotels ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Làm mới</span>
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Thông báo trực quan khi danh sách khách sạn cơ sở rỗng / lỗi tải */}
+      {hotels.length === 0 && !isLoadingHotels && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-amber-900 text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <span className="font-semibold">Không thể tải danh sách khách sạn cơ sở.</span>
+              <p className="text-xs text-amber-700 mt-0.5">Vui lòng kiểm tra lại kết nối mạng hoặc liên hệ Quản lý (Property Manager).</p>
+            </div>
+          </div>
+          <Button variant="secondary" size="sm" onClick={() => void fetchHotels()} className="shrink-0 text-xs font-semibold">
+            <RefreshCw className="w-3.5 h-3.5 mr-1" />
+            Thử lại
+          </Button>
+        </div>
+      )}
 
       {actionSuccessMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm flex items-center gap-2 animate-in fade-in">
