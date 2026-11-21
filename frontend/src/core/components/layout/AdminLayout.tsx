@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Header from './Header'
 import Sidebar from './Sidebar'
@@ -16,6 +16,15 @@ export const AdminLayout: React.FC = () => {
     return localStorage.getItem('smartstay_sidebar_collapsed') !== 'true'
   })
 
+  // Auto-close sidebar on mobile when navigating (adjust state during render)
+  const [prevPathname, setPrevPathname] = useState(location.pathname)
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname)
+    if (isMobile && isSidebarOpen) {
+      setIsSidebarOpen(false)
+    }
+  }
+
   // Detect window resize to update mobile state
   useEffect(() => {
     const handleResize = () => {
@@ -29,14 +38,7 @@ export const AdminLayout: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Auto-close sidebar on mobile when navigating
-  useEffect(() => {
-    if (isMobile) {
-      setIsSidebarOpen(false)
-    }
-  }, [location.pathname, isMobile])
-
-  const toggleSidebar = () => {
+  const toggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => {
       const next = !prev
       if (!isMobile) {
@@ -48,7 +50,7 @@ export const AdminLayout: React.FC = () => {
       }
       return next
     })
-  }
+  }, [isMobile])
 
   // Keyboard shortcut Alt + S to toggle sidebar
   useEffect(() => {
@@ -60,7 +62,7 @@ export const AdminLayout: React.FC = () => {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isMobile])
+  }, [toggleSidebar])
 
   return (
     <div className="h-screen bg-neutral-50 flex flex-col font-sans overflow-hidden">

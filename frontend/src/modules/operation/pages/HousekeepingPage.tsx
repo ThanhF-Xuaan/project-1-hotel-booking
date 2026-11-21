@@ -27,7 +27,7 @@ import MaintenanceBlockFormModal from '../components/maintenance-block/Maintenan
 import MaintenanceBlockList from '../components/maintenance-block/MaintenanceBlockList';
 import { getUserProfile } from '../../auth/utils/token.utils';
 
-export function resolveUserHotelId(
+function resolveUserHotelId(
   hotels: HotelDto[],
   profile: ReturnType<typeof getUserProfile>
 ): number {
