@@ -132,7 +132,7 @@ export const RoomInstanceListPage: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingRoom(null)
-    const initialHotelId = hotels.length > 0 ? hotels[0].id : ''
+    const initialHotelId = selectedHotelId || (hotels.length > 0 ? hotels[0].id : '')
     setFormHotelId(initialHotelId)
     setFormHotelRoomTypeId('')
     setFormRoomNumber('')

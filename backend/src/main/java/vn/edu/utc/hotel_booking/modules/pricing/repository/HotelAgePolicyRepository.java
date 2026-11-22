@@ -37,7 +37,15 @@ public interface HotelAgePolicyRepository extends JpaRepository<HotelAgePolicy, 
             "ORDER BY p.hotel.id NULLS LAST, p.minAge ASC")
     List<HotelAgePolicy> findCandidatesForHotel(@Param("hotelId") Short hotelId);
 
-    @Query("SELECT p FROM HotelAgePolicy p LEFT JOIN FETCH p.hotel WHERE p.isDeleted = false " +
+    @Query(value = "SELECT p FROM HotelAgePolicy p LEFT JOIN FETCH p.hotel WHERE p.isDeleted = false " +
+            "AND (:guestType IS NULL OR :guestType = '' OR p.guestType = :guestType) " +
+            "AND (:status IS NULL OR :status = '' OR p.status = :status) " +
+            "AND (" +
+            "     (:chainOnly = true AND p.hotel IS NULL) OR " +
+            "     (:chainOnly = false AND (:hotelId IS NULL OR p.hotel.id = :hotelId)) OR " +
+            "     (:chainOnly IS NULL AND (:hotelId IS NULL OR p.hotel.id = :hotelId))" +
+            ")",
+            countQuery = "SELECT COUNT(p) FROM HotelAgePolicy p WHERE p.isDeleted = false " +
             "AND (:guestType IS NULL OR :guestType = '' OR p.guestType = :guestType) " +
             "AND (:status IS NULL OR :status = '' OR p.status = :status) " +
             "AND (" +

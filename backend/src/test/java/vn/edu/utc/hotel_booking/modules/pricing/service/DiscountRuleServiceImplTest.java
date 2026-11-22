@@ -5,15 +5,22 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
 import vn.edu.utc.hotel_booking.modules.inventory.entity.HotelRoomType;
 import vn.edu.utc.hotel_booking.modules.inventory.service.HotelRoomTypeService;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.request.DiscountRuleCreateRequest;
+import vn.edu.utc.hotel_booking.modules.pricing.dto.request.DiscountRuleSearchDto;
 import vn.edu.utc.hotel_booking.modules.pricing.dto.response.DiscountRuleResponse;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.Campaign;
 import vn.edu.utc.hotel_booking.modules.pricing.entity.DiscountRule;
@@ -25,6 +32,7 @@ import vn.edu.utc.hotel_booking.modules.pricing.service.impl.DiscountRuleService
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -274,6 +282,55 @@ class DiscountRuleServiceImplTest {
         AppException ex = assertThrows(AppException.class, () -> discountRuleService.createDiscountRule(request));
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.INVALID_REQUEST_DATA);
         assertThat(ex.getMessage()).contains("chồng lấn");
+    }
+
+    @Test
+    @DisplayName("Lọc quy tắc giảm giá thành công khi sortDirection và sortBy là null")
+    void filterDiscountRules_Success_WithNullSortDirectionAndSortBy() {
+        DiscountRuleSearchDto searchDto = DiscountRuleSearchDto.builder()
+                .hotelRoomTypeId(1)
+                .sortDirection(null)
+                .sortBy(null)
+                .build();
+
+        DiscountRule mockRule = DiscountRule.builder().id(10).build();
+        Page<DiscountRule> page = new PageImpl<>(List.of(mockRule));
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        when(discountRuleRepository.filterDiscountRules(eq(1), any(), any(), any(), any(), pageableCaptor.capture()))
+                .thenReturn(page);
+        when(discountRuleMapper.toResponseList(any())).thenReturn(List.of(DiscountRuleResponse.builder().id(10).build()));
+
+        PageResponse<DiscountRuleResponse> response = discountRuleService.filterDiscountRules(searchDto);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getContent()).hasSize(1);
+        Pageable capturedPageable = pageableCaptor.getValue();
+        assertThat(capturedPageable.getSort().getOrderFor("id")).isNotNull();
+        assertThat(capturedPageable.getSort().getOrderFor("id").getDirection()).isEqualTo(Sort.Direction.DESC);
+    }
+
+    @Test
+    @DisplayName("Lọc quy tắc giảm giá thành công khi sortDirection là ASC và sortBy tùy chỉnh")
+    void filterDiscountRules_Success_WithCustomSort() {
+        DiscountRuleSearchDto searchDto = DiscountRuleSearchDto.builder()
+                .sortDirection("ASC")
+                .sortBy("startDate")
+                .build();
+
+        Page<DiscountRule> page = new PageImpl<>(List.of());
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        when(discountRuleRepository.filterDiscountRules(any(), any(), any(), any(), any(), pageableCaptor.capture()))
+                .thenReturn(page);
+        when(discountRuleMapper.toResponseList(any())).thenReturn(List.of());
+
+        PageResponse<DiscountRuleResponse> response = discountRuleService.filterDiscountRules(searchDto);
+
+        assertThat(response).isNotNull();
+        Pageable capturedPageable = pageableCaptor.getValue();
+        assertThat(capturedPageable.getSort().getOrderFor("startDate")).isNotNull();
+        assertThat(capturedPageable.getSort().getOrderFor("startDate").getDirection()).isEqualTo(Sort.Direction.ASC);
     }
 }
 
