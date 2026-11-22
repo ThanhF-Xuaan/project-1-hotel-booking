@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import vn.edu.utc.hotel_booking.common.dto.PageResponse;
 import vn.edu.utc.hotel_booking.common.exception.AppException;
 import vn.edu.utc.hotel_booking.common.exception.ErrorCode;
@@ -162,11 +163,19 @@ public class DiscountRuleServiceImpl implements DiscountRuleService {
 
     @Override
     public PageResponse<DiscountRuleResponse> filterDiscountRules(DiscountRuleSearchDto searchDto) {
-        Pageable pageable = PageRequest.of(
-                searchDto.getPage(),
-                searchDto.getPageSize(),
-                Sort.by(Sort.Direction.fromString(searchDto.getSortDirection()), searchDto.getSortBy())
-        );
+        int pageNumber = searchDto.getPage() != null && searchDto.getPage() >= 0 ? searchDto.getPage() : 0;
+        int pageSize = searchDto.getPageSize() != null && searchDto.getPageSize() > 0 ? searchDto.getPageSize() : 10;
+        String sortBy = StringUtils.hasText(searchDto.getSortBy()) ? searchDto.getSortBy() : "id";
+        String sortDir = StringUtils.hasText(searchDto.getSortDirection()) ? searchDto.getSortDirection() : "DESC";
+
+        Sort.Direction direction;
+        try {
+            direction = Sort.Direction.fromString(sortDir);
+        } catch (IllegalArgumentException e) {
+            direction = Sort.Direction.DESC;
+        }
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(direction, sortBy));
 
         Page<DiscountRule> page = discountRuleRepository.filterDiscountRules(
                 searchDto.getHotelRoomTypeId(),

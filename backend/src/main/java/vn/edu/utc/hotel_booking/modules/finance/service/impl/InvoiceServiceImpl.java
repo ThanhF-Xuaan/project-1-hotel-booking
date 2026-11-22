@@ -513,7 +513,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     public InvoiceResponse getByBookingId(Long bookingId) {
         List<Invoice> invoices = invoiceRepository.findByBookingId(bookingId);
         if (invoices == null || invoices.isEmpty()) {
-            throw new AppException(ErrorCode.INVOICE_NOT_FOUND, "Chưa có hóa đơn cho đơn đặt phòng: " + bookingId);
+            return null;
         }
         return financeMapper.toResponse(invoices.get(0));
     }

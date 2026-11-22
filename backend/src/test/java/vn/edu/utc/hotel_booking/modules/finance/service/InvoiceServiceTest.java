@@ -406,4 +406,30 @@ class InvoiceServiceTest {
         assertThat(saved.getVatAmount()).isEqualByComparingTo("210000.00");
         assertThat(saved.getGrandTotal()).isEqualByComparingTo("2835000.00");
     }
+
+    @Test
+    @DisplayName("Lấy hóa đơn theo bookingId thành công khi hóa đơn tồn tại")
+    void getByBookingId_WhenInvoiceExists_ReturnsInvoiceResponse() {
+        Invoice invoice = Invoice.builder().id(12L).invoiceNumber("INV-001").build();
+        InvoiceResponse expected = InvoiceResponse.builder().id(12L).invoiceNumber("INV-001").build();
+
+        when(invoiceRepository.findByBookingId(23L)).thenReturn(List.of(invoice));
+        when(financeMapper.toResponse(invoice)).thenReturn(expected);
+
+        InvoiceResponse actual = invoiceService.getByBookingId(23L);
+
+        assertThat(actual).isNotNull();
+        assertThat(actual.getId()).isEqualTo(12L);
+        assertThat(actual.getInvoiceNumber()).isEqualTo("INV-001");
+    }
+
+    @Test
+    @DisplayName("Lấy hóa đơn theo bookingId trả về null an toàn khi chưa tạo hóa đơn")
+    void getByBookingId_WhenNoInvoiceExists_ReturnsNull() {
+        when(invoiceRepository.findByBookingId(999L)).thenReturn(List.of());
+
+        InvoiceResponse actual = invoiceService.getByBookingId(999L);
+
+        assertThat(actual).isNull();
+    }
 }
